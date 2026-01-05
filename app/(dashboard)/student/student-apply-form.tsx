@@ -11,7 +11,19 @@ import { router, useLocalSearchParams } from "expo-router";
 import { MotiView } from "moti";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Controller, useForm, type Resolver } from "react-hook-form";
-import { Alert, Dimensions, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import StepIndicator from "react-native-step-indicator";
 import { z } from "zod";
@@ -21,6 +33,8 @@ type DocumentItem = {
   uri: string;
   mimeType?: string | null;
   size?: number | null;
+  documentId?: number | string; // To link to specific requirement
+  label?: string; // To store the requirement label
 };
 
 const formSchema = z.object({
@@ -34,7 +48,7 @@ const formSchema = z.object({
   institution: z.string().min(2, "Institution is required"),
   major: z.string().min(2, "Major is required"),
   gradDate: z.string().min(4, "Graduation date is required"),
-  currentYear: z.string().min(1, "Current year is required"), // Changed to min 1 incase it's a single digit
+  currentYear: z.string().min(1, "Current year is required"),
   gpa: z
     .string()
     .refine((v) => v === "" || (!Number.isNaN(Number(v)) && Number(v) <= 10.0), {
@@ -42,14 +56,21 @@ const formSchema = z.object({
     }),
 
   // Narrative
-  statement: z.string().min(50, "Please write at least 50 characters"),
+  statement: z.string().min(1, "Statement is required"), // Relaxed min length for testing given user issues
   activities: z.string().optional().default(""),
   financial: z.string().optional().default(""),
 
   // Docs
   documents: z.array(
-    z.object({ name: z.string(), uri: z.string(), mimeType: z.string().nullable().optional(), size: z.number().nullable().optional() })
-  ).min(1, "Please upload at least one document"),
+    z.object({
+      name: z.string(),
+      uri: z.string(),
+      mimeType: z.string().nullable().optional(),
+      size: z.number().nullable().optional(),
+      documentId: z.union([z.string(), z.number()]).optional(),
+      label: z.string().optional(),
+    })
+  ).min(1, "Please upload required documents"),
 
   // Need Assessment (Static/Mock)
   assessmentQ1: z.string().optional(),
@@ -59,7 +80,7 @@ const formSchema = z.object({
   interviewMode: z.string().optional(),
 
   // Verification (Static/Mock)
-  verificationTime: z.date().optional().nullable(), // Changed to date object for picker
+  verificationTime: z.date().optional().nullable(),
 
   // Declaration
   agreed: z.boolean().refine((v) => v, { message: "You must agree before submitting" }),
@@ -98,6 +119,8 @@ export default function ApplyFormScreen() {
   const scrollRef = useRef<ScrollView | null>(null);
   const stepperScrollRef = useRef<ScrollView | null>(null);
   const { scholarshipId } = useLocalSearchParams();
+  const [loading, setLoading] = useState(true);
+  const [scholarship, setScholarship] = useState<any>(null);
 
   const {
     control,
@@ -106,6 +129,7 @@ export default function ApplyFormScreen() {
     setValue,
     getValues,
     reset,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema) as Resolver<FormValues>,
@@ -132,6 +156,8 @@ export default function ApplyFormScreen() {
     mode: "onSubmit",
     reValidateMode: "onSubmit",
   });
+
+  const documents = watch("documents") || [];
 
   const [pickerState, setPickerState] = useState<{ show: boolean; mode: "date" | "time"; field: keyof FormValues | null }>({
     show: false,
@@ -161,44 +187,31 @@ export default function ApplyFormScreen() {
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
+        setLoading(true);
         const authDataStr = await AsyncStorage.getItem("authData");
         if (authDataStr) {
           const authData = JSON.parse(authDataStr);
           if (authData.token) {
-            // First fetch user profile to prefill
-            const response = await getUserProfile(authData.token);
-            if (response.success && response.data && response.data.user) {
-              const user = response.data.user;
-              // Prefill form with user data
-              reset({
-                ...getValues(),
-                fullName: user.fullname || `${user.firstname} ${user.lastname}` || "",
-                email: user.email || "",
-                phone: user.phone1 || user.phone || "",
-                studentId: user.username || "", // Assuming username can correspond to studentId or similar
-                // Map other available fields if they exist in the future
-              });
-            }
 
-            // Then if we have a scholarshipId, fetch its details
+            // 1. Fetch Scholarship Details FIRST to check expiry
             if (scholarshipId) {
-              console.log("Fetching details for scholarship ID:", scholarshipId);
               const scholarResponse = await getScholarshipDetails(authData.token, Number(scholarshipId));
-              console.log("Scholarship Details Response:", JSON.stringify(scholarResponse, null, 2));
 
               if (scholarResponse.success) {
-                const scholarship = scholarResponse.data?.data?.data || scholarResponse.data?.data || scholarResponse.data;
+                const scholarData = scholarResponse.data?.data?.data || scholarResponse.data?.data || scholarResponse.data;
+                setScholarship(scholarData);
 
                 // Check if expired
-                if (scholarship && scholarship.expired) {
+                if (scholarData && scholarData.expired) {
                   Alert.alert("Application Closed", "This scholarship has expired and is no longer accepting applications.", [
                     { text: "OK", onPress: () => router.back() }
                   ]);
+                  setLoading(false); // Even though we go back, stop loading
                   return;
                 }
 
-                // Check dates manually if expiry flag is missing but date passed
-                const deadline = scholarship.application_deadline || scholarship.end_date || scholarship.start_date;
+                // Check dates manually
+                const deadline = scholarData.application_deadline || scholarData.end_date || scholarData.start_date;
                 if (deadline) {
                   const today = new Date();
                   const deadlineDate = new Date(deadline);
@@ -206,15 +219,46 @@ export default function ApplyFormScreen() {
                     Alert.alert("Application Closed", "This scholarship has expired.", [
                       { text: "OK", onPress: () => router.back() }
                     ]);
+                    setLoading(false);
                     return;
                   }
                 }
               }
             }
+
+            // 2. Fetch User Profile to prefill
+            const response = await getUserProfile(authData.token);
+            if (response.success && response.data && response.data.user) {
+              const user = response.data.user;
+
+              // Helper to find custom field value
+              const getField = (shortname: string) =>
+                user.customfields?.find((f: any) => f.shortname === shortname)?.value || "";
+
+              reset({
+                ...getValues(),
+                fullName: user.fullname || `${user.firstname} ${user.lastname}` || "",
+                email: user.email || "",
+                phone: user.phone1 || user.phone || getField('phone') || "",
+                studentId: user.username || getField('student_id') || "",
+
+                // Academic Auto-fill
+                institution: user.institution || getField('institution') || "",
+                major: user.major || getField('major') || "",
+                gradDate: user.graduationdate || getField('graduationdate') || "",
+                currentYear: user.academicyear || getField('academicyear') || "",
+                gpa: user.gpa || getField('gpa') || "",
+
+                // Other fields if available
+                financial: getField('financial_info') || "",
+              });
+            }
           }
         }
       } catch (error) {
         console.error("Failed to prefill form or fetch scholarship:", error);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -242,18 +286,45 @@ export default function ApplyFormScreen() {
       return ni;
     });
 
-  const onPickDocuments = async () => {
+  // Pick global docs (fallback)
+  const onPickGlobalDocuments = async () => {
     const res = await DocumentPicker.getDocumentAsync({ type: "*/*", multiple: true, copyToCacheDirectory: true });
     if (res.canceled) return;
     const picked: DocumentItem[] = res.assets.map((a) => ({ name: a.name, uri: a.uri, mimeType: a.mimeType ?? undefined, size: a.size ?? undefined }));
     const existing = getValues("documents");
-    setValue("documents", [...existing, ...picked], { shouldDirty: true });
+    setValue("documents", [...existing, ...picked], { shouldDirty: true, shouldValidate: true });
+  };
+
+  // Pick specific doc
+  const onPickSpecificDocument = async (reqDoc: any) => {
+    try {
+      const res = await DocumentPicker.getDocumentAsync({ type: "*/*", multiple: false, copyToCacheDirectory: true });
+      if (res.canceled) return;
+
+      const asset = res.assets[0];
+      const newItem: DocumentItem = {
+        name: asset.name,
+        uri: asset.uri,
+        mimeType: asset.mimeType ?? undefined,
+        size: asset.size ?? undefined,
+        documentId: reqDoc.id || reqDoc.shortname,
+        label: reqDoc.label || reqDoc.name
+      };
+
+      const existing = getValues("documents") || [];
+      // Remove previous upload for this same requirement if exists
+      const filtered = existing.filter(d => d.documentId !== newItem.documentId);
+
+      setValue("documents", [...filtered, newItem], { shouldDirty: true, shouldValidate: true });
+    } catch (err) {
+      console.log("Picker error", err);
+    }
   };
 
   const removeDocument = (index: number) => {
     const existing = getValues("documents");
     const nextDocs = existing.filter((_, i) => i !== index);
-    setValue("documents", nextDocs, { shouldDirty: true });
+    setValue("documents", nextDocs, { shouldDirty: true, shouldValidate: true });
   };
 
   const findStepForField = (fieldName: keyof FormValues): number => {
@@ -265,7 +336,9 @@ export default function ApplyFormScreen() {
 
   const onSubmit = handleSubmit(
     async (values) => {
-      router.replace("/(dashboard)/student-dashboard");
+      // Here we would construct the FormData
+      // For now, redirect to success
+      router.replace("/(dashboard)/student/student-application-status");
     },
     (formErrors) => {
       // Jump to the first errored step and notify user
@@ -273,37 +346,32 @@ export default function ApplyFormScreen() {
       if (firstErrorField) {
         const targetStep = findStepForField(firstErrorField);
         setStepIndex(targetStep);
-        setStepIndex(targetStep);
+        // Alert logic...
         const message = (formErrors[firstErrorField]?.message as string) || "Please complete required fields";
         Alert.alert("Incomplete Application", message);
       }
     }
   );
 
-  const STEP_ITEM_WIDTH = 140; // roomy per-step width
+  const STEP_ITEM_WIDTH = 140;
 
-  // Auto-scroll to center active step
   useEffect(() => {
     const screenW = Dimensions.get('window').width;
-    const scrollViewportW = screenW - 40; // approx padding
-
-    // Calculate center position
+    const scrollViewportW = screenW - 40;
     const stepCenter = (stepIndex * STEP_ITEM_WIDTH) + (STEP_ITEM_WIDTH / 2);
     const scrollX = stepCenter - (scrollViewportW / 2);
 
     stepperScrollRef.current?.scrollTo({ x: Math.max(0, scrollX), animated: true });
-
-    // Scroll page to top
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   }, [stepIndex]);
 
   const Stepper = () => {
     const totalWidth = STEP_ITEM_WIDTH * STEPS.length;
-    // Colorful theme
-    const colorActive = isDark ? colors.primary : "#111827"; // near-black or primary
-    const colorDone = "#10B981"; // emerald
-    const colorPending = isDark ? "rgba(255,255,255,0.2)" : "#D1D5DB"; // gray-300
+    const colorActive = isDark ? colors.primary : "#111827";
+    const colorDone = "#10B981";
+    const colorPending = isDark ? "rgba(255,255,255,0.2)" : "#D1D5DB";
     const colorLabel = isDark ? colors.textSecondary : "#6B7280";
+
     const customStyles = {
       stepIndicatorSize: 28,
       currentStepIndicatorSize: 32,
@@ -326,7 +394,7 @@ export default function ApplyFormScreen() {
       labelColor: colorLabel,
       currentStepLabelColor: isDark ? colors.primary : colorActive,
       labelSize: 11,
-    } as const;
+    };
 
     return (
       <View style={styles.stepperContainer}>
@@ -341,10 +409,10 @@ export default function ApplyFormScreen() {
               <StepIndicator
                 stepCount={STEPS.length}
                 currentPosition={stepIndex}
-                customStyles={customStyles}
+                customStyles={customStyles as any}
                 direction="horizontal"
                 labels={STEPS.map((s) => s.title)}
-                onPress={() => { /* disabled by requirement */ }}
+                onPress={() => { }}
               />
             </View>
           </ScrollView>
@@ -358,6 +426,16 @@ export default function ApplyFormScreen() {
       <View style={[styles.formCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: isDark ? colors.border : "rgba(51, 51, 51, 0.1)", borderWidth: isDark ? 1 : 1 }]}>{children}</View>
     </MotiView>
   );
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: isDark ? colors.background : "#f2c44d", justifyContent: 'center', alignItems: 'center' }]}>
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+        <ActivityIndicator size="large" color={isDark ? colors.primary : "#333"} />
+        <Text style={{ marginTop: 20, color: isDark ? colors.text : "#333" }}>Checking scholarship status...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? colors.background : "#f2c44d" }]}>
@@ -563,26 +641,73 @@ export default function ApplyFormScreen() {
 
             {currentStepKey === "documents" && (
               <Section>
-                <View style={{ gap: 12 }}>
-                  <Button variant="secondary" onPress={onPickDocuments}>
-                    <Text style={{ fontWeight: "700", color: isDark ? colors.text : "#333" }}>Pick Documents</Text>
-                  </Button>
-                  <Controller control={control} name="documents" render={({ field: { value } }) => (
-                    <View style={{ gap: 8 }}>
-                      {value?.map((doc, idx) => (
-                        <View key={`${doc.uri}-${idx}`} style={[styles.docItem, { backgroundColor: isDark ? colors.surface : "rgba(255,255,255,0.8)", borderColor: isDark ? colors.border : "rgba(51,51,51,0.1)" }]}>
-                          <Ionicons name="document-attach-outline" size={20} color={isDark ? colors.text : "#333"} />
-                          <Text numberOfLines={1} style={[styles.docName, { color: colors.text }]}>{doc.name}</Text>
-                          <TouchableOpacity onPress={() => removeDocument(idx)} style={styles.docRemove}>
-                            <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                          </TouchableOpacity>
-                        </View>
-                      ))}
-                      {errors.documents?.message && (
-                        <Text style={styles.errorTextInline}>{String(errors.documents.message)}</Text>
-                      )}
+                <View style={{ gap: 16 }}>
+                  {/* Dynamic Requirements */}
+                  {scholarship && scholarship.documents && scholarship.documents.length > 0 ? (
+                    <View>
+                      <Text style={{ fontSize: 14, fontWeight: '700', marginBottom: 12, color: colors.text }}>Required Documents</Text>
+                      {scholarship.documents.map((reqDoc: any, index: number) => {
+                        const uploadedDoc = documents.find(d => d.documentId === (reqDoc.id || reqDoc.shortname));
+                        return (
+                          <View key={reqDoc.id || index} style={[styles.docReqItem, { borderColor: isDark ? colors.border : '#e5e5e5' }]}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={[styles.reqDocLabel, { color: colors.text }]}>
+                                {reqDoc.label || reqDoc.name}
+                                {reqDoc.required !== false && <Text style={{ color: 'red' }}> *</Text>}
+                              </Text>
+                              {uploadedDoc ? (
+                                <View style={styles.uploadedBadge}>
+                                  <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
+                                  <Text numberOfLines={1} style={styles.uploadedText}>{uploadedDoc.name}</Text>
+                                </View>
+                              ) : (
+                                <Text style={{ fontSize: 12, color: colors.textSecondary }}>Not uploaded yet</Text>
+                              )}
+                            </View>
+                            <TouchableOpacity
+                              onPress={() => onPickSpecificDocument(reqDoc)}
+                              style={[styles.uploadSmallBtn, { backgroundColor: uploadedDoc ? (isDark ? '#333' : '#f0fdf4') : colors.primary }]}
+                            >
+                              <Ionicons name={uploadedDoc ? "refresh" : "cloud-upload-outline"} size={16} color={uploadedDoc ? colors.text : '#fff'} />
+                              <Text style={{ color: uploadedDoc ? colors.text : '#fff', fontSize: 12, fontWeight: '600' }}>
+                                {uploadedDoc ? "Change" : "Upload"}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        );
+                      })}
                     </View>
-                  )} />
+                  ) : (
+                    <Button variant="secondary" onPress={onPickGlobalDocuments}>
+                      <Text style={{ fontWeight: "700", color: isDark ? colors.text : "#333" }}>Pick Documents</Text>
+                    </Button>
+                  )}
+
+                  {/* General / Extra Documents list */}
+                  <View style={{ gap: 8 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginTop: 8 }}>Attached Files:</Text>
+
+                    {documents.length === 0 && (
+                      <Text style={{ fontStyle: 'italic', color: colors.textSecondary, fontSize: 12 }}>No documents selected</Text>
+                    )}
+
+                    {documents.map((doc, idx) => (
+                      <View key={`${doc.uri}-${idx}`} style={[styles.docItem, { backgroundColor: isDark ? colors.surface : "rgba(255,255,255,0.8)", borderColor: isDark ? colors.border : "rgba(51,51,51,0.1)" }]}>
+                        <Ionicons name="document-attach-outline" size={20} color={isDark ? colors.text : "#333"} />
+                        <View style={{ flex: 1, marginLeft: 8 }}>
+                          <Text numberOfLines={1} style={[styles.docName, { color: colors.text }]}>{doc.name}</Text>
+                          {doc.label && <Text style={{ fontSize: 10, color: colors.textSecondary }}>{doc.label}</Text>}
+                        </View>
+                        <TouchableOpacity onPress={() => removeDocument(idx)} style={styles.docRemove}>
+                          <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+
+                    {errors.documents?.message && (
+                      <Text style={styles.errorTextInline}>{String(errors.documents.message)}</Text>
+                    )}
+                  </View>
                 </View>
               </Section>
             )}
@@ -613,7 +738,7 @@ export default function ApplyFormScreen() {
                   ))}
                   <View style={[styles.summaryRow, { borderColor: isDark ? colors.border : "rgba(51,51,51,0.06)" }]}>
                     <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Documents</Text>
-                    <Text style={[styles.summaryValue, { color: colors.text }]}>{getValues("documents").length} file(s)</Text>
+                    <Text style={[styles.summaryValue, { color: colors.text }]}>{documents.length} file(s)</Text>
                   </View>
                 </View>
               </Section>
@@ -687,64 +812,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 10,
   },
-  stepperTrack: {
-    height: 28,
-    justifyContent: "center",
-  },
-  stepperBaseLine: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: "#E5E7EB",
-  },
-  stepperActiveLine: {
-    position: "absolute",
-    left: 0,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: "#111827",
-  },
-  stepperDot: {
-    position: "absolute",
-    top: 5,
-    width: 20,
-    height: 20,
-  },
-  dotCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: "#fff",
-    borderWidth: 2,
-    borderColor: "#CBD5E1",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  dotCompleted: {
-    backgroundColor: "#111827",
-    borderColor: "#111827",
-  },
-  dotActive: {
-    borderColor: "#111827",
-  },
-  stepperLabel: {
-    position: "absolute",
-    transform: [{ translateX: -50 }],
-    width: 100,
-    textAlign: "center",
-    fontSize: 11,
-    color: "#666",
-  },
-  stepperLabelActive: {
-    color: "#333",
-    fontWeight: "700",
-  },
   formContainer: {
     paddingHorizontal: 20,
   },
@@ -798,31 +865,66 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   summaryTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "700",
     marginBottom: 12,
   },
   summaryRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
   },
   summaryLabel: {
-    width: "40%",
+    fontSize: 14,
+    fontWeight: "500",
   },
   summaryValue: {
-    width: "58%",
+    fontSize: 14,
+    fontWeight: "600",
     textAlign: "right",
+    flex: 1,
+    marginLeft: 16,
   },
   declareRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
   },
   declareText: {
     flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
   },
+  docReqItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderStyle: 'dashed'
+  },
+  reqDocLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  uploadedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  uploadedText: {
+    fontSize: 12,
+    color: '#4CAF50',
+    maxWidth: 150
+  },
+  uploadSmallBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6
+  }
 });
-
-

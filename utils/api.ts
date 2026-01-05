@@ -1174,7 +1174,7 @@ export const updateUserProfile = async (
     if (profileData.phone) urlObj.searchParams.append("phone1", profileData.phone);
     if (profileData.address) urlObj.searchParams.append("address", profileData.address);
     if (profileData.city) urlObj.searchParams.append("city", profileData.city);
-    urlObj.searchParams.append("country", "India"); 
+    urlObj.searchParams.append("country", "IN"); 
 
     // Birthday decomposition (DD/MM/YYYY)
     if (profileData.dob) {

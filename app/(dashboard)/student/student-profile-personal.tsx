@@ -186,7 +186,7 @@ export default function StudentProfilePersonalScreen() {
                 phone: user.phone1 || user.phone || prev.phone,
                 address: user.address || prev.address,
                 city: user.city || prev.city,
-                dob: user.dob || prev.dob,
+                dob: user.dob ? (user.dob.includes('-') && user.dob.split('-')[0].length === 4 ? user.dob.split('-').reverse().join('/') : user.dob) : prev.dob,
 
                 // Fields from user object or customfields
                 gender: user.gender || user.customfields?.find((f: any) => f.shortname === 'gender')?.value || prev.gender,
@@ -343,7 +343,8 @@ export default function StudentProfilePersonalScreen() {
       const authData = JSON.parse(authDataStr);
       if (!authData.token) throw new Error("Invalid session token");
 
-      const response = await updateUserProfile(authData.token, personalInfo);
+      const payload = { ...personalInfo, phone: personalInfo.phone.replace(/\D/g, "") };
+      const response = await updateUserProfile(authData.token, payload);
 
       if (response.success) {
         setHasUnsavedChanges(false);

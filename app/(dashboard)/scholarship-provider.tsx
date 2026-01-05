@@ -165,11 +165,11 @@ export default function ScholarshipProviderDashboard() {
               activeOpacity={0.8}
             >
               <Ionicons name="notifications-outline" size={26} color={colors.text} />
-              {unreadCount > 0 && (
+              {/* {unreadCount > 0 && (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
                 </View>
-              )}
+              )} */}
             </TouchableOpacity>
             <TouchableOpacity accessibilityRole="button" onPress={() => router.push("/(dashboard)/provider/profile")} activeOpacity={0.8}>
               {profilePhotoUrl ? (

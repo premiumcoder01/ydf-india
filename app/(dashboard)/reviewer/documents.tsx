@@ -2,7 +2,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ReviewerHeader } from "../../../components";
 
@@ -121,231 +121,236 @@ export default function ReviewerDocumentsScreen() {
         </View>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
       >
-        {/* Scheme Filter */}
-        <View style={{ marginBottom: 12 }}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-            {SCHEMES.map((scheme) => (
-              <TouchableOpacity
-                key={scheme}
-                onPress={() => setSelectedScheme(scheme)}
-                style={{
-                  paddingHorizontal: 16,
-                  paddingVertical: 8,
-                  borderRadius: 20,
-                  backgroundColor: selectedScheme === scheme ? colors.primary : (isDark ? colors.card : "#fff"),
-                  borderWidth: 1,
-                  borderColor: selectedScheme === scheme ? colors.primary : colors.border,
-                }}
-              >
-                <Text style={{
-                  fontSize: 13,
-                  fontWeight: "600",
-                  color: selectedScheme === scheme ? "#fff" : colors.text
-                }}>
-                  {scheme}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Scheme Filter */}
+          <View style={{ marginBottom: 12 }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+              {SCHEMES.map((scheme) => (
+                <TouchableOpacity
+                  key={scheme}
+                  onPress={() => setSelectedScheme(scheme)}
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderRadius: 20,
+                    backgroundColor: selectedScheme === scheme ? colors.primary : (isDark ? colors.card : "#fff"),
+                    borderWidth: 1,
+                    borderColor: selectedScheme === scheme ? colors.primary : colors.border,
+                  }}
+                >
+                  <Text style={{
+                    fontSize: 13,
+                    fontWeight: "600",
+                    color: selectedScheme === scheme ? "#fff" : colors.text
+                  }}>
+                    {scheme}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
 
-        {/* Applicant Filter */}
-        <View style={{ marginBottom: 16 }}>
-          <TextInput
-            placeholder="Search by document name or scholarship..."
-            style={{
-              backgroundColor: isDark ? colors.card : "#fff",
-              padding: 12,
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: colors.border,
-              color: colors.text
-            }}
-            placeholderTextColor={colors.textSecondary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
+          {/* Applicant Filter */}
+          <View style={{ marginBottom: 16 }}>
+            <TextInput
+              placeholder="Search by document name or scholarship..."
+              style={{
+                backgroundColor: isDark ? colors.card : "#fff",
+                padding: 12,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: colors.border,
+                color: colors.text
+              }}
+              placeholderTextColor={colors.textSecondary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
 
-        {filteredDocuments.map((doc, index) => (
-          <View key={doc.id} style={[styles.docCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            {/* Document Header */}
-            <View style={styles.docTop}>
-              <View style={styles.docInfo}>
-                <View style={[styles.fileIcon, getIconBgColor(doc.status, isDark)]}>
-                  <Ionicons
-                    name={getFileIcon(doc.fileName)}
-                    size={22}
-                    color={getIconColor(doc.status)}
-                  />
-                </View>
-                <View style={styles.docText}>
-                  <Text style={[styles.docTitle, { color: colors.text }]}>{doc.title}</Text>
-                  <Text style={[styles.fileName, { color: colors.textSecondary, marginBottom: 6 }]}>{doc.fileName}</Text>
+          {filteredDocuments.map((doc, index) => (
+            <View key={doc.id} style={[styles.docCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {/* Document Header */}
+              <View style={styles.docTop}>
+                <View style={styles.docInfo}>
+                  <View style={[styles.fileIcon, getIconBgColor(doc.status, isDark)]}>
+                    <Ionicons
+                      name={getFileIcon(doc.fileName)}
+                      size={22}
+                      color={getIconColor(doc.status)}
+                    />
+                  </View>
+                  <View style={styles.docText}>
+                    <Text style={[styles.docTitle, { color: colors.text }]}>{doc.title}</Text>
+                    <Text style={[styles.fileName, { color: colors.textSecondary, marginBottom: 6 }]}>{doc.fileName}</Text>
 
-                  <View style={[styles.schemeTag, { backgroundColor: isDark ? "rgba(33, 150, 243, 0.15)" : "#E3F2FD" }]}>
-                    <Ionicons name="pricetag-outline" size={12} color={isDark ? "#64B5F6" : "#1976D2"} />
-                    <Text style={[styles.schemeTagText, { color: isDark ? "#64B5F6" : "#1976D2" }]}>
-                      {doc.scheme}
-                    </Text>
+                    <View style={[styles.schemeTag, { backgroundColor: isDark ? "rgba(33, 150, 243, 0.15)" : "#E3F2FD" }]}>
+                      <Ionicons name="pricetag-outline" size={12} color={isDark ? "#64B5F6" : "#1976D2"} />
+                      <Text style={[styles.schemeTagText, { color: isDark ? "#64B5F6" : "#1976D2" }]}>
+                        {doc.scheme}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-              <TouchableOpacity
-                style={[styles.previewButton, { backgroundColor: isDark ? colors.border : "#EFF6FF" }]}
-                onPress={() => router.push({
-                  pathname: "/(dashboard)/reviewer/document-view",
-                  params: { id: doc.id, title: doc.title, fileName: doc.fileName }
-                })}
-              >
-                <Ionicons name="eye-outline" size={18} color={isDark ? colors.primary : "#3B82F6"} />
-                <Text style={[styles.previewText, { color: isDark ? colors.primary : "#3B82F6" }]}>View</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Status Badge */}
-            {doc.status !== "pending" && (
-              <View style={[styles.statusBadge, getStatusBadgeStyle(doc.status)]}>
-                <Ionicons
-                  name={doc.status === "verified" ? "checkmark-circle" : "close-circle"}
-                  size={14}
-                  color="#fff"
-                />
-                <Text style={styles.statusBadgeText}>
-                  {doc.status === "verified" ? "Verified" : "Rejected"}
-                </Text>
-              </View>
-            )}
-
-            {/* Action Buttons */}
-            <View style={styles.actionRow}>
-              <TouchableOpacity
-                style={[
-                  styles.actionBtn,
-                  styles.verifyBtn,
-                  { backgroundColor: isDark ? colors.card : "#fff", borderColor: "#10B981" },
-                  doc.status === "verified" && styles.verifyBtnActive,
-                ]}
-                onPress={() => updateDocStatus(doc.id, "verified")}
-              >
-                <Ionicons
-                  name={doc.status === "verified" ? "checkmark-circle" : "checkmark-circle-outline"}
-                  size={20}
-                  color={doc.status === "verified" ? "#fff" : "#10B981"}
-                />
-                <Text
-                  style={[
-                    styles.actionBtnText,
-                    { color: colors.text },
-                    doc.status === "verified" && styles.actionBtnTextActive,
-                  ]}
+                <TouchableOpacity
+                  style={[styles.previewButton, { backgroundColor: isDark ? colors.border : "#EFF6FF" }]}
+                  onPress={() => router.push({
+                    pathname: "/(dashboard)/reviewer/document-view",
+                    params: { id: doc.id, title: doc.title, fileName: doc.fileName }
+                  })}
                 >
-                  Verify
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.actionBtn,
-                  styles.rejectBtn,
-                  { backgroundColor: isDark ? colors.card : "#fff", borderColor: "#EF4444" },
-                  doc.status === "rejected" && styles.rejectBtnActive,
-                ]}
-                onPress={() => updateDocStatus(doc.id, "rejected")}
-              >
-                <Ionicons
-                  name={doc.status === "rejected" ? "close-circle" : "close-circle-outline"}
-                  size={20}
-                  color={doc.status === "rejected" ? "#fff" : "#EF4444"}
-                />
-                <Text
-                  style={[
-                    styles.actionBtnText,
-                    { color: colors.text },
-                    doc.status === "rejected" && styles.actionBtnTextActive,
-                  ]}
-                >
-                  Reject
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.actionBtn,
-                  { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.primary },
-                ]}
-                onPress={() => router.push({
-                  pathname: "/(dashboard)/reviewer/document-edit",
-                  params: { id: doc.id, title: doc.title, status: doc.status }
-                })}
-              >
-                <Ionicons
-                  name="create-outline"
-                  size={20}
-                  color={colors.primary}
-                />
-                <Text style={[styles.actionBtnText, { color: colors.text }]}>
-                  Edit
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Comment Section - Only show when rejected or has comment */}
-            {(doc.status === "rejected" || doc.comment) && (
-              <View style={[styles.commentSection, { borderTopColor: colors.border }]}>
-                <Text style={[styles.commentLabel, { color: colors.textSecondary }]}>
-                  {doc.status === "rejected" ? "Rejection reason *" : "Comment (optional)"}
-                </Text>
-                <TextInput
-                  value={doc.comment}
-                  onChangeText={(text) => updateComment(doc.id, text)}
-                  placeholder={
-                    doc.status === "rejected"
-                      ? "Please specify the reason for rejection"
-                      : "Add any notes or observations"
-                  }
-                  placeholderTextColor={colors.textSecondary}
-                  style={[
-                    styles.commentInput,
-                    {
-                      backgroundColor: isDark ? colors.surface : "#F9FAFB",
-                      borderColor: colors.border,
-                      color: colors.text
-                    },
-                    doc.status === "rejected" && !doc.comment && styles.commentInputError,
-                  ]}
-                  multiline
-                  numberOfLines={3}
-                  textAlignVertical="top"
-                />
+                  <Ionicons name="eye-outline" size={18} color={isDark ? colors.primary : "#3B82F6"} />
+                  <Text style={[styles.previewText, { color: isDark ? colors.primary : "#3B82F6" }]}>View</Text>
+                </TouchableOpacity>
               </View>
-            )}
-          </View>
-        ))}
-      </ScrollView>
 
-      {/* Fixed Footer */}
-      <View style={[styles.footer, { paddingBottom: inset.bottom || 16, backgroundColor: colors.card, borderTopColor: colors.border }]}>
-        <TouchableOpacity style={[styles.saveButton, { backgroundColor: isDark ? colors.border : "#F3F4F6" }]} onPress={handleSave}>
-          <Ionicons name="bookmark-outline" size={20} color={colors.textSecondary} />
-          <Text style={[styles.saveButtonText, { color: colors.textSecondary }]}>Save Progress</Text>
-        </TouchableOpacity>
+              {/* Status Badge */}
+              {doc.status !== "pending" && (
+                <View style={[styles.statusBadge, getStatusBadgeStyle(doc.status)]}>
+                  <Ionicons
+                    name={doc.status === "verified" ? "checkmark-circle" : "close-circle"}
+                    size={14}
+                    color="#fff"
+                  />
+                  <Text style={styles.statusBadgeText}>
+                    {doc.status === "verified" ? "Verified" : "Rejected"}
+                  </Text>
+                </View>
+              )}
 
-        <TouchableOpacity
-          style={[styles.submitButton, !allReviewed && styles.submitButtonDisabled, { backgroundColor: isDark ? colors.primary : "#111827" }]}
-          onPress={handleSubmit}
-          disabled={!allReviewed}
-        >
-          <Ionicons name="checkmark-done" size={20} color="#fff" />
-          <Text style={styles.submitButtonText}>
-            {allReviewed ? "Submit Review" : `${stats.pending} Pending`}
-          </Text>
-        </TouchableOpacity>
-      </View>
+              {/* Action Buttons */}
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.actionBtn,
+                    styles.verifyBtn,
+                    { backgroundColor: isDark ? colors.card : "#fff", borderColor: "#10B981" },
+                    doc.status === "verified" && styles.verifyBtnActive,
+                  ]}
+                  onPress={() => updateDocStatus(doc.id, "verified")}
+                >
+                  <Ionicons
+                    name={doc.status === "verified" ? "checkmark-circle" : "checkmark-circle-outline"}
+                    size={20}
+                    color={doc.status === "verified" ? "#fff" : "#10B981"}
+                  />
+                  <Text
+                    style={[
+                      styles.actionBtnText,
+                      { color: colors.text },
+                      doc.status === "verified" && styles.actionBtnTextActive,
+                    ]}
+                  >
+                    Verify
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.actionBtn,
+                    styles.rejectBtn,
+                    { backgroundColor: isDark ? colors.card : "#fff", borderColor: "#EF4444" },
+                    doc.status === "rejected" && styles.rejectBtnActive,
+                  ]}
+                  onPress={() => updateDocStatus(doc.id, "rejected")}
+                >
+                  <Ionicons
+                    name={doc.status === "rejected" ? "close-circle" : "close-circle-outline"}
+                    size={20}
+                    color={doc.status === "rejected" ? "#fff" : "#EF4444"}
+                  />
+                  <Text
+                    style={[
+                      styles.actionBtnText,
+                      { color: colors.text },
+                      doc.status === "rejected" && styles.actionBtnTextActive,
+                    ]}
+                  >
+                    Reject
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.actionBtn,
+                    { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.primary },
+                  ]}
+                  onPress={() => router.push({
+                    pathname: "/(dashboard)/reviewer/document-edit",
+                    params: { id: doc.id, title: doc.title, status: doc.status }
+                  })}
+                >
+                  <Ionicons
+                    name="create-outline"
+                    size={20}
+                    color={colors.primary}
+                  />
+                  <Text style={[styles.actionBtnText, { color: colors.text }]}>
+                    Edit
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Comment Section - Only show when rejected or has comment */}
+              {(doc.status === "rejected" || doc.comment) && (
+                <View style={[styles.commentSection, { borderTopColor: colors.border }]}>
+                  <Text style={[styles.commentLabel, { color: colors.textSecondary }]}>
+                    {doc.status === "rejected" ? "Rejection reason *" : "Comment (optional)"}
+                  </Text>
+                  <TextInput
+                    value={doc.comment}
+                    onChangeText={(text) => updateComment(doc.id, text)}
+                    placeholder={
+                      doc.status === "rejected"
+                        ? "Please specify the reason for rejection"
+                        : "Add any notes or observations"
+                    }
+                    placeholderTextColor={colors.textSecondary}
+                    style={[
+                      styles.commentInput,
+                      {
+                        backgroundColor: isDark ? colors.surface : "#F9FAFB",
+                        borderColor: colors.border,
+                        color: colors.text
+                      },
+                      doc.status === "rejected" && !doc.comment && styles.commentInputError,
+                    ]}
+                    multiline
+                    numberOfLines={3}
+                    textAlignVertical="top"
+                  />
+                </View>
+              )}
+            </View>
+          ))}
+        </ScrollView>
+
+        {/* Fixed Footer */}
+        <View style={[styles.footer, { paddingBottom: inset.bottom || 16, backgroundColor: colors.card, borderTopColor: colors.border }]}>
+          <TouchableOpacity style={[styles.saveButton, { backgroundColor: isDark ? colors.border : "#F3F4F6" }]} onPress={handleSave}>
+            <Ionicons name="bookmark-outline" size={20} color={colors.textSecondary} />
+            <Text style={[styles.saveButtonText, { color: colors.textSecondary }]}>Save Progress</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.submitButton, !allReviewed && styles.submitButtonDisabled, { backgroundColor: isDark ? colors.primary : "#111827" }]}
+            onPress={handleSubmit}
+            disabled={!allReviewed}
+          >
+            <Ionicons name="checkmark-done" size={20} color="#fff" />
+            <Text style={styles.submitButtonText}>
+              {allReviewed ? "Submit Review" : `${stats.pending} Pending`}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </View>
   );
 }

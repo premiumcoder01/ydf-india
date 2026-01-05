@@ -482,9 +482,18 @@ function DocCard({
           <Text style={[styles.docMetaText, { color: colors.textSecondary }]}>{date}</Text>
         </View>
       </View>
-      <TouchableOpacity style={[styles.docDownloadBtn, { backgroundColor: isDark ? "rgba(99, 102, 241, 0.2)" : "#eef2ff" }]} activeOpacity={0.7}>
-        <Ionicons name="download-outline" size={20} color={colors.primary} />
-      </TouchableOpacity>
+      <View style={{ flexDirection: 'row' }}>
+        <TouchableOpacity
+          style={[styles.docActionBtn, { backgroundColor: isDark ? "rgba(99, 102, 241, 0.2)" : "#eef2ff", marginRight: 8 }]}
+          activeOpacity={0.7}
+          onPress={() => router.push({ pathname: "/(dashboard)/provider/view-document", params: { title, type } })}
+        >
+          <Ionicons name="eye-outline" size={20} color={colors.primary} />
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.docActionBtn, { backgroundColor: isDark ? "rgba(99, 102, 241, 0.2)" : "#eef2ff" }]} activeOpacity={0.7}>
+          <Ionicons name="download-outline" size={20} color={colors.primary} />
+        </TouchableOpacity>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -709,7 +718,7 @@ const styles = StyleSheet.create({
     height: 3,
     borderRadius: 1.5,
   },
-  docDownloadBtn: {
+  docActionBtn: {
     width: 40,
     height: 40,
     borderRadius: 12,
