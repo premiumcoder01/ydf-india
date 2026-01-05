@@ -59,6 +59,20 @@ export default function RootLayout() {
         <Stack.Screen name="(dashboard)/provider/notifications" options={{ title: "Provider Notifications" }} />
         <Stack.Screen name="(dashboard)/provider/profile" options={{ title: "Provider Profile" }} />
         <Stack.Screen name="(dashboard)/provider/reports" options={{ title: "Reports & Analytics" }} />
+
+        {/* Mobilizer Module Screens */}
+        <Stack.Screen name="(dashboard)/mobilizer/mobilizer-scholarship-listing" options={{ title: "Scholarships" }} />
+        <Stack.Screen name="(dashboard)/mobilizer/mobilizer-scholarship-details" options={{ title: "Scholarship Details" }} />
+        <Stack.Screen name="(dashboard)/mobilizer/mobilizer-apply-form" options={{ title: "Apply for Scholarship" }} />
+        <Stack.Screen name="(dashboard)/mobilizer/mobilizer-applications" options={{ title: "My Applications" }} />
+        <Stack.Screen name="(dashboard)/mobilizer/mobilizer-students" options={{ title: "My Students" }} />
+        <Stack.Screen name="(dashboard)/mobilizer/mobilizer-student-profile" options={{ title: "Student Profile" }} />
+        <Stack.Screen name="(dashboard)/mobilizer/mobilizer-notifications" options={{ title: "Notifications" }} />
+        <Stack.Screen name="(dashboard)/mobilizer/mobilizer-profile" options={{ title: "My Profile" }} />
+        <Stack.Screen name="(dashboard)/mobilizer/mobilizer-account" options={{ title: "Account Details" }} />
+        <Stack.Screen name="(dashboard)/mobilizer/mobilizer-privacy" options={{ title: "Privacy & Security" }} />
+        <Stack.Screen name="(dashboard)/mobilizer/mobilizer-help" options={{ title: "Help & Support" }} />
+        <Stack.Screen name="(dashboard)/mobilizer/mobilizer-about" options={{ title: "About App" }} />
       </Stack>
     </ThemeProvider>
   );

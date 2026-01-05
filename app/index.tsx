@@ -12,6 +12,7 @@ const getDashboardRoute = (roleKey: string): string => {
     student: "/(dashboard)/student-dashboard",
     "application-reviewer": "/(dashboard)/application-reviewer",
     "scholarship-provider": "/(dashboard)/scholarship-provider",
+    "student-mobilizer": "/(dashboard)/student-mobilizer",
   };
   return routeMap[roleKey] || "/(auth)/welcome";
 };
@@ -49,14 +50,14 @@ export default function Index() {
 
         // Start checking auth logic
         const authPromise = getAuthState();
-        
+
         // Wait for both Auth Check AND a minimum of 2.5 seconds for the Custom Loader
         // This ensures the loader is visible long enough to be seen/felt by the user
         const [authState] = await Promise.all([
           authPromise,
           new Promise(resolve => setTimeout(resolve, 2500))
         ]);
-        
+
         if (authState.isLoggedIn && authState.userRole) {
           // User is logged in, route to their dashboard
           const dashboardRoute = getDashboardRoute(authState.userRole);

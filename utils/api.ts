@@ -1342,3 +1342,36 @@ export const getNotifications = async (
     };
   }
 };
+
+/**
+ * Mark All Notifications as Read API call
+ */
+export const markAllNotificationsRead = async (token: string): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_mark_all_notifications_read");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    const finalUrl = urlObj.toString();
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    try { data = JSON.parse(responseText); } catch(e) {}
+
+    if (response.ok) {
+      return { success: true, data, message: "Notifications marked as read" };
+    } else {
+      return { success: false, error: "Failed" };
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};

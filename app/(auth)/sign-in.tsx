@@ -32,6 +32,7 @@ const getDashboardRoute = (roleKey: string): string => {
     student: "/(dashboard)/student-dashboard",
     "application-reviewer": "/(dashboard)/application-reviewer",
     "scholarship-provider": "/(dashboard)/scholarship-provider",
+    "student-mobilizer": "/(dashboard)/student-mobilizer",
   };
   return routeMap[roleKey] || "/(auth)/welcome";
 };
@@ -55,6 +56,15 @@ const normalizeRole = (role: string): string => {
     roleLower === "donor"
   )
     return "scholarship-provider";
+
+  if (
+    roleLower === "studentmobilizer" ||
+    roleLower === "student mobilizer" ||
+    roleLower === "student-mobilizer" ||
+    roleLower === "counselor"
+  )
+    return "student-mobilizer";
+
   // Return lowercase version if no match
   return roleLower;
 };
