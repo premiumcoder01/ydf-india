@@ -56,23 +56,25 @@ export default function MobilizerProfileScreen() {
                 style: "destructive",
                 onPress: async () => {
                     await AsyncStorage.removeItem("authData");
-                    // Assuming /sign-in is the correct route, typically one navigates to root or (auth)
                     router.replace("/(auth)/sign-in");
                 },
             },
         ]);
     };
 
-    const MenuItem = ({ icon, label, onPress, color = colors.text, dest }: any) => (
+    const ActionItem = ({ icon, label, onPress, color, isLast, rightElement }: any) => (
         <TouchableOpacity
-            style={[styles.menuItem, { backgroundColor: isDark ? colors.card : "#fff" }]}
-            onPress={onPress || (() => dest && router.push(dest))}
+            style={[styles.actionItem, isLast && { borderBottomWidth: 0 }]}
+            onPress={onPress}
+            activeOpacity={0.7}
         >
-            <View style={[styles.menuIconBox, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" }]}>
-                <Ionicons name={icon} size={20} color={isDark ? colors.text : "#555"} />
+            <View style={[styles.actionIconCircle, { backgroundColor: color + "15" }]}>
+                <Ionicons name={icon} size={20} color={color} />
             </View>
-            <Text style={[styles.menuLabel, { color: color }]}>{label}</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+            <Text style={[styles.actionLabel, { color: colors.text }]}>{label}</Text>
+            {rightElement ? rightElement : (
+                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+            )}
         </TouchableOpacity>
     );
 
@@ -87,74 +89,120 @@ export default function MobilizerProfileScreen() {
     return (
         <View style={[styles.container, { backgroundColor: isDark ? colors.background : "#f5f5f5" }]}>
             <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-            <AppHeader title="My Profile" onBack={() => router.back()} />
+            <AppHeader title="Profile" onBack={() => router.back()} />
 
-            <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-                {/* Profile Card */}
-                <View style={[styles.profileCard, { backgroundColor: isDark ? colors.card : "#fff" }]}>
-                    <View style={styles.avatarContainer}>
+            <ScrollView contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 16 }}>
+
+                {/* Identity Section */}
+                <View style={[styles.identityCard, { backgroundColor: isDark ? colors.card : "#fff" }]}>
+                    <View style={styles.avatarRow}>
                         <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-                            <Text style={{ fontSize: 32, fontWeight: '700', color: '#fff' }}>
+                            <Text style={{ fontSize: 24, fontWeight: '700', color: '#fff' }}>
                                 {profile?.firstname?.charAt(0) || "T"}
                             </Text>
                         </View>
-                        <View style={styles.editBadge}>
-                            <Ionicons name="pencil" size={12} color="#fff" />
+                        <View style={{ flex: 1 }}>
+                            <Text style={[styles.userName, { color: colors.text }]}>{profile?.fullname || "Mobilizer Name"}</Text>
+                            <Text style={[styles.userRole, { color: colors.primary }]}>Student Mobilizer</Text>
+                            <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 2 }}>{profile?.email}</Text>
                         </View>
                     </View>
-                    <Text style={[styles.userName, { color: colors.text }]}>{profile?.fullname || "Mobilizer Name"}</Text>
-                    <Text style={[styles.userRole, { color: colors.primary }]}>Student Mobilizer / Teacher</Text>
-                    <Text style={{ color: colors.textSecondary, marginTop: 4 }}>{profile?.email}</Text>
                 </View>
 
-                {/* Quick Access Grid */}
-                <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Quick Actions</Text>
+                {/* Dashboard Grid (Restored Content) */}
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Dashboard</Text>
                 <View style={styles.gridContainer}>
                     <TouchableOpacity
                         style={[styles.gridItem, { backgroundColor: isDark ? colors.card : "#fff" }]}
                         onPress={() => router.push("/(dashboard)/mobilizer/mobilizer-students")}
+                        activeOpacity={0.8}
                     >
-                        <Ionicons name="people" size={28} color="#2196F3" />
+                        <View style={[styles.gridIcon, { backgroundColor: "#E3F2FD" }]}>
+                            <Ionicons name="people" size={24} color="#2196F3" />
+                        </View>
                         <Text style={[styles.gridLabel, { color: colors.text }]}>My Students</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.gridItem, { backgroundColor: isDark ? colors.card : "#fff" }]}
                         onPress={() => router.push("/(dashboard)/mobilizer/mobilizer-applications")}
+                        activeOpacity={0.8}
                     >
-                        <Ionicons name="documents" size={28} color="#FF9800" />
+                        <View style={[styles.gridIcon, { backgroundColor: "#FFF3E0" }]}>
+                            <Ionicons name="documents" size={24} color="#FF9800" />
+                        </View>
                         <Text style={[styles.gridLabel, { color: colors.text }]}>Applications</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.gridItem, { backgroundColor: isDark ? colors.card : "#fff" }]}
                         onPress={() => router.push("/(dashboard)/mobilizer/mobilizer-scholarship-listing")}
+                        activeOpacity={0.8}
                     >
-                        <Ionicons name="school" size={28} color="#4CAF50" />
+                        <View style={[styles.gridIcon, { backgroundColor: "#E8F5E9" }]}>
+                            <Ionicons name="school" size={24} color="#4CAF50" />
+                        </View>
                         <Text style={[styles.gridLabel, { color: colors.text }]}>Scholarships</Text>
                     </TouchableOpacity>
                 </View>
 
-                {/* Settings Section */}
-                <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Settings</Text>
-                <View style={styles.menuContainer}>
-                    <View style={[styles.menuItem, { backgroundColor: isDark ? colors.card : "#fff" }]}>
-                        <View style={[styles.menuIconBox, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" }]}>
-                            <Ionicons name={isDark ? "moon" : "sunny"} size={20} color={isDark ? colors.text : "#555"} />
-                        </View>
-                        <Text style={[styles.menuLabel, { color: colors.text }]}>Dark Mode</Text>
-                        <Switch value={isDark} onValueChange={toggleTheme} trackColor={{ false: "#eee", true: colors.primary }} />
-                    </View>
+                {/* Settings & Actions (Restored Content with New Design) */}
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Settings & Actions</Text>
 
-                    <MenuItem icon="person-outline" label="Account Details" dest="/(dashboard)/mobilizer/mobilizer-account" />
-                    <MenuItem icon="lock-closed-outline" label="Privacy & Security" dest="/(dashboard)/mobilizer/mobilizer-privacy" />
-                    <MenuItem icon="help-circle-outline" label="Help & Support" dest="/(dashboard)/mobilizer/mobilizer-help" />
-                    <MenuItem icon="information-circle-outline" label="About App" dest="/(dashboard)/mobilizer/mobilizer-about" />
+                <View style={[styles.card, { backgroundColor: isDark ? colors.card : "#fff", paddingVertical: 4 }]}>
+
+                    <ActionItem
+                        icon="create-outline"
+                        label="Edit Profile"
+                        color="#3B82F6"
+                        onPress={() => router.push("/(dashboard)/mobilizer/mobilizer-account")}
+                    />
+
+                    {/* Dark Mode Switch inside the list */}
+                    <ActionItem
+                        icon={isDark ? "moon-outline" : "sunny-outline"}
+                        label="Dark Mode"
+                        color={isDark ? "#A855F7" : "#F59E0B"}
+                        onPress={toggleTheme}
+                        rightElement={
+                            <Switch
+                                value={isDark}
+                                onValueChange={toggleTheme}
+                                trackColor={{ false: "#eee", true: colors.primary }}
+                                style={{ transform: [{ scale: 0.8 }] }}
+                            />
+                        }
+                    />
+
+
+                    <ActionItem
+                        icon="lock-closed-outline"
+                        label="Change Password"
+                        color="#10B981"
+                        onPress={() => router.push("/(dashboard)/mobilizer/mobilizer-privacy")}
+                    />
+                    <ActionItem
+                        icon="help-circle-outline"
+                        label="Help & Support"
+                        color="#8B5CF6"
+                        onPress={() => router.push("/(dashboard)/mobilizer/mobilizer-help")}
+                    />
+                    <ActionItem
+                        icon="information-circle-outline"
+                        label="About App"
+                        color="#06B6D4"
+                        onPress={() => router.push("/(dashboard)/mobilizer/mobilizer-about")}
+                    />
+                    <ActionItem
+                        icon="log-out-outline"
+                        label="Logout"
+                        color="#EF4444"
+                        isLast
+                        onPress={handleLogout}
+                    />
                 </View>
 
-                <TouchableOpacity style={[styles.logoutBtn, { borderColor: "#F44336" }]} onPress={handleLogout}>
-                    <Text style={{ color: "#F44336", fontWeight: "700" }}>Log Out</Text>
-                </TouchableOpacity>
+                {/* Version */}
+                <Text style={{ textAlign: 'center', marginTop: 24, color: colors.textSecondary, fontSize: 12 }}>App Version 1.0.0</Text>
 
-                <Text style={{ textAlign: 'center', marginTop: 20, color: colors.textSecondary, fontSize: 12 }}>Version 1.0.0</Text>
             </ScrollView>
         </View>
     );
@@ -162,74 +210,104 @@ export default function MobilizerProfileScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    profileCard: {
-        margin: 16,
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        marginTop: 24,
+        marginBottom: 12,
+        marginLeft: 4
+    },
+    card: {
         borderRadius: 20,
-        padding: 24,
-        alignItems: 'center',
+        paddingHorizontal: 8,
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 4,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
     },
-    avatarContainer: { position: 'relative', marginBottom: 16 },
+    identityCard: {
+        borderRadius: 20,
+        padding: 20,
+        marginTop: 16,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    avatarRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16,
+    },
     avatar: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
+        width: 60,
+        height: 60,
+        borderRadius: 30,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    editBadge: {
-        position: 'absolute',
-        bottom: 0,
-        right: 0,
-        backgroundColor: '#2196F3',
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 2,
-        borderColor: '#fff',
+    userName: {
+        fontSize: 18,
+        fontWeight: '700',
+        marginBottom: 2
     },
-    userName: { fontSize: 20, fontWeight: '700', marginBottom: 4 },
-    userRole: { fontSize: 14, fontWeight: '600' },
-    sectionTitle: { marginLeft: 20, marginBottom: 10, marginTop: 10, fontSize: 13, fontWeight: '700', textTransform: 'uppercase' },
-    gridContainer: { flexDirection: 'row', paddingHorizontal: 16, gap: 12, marginBottom: 10 },
+    userRole: {
+        fontSize: 14,
+        fontWeight: '500'
+    },
+    // Grid Items
+    gridContainer: {
+        flexDirection: 'row',
+        gap: 12,
+        justifyContent: 'space-between'
+    },
     gridItem: {
         flex: 1,
         padding: 16,
         borderRadius: 16,
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 8,
-        height: 100,
+        gap: 10,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+        elevation: 1,
     },
-    gridLabel: { fontSize: 12, fontWeight: '600' },
-    menuContainer: { paddingHorizontal: 16, gap: 12 },
-    menuItem: {
+    gridIcon: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    gridLabel: {
+        fontSize: 12,
+        fontWeight: '600',
+        textAlign: 'center'
+    },
+    // Action Items
+    actionItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 16,
-        borderRadius: 16,
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+        paddingHorizontal: 8,
     },
-    menuIconBox: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
+    actionIconCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 16,
+        marginRight: 14,
     },
-    menuLabel: { flex: 1, fontSize: 15, fontWeight: '500' },
-    logoutBtn: {
-        margin: 20,
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1.5,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
+    actionLabel: {
+        flex: 1,
+        fontSize: 15,
+        fontWeight: '500',
+    }
 });

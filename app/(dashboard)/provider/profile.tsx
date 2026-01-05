@@ -279,7 +279,7 @@ export default function ProviderProfileScreen() {
         {/* Quick Actions - Modern Grid */}
         <View style={styles.modernSection}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
-          <View style={[styles.modernActionsCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
+          <View style={[styles.modernActionsCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border, marginTop: 15 }]}>
             <ActionButton icon="create-outline" label="Edit Profile" onPress={handleEditProfile} color="#2196F3" />
             <ActionButton icon="lock-closed-outline" label="Change Password" onPress={handleChangePassword} color="#FF9800" />
             <ActionButton icon="help-circle-outline" label="Help & Support" onPress={() => router.push("/(dashboard)/provider/help-support")} color="#673AB7" />

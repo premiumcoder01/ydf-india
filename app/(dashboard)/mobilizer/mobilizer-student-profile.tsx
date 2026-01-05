@@ -139,12 +139,12 @@ export default function MobilizerStudentProfileScreen() {
                         <Ionicons name="paper-plane-outline" size={18} color="#fff" />
                         <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Apply for Scholarship</Text>
                     </Button>
-                    <Button
+                    {/* <Button
                         title="Edit"
                         onPress={() => { }}
                         variant="secondary"
                         style={{ width: 80 }}
-                    />
+                    /> */}
                 </View>
 
                 {/* Personal Details */}

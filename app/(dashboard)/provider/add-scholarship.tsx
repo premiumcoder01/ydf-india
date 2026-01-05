@@ -33,6 +33,17 @@ const GEO_DATA = {
   villages: ["Village X", "Village Y", "Village Z", "Town Alpha", "Town Beta"],
 };
 
+const DOCUMENT_OPTIONS: Record<string, string[]> = {
+  "Identity Proof": ["Aadhaar Card", "PAN Card", "Voter ID", "Passport", "Driving License", "College ID", "Other"],
+  "Address Proof": ["Aadhaar Card", "Passport", "Voter ID", "Ration Card", "Electricity Bill", "Rent Agreement", "Driving License", "Other"],
+  "Income Certificate": ["Income Certificate", "Salary Slip", "Form 16", "ITR Acknowledgement", "Other"],
+  "Academic Marksheets": ["10th Marksheet", "12th Marksheet", "Graduation Marksheet", "Last Passing Marksheet", "Diploma Certificate", "Other"],
+  "Admission Proof / Fees Receipt": ["Admission Letter", "Fee Receipt", "Bonafide Certificate", "College ID Card", "Other"],
+  "Bank Account Details": ["Bank Passbook", "Cancelled Cheque", "Bank Statement", "Other"],
+  "Disbursement Proof": ["Payment Receipt", "Transaction Screenshot", "Other"],
+  "Caste Certificate": ["Caste Certificate", "Tribe Certificate", "Other"],
+};
+
 // --- Types ---
 type Stage = {
   id: string;
@@ -1083,7 +1094,7 @@ export default function ProviderAddScholarshipScreen() {
                       onPress={() => setSelectionModal({
                         show: true,
                         title: `Select Document Type for ${docCategory}`,
-                        options: ["Aadhaar Card", "PAN Card", "Voter ID", "Passport", "Driving License", "Ration Card", "Income Certificate", "Caste Certificate", "Domicile Certificate", "Bonafide Certificate", "Fee Receipt", "Mark Sheet", "Bank Passbook", "Cancelled Cheque", "Other"],
+                        options: DOCUMENT_OPTIONS[docCategory] || ["Other"],
                         field: "document_description",
                         stageId: docCategory // Using stageId to pass the category name
                       })}
@@ -1683,14 +1694,16 @@ const styles = StyleSheet.create({
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     paddingBottom: 16,
     borderBottomWidth: 1,
     marginBottom: 10,
   },
   modalTitle: {
+    flex: 1,
     fontSize: 18,
     fontWeight: "700",
+    paddingRight: 12,
   },
   optionRow: {
     flexDirection: "row",

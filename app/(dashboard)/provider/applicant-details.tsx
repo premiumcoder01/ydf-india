@@ -313,13 +313,13 @@ export default function ProviderApplicantDetailsScreen() {
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Uploaded Documents</Text>
                 <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>3 files attached</Text>
               </View>
-              <TouchableOpacity
+              {/* <TouchableOpacity
                 style={[styles.downloadAllBtn, { backgroundColor: isDark ? colors.surface : "#eef2ff" }]}
                 activeOpacity={0.7}
               >
                 <Ionicons name="download-outline" size={16} color={colors.primary} />
                 <Text style={[styles.downloadAllText, { color: colors.primary }]}>Download All</Text>
-              </TouchableOpacity>
+              </TouchableOpacity> */}
             </View>
             <View style={styles.docsList}>
               <DocCard
@@ -490,9 +490,9 @@ function DocCard({
         >
           <Ionicons name="eye-outline" size={20} color={colors.primary} />
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.docActionBtn, { backgroundColor: isDark ? "rgba(99, 102, 241, 0.2)" : "#eef2ff" }]} activeOpacity={0.7}>
+        {/* <TouchableOpacity style={[styles.docActionBtn, { backgroundColor: isDark ? "rgba(99, 102, 241, 0.2)" : "#eef2ff" }]} activeOpacity={0.7}>
           <Ionicons name="download-outline" size={20} color={colors.primary} />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
     </TouchableOpacity>
   );

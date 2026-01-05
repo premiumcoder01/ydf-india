@@ -71,10 +71,10 @@ export default function MobilizerPrivacyScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: isDark ? colors.background : "#f5f5f5" }]}>
-            <AppHeader title="Privacy & Security" onBack={() => router.back()} />
+            <AppHeader title="Change Password" onBack={() => router.back()} />
             <ScrollView contentContainerStyle={styles.content}>
 
-                <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Security</Text>
+
                 <View style={[styles.card, { backgroundColor: isDark ? colors.card : "#fff" }]}>
                     <CustomTextInput
                         label="Current Password"
@@ -102,19 +102,6 @@ export default function MobilizerPrivacyScreen() {
                     </View>
                 </View>
 
-                <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 24 }]}>Privacy Settings</Text>
-                <SettingItem
-                    label="Profile Visibility"
-                    description="Allow other mobilizers to see your basic profile info"
-                    value={profileVisibility}
-                    onValueChange={setProfileVisibility}
-                />
-                <SettingItem
-                    label="Two-Factor Authentication"
-                    description="Add an extra layer of security to your account"
-                    value={twoFactor}
-                    onValueChange={setTwoFactor}
-                />
 
             </ScrollView>
         </View>

@@ -1,13 +1,12 @@
 import { AppHeader, Button, CustomTextInput, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { getUserProfile, updateUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -19,88 +18,83 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+interface AcademicRecord {
+  id: string;
+  institution: string;
+  major: string;
+  gpa: string;
+  graduation: string;
+  year: string;
+  currentCourse: string;
+  currentCourseCategory: string;
+}
+
 interface ValidationErrors {
   [key: string]: string;
 }
 
 const COURSE_OPTIONS = [
-  "B.Tech",
-  "B.E.",
-  "B.Sc",
-  "B.Com",
-  "B.A.",
-  "BBA",
-  "BCA",
-  "MBBS",
-  "BDS",
-  "B.Pharm",
-  "LLB",
-  "M.Tech",
-  "M.Sc",
-  "MBA",
-  "MCA",
-  "M.A.",
-  "M.Com",
-  "Ph.D",
-  "Diploma",
-  "Other"
+  "B.Tech", "B.E.", "B.Sc", "B.Com", "B.A.", "BBA", "BCA", "MBBS", "BDS",
+  "B.Pharm", "LLB", "M.Tech", "M.Sc", "MBA", "MCA", "M.A.", "M.Com",
+  "Ph.D", "Diploma", "Other"
 ];
 
 const COURSE_CATEGORY_OPTIONS = [
-  "Engineering",
-  "Medical",
-  "Arts",
-  "Science",
-  "Commerce",
-  "Law",
-  "Management",
-  "Pharmacy",
-  "Education",
-  "Vocational",
-  "Other"
+  "Engineering", "Medical", "Arts", "Science", "Commerce", "Law",
+  "Management", "Pharmacy", "Education", "Vocational", "Other"
 ];
 
 const MAJOR_OPTIONS = [
-  "Computer Science",
-  "Information Technology",
-  "Mechanical Engineering",
-  "Civil Engineering",
-  "Electrical Engineering",
-  "Electronics & Communication",
-  "Physics",
-  "Chemistry",
-  "Mathematics",
-  "Biology",
-  "Economics",
-  "English",
-  "History",
-  "Political Science",
-  "Accounting",
-  "Finance",
-  "Marketing",
-  "Human Resources",
-  "General",
-  "Other"
+  "Computer Science", "Information Technology", "Mechanical Engineering",
+  "Civil Engineering", "Electrical Engineering", "Electronics & Communication",
+  "Physics", "Chemistry", "Mathematics", "Biology", "Economics", "English",
+  "History", "Political Science", "Accounting", "Finance", "Marketing",
+  "Human Resources", "General", "Other"
 ];
+
+const INITIAL_RECORD: AcademicRecord = {
+  id: "",
+  institution: "",
+  major: "",
+  gpa: "",
+  graduation: "",
+  year: "",
+  currentCourse: "",
+  currentCourseCategory: "",
+};
 
 export default function StudentProfileAcademicScreen() {
   const { isDark, colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const [academicInfo, setAcademicInfo] = useState({
-    institution: "",
-    major: "",
-    gpa: "",
-    graduation: "",
-    year: "",
-    currentCourse: "",
-    currentCourseCategory: "",
-  });
 
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  // State for list of records
+  const [records, setRecords] = useState<AcademicRecord[]>([
+    {
+      id: "1",
+      institution: "Delhi University",
+      major: "Computer Science",
+      gpa: "8.5",
+      graduation: "15/05/2025",
+      year: "2024",
+      currentCourse: "B.Tech",
+      currentCourseCategory: "Engineering"
+    },
+    {
+      id: "2",
+      institution: "Modern School",
+      major: "Science",
+      gpa: "9.2",
+      graduation: "20/03/2021",
+      year: "2021",
+      currentCourse: "12th Grade",
+      currentCourseCategory: "Science"
+    }
+  ]);
 
-  const [isSaving, setIsSaving] = useState(false);
+  // Modal & Editing State
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<AcademicRecord>(INITIAL_RECORD);
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Picker States
   const [showCoursePicker, setShowCoursePicker] = useState(false);
@@ -114,151 +108,94 @@ export default function StudentProfileAcademicScreen() {
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState<"success" | "error" | "info">("error");
 
-  // Fetch User Profile
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const authDataStr = await AsyncStorage.getItem("authData");
-        if (authDataStr) {
-          const authData = JSON.parse(authDataStr);
-          if (authData.token) {
-            const response = await getUserProfile(authData.token);
-            if (response.success && response.data && response.data.user) {
-              const user = response.data.user;
+  // --- Handlers ---
 
-              setAcademicInfo((prev) => ({
-                ...prev,
-                institution: user.institution || user.customfields?.find((f: any) => f.shortname === 'institution')?.value || prev.institution,
-                major: user.major || user.customfields?.find((f: any) => f.shortname === 'major')?.value || prev.major,
-                gpa: user.gpa || user.customfields?.find((f: any) => f.shortname === 'gpa')?.value || prev.gpa,
-                graduation: user.graduationdate || user.customfields?.find((f: any) => f.shortname === 'graduationdate')?.value || prev.graduation,
-                year: user.academicyear || user.customfields?.find((f: any) => f.shortname === 'academicyear')?.value || prev.year,
-                currentCourse: user.currentcourse || user.customfields?.find((f: any) => f.shortname === 'currentcourse')?.value || prev.currentCourse,
-                currentCourseCategory: user.currentcoursecategory || user.customfields?.find((f: any) => f.shortname === 'currentcoursecategory')?.value || prev.currentCourseCategory,
-              }));
-            }
-          }
+  const handleAddNew = () => {
+    setEditingRecord({ ...INITIAL_RECORD }); // Keep ID empty for new record
+    setValidationErrors({});
+    setIsModalVisible(true);
+  };
+
+  const handleEdit = (record: AcademicRecord) => {
+    setEditingRecord({ ...record });
+    setValidationErrors({});
+    setIsModalVisible(true);
+  };
+
+  const handleDelete = (id: string) => {
+    Alert.alert("Delete Record", "Are you sure you want to delete this academic record?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => {
+          setRecords(prev => prev.filter(r => r.id !== id));
+          setToastMessage("Record deleted");
+          setToastType("info");
+          setShowToast(true);
         }
-      } catch (error) {
-        console.error("Failed to fetch user profile:", error);
-      } finally {
-        setIsLoadingProfile(false);
       }
-    };
-
-    fetchUserProfile();
-  }, []);
-
-  // Validation Functions
-  const validateGPA = (gpa: string): boolean => {
-    // allow empty if optional, but here let's valid if present
-    if (!gpa) return true;
-    const gpaNum = parseFloat(gpa);
-    return !isNaN(gpaNum) && gpaNum >= 0 && gpaNum <= 10.0;
+    ]);
   };
 
-  // Handlers
-  const handleAcademicInfoChange = useCallback(
-    (field: keyof typeof academicInfo, value: string) => {
-      setAcademicInfo((prev) => ({ ...prev, [field]: value }));
-      setHasUnsavedChanges(true);
-
-      if (validationErrors[field]) {
-        setValidationErrors((prev) => {
-          const newErrors = { ...prev };
-          delete newErrors[field];
-          return newErrors;
-        });
-      }
-    },
-    [validationErrors]
-  );
-
-  const onGradDateChange = (event: any, selectedDate?: Date) => {
-    setShowGradDatePicker(Platform.OS === 'ios');
-    if (selectedDate) {
-      // Format: Month Year (e.g., May 2024) or DD/MM/YYYY. Standardizing to DD/MM/YYYY for consistency with backend expectation if needed, 
-      // but user UI might prefer Month Year. Backend usually expects string. Custom fields might differ. 
-      // Based on personal profile, DD/MM/YYYY is good.
-      const formattedDate = selectedDate.toLocaleDateString('en-GB');
-      handleAcademicInfoChange("graduation", formattedDate);
-    }
-  };
-
-  const onAcademicYearChange = (event: any, selectedDate?: Date) => {
-    setShowAcademicYearPicker(Platform.OS === 'ios');
-    if (selectedDate) {
-      // For academic year, usually just Year is nice, but user requested Date Picker.
-      // We'll store formatted date.
-      const formattedDate = selectedDate.toLocaleDateString('en-GB');
-      handleAcademicInfoChange("year", formattedDate);
-    }
-  };
-
-  const validateAcademicInfo = (): boolean => {
+  const validateForm = (): boolean => {
     const errors: ValidationErrors = {};
+    if (!editingRecord.institution.trim()) errors.institution = "Required";
+    if (!editingRecord.year.trim()) errors.year = "Required";
+    if (!editingRecord.currentCourse.trim()) errors.currentCourse = "Required";
+    if (!editingRecord.currentCourseCategory.trim()) errors.currentCourseCategory = "Required";
 
-    if (!academicInfo.institution.trim()) {
-      errors.institution = "Institution name is required";
+    // GPA Validation
+    if (editingRecord.gpa) {
+      const gpaNum = parseFloat(editingRecord.gpa);
+      if (isNaN(gpaNum) || gpaNum < 0 || gpaNum > 10.0) {
+        errors.gpa = "Invalid GPA (0-10)";
+      }
     }
-
-    if (!academicInfo.major.trim()) {
-      errors.major = "Major/Field of study is required";
-    }
-
-    if (!validateGPA(academicInfo.gpa)) {
-      errors.gpa = "GPA must be between 0.0 and 4.0";
-    }
-
-    if (!academicInfo.year.trim()) errors.year = "Academic year is required";
-    if (!academicInfo.currentCourse.trim()) errors.currentCourse = "Current course is required";
-    if (!academicInfo.currentCourseCategory.trim()) errors.currentCourseCategory = "Course category is required";
 
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const handleSaveAcademic = async () => {
-    if (!validateAcademicInfo()) {
-      setToastMessage("Please fix the errors before saving");
+  const handleSave = () => {
+    if (!validateForm()) {
+      setToastMessage("Please fix errors");
       setToastType("error");
       setShowToast(true);
       return;
     }
-    setIsSaving(true);
-    try {
-      const authDataStr = await AsyncStorage.getItem("authData");
-      if (!authDataStr) throw new Error("Authentication session expired");
 
-      const authData = JSON.parse(authDataStr);
-      if (!authData.token) throw new Error("Invalid session token");
-
-      const response = await updateUserProfile(authData.token, academicInfo);
-
-      if (response.success) {
-        setHasUnsavedChanges(false);
-        setToastMessage("Academic information updated successfully");
-        setToastType("success");
-        setShowToast(true);
-        setTimeout(() => {
-          router.back();
-        }, 1500);
+    setRecords(prev => {
+      // If ID exists, update. Else, create new.
+      if (editingRecord.id) {
+        return prev.map(r => r.id === editingRecord.id ? editingRecord : r);
       } else {
-        setToastMessage(response.error || "Failed to update profile");
-        setToastType("error");
-        setShowToast(true);
+        const newRecord = { ...editingRecord, id: Date.now().toString() };
+        return [...prev, newRecord];
       }
-    } catch (error: any) {
-      setToastMessage(error.message || "Something went wrong");
-      setToastType("error");
-      setShowToast(true);
-    } finally {
-      setIsSaving(false);
+    });
+
+    setIsModalVisible(false);
+    setToastMessage(editingRecord.id ? "Record updated" : "Record added");
+    setToastType("success");
+    setShowToast(true);
+  };
+
+  const handleFieldChange = (field: keyof AcademicRecord, value: string) => {
+    setEditingRecord(prev => ({ ...prev, [field]: value }));
+    if (validationErrors[field]) {
+      setValidationErrors(prev => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
     }
   };
 
+  // --- Render Components ---
+
   const SelectionModal = ({ visible, onClose, title, options, selected, onSelect }: any) => (
-    <Modal visible={visible} transparent animationType="slide">
+    <Modal visible={visible} transparent animationType="fade">
       <View style={styles.modalOverlay}>
         <TouchableOpacity style={styles.modalBackdrop} onPress={onClose} activeOpacity={1} />
         <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20, backgroundColor: colors.surface }]}>
@@ -275,9 +212,7 @@ export default function StudentProfileAcademicScreen() {
                 style={[styles.optionRow, selected === opt && styles.optionSelected, { borderBottomColor: colors.border }]}
                 onPress={() => onSelect(opt)}
               >
-                <Text
-                  style={[styles.optionText, { color: colors.text }, selected === opt && styles.optionTextSelected]}
-                >
+                <Text style={[styles.optionText, { color: colors.text }, selected === opt && styles.optionTextSelected]}>
                   {opt}
                 </Text>
                 {selected === opt && (
@@ -299,363 +234,351 @@ export default function StudentProfileAcademicScreen() {
         locations={[0, 0.3, 1]}
       />
 
-      <AppHeader title="Academic Details" onBack={() => router.back()} />
+      <AppHeader
+        title="Academic Details"
+        onBack={() => router.back()}
+      />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
+      <ScrollView
+        contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
       >
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Academic Information</Text>
-              {hasUnsavedChanges && (
-                <View style={styles.unsavedBadge}>
-                  <Text style={styles.unsavedText}>Unsaved</Text>
-                </View>
-              )}
-            </View>
-            <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={styles.headerRow}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Academic Records</Text>
+          <TouchableOpacity
+            style={[styles.addButton, { backgroundColor: colors.primary }]}
+            onPress={handleAddNew}
+          >
+            <Ionicons name="add" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
 
-              {/* Current Course Dropdown */}
+        {records.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={{ color: colors.textSecondary }}>No academic records found.</Text>
+            <Button title="Add First Record" onPress={handleAddNew} style={{ marginTop: 12 }} />
+          </View>
+        ) : (
+          <View style={{ gap: 16 }}>
+            {records.map((record) => (
+              <View key={record.id} style={[styles.recordCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={styles.recordHeader}>
+                  <View style={[styles.iconBox, { backgroundColor: colors.primary + '15' }]}>
+                    <Ionicons name="school" size={24} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.recordTitle, { color: colors.text }]}>{record.currentCourse}</Text>
+                    <Text style={[styles.recordSubtitle, { color: colors.textSecondary }]}>{record.institution}</Text>
+                  </View>
+                  <View style={styles.actionButtons}>
+                    <TouchableOpacity
+                      style={[styles.actionBtn, { backgroundColor: '#E3F2FD' }]}
+                      onPress={() => handleEdit(record)}
+                    >
+                      <Ionicons name="pencil" size={16} color="#2196F3" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.actionBtn, { backgroundColor: '#FFEBEE' }]}
+                      onPress={() => handleDelete(record.id)}
+                    >
+                      <Ionicons name="trash" size={16} color="#F44336" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+                <View style={styles.recordDetails}>
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Year</Text>
+                    <Text style={[styles.detailValue, { color: colors.text }]}>{record.year}</Text>
+                  </View>
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Major</Text>
+                    <Text style={[styles.detailValue, { color: colors.text }]}>{record.major || "N/A"}</Text>
+                  </View>
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Graduation</Text>
+                    <Text style={[styles.detailValue, { color: colors.text }]}>{record.graduation || "N/A"}</Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Add/Edit Modal */}
+      <Modal
+        visible={isModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setIsModalVisible(false)}
+      >
+        <View style={[styles.fullScreenModal, { backgroundColor: colors.background }]}>
+          <View style={[styles.fsModalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.fsModalTitle, { color: colors.text }]}>
+              {editingRecord.id ? "Edit Academic Record" : "Add Academic Record"}
+            </Text>
+            <TouchableOpacity onPress={() => setIsModalVisible(false)} style={styles.closeBtn}>
+              <Ionicons name="close" size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+            <ScrollView contentContainerStyle={{ padding: 20 }}>
+              {/* Course & Category */}
               <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Current Course *</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Course Name *</Text>
                 <TouchableOpacity
-                  style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.currentCourse && styles.selectorError]}
+                  style={[styles.selector, { borderColor: validationErrors.currentCourse ? '#EF4444' : colors.border, backgroundColor: isDark ? '#1F1F1F' : '#FAFAFA' }]}
                   onPress={() => setShowCoursePicker(true)}
                 >
-                  <Text style={[styles.selectorText, { color: colors.text }, !academicInfo.currentCourse && styles.placeholderText]}>
-                    {academicInfo.currentCourse || "Select Course"}
+                  <Text style={{ color: editingRecord.currentCourse ? colors.text : colors.textSecondary }}>
+                    {editingRecord.currentCourse || "Select Course"}
                   </Text>
                   <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
                 </TouchableOpacity>
-                {validationErrors.currentCourse && (
-                  <Text style={styles.errorText}>{validationErrors.currentCourse}</Text>
-                )}
+                {validationErrors.currentCourse && <Text style={styles.errorText}>{validationErrors.currentCourse}</Text>}
               </View>
 
-              {/* Course Category Dropdown */}
               <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Course Category *</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Category *</Text>
                 <TouchableOpacity
-                  style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.currentCourseCategory && styles.selectorError]}
+                  style={[styles.selector, { borderColor: validationErrors.currentCourseCategory ? '#EF4444' : colors.border, backgroundColor: isDark ? '#1F1F1F' : '#FAFAFA' }]}
                   onPress={() => setShowCategoryPicker(true)}
                 >
-                  <Text style={[styles.selectorText, { color: colors.text }, !academicInfo.currentCourseCategory && styles.placeholderText]}>
-                    {academicInfo.currentCourseCategory || "Select Category"}
+                  <Text style={{ color: editingRecord.currentCourseCategory ? colors.text : colors.textSecondary }}>
+                    {editingRecord.currentCourseCategory || "Select Category"}
                   </Text>
                   <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
                 </TouchableOpacity>
-                {validationErrors.currentCourseCategory && (
-                  <Text style={styles.errorText}>{validationErrors.currentCourseCategory}</Text>
-                )}
+                {validationErrors.currentCourseCategory && <Text style={styles.errorText}>{validationErrors.currentCourseCategory}</Text>}
               </View>
 
-              {/* Institution Input - Kept as text input */}
               <CustomTextInput
-                label="Institution"
-                value={academicInfo.institution}
-                onChangeText={(val) =>
-                  handleAcademicInfoChange("institution", val)
-                }
-                style={styles.input}
+                label="Institution Name *"
+                value={editingRecord.institution}
+                onChangeText={(t) => handleFieldChange("institution", t)}
+                style={{ marginBottom: 16 }}
                 error={validationErrors.institution}
               />
 
-              {/* Major/Field of Study Dropdown */}
               <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Major/Field of Study *</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Major / Stream *</Text>
                 <TouchableOpacity
-                  style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.major && styles.selectorError]}
+                  style={[styles.selector, { borderColor: validationErrors.major ? '#EF4444' : colors.border, backgroundColor: isDark ? '#1F1F1F' : '#FAFAFA' }]}
                   onPress={() => setShowMajorPicker(true)}
                 >
-                  <Text style={[styles.selectorText, { color: colors.text }, !academicInfo.major && styles.placeholderText]}>
-                    {academicInfo.major || "Select Major"}
+                  <Text style={{ color: editingRecord.major ? colors.text : colors.textSecondary }}>
+                    {editingRecord.major || "Select Major"}
                   </Text>
                   <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
                 </TouchableOpacity>
-                {validationErrors.major && (
-                  <Text style={styles.errorText}>{validationErrors.major}</Text>
-                )}
+                {validationErrors.major && <Text style={styles.errorText}>{validationErrors.major}</Text>}
               </View>
 
-              {/* GPA Input - Numeric only */}
-              <CustomTextInput
-                label="Current GPA"
-                value={academicInfo.gpa}
-                onChangeText={(val) => handleAcademicInfoChange("gpa", val)}
-                style={styles.input}
-                placeholder="0.00 - 4.00"
-                keyboardType="numeric"
-                error={validationErrors.gpa}
-              />
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <CustomTextInput
+                    label="GPA / Percentage"
+                    value={editingRecord.gpa}
+                    onChangeText={(t) => handleFieldChange("gpa", t)}
+                    keyboardType="numeric"
+                    placeholder="e.g. 8.5"
+                    error={validationErrors.gpa}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.inputGroup}>
+                    <Text style={[styles.label, { color: colors.textSecondary }]}>Academic Year *</Text>
+                    <TouchableOpacity
+                      style={[styles.selector, { borderColor: validationErrors.year ? '#EF4444' : colors.border, backgroundColor: isDark ? '#1F1F1F' : '#FAFAFA', height: 50, paddingVertical: 14 }]}
+                      onPress={() => setShowAcademicYearPicker(true)}
+                    >
+                      <Text style={{ color: editingRecord.year ? colors.text : colors.textSecondary }}>
+                        {editingRecord.year || "Select Year"}
+                      </Text>
+                    </TouchableOpacity>
+                    {validationErrors.year && <Text style={styles.errorText}>{validationErrors.year}</Text>}
+                  </View>
+                </View>
+              </View>
 
-              {/* Expected Graduation Date Picker */}
+              {/* Graduation Date Picker - Added Back */}
               <View style={styles.inputGroup}>
                 <Text style={[styles.label, { color: colors.textSecondary }]}>Expected Graduation</Text>
                 <TouchableOpacity
-                  style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
+                  style={[styles.selector, { borderColor: colors.border, backgroundColor: isDark ? '#1F1F1F' : '#FAFAFA' }]}
                   onPress={() => setShowGradDatePicker(true)}
                 >
-                  <Text style={[styles.selectorText, { color: colors.text }, !academicInfo.graduation && styles.placeholderText]}>
-                    {academicInfo.graduation || "Select Date"}
+                  <Text style={{ color: editingRecord.graduation ? colors.text : colors.textSecondary }}>
+                    {editingRecord.graduation || "Select Date"}
                   </Text>
                   <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
-              {showGradDatePicker && (
-                <DateTimePicker
-                  value={academicInfo.graduation ? new Date(academicInfo.graduation.split('/').reverse().join('-')) : new Date()}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  themeVariant={isDark ? "dark" : "light"}
-                  onChange={onGradDateChange}
-                  minimumDate={new Date()}
-                />
-              )}
-
-              {/* Current Academic Year Date Picker */}
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Current Academic Year</Text>
-                <TouchableOpacity
-                  style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.year && styles.selectorError]}
-                  onPress={() => setShowAcademicYearPicker(true)}
-                >
-                  <Text style={[styles.selectorText, { color: colors.text }, !academicInfo.year && styles.placeholderText]}>
-                    {academicInfo.year || "Select Year"}
-                  </Text>
-                  <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
-                {validationErrors.year && (
-                  <Text style={styles.errorText}>{validationErrors.year}</Text>
-                )}
-              </View>
-              {showAcademicYearPicker && (
-                <DateTimePicker
-                  value={academicInfo.year ? new Date(academicInfo.year.split('/').reverse().join('-')) : new Date()}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  themeVariant={isDark ? "dark" : "light"}
-                  onChange={onAcademicYearChange}
-                />
-              )}
 
               <Button
-                title={isSaving ? "Saving..." : "Save Academic Info"}
-                onPress={handleSaveAcademic}
-                variant="primary"
-                style={styles.saveButton}
-                disabled={isSaving || !hasUnsavedChanges}
+                title="Save Details"
+                onPress={handleSave}
+                style={{ marginTop: 20 }}
               />
-            </View>
-          </View>
 
-          <View style={{ height: 40 }} />
-        </ScrollView>
-      </KeyboardAvoidingView>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
 
-      <Toast
-        message={toastMessage}
-        type={toastType}
-        visible={showToast}
-        onHide={() => setShowToast(false)}
-        duration={3000}
-      />
+      <Toast message={toastMessage} type={toastType} visible={showToast} onHide={() => setShowToast(false)} />
 
-      {/* Modals */}
+      {/* Selection Pickers */}
       <SelectionModal
         visible={showCoursePicker}
         onClose={() => setShowCoursePicker(false)}
-        title="Select Current Course"
+        title="Select Course"
         options={COURSE_OPTIONS}
-        selected={academicInfo.currentCourse}
-        onSelect={(val: string) => {
-          handleAcademicInfoChange("currentCourse", val);
-          setShowCoursePicker(false);
-        }}
+        selected={editingRecord.currentCourse}
+        onSelect={(val: string) => { handleFieldChange("currentCourse", val); setShowCoursePicker(false); }}
       />
       <SelectionModal
         visible={showCategoryPicker}
         onClose={() => setShowCategoryPicker(false)}
-        title="Select Course Category"
+        title="Select Category"
         options={COURSE_CATEGORY_OPTIONS}
-        selected={academicInfo.currentCourseCategory}
-        onSelect={(val: string) => {
-          handleAcademicInfoChange("currentCourseCategory", val);
-          setShowCategoryPicker(false);
-        }}
+        selected={editingRecord.currentCourseCategory}
+        onSelect={(val: string) => { handleFieldChange("currentCourseCategory", val); setShowCategoryPicker(false); }}
       />
       <SelectionModal
         visible={showMajorPicker}
         onClose={() => setShowMajorPicker(false)}
-        title="Select Major/Field of Study"
+        title="Select Major"
         options={MAJOR_OPTIONS}
-        selected={academicInfo.major}
-        onSelect={(val: string) => {
-          handleAcademicInfoChange("major", val);
-          setShowMajorPicker(false);
-        }}
+        selected={editingRecord.major}
+        onSelect={(val: string) => { handleFieldChange("major", val); setShowMajorPicker(false); }}
       />
+
+      {/* Date Pickers (Invisible, triggered by state) */}
+      {showAcademicYearPicker && (
+        <DateTimePicker
+          value={new Date()}
+          mode="date"
+          display="spinner"
+          onChange={(e, date) => {
+            setShowAcademicYearPicker(Platform.OS === 'ios');
+            if (date) handleFieldChange("year", date.getFullYear().toString());
+            if (Platform.OS !== 'ios') setShowAcademicYearPicker(false);
+          }}
+        />
+      )}
+
+      {showGradDatePicker && (
+        <DateTimePicker
+          value={new Date()}
+          mode="date"
+          display="spinner"
+          onChange={(e, date) => {
+            setShowGradDatePicker(Platform.OS === 'ios');
+            if (date) handleFieldChange("graduation", date.toLocaleDateString('en-GB'));
+            if (Platform.OS !== 'ios') setShowGradDatePicker(false);
+          }}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+  background: { position: "absolute", top: 0, left: 0, bottom: 0, right: 0 },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20
   },
-  background: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    bottom: 0,
-    right: 0,
+  sectionTitle: { fontSize: 20, fontWeight: '700' },
+  addButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4
   },
-  scrollView: {
-    flex: 1,
-  },
-  section: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-    marginTop: 8,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#333",
-  },
-  unsavedBadge: {
-    backgroundColor: "#FF9800" + "20",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  unsavedText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#FF9800",
-  },
-  formCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.98)",
+  recordCard: {
     borderRadius: 16,
-    padding: 20,
     borderWidth: 1,
-    borderColor: "rgba(51, 51, 51, 0.08)",
+    padding: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
   },
-  input: {
-    marginBottom: 16,
+  recordHeader: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  iconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center'
   },
-  saveButton: {
-    marginTop: 8,
+  recordTitle: { fontSize: 16, fontWeight: '700', marginBottom: 2 },
+  recordSubtitle: { fontSize: 13 },
+  actionButtons: { flexDirection: 'row', gap: 8 },
+  actionBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center'
   },
-  // Selection Styles
-  inputGroup: {
-    marginBottom: 16,
+  divider: { height: 1, marginVertical: 12 },
+  recordDetails: { flexDirection: 'row', justifyContent: 'space-between' },
+  detailItem: { gap: 4 },
+  detailLabel: { fontSize: 11, color: '#999', textTransform: 'uppercase' },
+  detailValue: { fontSize: 13, fontWeight: '600' },
+
+  // Modal Styles
+  fullScreenModal: { flex: 1 },
+  fsModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    marginTop: Platform.OS === 'android' ? 24 : 0
   },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 8,
-    marginLeft: 4,
-  },
+  fsModalTitle: { fontSize: 18, fontWeight: '700' },
+  closeBtn: { padding: 4 },
+  inputGroup: { marginBottom: 16 },
+  label: { marginBottom: 8, fontSize: 14, fontWeight: '600' },
   selector: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "rgba(255, 255, 255, 0.98)",
-    borderWidth: 1.5,
-    borderColor: "rgba(51, 51, 51, 0.15)",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 12,
-    height: 56,
+    height: 56
   },
-  selectorError: {
-    borderColor: "#EF4444",
-  },
-  selectorText: {
-    fontSize: 16,
-    color: "#333",
-    fontWeight: "500",
-  },
-  placeholderText: {
-    color: "#999",
-  },
-  errorText: {
-    color: "#EF4444",
-    fontSize: 12,
-    marginTop: 6,
-    marginLeft: 4,
-    fontWeight: "500",
-  },
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  modalBackdrop: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.4)",
-  },
-  modalContent: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    maxHeight: "60%",
-    paddingTop: 8,
-    borderWidth: 1,
-    borderColor: "#f0f0f0",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#1a1a1a",
-  },
-  optionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f9f9f9",
-  },
-  optionSelected: {
-    backgroundColor: "rgba(0, 86, 210, 0.05)",
-  },
-  optionText: {
-    fontSize: 15,
-    color: "#222",
-  },
-  optionTextSelected: {
-    color: "#0056D2",
-    fontWeight: "600",
-  },
+  errorText: { color: '#EF4444', fontSize: 12, marginTop: 4 },
+
+  // Selection Modal (Internal)
+  modalOverlay: { flex: 1, justifyContent: "flex-end" },
+  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.5)" },
+  modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  modalHeader: { flexDirection: "row", justifyContent: "space-between", padding: 20, borderBottomWidth: 1 },
+  modalTitle: { fontSize: 18, fontWeight: "700" },
+  optionRow: { flexDirection: "row", justifyContent: "space-between", padding: 16, borderBottomWidth: 1 },
+  optionSelected: { backgroundColor: "rgba(33, 150, 243, 0.1)" },
+  optionText: { fontSize: 16 },
+  optionTextSelected: { fontWeight: "700", color: "#2196F3" },
+  emptyState: { alignItems: 'center', justifyContent: 'center', padding: 40 },
 });
