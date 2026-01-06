@@ -1,6 +1,6 @@
-import { AppHeader, Button, CustomTextInput } from "@/components";
+import { AppHeader, Button, CustomTextInput, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { getScholarshipDetails, getUserProfile } from "@/utils/api";
+import { getScholarshipDetails, getUserProfile, submitApplication } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -121,6 +121,11 @@ export default function ApplyFormScreen() {
   const { scholarshipId } = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
   const [scholarship, setScholarship] = useState<any>(null);
+  const [toast, setToast] = useState<{ visible: boolean; message: string; type: "success" | "error" | "info" }>({
+    visible: false,
+    message: "",
+    type: "info",
+  });
 
   const {
     control,
@@ -336,9 +341,54 @@ export default function ApplyFormScreen() {
 
   const onSubmit = handleSubmit(
     async (values) => {
-      // Here we would construct the FormData
-      // For now, redirect to success
-      router.replace("/(dashboard)/student/student-application-status");
+      try {
+        const authDataStr = await AsyncStorage.getItem("authData");
+        if (!authDataStr) {
+          Alert.alert("Error", "User not logged in");
+          return;
+        }
+        const authData = JSON.parse(authDataStr);
+        if (!authData.token) {
+          Alert.alert("Error", "Invalid session");
+          return;
+        }
+
+        const submissionData = {
+          scholarship_id: Number(scholarshipId),
+          application_text: values.statement,
+          fullname: values.fullName,
+          email: values.email,
+          phone: values.phone,
+          student_id: values.studentId,
+          institution: values.institution,
+          major: values.major,
+          graduation_date: values.gradDate,
+          current_year: values.currentYear,
+          gpa: values.gpa,
+          activities: values.activities,
+          financial_info: values.financial,
+          assessment_q1: values.assessmentQ1,
+          assessment_q2: values.assessmentQ2,
+          interview_mode: values.interviewMode,
+          verification_time: values.verificationTime ? String(values.verificationTime) : undefined,
+          documents: values.documents, // Pass documents if API supports it or handle separately
+        };
+
+        const response = await submitApplication(authData.token, submissionData);
+
+        if (response.success) {
+          setToast({ visible: true, message: response.message || "Application submitted successfully!", type: "success" });
+          // Delay redirect to show toast
+          setTimeout(() => {
+            router.replace("/(dashboard)/student/student-application-status");
+          }, 2000);
+        } else {
+          setToast({ visible: true, message: response.message || "Submission failed", type: "error" });
+        }
+
+      } catch (err: any) {
+        setToast({ visible: true, message: err.message || "An unexpected error occurred", type: "error" });
+      }
     },
     (formErrors) => {
       // Jump to the first errored step and notify user
@@ -456,16 +506,16 @@ export default function ApplyFormScreen() {
             {currentStepKey === "personal" && (
               <Section>
                 <Controller control={control} name="fullName" render={({ field: { onChange, value, onBlur } }) => (
-                  <CustomTextInput label="Full Name" placeholder="Enter your full name" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.fullName?.message} />
+                  <CustomTextInput label="Full Name" placeholder="Enter your full name" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.fullName?.message} required />
                 )} />
                 <Controller control={control} name="email" render={({ field: { onChange, value, onBlur } }) => (
-                  <CustomTextInput label="Email" placeholder="Enter your email" value={value} onChangeText={onChange} onBlur={onBlur} keyboardType="email-address" autoCapitalize="none" error={errors.email?.message} />
+                  <CustomTextInput label="Email" placeholder="Enter your email" value={value} onChangeText={onChange} onBlur={onBlur} keyboardType="email-address" autoCapitalize="none" error={errors.email?.message} required />
                 )} />
                 <Controller control={control} name="phone" render={({ field: { onChange, value, onBlur } }) => (
-                  <CustomTextInput label="Phone Number" placeholder="Enter your phone" value={value} onChangeText={onChange} onBlur={onBlur} keyboardType="phone-pad" error={errors.phone?.message} />
+                  <CustomTextInput label="Phone Number" placeholder="Enter your phone" value={value} onChangeText={onChange} onBlur={onBlur} keyboardType="phone-pad" error={errors.phone?.message} required />
                 )} />
                 <Controller control={control} name="studentId" render={({ field: { onChange, value, onBlur } }) => (
-                  <CustomTextInput label="Student ID" placeholder="Enter your student ID" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.studentId?.message} />
+                  <CustomTextInput label="Student ID" placeholder="Enter your student ID" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.studentId?.message} required />
                 )} />
               </Section>
             )}
@@ -473,10 +523,10 @@ export default function ApplyFormScreen() {
             {currentStepKey === "academic" && (
               <Section>
                 <Controller control={control} name="institution" render={({ field: { onChange, value, onBlur } }) => (
-                  <CustomTextInput label="Institution Name" placeholder="Enter your institution" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.institution?.message} />
+                  <CustomTextInput label="Institution Name" placeholder="Enter your institution" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.institution?.message} required />
                 )} />
                 <Controller control={control} name="major" render={({ field: { onChange, value, onBlur } }) => (
-                  <CustomTextInput label="Major / Field of Study" placeholder="Enter your major" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.major?.message} />
+                  <CustomTextInput label="Major / Field of Study" placeholder="Enter your major" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.major?.message} required />
                 )} />
                 <Controller control={control} name="gradDate" render={({ field: { value } }) => (
                   <TouchableOpacity onPress={() => openPicker("gradDate", "date")}>
@@ -488,6 +538,7 @@ export default function ApplyFormScreen() {
                         editable={false}
                         error={errors.gradDate?.message}
                         onChangeText={() => { }}
+                        required
                       />
                     </View>
                   </TouchableOpacity>
@@ -501,6 +552,7 @@ export default function ApplyFormScreen() {
                     onBlur={onBlur}
                     keyboardType="numeric"
                     error={errors.currentYear?.message}
+                    required
                   />
                 )} />
                 <Controller control={control} name="gpa" render={({ field: { onChange, value, onBlur } }) => (
@@ -527,7 +579,7 @@ export default function ApplyFormScreen() {
                 )} />
 
                 <Controller control={control} name="statement" render={({ field: { onChange, value, onBlur } }) => (
-                  <CustomTextInput label="Personal Statement" placeholder="Why do you deserve this scholarship? (min 50 char)" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.statement?.message} inputStyle={{ minHeight: 100, textAlignVertical: "top" }} />
+                  <CustomTextInput label="Personal Statement" placeholder="Why do you deserve this scholarship? (min 50 char)" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.statement?.message} inputStyle={{ minHeight: 100, textAlignVertical: "top" }} required />
                 )} />
               </Section>
             )}
@@ -749,7 +801,10 @@ export default function ApplyFormScreen() {
                 <Controller control={control} name="agreed" render={({ field: { value, onChange } }) => (
                   <TouchableOpacity onPress={() => onChange(!value)} style={styles.declareRow}>
                     <Ionicons name={value ? "checkbox" : "square-outline"} size={22} color={value ? colors.primary : colors.textSecondary} />
-                    <Text style={[styles.declareText, { color: colors.text }]}>I confirm that all information provided is accurate and complete.</Text>
+                    <Text style={[styles.declareText, { color: colors.text }]}>
+                      I confirm that all information provided is accurate and complete.
+                      <Text style={{ color: '#EF4444' }}> *</Text>
+                    </Text>
                   </TouchableOpacity>
                 )} />
                 {errors.agreed?.message && <Text style={styles.errorTextInline}>{errors.agreed.message}</Text>}
@@ -762,9 +817,9 @@ export default function ApplyFormScreen() {
         <View style={[styles.footer, { paddingBottom: insets.bottom + 20 }]}>
           <View style={[styles.footerInner, { backgroundColor: isDark ? colors.card : "rgba(255,255,255,0.98)", borderColor: isDark ? colors.border : "rgba(0,0,0,0.06)" }]}>
             {stepIndex === 0 ? (
-              <Button title="Resume Later" onPress={() => router.back()} variant="secondary" style={styles.footerBtn} />
+              <Button title="Cancel" onPress={() => router.back()} variant="secondary" style={[styles.footerBtn, !isDark && { backgroundColor: "#FFF" }]} />
             ) : (
-              <Button title="Back" onPress={back} variant="secondary" style={styles.footerBtn} />
+              <Button title="Back" onPress={back} variant="secondary" style={[styles.footerBtn, !isDark && { backgroundColor: "#FFF" }]} />
             )}
             {stepIndex < STEPS.length - 1 ? (
               <Button title="Next" onPress={next} variant="primary" style={[styles.footerBtn, styles.footerPrimary]} />
@@ -784,6 +839,12 @@ export default function ApplyFormScreen() {
           onChange={handleDateChange}
         />
       )}
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onHide={() => setToast((prev) => ({ ...prev, visible: false }))}
+      />
     </View >
   );
 }

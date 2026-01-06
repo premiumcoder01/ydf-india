@@ -304,16 +304,19 @@ export default function SignUpScreen() {
                 <Ionicons name="logo-linkedin" size={20} color="#333" />
               </Button>
 
-              <Button
-                title=""
-                onPress={async () => {
-                  router.push("/(auth)/roles");
-                }}
-                variant="social"
-                style={styles.socialButton}
-              >
-                <Ionicons name="logo-apple" size={20} color="#333" />
-              </Button>
+              {Platform.OS === 'ios' && (
+                <Button
+                  title=""
+                  onPress={async () => {
+                    router.push("/(auth)/roles");
+                  }}
+                  variant="social"
+                  style={styles.socialButton}
+                  forceLight={true}
+                >
+                  <Ionicons name="logo-apple" size={20} color="#333" />
+                </Button>
+              )}
 
               <Button
                 title=""

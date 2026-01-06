@@ -437,17 +437,19 @@ export default function SignInScreen() {
                 <Ionicons name="logo-linkedin" size={20} color="#333" />
               </Button>
 
-              <Button
-                title=""
-                onPress={() => {
-                  Alert.alert("Coming Soon", "This feature will be available soon.");
-                }}
-                variant="social"
-                style={styles.socialButton}
-                forceLight={true}
-              >
-                <Ionicons name="logo-apple" size={20} color="#333" />
-              </Button>
+              {Platform.OS === 'ios' && (
+                <Button
+                  title=""
+                  onPress={() => {
+                    Alert.alert("Coming Soon", "This feature will be available soon.");
+                  }}
+                  variant="social"
+                  style={styles.socialButton}
+                  forceLight={true}
+                >
+                  <Ionicons name="logo-apple" size={20} color="#333" />
+                </Button>
+              )}
 
               {/* DigiLocker */}
               <Button

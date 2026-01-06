@@ -1375,3 +1375,104 @@ export const markAllNotificationsRead = async (token: string): Promise<ApiRespon
     return { success: false, error: error.message };
   }
 };
+
+/**
+ * Submit Scholarship Application API call
+ */
+export const submitApplication = async (
+  token: string,
+  data: {
+    scholarship_id: number | string;
+    application_text: string;
+    fullname?: string;
+    email?: string;
+    phone?: string;
+    student_id?: string;
+    institution?: string;
+    major?: string;
+    graduation_date?: string;
+    current_year?: string;
+    gpa?: string;
+    activities?: string;
+    financial_info?: string;
+    assessment_q1?: string;
+    assessment_q2?: string;
+    interview_mode?: string;
+    verification_time?: string;
+    documents?: any[]; 
+  }
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add required query parameters
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_submit_application");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    // Add data parameters
+    Object.keys(data).forEach(key => {
+      // @ts-ignore
+      const val = data[key];
+      if (val !== undefined && val !== null) {
+        if (typeof val === 'object') {
+             urlObj.searchParams.append(key, JSON.stringify(val));
+        } else {
+             urlObj.searchParams.append(key, String(val));
+        }
+      }
+    });
+    
+    const finalUrl = urlObj.toString();
+    console.log("Submit Application URL:", finalUrl);
+    
+    // Make POST request
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const responseText = await response.text();
+    let resData: any = {};
+
+    try {
+      resData = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    if (response.ok) {
+        if (resData.exception) {
+            return {
+                success: false,
+                error: resData.message || resData.exception,
+                message: resData.message || "Submission failed"
+            };
+        }
+      return {
+        success: true,
+        data: resData,
+        message: resData.message || "Application submitted successfully",
+      };
+    } else {
+      return {
+        success: false,
+        error: resData.error || resData.message || "Something went wrong",
+        message: resData.message || "Failed to submit application",
+      };
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || "Network error",
+      message: "Failed to connect to server",
+    };
+  }
+};

@@ -24,6 +24,7 @@ interface CustomTextInputProps {
   editable?: boolean;
   multiline?: boolean;
   forceLight?: boolean;
+  required?: boolean;
 }
 
 export default function CustomTextInput({
@@ -47,6 +48,7 @@ export default function CustomTextInput({
   editable = true,
   multiline = false,
   forceLight = false,
+  required = false,
 }: CustomTextInputProps) {
   const { isDark: globalIsDark, colors: themeColors } = useTheme();
 
@@ -114,7 +116,12 @@ export default function CustomTextInput({
 
   return (
     <View style={[styles.inputGroup, mainStyle]}>
-      {label && <Text style={[styles.label, { color: isDark ? colors.textSecondary : '#333' }]}>{label}</Text>}
+      {label && (
+        <Text style={[styles.label, { color: isDark ? colors.textSecondary : '#333' }]}>
+          {label}
+          {required && <Text style={{ color: '#EF4444' }}> *</Text>}
+        </Text>
+      )}
       <View style={getContainerStyle()}>
         {showPasswordToggle && togglePosition === 'left' && renderToggle()}
         <RNTextInput
