@@ -387,8 +387,18 @@ export default function MobilizerApplyFormScreen() {
 
             <AppHeader title="Scholarship Application" onBack={() => router.back()} />
 
-            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-                <ScrollView ref={scrollRef} style={styles.scrollView} contentContainerStyle={{ paddingBottom: 120, paddingTop: 20 }}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : "padding"}
+                keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
+                style={{ flex: 1 }}
+            >
+                <ScrollView
+                    ref={scrollRef}
+                    style={styles.scrollView}
+                    contentContainerStyle={{ paddingBottom: 150, paddingTop: 20 }}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
                     <Stepper />
 
                     <View style={styles.formContainer}>

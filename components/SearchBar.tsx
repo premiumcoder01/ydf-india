@@ -21,21 +21,22 @@ export default function SearchBar({ value, onChangeText, onClear, placeholder = 
           backgroundColor: isDark ? colors.card : "#f8f8f8",
           borderRadius: 12,
           paddingHorizontal: 16,
+          paddingVertical: 12,
           borderWidth: 1,
-          borderColor: isDark ? colors.border : "#f0f0f0",
+          borderColor: isDark ? colors.border : "#e0e0e0",
         }}
       >
         <Ionicons name="search" size={20} color={isDark ? colors.textSecondary : "#666"} />
         <TextInput
-          style={{ flex: 1, marginLeft: 12, fontSize: 16, color: isDark ? colors.textSecondary : "#333" }}
+          style={{ flex: 1, marginLeft: 12, fontSize: 16, color: isDark ? colors.text : "#000" }}
           placeholder={placeholder}
-          placeholderTextColor={isDark ? colors.textSecondary : "#999"}
+          placeholderTextColor={isDark ? colors.textSecondary : "#666"}
           value={value}
           onChangeText={onChangeText}
         />
         {value.length > 0 && (
           <TouchableOpacity onPress={onClear} style={{ padding: 4 }}>
-            <Ionicons name="close-circle" size={20} color={isDark ? colors.textSecondary : "#999"} />
+            <Ionicons name="close-circle" size={20} color={isDark ? colors.textSecondary : "#666"} />
           </TouchableOpacity>
         )}
       </View>

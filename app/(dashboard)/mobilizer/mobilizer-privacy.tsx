@@ -81,6 +81,7 @@ export default function MobilizerPrivacyScreen() {
                         value={currentPassword}
                         onChangeText={setCurrentPassword}
                         secureTextEntry
+                        showPasswordToggle
                         placeholder="Enter current password"
                     />
                     <CustomTextInput
@@ -88,6 +89,7 @@ export default function MobilizerPrivacyScreen() {
                         value={newPassword}
                         onChangeText={setNewPassword}
                         secureTextEntry
+                        showPasswordToggle
                         placeholder="Enter new password"
                     />
                     <CustomTextInput
@@ -95,6 +97,7 @@ export default function MobilizerPrivacyScreen() {
                         value={confirmPassword}
                         onChangeText={setConfirmPassword}
                         secureTextEntry
+                        showPasswordToggle
                         placeholder="Confirm new password"
                     />
                     <View style={{ marginTop: 16 }}>

@@ -2,7 +2,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ReviewerHeader } from "../../../components";
 
@@ -13,27 +13,35 @@ type DocItem = {
   status: "pending" | "verified" | "rejected";
   comment?: string;
   scheme: string;
+  studentName: string;
 };
 
 export default function ReviewerDocumentsScreen() {
   const inset = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const [selectedStudent, setSelectedStudent] = useState("All");
   const [selectedScheme, setSelectedScheme] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showFilterModal, setShowFilterModal] = useState(false);
 
   const SCHEMES = ["All", "Merit Excellence Scholarship", "Financial Aid Program", "General Scholarship", "Freshers Grant", "State Quota Scholarship"];
   const [documents, setDocuments] = useState<DocItem[]>([
-    { id: "1", title: "College ID", fileName: "college_id.pdf", status: "verified", comment: "", scheme: "Merit Excellence Scholarship" },
-    { id: "2", title: "Marksheet (Sem 1)", fileName: "marksheet_sem1.pdf", status: "verified", comment: "", scheme: "Merit Excellence Scholarship" },
-    { id: "3", title: "Marksheet (Sem 2)", fileName: "marksheet_sem2.pdf", status: "pending", comment: "", scheme: "Merit Excellence Scholarship" },
-    { id: "4", title: "Income Certificate", fileName: "income_certificate_2024.jpg", status: "rejected", comment: "Image is too blurry, please re-upload", scheme: "Financial Aid Program" },
-    { id: "5", title: "Aadhaar Card", fileName: "aadhaar_front_back.pdf", status: "pending", comment: "", scheme: "General Scholarship" },
-    { id: "6", title: "Bank Passbook", fileName: "bank_details.jpg", status: "pending", comment: "", scheme: "General Scholarship" },
-    { id: "7", title: "Admission Letter", fileName: "admission_confirmation.pdf", status: "verified", comment: "", scheme: "Freshers Grant" },
-    { id: "8", title: "Bonafide Certificate", fileName: "bonafide_2024.pdf", status: "pending", comment: "", scheme: "Freshers Grant" },
-    { id: "9", title: "Domicile Certificate", fileName: "domicile_gujarat.pdf", status: "pending", comment: "", scheme: "State Quota Scholarship" },
-    { id: "10", title: "Recommendation Letter", fileName: "recommendation_principal.pdf", status: "pending", comment: "", scheme: "Merit Excellence Scholarship" },
+    { id: "1", title: "College ID", fileName: "college_id.pdf", status: "verified", comment: "", scheme: "Merit Excellence Scholarship", studentName: "Rahul Kumar" },
+    { id: "2", title: "Marksheet (Sem 1)", fileName: "marksheet_sem1.pdf", status: "verified", comment: "", scheme: "Merit Excellence Scholarship", studentName: "Rahul Kumar" },
+    { id: "3", title: "Marksheet (Sem 2)", fileName: "marksheet_sem2.pdf", status: "pending", comment: "", scheme: "Merit Excellence Scholarship", studentName: "Rahul Kumar" },
+    { id: "4", title: "Income Certificate", fileName: "income_certificate_2024.jpg", status: "rejected", comment: "Image is too blurry, please re-upload", scheme: "Financial Aid Program", studentName: "Priya Singh" },
+    { id: "5", title: "Aadhaar Card", fileName: "aadhaar_front_back.pdf", status: "pending", comment: "", scheme: "General Scholarship", studentName: "Amit Patel" },
+    { id: "6", title: "Bank Passbook", fileName: "bank_details.jpg", status: "pending", comment: "", scheme: "General Scholarship", studentName: "Amit Patel" },
+    { id: "7", title: "Admission Letter", fileName: "admission_confirmation.pdf", status: "verified", comment: "", scheme: "Freshers Grant", studentName: "Sneha Gupta" },
+    { id: "8", title: "Bonafide Certificate", fileName: "bonafide_2024.pdf", status: "pending", comment: "", scheme: "Freshers Grant", studentName: "Sneha Gupta" },
+    { id: "9", title: "Domicile Certificate", fileName: "domicile_gujarat.pdf", status: "pending", comment: "", scheme: "State Quota Scholarship", studentName: "Vikram Malhotra" },
+    { id: "10", title: "Recommendation Letter", fileName: "recommendation_principal.pdf", status: "pending", comment: "", scheme: "Merit Excellence Scholarship", studentName: "Rahul Kumar" },
   ]);
+
+  const students = useMemo(() => {
+    const names = Array.from(new Set(documents.map(d => d.studentName)));
+    return ["All", ...names];
+  }, [documents]);
 
   const filteredDocuments = useMemo(() => {
     let docs = documents;
@@ -42,17 +50,22 @@ export default function ReviewerDocumentsScreen() {
       docs = docs.filter(d => d.scheme === selectedScheme);
     }
 
+    if (selectedStudent !== "All") {
+      docs = docs.filter(d => d.studentName === selectedStudent);
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       docs = docs.filter(d =>
         d.title.toLowerCase().includes(q) ||
         d.fileName.toLowerCase().includes(q) ||
-        d.scheme.toLowerCase().includes(q)
+        d.scheme.toLowerCase().includes(q) ||
+        d.studentName.toLowerCase().includes(q)
       );
     }
 
     return docs;
-  }, [documents, selectedScheme, searchQuery]);
+  }, [documents, selectedScheme, selectedStudent, searchQuery]);
 
   const stats = useMemo(() => {
     const verified = filteredDocuments.filter((d) => d.status === "verified").length;
@@ -129,51 +142,65 @@ export default function ReviewerDocumentsScreen() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
-          {/* Scheme Filter */}
-          <View style={{ marginBottom: 12 }}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-              {SCHEMES.map((scheme) => (
-                <TouchableOpacity
-                  key={scheme}
-                  onPress={() => setSelectedScheme(scheme)}
-                  style={{
-                    paddingHorizontal: 16,
-                    paddingVertical: 8,
-                    borderRadius: 20,
-                    backgroundColor: selectedScheme === scheme ? colors.primary : (isDark ? colors.card : "#fff"),
-                    borderWidth: 1,
-                    borderColor: selectedScheme === scheme ? colors.primary : colors.border,
-                  }}
-                >
-                  <Text style={{
-                    fontSize: 13,
-                    fontWeight: "600",
-                    color: selectedScheme === scheme ? "#fff" : colors.text
-                  }}>
-                    {scheme}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+          {/* Search and Filter Row */}
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+            <View style={{ flex: 1 }}>
+              <TextInput
+                placeholder="Search documents..."
+                style={{
+                  backgroundColor: isDark ? colors.card : "#fff",
+                  padding: 12,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  color: colors.text
+                }}
+                placeholderTextColor={colors.textSecondary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+            </View>
+            <TouchableOpacity
+              onPress={() => setShowFilterModal(true)}
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 12,
+                backgroundColor: isDark ? colors.card : "#fff",
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: colors.border
+              }}
+            >
+              <Ionicons name="filter" size={24} color={isDark ? colors.text : "#333"} />
+              {(selectedStudent !== "All" || selectedScheme !== "All") && (
+                <View style={{ position: 'absolute', top: -2, right: -2, width: 10, height: 10, borderRadius: 5, backgroundColor: '#EF4444' }} />
+              )}
+            </TouchableOpacity>
           </View>
 
-          {/* Applicant Filter */}
-          <View style={{ marginBottom: 16 }}>
-            <TextInput
-              placeholder="Search by document name or scholarship..."
-              style={{
-                backgroundColor: isDark ? colors.card : "#fff",
-                padding: 12,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: colors.border,
-                color: colors.text
-              }}
-              placeholderTextColor={colors.textSecondary}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-          </View>
+          {/* Active Filters display */}
+          {(selectedStudent !== "All" || selectedScheme !== "All") && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 16 }}>
+              {selectedStudent !== "All" && (
+                <View style={[styles.activeFilterChip, { backgroundColor: isDark ? colors.card : "#E0F2FE" }]}>
+                  <Text style={{ fontSize: 12, color: isDark ? colors.text : "#0369A1" }}>{selectedStudent}</Text>
+                  <TouchableOpacity onPress={() => setSelectedStudent("All")}>
+                    <Ionicons name="close-circle" size={16} color={isDark ? colors.text : "#0369A1"} />
+                  </TouchableOpacity>
+                </View>
+              )}
+              {selectedScheme !== "All" && (
+                <View style={[styles.activeFilterChip, { backgroundColor: isDark ? colors.card : "#F0FDF4" }]}>
+                  <Text style={{ fontSize: 12, color: isDark ? colors.text : "#15803D" }}>{selectedScheme}</Text>
+                  <TouchableOpacity onPress={() => setSelectedScheme("All")}>
+                    <Ionicons name="close-circle" size={16} color={isDark ? colors.text : "#15803D"} />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </ScrollView>
+          )}
 
           {filteredDocuments.map((doc, index) => (
             <View key={doc.id} style={[styles.docCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -189,6 +216,10 @@ export default function ReviewerDocumentsScreen() {
                   </View>
                   <View style={styles.docText}>
                     <Text style={[styles.docTitle, { color: colors.text }]}>{doc.title}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                      <Ionicons name="person-outline" size={12} color={colors.textSecondary} style={{ marginRight: 4 }} />
+                      <Text style={{ fontSize: 13, color: colors.textSecondary }}>{doc.studentName}</Text>
+                    </View>
                     <Text style={[styles.fileName, { color: colors.textSecondary, marginBottom: 6 }]}>{doc.fileName}</Text>
 
                     <View style={[styles.schemeTag, { backgroundColor: isDark ? "rgba(33, 150, 243, 0.15)" : "#E3F2FD" }]}>
@@ -351,9 +382,123 @@ export default function ReviewerDocumentsScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      <FilterModalContent
+        visible={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        students={students}
+        schemes={SCHEMES}
+        selectedStudent={selectedStudent}
+        setSelectedStudent={setSelectedStudent}
+        selectedScheme={selectedScheme}
+        setSelectedScheme={setSelectedScheme}
+        isDark={isDark}
+        colors={colors}
+      />
     </View>
   );
 }
+
+// Separate component for Filter Modal Content to keep main component clean
+const FilterModalContent = ({
+  visible,
+  onClose,
+  students,
+  schemes,
+  selectedStudent,
+  setSelectedStudent,
+  selectedScheme,
+  setSelectedScheme,
+  isDark,
+  colors
+}: any) => {
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, { backgroundColor: isDark ? '#1e1e1e' : '#fff' }]}>
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Filters</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalBody}>
+            {/* Student Filter Section */}
+            <View style={styles.filterSection}>
+              <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>Student</Text>
+              <View style={styles.chipContainer}>
+                {students.map((student: string) => (
+                  <TouchableOpacity
+                    key={student}
+                    onPress={() => setSelectedStudent(student)}
+                    style={[
+                      styles.filterChip,
+                      selectedStudent === student
+                        ? { backgroundColor: colors.primary, borderColor: colors.primary }
+                        : { backgroundColor: isDark ? colors.card : '#F3F4F6', borderColor: isDark ? colors.border : '#E5E7EB' }
+                    ]}
+                  >
+                    <Text style={{
+                      color: selectedStudent === student ? '#fff' : colors.text,
+                      fontSize: 13,
+                      fontWeight: '500'
+                    }}>{student}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Scheme Filter Section */}
+            <View style={styles.filterSection}>
+              <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>Scholarship Scheme</Text>
+              <View style={styles.chipContainer}>
+                {schemes.map((scheme: string) => (
+                  <TouchableOpacity
+                    key={scheme}
+                    onPress={() => setSelectedScheme(scheme)}
+                    style={[
+                      styles.filterChip,
+                      selectedScheme === scheme
+                        ? { backgroundColor: colors.primary, borderColor: colors.primary }
+                        : { backgroundColor: isDark ? colors.card : '#F3F4F6', borderColor: isDark ? colors.border : '#E5E7EB' }
+                    ]}
+                  >
+                    <Text style={{
+                      color: selectedScheme === scheme ? '#fff' : colors.text,
+                      fontSize: 13,
+                      fontWeight: '500'
+                    }}>{scheme}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={{ height: 40 }} />
+          </ScrollView>
+
+          <View style={[styles.modalFooter, { borderTopColor: colors.border }]}>
+            <TouchableOpacity
+              style={[styles.resetButton, { borderColor: colors.border }]}
+              onPress={() => {
+                setSelectedStudent("All");
+                setSelectedScheme("All");
+              }}
+            >
+              <Text style={{ color: colors.text }}>Reset</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.applyButton, { backgroundColor: colors.primary }]}
+              onPress={onClose}
+            >
+              <Text style={{ color: '#fff', fontWeight: '700' }}>Apply Filters</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 const getIconBgColor = (status: string, isDark: boolean = false) => {
   const opacity = isDark ? 0.2 : 1;
@@ -613,4 +758,85 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "600",
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    height: '80%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  modalBody: {
+    padding: 20,
+  },
+  filterSection: {
+    marginBottom: 24,
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  chipContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  modalFooter: {
+    padding: 20,
+    paddingBottom: 40,
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+  },
+  resetButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  applyButton: {
+    flex: 2,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  }
 });

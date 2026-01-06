@@ -7,11 +7,11 @@ import { FlatList, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "r
 
 // Mock Applications Data
 const MOCK_APPLICATIONS = [
-    { id: 101, studentName: "Rahul Kumar", scholarshipTitle: "National Merit Scholarship", status: "submitted", date: "2024-01-15", amount: "₹50,000" },
-    { id: 102, studentName: "Priya Singh", scholarshipTitle: "Women in STEM Grant", status: "approved", date: "2023-12-10", amount: "₹75,000" },
-    { id: 103, studentName: "Rahul Kumar", scholarshipTitle: "State Govt Aid", status: "need_action", date: "2024-01-20", amount: "₹25,000" },
-    { id: 104, studentName: "Amit Patel", scholarshipTitle: "Engineering Excellence Award", status: "pending", date: "2024-02-01", amount: "₹1,00,000" },
-    { id: 105, studentName: "Sneha Gupta", scholarshipTitle: "National Merit Scholarship", status: "rejected", date: "2023-11-05", amount: "₹50,000" },
+    { id: 101, studentName: "Rahul Kumar", studentId: "1", scholarshipTitle: "National Merit Scholarship", status: "submitted", date: "2024-01-15", amount: "₹50,000" },
+    { id: 102, studentName: "Priya Singh", studentId: "2", scholarshipTitle: "Women in STEM Grant", status: "approved", date: "2023-12-10", amount: "₹75,000" },
+    { id: 103, studentName: "Rahul Kumar", studentId: "1", scholarshipTitle: "State Govt Aid", status: "need_action", date: "2024-01-20", amount: "₹25,000" },
+    { id: 104, studentName: "Amit Patel", studentId: "3", scholarshipTitle: "Engineering Excellence Award", status: "pending", date: "2024-02-01", amount: "₹1,00,000" },
+    { id: 105, studentName: "Sneha Gupta", studentId: "4", scholarshipTitle: "National Merit Scholarship", status: "rejected", rejectionReason: "Documents incomplete", date: "2023-11-05", amount: "₹50,000" },
 ];
 
 export default function MobilizerApplicationsScreen() {
@@ -97,7 +97,10 @@ export default function MobilizerApplicationsScreen() {
                     keyExtractor={(item) => String(item.id)}
                     contentContainerStyle={{ paddingVertical: 16 }}
                     renderItem={({ item }) => (
-                        <TouchableOpacity style={[styles.card, { backgroundColor: isDark ? colors.card : "#fff" }]}>
+                        <TouchableOpacity
+                            style={[styles.card, { backgroundColor: isDark ? colors.card : "#fff" }]}
+                            onPress={() => router.push({ pathname: "/(dashboard)/mobilizer/mobilizer-student-profile", params: { studentId: item.studentId } })}
+                        >
                             <View style={styles.cardHeader}>
                                 <View style={{ flex: 1 }}>
                                     <Text style={[styles.title, { color: colors.text }]}>{item.scholarshipTitle}</Text>
@@ -123,6 +126,16 @@ export default function MobilizerApplicationsScreen() {
                                     <Text style={[styles.detailValue, { color: colors.text }]}>{item.amount}</Text>
                                 </View>
                             </View>
+
+                            {/* Rejection Reason Display */}
+                            {item.status === "rejected" && (item as any).rejectionReason && (
+                                <View style={[styles.rejectionBox, { backgroundColor: isDark ? 'rgba(244, 67, 54, 0.1)' : '#FFEBEE' }]}>
+                                    <Ionicons name="alert-circle-outline" size={16} color="#D32F2F" />
+                                    <Text style={styles.rejectionText}>
+                                        Reason: <Text style={{ fontWeight: '600' }}>{(item as any).rejectionReason}</Text>
+                                    </Text>
+                                </View>
+                            )}
                         </TouchableOpacity>
                     )}
                     ListEmptyComponent={
@@ -161,4 +174,17 @@ const styles = StyleSheet.create({
     detailsRow: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, paddingTop: 12 },
     detailLabel: { fontSize: 11, color: '#999', marginBottom: 2, textTransform: 'uppercase' },
     detailValue: { fontSize: 14, fontWeight: '600' },
+    rejectionBox: {
+        marginTop: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 10,
+        borderRadius: 8,
+        gap: 6
+    },
+    rejectionText: {
+        fontSize: 12,
+        color: '#D32F2F',
+        flex: 1
+    }
 });

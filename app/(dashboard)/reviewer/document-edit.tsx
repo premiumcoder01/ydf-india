@@ -44,11 +44,11 @@ export default function ReviewerDocumentEditScreen() {
             />
 
             <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : undefined}
+                behavior={Platform.OS === "ios" ? "padding" : "padding"}
                 style={{ flex: 1 }}
             >
                 <ScrollView
-                    contentContainerStyle={[styles.content, { paddingBottom: inset.bottom + 80 }]}
+                    contentContainerStyle={[styles.content, { paddingBottom: 180 }]}
                     showsVerticalScrollIndicator={false}
                 >
                     {/* Document Preview Snippet */}
