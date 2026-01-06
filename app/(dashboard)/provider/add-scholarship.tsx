@@ -42,6 +42,8 @@ const DOCUMENT_OPTIONS: Record<string, string[]> = {
   "Bank Account Details": ["Bank Passbook", "Cancelled Cheque", "Bank Statement", "Other"],
   "Disbursement Proof": ["Payment Receipt", "Transaction Screenshot", "Other"],
   "Caste Certificate": ["Caste Certificate", "Tribe Certificate", "Other"],
+  "Special Category Proof": ["Disability Certificate", "Parent Death Certificate", "Legal Guardian Order", "Affidavit", "Other"],
+  "Other Documents": ["Self Declaration", "Recommendation Letter", "Gap Certificate", "Other"],
 };
 
 // --- Types ---
@@ -1031,6 +1033,8 @@ export default function ProviderAddScholarshipScreen() {
             "Bank Account Details",
             "Disbursement Proof",
             "Caste Certificate",
+            "Special Category Proof",
+            "Other Documents",
           ].map((docCategory) => {
             const selectedDoc = formData.requiredDocuments.find(d => d.category === docCategory);
             const isSelected = !!selectedDoc;
