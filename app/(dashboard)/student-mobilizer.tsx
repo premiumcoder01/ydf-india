@@ -507,13 +507,13 @@ const styles = StyleSheet.create({
   statsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     marginBottom: 24,
     gap: 12,
   },
   statCard: {
-    minWidth: "45%",
-    flex: 1,
+    width: "48%",
     borderRadius: 16,
     padding: 16,
     alignItems: "center",
