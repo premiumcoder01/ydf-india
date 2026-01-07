@@ -10,10 +10,10 @@ type Props = {
   onClear?: () => void;
 };
 
-export default function SearchBar({ value, onChangeText, onClear, placeholder = "Search..." }: Props) {
+export default function SearchBar({ value, onChangeText, onClear, placeholder = "Search...", style }: Props & { style?: any }) {
   const { isDark, colors } = useTheme();
   return (
-    <View style={{ paddingHorizontal: 20, paddingVertical: 16, backgroundColor: isDark ? colors.background : "#fff", marginBottom: 10 }}>
+    <View style={[{ paddingHorizontal: 20, paddingVertical: 16, backgroundColor: isDark ? colors.background : "#fff", marginBottom: 10 }, style]}>
       <View
         style={{
           flexDirection: "row",
@@ -28,11 +28,12 @@ export default function SearchBar({ value, onChangeText, onClear, placeholder = 
       >
         <Ionicons name="search" size={20} color={isDark ? colors.textSecondary : "#666"} />
         <TextInput
-          style={{ flex: 1, marginLeft: 12, fontSize: 16, color: isDark ? colors.text : "#000" }}
+          style={{ flex: 1, marginLeft: 12, fontSize: 16, color: isDark ? colors.text : "#000", minHeight: 24 }}
           placeholder={placeholder}
           placeholderTextColor={isDark ? colors.textSecondary : "#666"}
           value={value}
           onChangeText={onChangeText}
+          multiline={false}
         />
         {value.length > 0 && (
           <TouchableOpacity onPress={onClear} style={{ padding: 4 }}>

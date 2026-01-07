@@ -288,6 +288,38 @@ export default function MobilizerScholarshipDetailsScreen() {
             />
             {/* App Header Replacement */}
             <AppHeader title="Scholarship Details" onBack={() => router.back()} />
+            {/* Title and Category Section */}
+            <View style={styles.titleSection}>
+                <View style={styles.titleHeader}>
+                    <Text style={[styles.mainTitle, { color: colors.text }]}>{scholarship.title}</Text>
+                    <TouchableOpacity
+                        onPress={handleBookmark}
+                        disabled={bookmarking}
+                        activeOpacity={0.7}
+                        style={[styles.bookmarkButton, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5", borderRadius: 12 }]}
+                    >
+                        <Ionicons
+                            name={scholarship?.bookmarked || saved ? "bookmark" : "bookmark-outline"}
+                            size={24}
+                            color={scholarship?.bookmarked || saved ? "#FFB400" : (isDark ? colors.textSecondary : "#999")}
+                        />
+                    </TouchableOpacity>
+                </View>
+
+                <View style={styles.categoryRow}>
+                    <View style={[styles.categoryBadgeLarge, { backgroundColor: `${categoryColor}15` }]}>
+                        <Ionicons name="location" size={16} color={categoryColor} />
+                        <Text style={[styles.categoryTextLarge, { color: categoryColor }]}>
+                            {scholarship.category || "General"}
+                        </Text>
+                    </View>
+                    {scholarship.shortname && (
+                        <View style={[styles.shortnameBadge, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f0f0f0" }]}>
+                            <Text style={[styles.shortnameText, { color: colors.textSecondary }]}>{scholarship.shortname}</Text>
+                        </View>
+                    )}
+                </View>
+            </View>
             <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
 
                 {/* Hero Image Section */}
@@ -329,38 +361,7 @@ export default function MobilizerScholarshipDetailsScreen() {
                     </View>
                 )}
 
-                {/* Title and Category Section */}
-                <View style={styles.titleSection}>
-                    <View style={styles.titleHeader}>
-                        <Text style={[styles.mainTitle, { color: colors.text }]}>{scholarship.title}</Text>
-                        <TouchableOpacity
-                            onPress={handleBookmark}
-                            disabled={bookmarking}
-                            activeOpacity={0.7}
-                            style={[styles.bookmarkButton, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5", borderRadius: 12 }]}
-                        >
-                            <Ionicons
-                                name={scholarship?.bookmarked || saved ? "bookmark" : "bookmark-outline"}
-                                size={24}
-                                color={scholarship?.bookmarked || saved ? "#FFB400" : (isDark ? colors.textSecondary : "#999")}
-                            />
-                        </TouchableOpacity>
-                    </View>
 
-                    <View style={styles.categoryRow}>
-                        <View style={[styles.categoryBadgeLarge, { backgroundColor: `${categoryColor}15` }]}>
-                            <Ionicons name="location" size={16} color={categoryColor} />
-                            <Text style={[styles.categoryTextLarge, { color: categoryColor }]}>
-                                {scholarship.category || "General"}
-                            </Text>
-                        </View>
-                        {scholarship.shortname && (
-                            <View style={[styles.shortnameBadge, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f0f0f0" }]}>
-                                <Text style={[styles.shortnameText, { color: colors.textSecondary }]}>{scholarship.shortname}</Text>
-                            </View>
-                        )}
-                    </View>
-                </View>
 
                 {/* Key Information Cards */}
                 <View style={styles.infoCardsContainer}>
@@ -887,19 +888,21 @@ const styles = StyleSheet.create({
     actionsRow: {
         flexDirection: "row",
         gap: 12,
+        flexWrap: "wrap",
     },
     saveButton: {
+        flex: 1,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
         gap: 8,
         paddingVertical: 16,
-        paddingHorizontal: 20,
+        paddingHorizontal: 12,
         borderRadius: 14,
         backgroundColor: "#f8f8f8",
         borderWidth: 2,
         borderColor: "#e0e0e0",
-        minWidth: 100,
+        minWidth: 110,
     },
     saveButtonActive: {
         backgroundColor: "#FFF9E6",
@@ -909,6 +912,7 @@ const styles = StyleSheet.create({
         fontSize: 15,
         fontWeight: "700",
         color: "#666",
+        textAlign: "center",
     },
     saveButtonTextActive: {
         color: "#FFB400",
@@ -917,18 +921,20 @@ const styles = StyleSheet.create({
         opacity: 0.6,
     },
     applyButton: {
-        flex: 1,
+        flex: 2,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
         gap: 8,
         paddingVertical: 16,
+        paddingHorizontal: 16,
         borderRadius: 14,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.2,
         shadowRadius: 8,
         elevation: 4,
+        minWidth: 180,
     },
     applyButtonDisabled: {
         opacity: 0.6,
@@ -937,6 +943,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: "700",
         color: "#fff",
+        textAlign: "center",
     },
     loadingContainer: {
         flex: 1,

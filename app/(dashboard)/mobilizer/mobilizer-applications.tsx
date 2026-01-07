@@ -63,6 +63,7 @@ export default function MobilizerApplicationsScreen() {
                     onChangeText={setSearchQuery}
                     placeholder="Search by scholarship or student..."
                     onClear={() => setSearchQuery("")}
+                    style={{ paddingHorizontal: 0 }}
                 />
 
                 {/* Student Filter Chips */}
@@ -155,7 +156,7 @@ import { ScrollView } from "react-native";
 const styles = StyleSheet.create({
     container: { flex: 1 },
     content: { flex: 1, paddingHorizontal: 16 },
-    filterRow: { marginVertical: 12, height: 36 },
+    filterRow: { marginVertical: 12 },
     chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 8 },
     card: {
         borderRadius: 12,

@@ -336,6 +336,8 @@ export default function MobilizerApplyFormScreen() {
             stepStrokeFinishedColor: "#10B981",
             stepStrokeUnFinishedColor: isDark ? "rgba(255,255,255,0.2)" : "#D1D5DB",
             currentStepLabelColor: isDark ? colors.primary : "#111827",
+            labelColor: isDark ? "#ffffff" : "#999999",
+            labelFinishedColor: isDark ? "#ffffff" : "#333333",
         };
 
         return (
@@ -395,7 +397,7 @@ export default function MobilizerApplyFormScreen() {
                 <ScrollView
                     ref={scrollRef}
                     style={styles.scrollView}
-                    contentContainerStyle={{ paddingBottom: 150, paddingTop: 20 }}
+                    contentContainerStyle={{ paddingBottom: 150 }}
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                 >
@@ -499,42 +501,82 @@ export default function MobilizerApplyFormScreen() {
                         {currentStepKey === "documents" && (
                             <Section>
                                 <View style={{ gap: 16 }}>
-                                    {scholarship && scholarship.documents ? (
-                                        <View>
-                                            <Text style={{ fontSize: 14, fontWeight: '700', marginBottom: 12, color: colors.text }}>Required Documents</Text>
-                                            {scholarship.documents.map((reqDoc: any, index: number) => {
-                                                const uploadedDoc = documents.find(d => d.documentId === (reqDoc.id || reqDoc.shortname));
-                                                return (
-                                                    <View key={reqDoc.id || index} style={[styles.docReqItem, { borderColor: isDark ? colors.border : '#e5e5e5' }]}>
-                                                        <View style={{ flex: 1 }}>
-                                                            <Text style={[styles.reqDocLabel, { color: colors.text }]}>{reqDoc.label || reqDoc.name} {reqDoc.required !== false && <Text style={{ color: 'red' }}>*</Text>}</Text>
-                                                            {uploadedDoc ? (
-                                                                <Text style={styles.uploadedText}>{uploadedDoc.name}</Text>
-                                                            ) : (
-                                                                <Text style={{ fontSize: 12, color: colors.textSecondary }}>Not uploaded</Text>
-                                                            )}
-                                                        </View>
-                                                        <TouchableOpacity onPress={() => onPickSpecificDocument(reqDoc)} style={[styles.uploadSmallBtn, { backgroundColor: colors.primary }]}>
-                                                            <Ionicons name="cloud-upload-outline" size={16} color='#fff' />
-                                                        </TouchableOpacity>
-                                                    </View>
-                                                )
-                                            })}
-                                        </View>
-                                    ) : (
-                                        <Button variant="secondary" onPress={onPickGlobalDocuments}>
-                                            <Text style={{ fontWeight: "700", color: isDark ? colors.text : "#333" }}>Pick Documents</Text>
-                                        </Button>
-                                    )}
+                                    {/* Dynamic Requirements */}
+                                    {(() => {
+                                        const visibleRequirements = scholarship?.documents?.filter((reqDoc: any) =>
+                                            !(reqDoc.name?.toLowerCase().includes("structured feedback") || reqDoc.label?.toLowerCase().includes("structured feedback"))
+                                        ) || [];
 
-                                    {documents.map((doc, idx) => (
-                                        <View key={idx} style={[styles.docItem, { backgroundColor: isDark ? colors.surface : "#fff" }]}>
-                                            <Text numberOfLines={1} style={[styles.docName, { color: colors.text }]}>{doc.name}</Text>
-                                            <TouchableOpacity onPress={() => removeDocument(idx)}>
-                                                <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                                            </TouchableOpacity>
-                                        </View>
-                                    ))}
+                                        if (visibleRequirements.length > 0) {
+                                            return (
+                                                <View>
+                                                    <Text style={{ fontSize: 14, fontWeight: '700', marginBottom: 12, color: colors.text }}>Required Documents</Text>
+                                                    {visibleRequirements.map((reqDoc: any, index: number) => {
+                                                        const uploadedDoc = documents.find(d => d.documentId === (reqDoc.id || reqDoc.shortname));
+                                                        return (
+                                                            <View key={reqDoc.id || index} style={[styles.docReqItem, { borderColor: isDark ? colors.border : '#e5e5e5' }]}>
+                                                                <View style={{ flex: 1 }}>
+                                                                    <Text style={[styles.reqDocLabel, { color: colors.text }]}>
+                                                                        {reqDoc.label || reqDoc.name}
+                                                                        {reqDoc.required !== false && <Text style={{ color: 'red' }}> *</Text>}
+                                                                    </Text>
+                                                                    {uploadedDoc ? (
+                                                                        <View style={styles.uploadedBadge}>
+                                                                            <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
+                                                                            <Text numberOfLines={1} style={styles.uploadedText}>{uploadedDoc.name}</Text>
+                                                                        </View>
+                                                                    ) : (
+                                                                        <Text style={{ fontSize: 12, color: colors.textSecondary }}>Not uploaded yet</Text>
+                                                                    )}
+                                                                </View>
+                                                                <TouchableOpacity
+                                                                    onPress={() => onPickSpecificDocument(reqDoc)}
+                                                                    style={[styles.uploadSmallBtn, { backgroundColor: uploadedDoc ? (isDark ? '#333' : '#f0fdf4') : colors.primary }]}
+                                                                >
+                                                                    <Ionicons name={uploadedDoc ? "refresh" : "cloud-upload-outline"} size={16} color={uploadedDoc ? colors.text : '#fff'} />
+                                                                    <Text style={{ color: uploadedDoc ? colors.text : '#fff', fontSize: 12, fontWeight: '600' }}>
+                                                                        {uploadedDoc ? "Change" : "Upload"}
+                                                                    </Text>
+                                                                </TouchableOpacity>
+                                                            </View>
+                                                        );
+                                                    })}
+                                                </View>
+                                            );
+                                        } else {
+                                            return (
+                                                <Button variant="secondary" onPress={onPickGlobalDocuments}>
+                                                    <Text style={{ fontWeight: "700", color: isDark ? colors.text : "#333" }}>Pick Documents</Text>
+                                                </Button>
+                                            );
+                                        }
+                                    })()}
+
+                                    {/* General / Extra Documents list */}
+                                    <View style={{ gap: 8 }}>
+                                        <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginTop: 8 }}>Attached Files:</Text>
+
+                                        {documents.length === 0 && (
+                                            <Text style={{ fontStyle: 'italic', color: colors.textSecondary, fontSize: 12 }}>No documents selected</Text>
+                                        )}
+
+                                        {documents.map((doc, idx) => (
+                                            <View key={`${doc.uri}-${idx}`} style={[styles.docItem, { backgroundColor: isDark ? colors.surface : "rgba(255,255,255,0.8)", borderColor: isDark ? colors.border : "rgba(51,51,51,0.1)" }]}>
+                                                <Ionicons name="document-attach-outline" size={20} color={isDark ? colors.text : "#333"} />
+                                                <View style={{ flex: 1, marginLeft: 8 }}>
+                                                    <Text numberOfLines={1} style={[styles.docName, { color: colors.text }]}>{doc.name}</Text>
+                                                    {doc.label && <Text style={{ fontSize: 10, color: colors.textSecondary }}>{doc.label}</Text>}
+                                                </View>
+                                                <TouchableOpacity onPress={() => removeDocument(idx)} style={styles.docRemove}>
+                                                    <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                                                </TouchableOpacity>
+                                            </View>
+                                        ))}
+
+                                        {errors.documents?.message && (
+                                            <Text style={styles.errorTextInline}>{String(errors.documents.message)}</Text>
+                                        )}
+                                    </View>
                                 </View>
                             </Section>
                         )}
@@ -563,7 +605,7 @@ export default function MobilizerApplyFormScreen() {
                     </View>
                 </ScrollView>
 
-                <View style={[styles.footer, { paddingBottom: insets.bottom + 20 }]}>
+                <View style={[styles.footer, { paddingBottom: insets.bottom }]}>
                     <View style={[styles.footerInner, { backgroundColor: isDark ? colors.card : "#fff" }]}>
                         <Button title="Back" onPress={back} variant="secondary" style={styles.footerBtn} />
                         {stepIndex < STEPS.length - 1 ? (
@@ -623,7 +665,7 @@ const styles = StyleSheet.create({
     container: { flex: 1 },
     background: { position: "absolute", top: 0, left: 0, bottom: 0, right: 0 },
     scrollView: { flex: 1 },
-    stepperContainer: { paddingVertical: 10 },
+    stepperContainer: { paddingBottom: 10 },
     stepperInner: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
     formContainer: { paddingHorizontal: 20, paddingBottom: 20 },
     formCard: { borderRadius: 16, padding: 20, marginBottom: 20 },
@@ -631,11 +673,12 @@ const styles = StyleSheet.create({
     footerInner: { flexDirection: 'row', padding: 16, gap: 12, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)' },
     footerBtn: { flex: 1 },
     footerPrimary: { flex: 2 },
-    docReqItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderWidth: 1, borderRadius: 10, marginBottom: 8 },
-    reqDocLabel: { fontSize: 14, fontWeight: '600', marginBottom: 2 },
-    uploadedText: { fontSize: 12, color: '#4CAF50', fontWeight: '600' },
-    uploadSmallBtn: { padding: 8, borderRadius: 8 },
-    docItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, marginBottom: 8 },
+    docReqItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderStyle: 'dashed' },
+    reqDocLabel: { fontSize: 14, fontWeight: '600', marginBottom: 4 },
+    uploadedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    uploadedText: { fontSize: 12, color: '#4CAF50', maxWidth: 150 },
+    uploadSmallBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 6 },
+    docItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, borderWidth: 1, marginBottom: 8 },
     docName: { flex: 1, fontSize: 14, marginHorizontal: 8 },
     docRemove: { padding: 4 },
     summaryTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12 },

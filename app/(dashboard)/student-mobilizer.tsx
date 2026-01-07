@@ -461,6 +461,7 @@ const styles = StyleSheet.create({
   },
   welcomeSection: {
     flex: 1,
+    marginRight: 16,
   },
   welcomeText: {
     fontSize: 16,
@@ -478,12 +479,13 @@ const styles = StyleSheet.create({
     top: -4,
     right: -4,
     minWidth: 16,
-    height: 16,
+    minHeight: 16,
     borderRadius: 8,
     backgroundColor: "#F44336",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 3,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
   },
   badgeText: {
     fontSize: 10,
@@ -505,13 +507,13 @@ const styles = StyleSheet.create({
   statsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between",
     paddingHorizontal: 20,
     marginBottom: 24,
     gap: 12,
   },
   statCard: {
-    width: "48%",
+    minWidth: "45%",
+    flex: 1,
     borderRadius: 16,
     padding: 16,
     alignItems: "center",
