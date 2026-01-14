@@ -1,6 +1,6 @@
 import { AppHeader, Button, CustomTextInput, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { getUserProfile, updateUserProfile } from "@/utils/api";
+import { getFinancialInfo, updateFinancialInfo } from "@/utils/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -39,37 +39,35 @@ export default function StudentProfileFinancialScreen() {
     const [toastMessage, setToastMessage] = useState("");
     const [toastType, setToastType] = useState<"success" | "error" | "info">("error");
 
-    // Fetch User Profile
+    // Fetch Financial Info
     useEffect(() => {
-        const fetchUserProfile = async () => {
+        const fetchFinancialData = async () => {
             try {
                 const authDataStr = await AsyncStorage.getItem("authData");
                 if (authDataStr) {
                     const authData = JSON.parse(authDataStr);
                     if (authData.token) {
-                        const response = await getUserProfile(authData.token);
-                        if (response.success && response.data && response.data.user) {
-                            const user = response.data.user;
-
-                            setFinancialInfo((prev) => ({
-                                ...prev,
-                                bankAccountNo: user.bankaccountno || user.customfields?.find((f: any) => f.shortname === 'bankaccountno')?.value || prev.bankAccountNo,
-                                ifscCode: user.ifsccode || user.customfields?.find((f: any) => f.shortname === 'ifsccode')?.value || prev.ifscCode,
-                                bankName: user.bankname || user.customfields?.find((f: any) => f.shortname === 'bankname')?.value || prev.bankName,
-                                branchName: user.branchname || user.customfields?.find((f: any) => f.shortname === 'branchname')?.value || prev.branchName,
-                                accountHolderName: user.accountholdername || user.customfields?.find((f: any) => f.shortname === 'accountholdername')?.value || prev.accountHolderName,
-                            }));
+                        const response = await getFinancialInfo(authData.token);
+                        if (response.success && response.data) {
+                            const data = response.data;
+                            setFinancialInfo({
+                                bankAccountNo: data.account_number || "",
+                                ifscCode: data.ifsc || "",
+                                bankName: data.bank_name || "",
+                                branchName: data.branch_name || "",
+                                accountHolderName: data.accountholder || "",
+                            });
                         }
                     }
                 }
             } catch (error) {
-                console.error("Failed to fetch user profile:", error);
+                console.error("Failed to fetch financial info:", error);
             } finally {
                 setIsLoadingProfile(false);
             }
         };
 
-        fetchUserProfile();
+        fetchFinancialData();
     }, []);
 
     // Handlers
@@ -117,8 +115,14 @@ export default function StudentProfileFinancialScreen() {
             const authData = JSON.parse(authDataStr);
             if (!authData.token) throw new Error("Invalid session token");
 
-            // We are sending specific financial fields to update
-            const response = await updateUserProfile(authData.token, financialInfo);
+            const apiParams = {
+                accountholder: financialInfo.accountHolderName,
+                bank_name: financialInfo.bankName,
+                account_number: financialInfo.bankAccountNo,
+                ifsc: financialInfo.ifscCode
+            };
+
+            const response = await updateFinancialInfo(authData.token, apiParams);
 
             if (response.success) {
                 setHasUnsavedChanges(false);

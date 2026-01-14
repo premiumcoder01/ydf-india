@@ -45,8 +45,7 @@ const normalizeRole = (role: string): string => {
   if (
     roleLower === "reviewer" ||
     roleLower === "application reviewer" ||
-    roleLower === "application-reviewer" ||
-    roleLower === "editingteacher"
+    roleLower === "application-reviewer"
   )
     return "application-reviewer";
 
@@ -61,7 +60,8 @@ const normalizeRole = (role: string): string => {
     roleLower === "studentmobilizer" ||
     roleLower === "student mobilizer" ||
     roleLower === "student-mobilizer" ||
-    roleLower === "counselor"
+    roleLower === "counselor" ||
+    roleLower === "editingteacher"
   )
     return "student-mobilizer";
 
@@ -90,6 +90,93 @@ export default function SignInScreen() {
     webClientId: '1001621686502-jopl8tosnhl2d71blsncqs3gte656tds.apps.googleusercontent.com',
     iosClientId: '1001621686502-9fifki7bjqknjshv0rroodrusj1das0m.apps.googleusercontent.com',
   });
+
+  const handleLoginSuccess = async (response: any, defaultToStudent: boolean = false) => {
+    try {
+      const userRoles = response.data?.user?.roles;
+      const authData = response.data;
+
+      console.log("✅ Login Success. Processing Roles:", userRoles);
+
+      if (userRoles && Array.isArray(userRoles) && userRoles.length > 0) {
+        // Normalize all roles
+        const normalizedRoles = userRoles.map((role: string) => normalizeRole(role));
+        console.log("Normalized Roles:", normalizedRoles);
+
+        let selectedRole = null;
+
+        // Priority 1: Scholarship Provider
+        if (normalizedRoles.includes("scholarship-provider")) {
+          selectedRole = "scholarship-provider";
+        }
+        // Priority 2: Student Mobilizer (includes Editingteacher)
+        else if (normalizedRoles.includes("student-mobilizer")) {
+          selectedRole = "student-mobilizer";
+        }
+        // Priority 3: Application Reviewer
+        else if (normalizedRoles.includes("application-reviewer")) {
+          selectedRole = "application-reviewer";
+        }
+        // Priority 4: Student (Fallback if exists)
+        else if (normalizedRoles.includes("student")) {
+          selectedRole = "student";
+        }
+
+        // If no known role found in priority list, verify if any role has a valid route (fallback logic)
+        if (!selectedRole) {
+          for (const role of normalizedRoles) {
+            const route = getDashboardRoute(role);
+            if (route !== "/(auth)/welcome") {
+              selectedRole = role;
+              break;
+            }
+          }
+        }
+
+        console.log("🔹 Final Selected Role:", selectedRole);
+
+        if (selectedRole) {
+          const dashboardRoute = getDashboardRoute(selectedRole);
+          console.log("🔹 Target Route:", dashboardRoute);
+
+          authData.userRole = selectedRole;
+          await AsyncStorage.setItem("authData", JSON.stringify(authData));
+          router.replace(dashboardRoute as any);
+          return;
+        }
+
+        // If still no valid role found:
+        if (defaultToStudent) {
+          console.log("⚠️ No valid dashboard for role, defaulting to Student for social login");
+          const studentRole = "student";
+          authData.userRole = studentRole;
+          await AsyncStorage.setItem("authData", JSON.stringify(authData));
+          router.replace(getDashboardRoute(studentRole) as any);
+        } else {
+          console.log("⚠️ No valid dashboard for role, redirecting to Role Selection");
+          await AsyncStorage.setItem("authData", JSON.stringify(authData));
+          router.replace("/(auth)/roles");
+        }
+
+      } else {
+        // No roles found in response
+        if (defaultToStudent) {
+          console.log("ℹ️ No roles found, auto-assigning Student role");
+          const studentRole = "student";
+          authData.userRole = studentRole;
+          await AsyncStorage.setItem("authData", JSON.stringify(authData));
+          router.replace(getDashboardRoute(studentRole) as any);
+        } else {
+          console.log("ℹ️ No roles found, redirecting to Role Selection");
+          await AsyncStorage.setItem("authData", JSON.stringify(authData));
+          router.replace("/(auth)/roles");
+        }
+      }
+    } catch (error) {
+      console.error("Error in handleLoginSuccess:", error);
+      showToast("An error occurred during redirection.");
+    }
+  };
 
   const validate = () => {
     const nextErrors: { emailOrUsername?: string; password?: string } = {};
@@ -128,19 +215,7 @@ export default function SignInScreen() {
     try {
       const response = await loginUser(emailOrUsername.trim(), password);
       if (response.success) {
-        const userRoles = response.data?.user?.roles;
-        const authData = response.data;
-        if (userRoles && Array.isArray(userRoles) && userRoles.length > 0) {
-          const roleIndex = userRoles.length > 1 ? 1 : 0;
-          const selectedRole = normalizeRole(userRoles[roleIndex]);
-          const dashboardRoute = getDashboardRoute(selectedRole);
-          authData.userRole = selectedRole;
-          await AsyncStorage.setItem("authData", JSON.stringify(authData));
-          router.replace(dashboardRoute as any);
-        } else {
-          await AsyncStorage.setItem("authData", JSON.stringify(authData));
-          router.replace("/(auth)/roles");
-        }
+        await handleLoginSuccess(response, false);
       } else {
         showToast(response.error || response.message || "Invalid credentials. Please try again.");
       }
@@ -184,35 +259,7 @@ export default function SignInScreen() {
       const apiResponse = await socialLogin("digilocker", tokenResponse.access_token, userEmail);
 
       if (apiResponse.success && apiResponse.data) {
-        // Check if user has roles in the response
-        const userRoles = apiResponse.data?.user?.roles;
-
-        if (userRoles && Array.isArray(userRoles) && userRoles.length > 0) {
-          // User has roles, redirect to dashboard based on first role
-          const firstRole = normalizeRole(userRoles[0]);
-          const dashboardRoute = getDashboardRoute(firstRole);
-
-          // Create authData with the role for future use
-          const authData = {
-            token: apiResponse.data.token,
-            user: apiResponse.data.user,
-            userRole: firstRole,
-          };
-          await AsyncStorage.setItem("authData", JSON.stringify(authData));
-
-          router.replace(dashboardRoute as any);
-        } else {
-          // No roles present, auto-assign 'student' role as per requirements
-          const studentRole = "student";
-          const authData = {
-            token: apiResponse.data.token,
-            user: apiResponse.data.user,
-            userRole: studentRole,
-          };
-          await AsyncStorage.setItem("authData", JSON.stringify(authData));
-          const dashboardRoute = getDashboardRoute(studentRole);
-          router.replace(dashboardRoute as any);
-        }
+        await handleLoginSuccess(apiResponse, true);
       } else {
         // Show error toast
         showToast(apiResponse.error || apiResponse.message || "DigiLocker login failed. Please try again.");
@@ -258,36 +305,7 @@ export default function SignInScreen() {
         const apiResponse = await socialLogin("google", idToken);
 
         if (apiResponse.success && apiResponse.data) {
-          // Check if user has roles in the response
-          const userRoles = apiResponse.data?.user?.roles;
-
-          if (userRoles && Array.isArray(userRoles) && userRoles.length > 0) {
-            // User has roles, redirect to dashboard based on first role
-            const firstRole = normalizeRole(userRoles[0]);
-            const dashboardRoute = getDashboardRoute(firstRole);
-
-            // Create authData with the role for future use
-            const authData = {
-              token: apiResponse.data.token,
-              user: apiResponse.data.user,
-              userRole: firstRole,
-            };
-            await AsyncStorage.setItem("authData", JSON.stringify(authData));
-
-            router.replace(dashboardRoute as any);
-          } else {
-            // No roles present, auto-assign 'student' role as per requirements
-            const studentRole = "student";
-            const authData = {
-              token: apiResponse.data.token,
-              user: apiResponse.data.user,
-              userRole: studentRole,
-            };
-            await AsyncStorage.setItem("authData", JSON.stringify(authData));
-
-            const dashboardRoute = getDashboardRoute(studentRole);
-            router.replace(dashboardRoute as any);
-          }
+          await handleLoginSuccess(apiResponse, true);
         } else {
           // Show error toast
           showToast(apiResponse.error || apiResponse.message || "Google login failed. Please try again.");
@@ -509,36 +527,7 @@ export default function SignInScreen() {
             const apiResponse = await socialLogin("linkedin", accessToken);
 
             if (apiResponse.success && apiResponse.data) {
-              // Check if user has roles in the response
-              const userRoles = apiResponse.data?.user?.roles;
-
-              if (userRoles && Array.isArray(userRoles) && userRoles.length > 0) {
-                // User has roles, redirect to dashboard based on first role
-                const firstRole = normalizeRole(userRoles[0]);
-                const dashboardRoute = getDashboardRoute(firstRole);
-
-                // Create authData with the role for future use
-                const authData = {
-                  token: apiResponse.data.token,
-                  user: apiResponse.data.user,
-                  userRole: firstRole,
-                };
-                await AsyncStorage.setItem("authData", JSON.stringify(authData));
-
-                router.replace(dashboardRoute as any);
-              } else {
-                // No roles present, auto-assign 'student' role as per requirements
-                const studentRole = "student";
-                const authData = {
-                  token: apiResponse.data.token,
-                  user: apiResponse.data.user,
-                  userRole: studentRole,
-                };
-                await AsyncStorage.setItem("authData", JSON.stringify(authData));
-
-                const dashboardRoute = getDashboardRoute(studentRole);
-                router.replace(dashboardRoute as any);
-              }
+              await handleLoginSuccess(apiResponse, true);
             } else {
               // Show error toast
               showToast(apiResponse.error || apiResponse.message || "LinkedIn login failed. Please try again.");

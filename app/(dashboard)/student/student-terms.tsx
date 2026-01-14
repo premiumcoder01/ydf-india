@@ -1,12 +1,48 @@
 import { AppHeader } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
+import { getTermsAndConditions } from "@/utils/api";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { WebView } from "react-native-webview";
 
 export default function StudentTermsScreen() {
     const { isDark, colors } = useTheme();
+    const [content, setContent] = useState("");
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        getTermsAndConditions().then(res => {
+            if (res.success && res.data) {
+                setContent(res.data.content || "<p>No terms available.</p>");
+            } else {
+                setContent("<p>Failed to load terms.</p>");
+            }
+            setLoading(false);
+        }).catch(() => {
+            setContent("<p>Failed to load terms.</p>");
+            setLoading(false);
+        });
+    }, []);
+
+    const htmlContent = `
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body { font-family: -apple-system, system-ui; color: ${colors.text}; background-color: transparent; padding: 20px; }
+            p { line-height: 1.6; font-size: 15px; color: ${colors.textSecondary}; }
+            h1, h2, h3, h4, h5, h6 { color: ${colors.text}; margin-top: 20px; margin-bottom: 10px; }
+            a { color: ${colors.primary}; }
+          </style>
+        </head>
+        <body>
+          ${content}
+        </body>
+      </html>
+    `;
+
     return (
         <View style={styles.container}>
             <LinearGradient
@@ -17,39 +53,20 @@ export default function StudentTermsScreen() {
 
             <AppHeader title="Terms of Service" onBack={() => router.back()} />
 
-            <ScrollView
-                style={styles.scrollView}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.contentContainer}
-            >
-                <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 0 }]}>1. Acceptance of Terms</Text>
-                    <Text style={[styles.text, { color: colors.textSecondary }]}>
-                        By accessing and using this Student Portal, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the application.
-                    </Text>
-
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>2. Use of the Portal</Text>
-                    <Text style={[styles.text, { color: colors.textSecondary }]}>
-                        This portal is intended for students seeking scholarships and educational opportunities. You agree to provide accurate and complete information during registration and application processes.
-                    </Text>
-
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>3. Privacy and Data</Text>
-                    <Text style={[styles.text, { color: colors.textSecondary }]}>
-                        Your use of the portal is also governed by our Privacy Policy. We collect and process data as described in the policy to provide our services.
-                    </Text>
-
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>4. User Responsibilities</Text>
-                    <Text style={[styles.text, { color: colors.textSecondary }]}>
-                        You are responsible for maintaining the confidentiality of your account credentials. You agree not to use the portal for any unlawful or prohibited purposes.
-                    </Text>
-
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>5. Modifications</Text>
-                    <Text style={[styles.text, { color: colors.textSecondary }]}>
-                        We reserve the right to modify these terms at any time. Continued use of the portal after such changes constitutes acceptance of the new terms.
-                    </Text>
+            {loading ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={colors.primary} />
                 </View>
-                <View style={{ height: 40 }} />
-            </ScrollView>
+            ) : (
+                <View style={[styles.cardContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <WebView
+                        originWhitelist={['*']}
+                        source={{ html: htmlContent }}
+                        style={{ backgroundColor: 'transparent' }}
+                        showsVerticalScrollIndicator={false}
+                    />
+                </View>
+            )}
         </View>
     );
 }
@@ -65,34 +82,17 @@ const styles = StyleSheet.create({
         bottom: 0,
         right: 0,
     },
-    scrollView: {
+    loadingContainer: {
         flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center'
     },
-    contentContainer: {
-        padding: 20,
-    },
-    card: {
-        backgroundColor: "rgba(255, 255, 255, 0.98)",
+    cardContainer: {
+        flex: 1,
+        margin: 20,
         borderRadius: 16,
-        padding: 24,
+        overflow: 'hidden',
         borderWidth: 1,
-        borderColor: "rgba(51, 51, 51, 0.08)",
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
         elevation: 2,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: "700",
-        color: "#333",
-        marginTop: 20,
-        marginBottom: 8,
-    },
-    text: {
-        fontSize: 15,
-        color: "#666",
-        lineHeight: 22,
-    },
+    }
 });

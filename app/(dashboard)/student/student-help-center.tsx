@@ -1,37 +1,31 @@
 import { AppHeader } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
+import { getFAQs } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState } from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import RenderHtml from "react-native-render-html";
 
 export default function StudentHelpCenterScreen() {
     const { isDark, colors } = useTheme();
-    const faqs = [
-        {
-            question: "How do I apply for a scholarship?",
-            answer: "Go to the 'Scholarships' tab, find a scholarship that interests you, and click 'Apply Now'. Complete the application form and upload any required documents."
-        },
-        {
-            question: "Can I update my profile after registration?",
-            answer: "Yes, you can update your personal, academic, and contact details from the 'Profile' section at any time."
-        },
-        {
-            question: "How do I track my application status?",
-            answer: "Navigate to the 'My Applications' section in your dashboard to view the current status of all your submitted applications."
-        },
-        {
-            question: "What documents are commonly required?",
-            answer: "Usually, you will need to provide your Aadhar card, academic certificates (10th/12th), fee receipts, and income certificates."
-        },
-        {
-            question: "I forgot my password, what should I do?",
-            answer: "Click on 'Forgot Password' on the login screen. We will send you an OTP to your registered email to reset your password."
-        }
-    ];
-
+    const [faqs, setFaqs] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
     const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+    const { width } = useWindowDimensions();
+
+    useEffect(() => {
+        getFAQs().then(res => {
+            if (res.success && res.data) {
+                setFaqs(res.data);
+            }
+            setLoading(false);
+        }).catch(err => {
+            console.error(err);
+            setLoading(false);
+        });
+    }, []);
 
     return (
         <View style={styles.container}>
@@ -43,46 +37,69 @@ export default function StudentHelpCenterScreen() {
 
             <AppHeader title="Help Center" onBack={() => router.back()} />
 
-            <ScrollView
-                style={styles.scrollView}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.contentContainer}
-            >
-                <Text style={[styles.headerTitle, { color: colors.text }]}>Frequently Asked Questions</Text>
-
-                {faqs.map((faq, index) => (
-                    <TouchableOpacity
-                        key={index}
-                        style={[styles.faqCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                        onPress={() => setExpandedIndex(expandedIndex === index ? null : index)}
-                        activeOpacity={0.8}
-                    >
-                        <View style={styles.faqHeader}>
-                            <Text style={[styles.question, { color: colors.text }]}>{faq.question}</Text>
-                            <Ionicons
-                                name={expandedIndex === index ? "chevron-up" : "chevron-down"}
-                                size={20}
-                                color={colors.textSecondary}
-                            />
-                        </View>
-                        {expandedIndex === index && (
-                            <Text style={[styles.answer, { color: colors.textSecondary, borderTopColor: colors.border }]}>{faq.answer}</Text>
-                        )}
-                    </TouchableOpacity>
-                ))}
-
-                <View style={styles.footer}>
-                    <Text style={[styles.footerText, { color: colors.textSecondary }]}>Still have questions?</Text>
-                    <TouchableOpacity
-                        style={[styles.contactButton, { backgroundColor: isDark ? colors.primary : "#333" }]}
-                        onPress={() => router.push("/(dashboard)/student/student-contact-support")}
-                    >
-                        <Text style={[styles.contactButtonText, { color: isDark ? "#000" : "#fff" }]}>Contact Support</Text>
-                    </TouchableOpacity>
+            {loading ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={colors.primary} />
                 </View>
+            ) : (
+                <ScrollView
+                    style={styles.scrollView}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.contentContainer}
+                >
+                    <Text style={[styles.headerTitle, { color: colors.text }]}>Frequently Asked Questions</Text>
 
-                <View style={{ height: 40 }} />
-            </ScrollView>
+                    {faqs.length > 0 ? (
+                        faqs.map((faq, index) => (
+                            <TouchableOpacity
+                                key={index}
+                                style={[styles.faqCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                                onPress={() => setExpandedIndex(expandedIndex === index ? null : index)}
+                                activeOpacity={0.8}
+                            >
+                                <View style={styles.faqHeader}>
+                                    <Text style={[styles.question, { color: colors.text }]}>{faq.title}</Text>
+                                    <Ionicons
+                                        name={expandedIndex === index ? "chevron-up" : "chevron-down"}
+                                        size={20}
+                                        color={colors.textSecondary}
+                                    />
+                                </View>
+                                {expandedIndex === index && (
+                                    <View style={[styles.answer, { borderTopColor: colors.border }]}>
+                                        <RenderHtml
+                                            contentWidth={width - 72} // 20 padding container + 16 padding card = 36 * 2 = 72
+                                            source={{ html: faq.content || "" }}
+                                            baseStyle={{ color: colors.textSecondary, fontSize: 14, lineHeight: 20 }}
+                                            tagsStyles={{
+                                                p: { color: colors.textSecondary, marginTop: 0, marginBottom: 0 },
+                                                a: { color: colors.primary, textDecorationLine: 'none' }
+                                            }}
+                                        />
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        ))
+                    ) : (
+                        <Text style={{ color: colors.textSecondary, textAlign: 'center', marginTop: 20 }}>
+                            No FAQs available at the moment.
+                        </Text>
+                    )}
+
+
+                    <View style={styles.footer}>
+                        <Text style={[styles.footerText, { color: colors.textSecondary }]}>Still have questions?</Text>
+                        <TouchableOpacity
+                            style={[styles.contactButton, { backgroundColor: isDark ? colors.primary : "#333" }]}
+                            onPress={() => router.push("/(dashboard)/student/student-contact-support")}
+                        >
+                            <Text style={[styles.contactButtonText, { color: isDark ? "#000" : "#fff" }]}>Contact Support</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={{ height: 40 }} />
+                </ScrollView>
+            )}
         </View>
     );
 }
@@ -143,6 +160,11 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: "#f0f0f0",
         paddingTop: 12,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center'
     },
     footer: {
         marginTop: 30,

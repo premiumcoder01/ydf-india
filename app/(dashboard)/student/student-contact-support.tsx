@@ -1,6 +1,8 @@
 import { AppHeader, Button, CustomTextInput, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
+import { contactSupport } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState } from "react";
@@ -26,18 +28,34 @@ export default function StudentContactSupportScreen() {
         }
 
         setIsSending(true);
-        // Simulate API call
-        setTimeout(() => {
-            setIsSending(false);
-            setToastMessage("Message sent successfully. Our team will contact you soon.");
-            setToastType("success");
+        try {
+            const authDataStr = await AsyncStorage.getItem("authData");
+            if (authDataStr) {
+                const authData = JSON.parse(authDataStr);
+                if (authData.token) {
+                    const response = await contactSupport(authData.token, formData.subject, formData.message);
+                    if (response.success) {
+                        setToastMessage("Message sent successfully. Our team will contact you soon.");
+                        setToastType("success");
+                        setShowToast(true);
+                        setFormData({ subject: "", message: "" });
+                        setTimeout(() => {
+                            router.back();
+                        }, 2000);
+                    } else {
+                        setToastMessage(response.error || "Failed to send message");
+                        setToastType("error");
+                        setShowToast(true);
+                    }
+                }
+            }
+        } catch (error) {
+            setToastMessage("An unexpected error occurred");
+            setToastType("error");
             setShowToast(true);
-            setFormData({ subject: "", message: "" });
-
-            setTimeout(() => {
-                router.back();
-            }, 2000);
-        }, 1500);
+        } finally {
+            setIsSending(false);
+        }
     };
 
     return (

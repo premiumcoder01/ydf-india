@@ -1161,67 +1161,68 @@ export const updateUserProfile = async (
 ): Promise<ApiResponse> => {
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
-    const urlObj = new URL(baseUrl);
     
-    urlObj.searchParams.append("wstoken", token);
-    urlObj.searchParams.append("wsfunction", "local_mobileapi_update_profile");
-    urlObj.searchParams.append("moodlewsrestformat", "json");
-    
-    // Core fields
-    if (profileData.firstName) urlObj.searchParams.append("firstname", profileData.firstName);
-    if (profileData.lastName) urlObj.searchParams.append("lastname", profileData.lastName);
-    if (profileData.email) urlObj.searchParams.append("email", profileData.email);
-    if (profileData.phone) urlObj.searchParams.append("phone1", profileData.phone);
-    if (profileData.address) urlObj.searchParams.append("address", profileData.address);
-    if (profileData.city) urlObj.searchParams.append("city", profileData.city);
-    urlObj.searchParams.append("country", "IN"); 
+    // Construct the payload with JSON format
+    const payload: any = {
+      wstoken: token,
+      wsfunction: "local_mobileapi_update_profile",
+      moodlewsrestformat: "json",
+    };
 
-    // Birthday decomposition (DD/MM/YYYY)
+    // Core fields
+    if (profileData.firstName) payload.firstname = profileData.firstName;
+    if (profileData.lastName) payload.lastname = profileData.lastName;
+    if (profileData.email) payload.email = profileData.email;
+    if (profileData.phone) payload.phone1 = profileData.phone;
+    if (profileData.address) payload.address = profileData.address;
+    if (profileData.city) payload.city = profileData.city;
+    payload.country = "IN";
+
+    // Date of birth (YYYY-MM-DD)
     if (profileData.dob) {
+      // Assuming format is DD/MM/YYYY from frontend
       const parts = profileData.dob.split('/');
       if (parts.length === 3) {
-        urlObj.searchParams.append("birthday", parts[0]);
-        urlObj.searchParams.append("birthmonth", parts[1]);
-        urlObj.searchParams.append("birthyear", parts[2]);
+        payload.date_of_birth = `${parts[2]}-${parts[1]}-${parts[0]}`;
       }
     }
 
     // Custom Fields
-    const customFieldMap: Record<string, string> = {
-      gender: profileData.gender,
-      religion: profileData.religion,
-      caste: profileData.caste,
-      domicilestate: profileData.domicileState,
-      district: profileData.district,
-      village: profileData.village,
-      fathername: profileData.fatherName,
-      mothername: profileData.motherName,
-      annualincome: profileData.annualIncome,
-      bankaccountno: profileData.bankAccountNo,
-      ifsccode: profileData.ifscCode,
-      bankname: profileData.bankName,
-      branchname: profileData.branchName,
-      currentcourse: profileData.currentCourse,
-      currentcoursecategory: profileData.currentCourseCategory,
+    const customFields: { shortname: string; value: string }[] = [];
+    
+    // Helper to add custom field if value exists
+    const addCustomField = (shortname: string, value: any) => {
+      if (value) {
+        customFields.push({ shortname, value: String(value) });
+      }
     };
 
-    let fieldIndex = 0;
-    Object.entries(customFieldMap).forEach(([shortname, value]) => {
-      if (value) {
-        urlObj.searchParams.append(`customfields[${fieldIndex}][shortname]`, shortname);
-        urlObj.searchParams.append(`customfields[${fieldIndex}][value]`, value);
-        fieldIndex++;
-      }
-    });
+    addCustomField('gender', profileData.gender);
+    addCustomField('religion', profileData.religion);
+    addCustomField('caste', profileData.caste);
+    addCustomField('domicilestate', profileData.domicileState);
+    addCustomField('domiciledistrict', profileData.district);
+    addCustomField('village', profileData.village);
+    addCustomField('fathername', profileData.fatherName);
+    addCustomField('mothername', profileData.motherName);
+    addCustomField('annualincome', profileData.annualIncome);
+    
+    // Add phone as custom field as well based on example
+    addCustomField('phone', profileData.phone);
 
-    const finalUrl = urlObj.toString();
-    console.log("Update Profile URL:", finalUrl);
+    if (customFields.length > 0) {
+      payload.customfields = customFields;
+    }
 
-    const response = await fetch(finalUrl, {
+    console.log("Update Profile URL:", baseUrl);
+    console.log("Update Profile Payload:", JSON.stringify(payload, null, 2));
+
+    const response = await fetch(baseUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
+      body: JSON.stringify(payload),
     });
 
     const responseText = await response.text();
@@ -1474,5 +1475,603 @@ export const submitApplication = async (
       error: error.message || "Network error",
       message: "Failed to connect to server",
     };
+  }
+};
+
+/**
+ * Get Student Dashboard Stats API call
+ */
+export const getDashboardStats = async (token: string): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_student_get_dashboard_stats");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Dashboard Stats URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    try { data = JSON.parse(responseText); } catch(e) {}
+
+    if (response.ok) {
+      return { success: true, data, message: "Stats retrieved successfully" };
+    } else {
+      return { success: false, error: "Failed to retrieve stats" };
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Get Upcoming Deadlines API call
+ */
+export const getUpcomingDeadlines = async (
+  token: string,
+  limit: number = 10
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add required query parameters
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_get_upcoming_deadlines");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("limit", String(limit));
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Upcoming Deadlines URL:", finalUrl);
+    
+    // Make POST request with query parameters in URL
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    if (response.ok) {
+       // The API returns { success: true, data: [...] }
+      return {
+        success: true,
+        data: data.data || [], // Return the array which is inside data.data
+        message: data.message || "Deadlines retrieved successfully",
+      };
+    } else {
+      return {
+        success: false,
+        error: data.error || data.message || "Something went wrong",
+        message: data.message || "Failed to retrieve deadlines",
+      };
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server",
+    };
+  }
+};
+
+/**
+ * Get Recommended Scholarships API call
+ */
+export const getRecommendedScholarships = async (
+  token: string,
+  params?: {
+    page?: number;
+    per_page?: number;
+  }
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add required query parameters
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_get_recommended_scholarships");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    // Add optional parameters
+    if (params?.page) {
+      urlObj.searchParams.append("page", String(params.page));
+    }
+    if (params?.per_page) {
+      urlObj.searchParams.append("per_page", String(params.per_page));
+    }
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Recommended Scholarships URL:", finalUrl);
+    
+    // Make POST request with query parameters in URL
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    if (response.ok) {
+        // The API returns standard scholarship list format
+      return {
+        success: true,
+        data: data.data || data, // Handle if data is wrapped or direct array
+        message: data.message || "Recommended scholarships retrieved successfully",
+      };
+    } else {
+      return {
+        success: false,
+        error: data.error || data.message || "Something went wrong",
+        message: data.message || "Failed to retrieve recommended scholarships",
+      };
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server",
+    };
+  }
+};
+
+/**
+ * Get Application Progress API call
+ */
+export const getApplicationProgress = async (token: string): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_get_application_progress");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Application Progress URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    try { data = JSON.parse(responseText); } catch(e) {}
+
+    if (response.ok) {
+        // Response format: { success: true, progress: { total_submitted, approved, rejected, pending } }
+        if (data.progress) {
+             return { success: true, data: data.progress, message: "Progress retrieved successfully" };
+        } 
+        return { success: true, data: data, message: "Progress retrieved successfully" };
+    } else {
+      return { success: false, error: "Failed to retrieve progress" };
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Get Academic Details API call
+ */
+export const getAcademicDetails = async (token: string): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_get_academic_details");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Academic Details URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    try { data = JSON.parse(responseText); } catch(e) {}
+
+    if (response.ok) {
+        if (data.success && data.data) {
+             return { success: true, data: data.data, message: "Academic details retrieved successfully" };
+        }
+        return { success: true, data: data, message: "Academic details retrieved successfully" };
+    } else {
+      return { success: false, error: "Failed to retrieve academic details" };
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Create Academic Detail API call
+ */
+export const createAcademicDetail = async (
+  token: string,
+  params: {
+    course_name: string;
+    category?: string;
+    institution?: string;
+    major?: string;
+    percentage?: string;
+    cgpa?: string;
+    academic_year?: string;
+    graduation_year?: string;
+  }
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_create_academic_detail");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    // Add create params
+    Object.keys(params).forEach(key => {
+        if (params[key as keyof typeof params]) {
+            urlObj.searchParams.append(key, params[key as keyof typeof params] as string);
+        }
+    });
+    
+    const finalUrl = urlObj.toString();
+    console.log("Create Academic Detail URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    try { data = JSON.parse(responseText); } catch(e) {}
+
+    if (response.ok) {
+        if (data.success) {
+             return { success: true, data: data, message: data.message || "Academic detail created successfully" };
+        }
+        return { success: false, error: data.message || "Failed to create academic detail" };
+    } else {
+      return { success: false, error: "Failed to create academic detail" };
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Update Academic Detail API call
+ */
+export const updateAcademicDetail = async (
+  token: string,
+  id: number,
+  params: {
+    course_name?: string;
+    category?: string;
+    institution?: string;
+    major?: string;
+    percentage?: string;
+    cgpa?: string;
+    academic_year?: string;
+    graduation_year?: string;
+  }
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_update_academic_detail");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("id", String(id));
+    
+    // Add update params
+    Object.keys(params).forEach(key => {
+        if (params[key as keyof typeof params]) {
+            urlObj.searchParams.append(key, params[key as keyof typeof params] as string);
+        }
+    });
+    
+    const finalUrl = urlObj.toString();
+    console.log("Update Academic Detail URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    try { data = JSON.parse(responseText); } catch(e) {}
+
+    if (response.ok) {
+        if (data.success) {
+             return { success: true, data: data, message: data.message || "Academic detail updated successfully" };
+        }
+        return { success: false, error: data.message || "Failed to update academic detail" };
+    } else {
+      return { success: false, error: "Failed to update academic detail" };
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+/**
+ * Get Financial Info API call
+ */
+export const getFinancialInfo = async (token: string): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_get_financial_info");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Financial Info URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    try { data = JSON.parse(responseText); } catch(e) {}
+
+    if (response.ok) {
+        if (data.success && data.data) {
+             return { success: true, data: data.data, message: "Financial info retrieved successfully" };
+        }
+        return { success: true, data: null, message: "No financial info found" };
+    } else {
+      return { success: false, error: "Failed to retrieve financial info" };
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
+
+/**
+ * Update Financial Info API call
+ */
+export const updateFinancialInfo = async (
+  token: string,
+  params: {
+    accountholder: string;
+    bank_name: string;
+    account_number: string;
+    ifsc: string;
+  }
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_update_financial_info");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    // Add update params
+    urlObj.searchParams.append("accountholder", params.accountholder);
+    urlObj.searchParams.append("bank_name", params.bank_name);
+    urlObj.searchParams.append("account_number", params.account_number);
+    urlObj.searchParams.append("ifsc", params.ifsc);
+    
+    const finalUrl = urlObj.toString();
+    console.log("Update Financial Info URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    try { data = JSON.parse(responseText); } catch(e) {}
+
+    if (response.ok) {
+        if (data.success) {
+             return { success: true, data: data, message: data.message || "Financial information updated successfully" };
+        }
+        return { success: false, error: data.message || "Failed to update financial information" };
+    } else {
+      return { success: false, error: "Failed to update financial information" };
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Get Terms and Conditions API call
+ */
+export const getTermsAndConditions = async (): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_get_terms_conditions");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Terms URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    try { data = JSON.parse(responseText); } catch(e) {}
+
+    if (response.ok) {
+        if (data.success && data.data) {
+             return { success: true, data: data.data, message: "Terms retrieved successfully" };
+        }
+        return { success: false, error: data.message || "Failed to retrieve terms" };
+    } else {
+      return { success: false, error: "Failed to retrieve terms" };
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Get Privacy Policy API call
+ */
+export const getPrivacyPolicy = async (): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_get_privacy_policy");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Privacy Policy URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    try { data = JSON.parse(responseText); } catch(e) {}
+
+    if (response.ok) {
+        if (data.success && data.data) {
+             return { success: true, data: data.data, message: "Privacy policy retrieved successfully" };
+        }
+        return { success: false, error: data.message || "Failed to retrieve privacy policy" };
+    } else {
+      return { success: false, error: "Failed to retrieve privacy policy" };
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Contact Support API call
+ */
+export const contactSupport = async (token: string, subject: string, message: string): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_contact_support");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    // Add params
+    urlObj.searchParams.append("subject", subject);
+    urlObj.searchParams.append("message", message);
+    
+    const finalUrl = urlObj.toString();
+    console.log("Contact Support URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    try { data = JSON.parse(responseText); } catch(e) {}
+
+    if (response.ok) {
+        if (data.success) {
+             return { success: true, data: data, message: data.message || "Support request submitted successfully" };
+        }
+        return { success: false, error: data.message || "Failed to submit support request" };
+    } else {
+      return { success: false, error: "Failed to submit support request" };
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Get FAQs API call
+ */
+export const getFAQs = async (): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_get_faqs");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get FAQs URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    try { data = JSON.parse(responseText); } catch(e) {}
+
+    if (response.ok) {
+        if (data.success && data.data) {
+             return { success: true, data: data.data, message: "FAQs retrieved successfully" };
+        }
+        return { success: false, error: data.message || "Failed to retrieve FAQs" };
+    } else {
+      return { success: false, error: "Failed to retrieve FAQs" };
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message };
   }
 };

@@ -704,7 +704,7 @@ export default function ApplyFormScreen() {
                           <View key={reqDoc.id || index} style={[styles.docReqItem, { borderColor: isDark ? colors.border : '#e5e5e5' }]}>
                             <View style={{ flex: 1 }}>
                               <Text style={[styles.reqDocLabel, { color: colors.text }]}>
-                                {reqDoc.label || reqDoc.name}
+                                {/* {reqDoc.label || reqDoc.name} */}Upload Document
                                 {reqDoc.required !== false && <Text style={{ color: 'red' }}> *</Text>}
                               </Text>
                               {uploadedDoc ? (

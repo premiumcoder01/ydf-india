@@ -1,6 +1,5 @@
-import { Button } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { getUserProfile } from "@/utils/api";
+import { bookmarkScholarship, getApplicationProgress, getDashboardStats, getRecommendedScholarships, getUpcomingDeadlines, getUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -56,13 +55,108 @@ const studentFeatures = [
   // },
 ];
 
+// Helper function to get category color
+const getCategoryColor = (category: string): string => {
+  const colors: Record<string, string> = {
+    Gujarat: "#4CAF50",
+    Bihar: "#2196F3",
+    "All India": "#FF9800",
+    Punjab: "#9C27B0",
+    Rajasthan: "#E91E63",
+    Maharashtra: "#00BCD4",
+    Delhi: "#795548",
+    Sikar: "#607D8B",
+  };
+  return colors[category] || "#666";
+};
+
+const getDaysRemaining = (deadline: string | null, isExpired: boolean = false) => {
+  if (isExpired) return { text: "Expired", color: "#F44336" };
+  if (!deadline) return { text: "Open", color: "#4CAF50" };
+
+  // Handle "No Deadline" string from API map
+  if (deadline === "No Deadline" || deadline.startsWith("Deadline: ")) {
+    const dateStr = deadline.replace("Deadline: ", "");
+    if (dateStr === "No Deadline") return { text: "Open", color: "#4CAF50" };
+    // Try parsing if it's a date string
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return { text: deadline, color: "#666" };
+
+    const today = new Date();
+    const diffTime = date.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) return { text: "Expired", color: "#F44336" };
+    if (diffDays === 0) return { text: "Today", color: "#FF9800" };
+    if (diffDays === 1) return { text: "1 day left", color: "#FF9800" };
+    if (diffDays <= 7) return { text: `${diffDays} days left`, color: "#FF9800" };
+    return { text: `${diffDays} days left`, color: "#666" };
+  }
+
+  const today = new Date();
+  const deadlineDate = new Date(deadline);
+  const diffTime = deadlineDate.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) return { text: "Expired", color: "#F44336" };
+  if (diffDays === 0) return { text: "Today", color: "#FF9800" };
+  if (diffDays === 1) return { text: "1 day left", color: "#FF9800" };
+  if (diffDays <= 7)
+    return { text: `${diffDays} days left`, color: "#FF9800" };
+  return { text: `${diffDays} days left`, color: "#666" };
+};
+
 export default function StudentDashboardScreen() {
   const { isDark, colors } = useTheme();
   const [studentName, setStudentName] = useState("Student");
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const [unreadCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [bookmarks, setBookmarks] = useState<Record<number, boolean>>({});
+  const [bookmarking, setBookmarking] = useState<Record<number, boolean>>({});
   const inset = useSafeAreaInsets();
+
+  const toggleBookmark = async (id: number, currentBookmarkState: boolean) => {
+    if (bookmarking[id]) return;
+    const newBookmarkState = !currentBookmarkState;
+    console.log("Toggling bookmark for:", id, "New state:", newBookmarkState);
+
+    // Optimistic update
+    setBookmarks((prev) => ({ ...prev, [id]: newBookmarkState }));
+    setRecommendedScholarships((prev) =>
+      prev.map(s => s.id === String(id) ? { ...s, bookmarked: newBookmarkState } : s)
+    );
+
+    try {
+      setBookmarking((prev) => ({ ...prev, [id]: true }));
+      const authDataData = await AsyncStorage.getItem("authData");
+      if (authDataData) {
+        const authData = JSON.parse(authDataData);
+        if (authData.token) {
+          const action = newBookmarkState ? "bookmark" : "unbookmark";
+          const response = await bookmarkScholarship(authData.token, id, action);
+          if (!response.success) {
+            // Revert
+            setBookmarks((prev) => ({ ...prev, [id]: !newBookmarkState }));
+            setRecommendedScholarships((prev) =>
+              prev.map(s => s.id === String(id) ? { ...s, bookmarked: !newBookmarkState } : s)
+            );
+            Alert.alert("Error", "Failed to update bookmark");
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Bookmark error", e);
+      // Revert
+      setBookmarks((prev) => ({ ...prev, [id]: !newBookmarkState }));
+      setRecommendedScholarships((prev) =>
+        prev.map(s => s.id === String(id) ? { ...s, bookmarked: !newBookmarkState } : s)
+      );
+    } finally {
+      setBookmarking((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
 
   useFocusEffect(
     useCallback(() => {
@@ -164,38 +258,139 @@ export default function StudentDashboardScreen() {
 
 
 
-  const [statusCounts] = useState({
+  const [statusCounts, setStatusCounts] = useState({
     applied: 0,
     approved: 0,
     pending: 0,
     rejected: 0,
   });
 
-  const [upcomingDeadlines] = useState<
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const authDataData = await AsyncStorage.getItem("authData");
+        if (authDataData) {
+          const authData = JSON.parse(authDataData);
+          if (authData.token) {
+            // Fetch Stats
+            getDashboardStats(authData.token).then(response => {
+              if (response.success && response.data && response.data.stats) {
+                const stats = response.data.stats;
+                setStatusCounts({
+                  applied: stats.total_applications || 0,
+                  approved: stats.approved_applications || 0,
+                  pending: stats.pending_applications || 0,
+                  rejected: stats.rejected_applications || 0
+                });
+              }
+            });
+
+            // Fetch Upcoming Deadlines
+            getUpcomingDeadlines(authData.token).then(response => {
+              if (response.success && Array.isArray(response.data)) {
+                const deadlines = response.data.map((item: any) => ({
+                  id: String(item.scholarship_id),
+                  title: item.scholarship_title,
+                  deadline: `Due in ${item.days_remaining} days`
+                }));
+                setUpcomingDeadlines(deadlines);
+              }
+            });
+
+            // Fetch Recommended Scholarships
+            getRecommendedScholarships(authData.token, { page: 1, per_page: 5 }).then(response => {
+              if (response.success && Array.isArray(response.data)) {
+                // Map API fields to UI state fields
+                const recommendations = response.data.map((item: any) => ({
+                  id: String(item.id),
+                  title: item.title || item.name || "Scholarship",
+                  category: item.category || "General",
+                  deadline: item.end_date || null, // Keep raw date for logic
+                  start_date: item.start_date || null,
+                  image: item.image || "",
+                  amount: item.amount || "",
+                  bookmarked: item.bookmarked || false,
+                  expired: item.expired || false,
+                  description: item.description || ""
+                }));
+                setRecommendedScholarships(recommendations);
+
+                // Initialize bookmarks state
+                const bookmarksMap: Record<number, boolean> = {};
+                recommendations.forEach((s: any) => {
+                  bookmarksMap[Number(s.id)] = s.bookmarked;
+                });
+                setBookmarks(prev => ({ ...prev, ...bookmarksMap }));
+              }
+            });
+
+            // Fetch Application Progress
+            getApplicationProgress(authData.token).then(response => {
+              if (response.success && response.data) {
+                setApplicationProgress({
+                  total: response.data.total_submitted || 0,
+                  approved: response.data.approved || 0,
+                  pending: response.data.pending || 0,
+                  rejected: response.data.rejected || 0
+                });
+              }
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch dashboard data", error);
+      }
+    };
+    fetchDashboardData();
+  }, []);
+
+  const [upcomingDeadlines, setUpcomingDeadlines] = useState<
     Array<{ id: string; title: string; deadline: string }>
   >([]);
-  const [recentNotifications] = useState<
-    Array<{ id: string; title: string; timeAgo: string }>
+
+
+  const [recommendedScholarships, setRecommendedScholarships] = useState<
+    Array<{
+      id: string;
+      title: string;
+      category: string;
+      deadline: string | null;
+      start_date: string | null;
+      image: string;
+      amount: string;
+      bookmarked: boolean;
+      expired: boolean;
+      description: string;
+    }>
   >([]);
 
-  const [recommendedScholarships] = useState<
-    Array<{ id: string; title: string; amount: string }>
-  >([]);
+  const [applicationProgress, setApplicationProgress] = useState({
+    total: 0,
+    approved: 0,
+    pending: 0,
+    rejected: 0
+  });
 
   const progress = useMemo(() => {
-    const approved = statusCounts.approved;
-    const total =
-      statusCounts.applied +
-      statusCounts.pending +
-      statusCounts.rejected +
-      statusCounts.approved;
+    const { approved, total } = applicationProgress;
+    // Fallback if API hasn't loaded yet or returns 0
+    if (total === 0 && statusCounts.applied > 0) {
+      // Fallback to legacy statusCounts if new API empty but legacy has data
+      const legacyTotal = statusCounts.applied + statusCounts.pending + statusCounts.rejected + statusCounts.approved;
+      const legacyApproved = statusCounts.approved;
+      if (legacyTotal > 0) {
+        const ratio = Math.round((legacyApproved / legacyTotal) * 100);
+        return { ratio, label: `${legacyApproved} of ${legacyTotal} applications approved (${ratio}%)` };
+      }
+    }
+
     if (total === 0) return { ratio: 0, label: "0 of 0 approved (0%)" };
     const ratio = Math.round((approved / total) * 100);
     return {
       ratio,
       label: `${approved} of ${total} applications approved (${ratio}%)`,
     };
-  }, [statusCounts]);
+  }, [applicationProgress, statusCounts]);
 
   return (
     <View style={styles.container}>
@@ -345,69 +540,106 @@ export default function StudentDashboardScreen() {
           </View>
         </View>
 
-        {/* Notifications Preview */}
-        <View style={styles.sectionContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Notifications</Text>
-          <View style={[styles.cardList, { backgroundColor: colors.card, borderColor: colors.textSecondary }]}>
-            {recentNotifications.slice(0, 3).map((n) => (
-              <TouchableOpacity
-                key={n.id}
-                style={styles.listItem}
-                onPress={() =>
-                  router.push("/(dashboard)/student/student-notifications")
-                }
-                activeOpacity={0.8}
-              >
-                <View style={styles.listItemIcon}>
-                  <Ionicons
-                    name="notifications-outline"
-                    size={18}
-                    color="#2196F3"
-                  />
-                </View>
-                <View style={styles.listItemBody}>
-                  <Text style={styles.listItemTitle}>{n.title}</Text>
-                  <Text style={styles.listItemSub}>{n.timeAgo}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color="#666" />
-              </TouchableOpacity>
-            ))}
-            {recentNotifications.length === 0 && (
-              <View style={styles.emptyState}>
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No notifications</Text>
-              </View>
-            )}
-          </View>
-        </View>
 
         {/* Recommended Scholarships */}
         <View style={styles.sectionContainer}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Recommended Scholarships</Text>
           <View style={styles.cardGrid}>
-            {recommendedScholarships.slice(0, 5).map((s) => (
-              <View key={s.id} style={styles.scholarshipCard}>
-                <Text style={styles.scholarshipTitle}>{s.title}</Text>
-                <Text style={styles.scholarshipAmount}>{s.amount}</Text>
-                <View style={styles.scholarshipActions}>
-                  <Button
-                    title="View"
-                    variant="secondary"
-                    onPress={() =>
-                      router.push(
-                        "/(dashboard)/student/student-scholarship-details"
-                      )
-                    }
-                  />
-                  <Button
-                    title="Apply"
-                    variant="primary"
-                    onPress={() =>
-                      router.push("/(dashboard)/student/student-apply-form")
-                    }
-                  />
+            {recommendedScholarships.slice(0, 5).map((s) => {
+              const categoryColor = getCategoryColor(s.category);
+              const daysInfo = getDaysRemaining(s.deadline, s.expired); // s.deadline in state is raw date string from API now, or null.
+              // Wait, in previous step I updated state to have deadline: item.end_date || null.
+              // So s.deadline is the raw date string (e.g. "2025-11-30") or null.
+              // getDaysRemaining expects raw string. So this is correct.
+
+              const isExpired = s.expired || daysInfo.text === "Expired";
+
+              return (
+                <View key={s.id} style={[styles.scholarshipCard, { borderLeftColor: categoryColor, borderLeftWidth: 4, backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <View style={styles.cardInternalRow}>
+                    {s.image ? (
+                      <Image source={{ uri: s.image }} style={styles.cardImage} />
+                    ) : (
+                      <View style={[styles.cardIconPlaceholder, { backgroundColor: isDark ? "#333" : "#e0e0e0" }]}>
+                        <Ionicons name="school-outline" size={24} color={colors.text} />
+                      </View>
+                    )}
+                    <View style={styles.cardContent}>
+                      <Text style={[styles.scholarshipTitle, { color: colors.text }]} numberOfLines={2}>{s.title}</Text>
+                      <View style={styles.tagRow}>
+                        {isExpired && (
+                          <View style={[styles.tag, { backgroundColor: 'rgba(244, 67, 54, 0.1)', marginRight: 6 }]}>
+                            <Text style={[styles.tagText, { color: '#F44336' }]}>Expired</Text>
+                          </View>
+                        )}
+                        <View style={[styles.tag, { backgroundColor: `${categoryColor}15` }]}>
+                          <Text style={[styles.tagText, { color: categoryColor }]}>{s.category}</Text>
+                        </View>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                        <Ionicons name="time-outline" size={12} color={colors.textSecondary} style={{ marginRight: 4 }} />
+                        <Text style={[styles.scholarshipDeadline, { color: colors.textSecondary }]}>
+                          {s.deadline ? s.deadline : "No Deadline"}
+                        </Text>
+                        {!isExpired && s.deadline && daysInfo.text !== "Open" && (
+                          <Text style={[styles.scholarshipDeadline, { marginLeft: 6, color: daysInfo.color }]}>
+                            • {daysInfo.text}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => toggleBookmark(Number(s.id), s.bookmarked)}
+                      style={{ padding: 4 }}
+                    >
+                      <Ionicons
+                        name={s.bookmarked ? "bookmark" : "bookmark-outline"}
+                        size={22}
+                        color={s.bookmarked ? "#FFB400" : colors.textSecondary}
+                      />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.scholarshipActions}>
+                    <TouchableOpacity
+                      onPress={() =>
+                        router.push({
+                          pathname: "/(dashboard)/student/student-scholarship-details",
+                          params: { scholarshipId: s.id }
+                        })
+                      }
+                      style={[styles.viewBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" }]}
+                    >
+                      <Ionicons name="eye-outline" size={18} color={colors.text} />
+                      <Text style={[styles.viewBtnText, { color: colors.text }]}>Details</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() =>
+                        router.push({
+                          pathname: "/(dashboard)/student/student-apply-form",
+                          params: { scholarshipId: s.id }
+                        })
+                      }
+                      disabled={isExpired}
+                      style={[
+                        styles.applyBtn,
+                        { backgroundColor: categoryColor },
+                        isExpired && { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#eee", opacity: 0.8 }
+                      ]}
+                    >
+                      <Ionicons
+                        name={isExpired ? "close-circle-outline" : "paper-plane-outline"}
+                        size={18}
+                        color={isExpired ? (isDark ? colors.textSecondary : "#999") : "#fff"}
+                      />
+                      <Text style={[styles.applyBtnText, isExpired && { color: isDark ? colors.textSecondary : "#999" }]}>
+                        {isExpired ? "Expired" : "Apply Now"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-            ))}
+              )
+            })}
             {recommendedScholarships.length === 0 && (
               <View style={styles.emptyState}>
                 <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No recommendations yet</Text>
@@ -419,12 +651,43 @@ export default function StudentDashboardScreen() {
         {/* Application Progress Tracker */}
         <View style={styles.sectionContainer}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Application Progress</Text>
-          <View style={[styles.progressBar, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(51,51,51,0.08)" }]}>
-            <View
-              style={[styles.progressFill, { width: `${progress.ratio}%` }]}
-            />
+          <View style={[styles.progressCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.progressHeader}>
+              <Text style={[styles.progressTotal, { color: colors.text }]}>
+                {applicationProgress.total} <Text style={{ fontSize: 14, color: colors.textSecondary, fontWeight: "normal" }}>Applications</Text>
+              </Text>
+            </View>
+
+            <View style={styles.segmentedProgressBar}>
+              {applicationProgress.approved > 0 && (
+                <View style={[styles.progressSegment, { flex: applicationProgress.approved, backgroundColor: "#4CAF50", borderTopLeftRadius: 8, borderBottomLeftRadius: 8 }]} />
+              )}
+              {applicationProgress.pending > 0 && (
+                <View style={[styles.progressSegment, { flex: applicationProgress.pending, backgroundColor: "#FF9800" }]} />
+              )}
+              {applicationProgress.rejected > 0 && (
+                <View style={[styles.progressSegment, { flex: applicationProgress.rejected, backgroundColor: "#F44336", borderTopRightRadius: 8, borderBottomRightRadius: 8 }]} />
+              )}
+              {applicationProgress.total === 0 && (
+                <View style={[styles.progressSegment, { flex: 1, backgroundColor: isDark ? "#333" : "#eee", borderRadius: 8 }]} />
+              )}
+            </View>
+
+            <View style={styles.progressLegend}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: "#4CAF50" }]} />
+                <Text style={[styles.legendText, { color: colors.textSecondary }]}>{applicationProgress.approved} Approved</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: "#FF9800" }]} />
+                <Text style={[styles.legendText, { color: colors.textSecondary }]}>{applicationProgress.pending} Pending</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: "#F44336" }]} />
+                <Text style={[styles.legendText, { color: colors.textSecondary }]}>{applicationProgress.rejected} Rejected</Text>
+              </View>
+            </View>
           </View>
-          <Text style={[styles.progressLabel, { color: colors.text }]}>{progress.label}</Text>
         </View>
 
         {/* Quick Actions Grid */}
@@ -495,6 +758,7 @@ export default function StudentDashboardScreen() {
   );
 }
 
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -511,6 +775,7 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 20,
+    paddingBottom: 10,
   },
   headerContent: {
     flexDirection: "row",
@@ -538,71 +803,65 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: "absolute",
-    top: -4,
-    right: -4,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: "#F44336",
-    alignItems: "center",
+    top: -6,
+    right: -6,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#FF5252",
     justifyContent: "center",
-    paddingHorizontal: 3,
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "#fff",
   },
   badgeText: {
-    fontSize: 10,
     color: "#fff",
-    fontWeight: "700",
+    fontSize: 10,
+    fontWeight: "bold",
+    textAlign: "center",
   },
   avatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
+    borderWidth: 2,
+    borderColor: "#fff",
   },
   avatarPlaceholder: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   statsContainer: {
     flexDirection: "row",
-    flexWrap: "wrap",
     justifyContent: "space-between",
     paddingHorizontal: 20,
+    marginTop: 10,
     marginBottom: 24,
-    gap: 12,
+    gap: 10,
   },
   statCard: {
-    width: "48%",
-    borderRadius: 16,
-    padding: 16,
+    flex: 1,
+    padding: 12,
+    borderRadius: 12,
     alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
+    elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   statNumber: {
-    fontSize: 24,
-    fontWeight: "800",
+    fontSize: 20,
+    fontWeight: "700",
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    textAlign: "center",
-    lineHeight: 16,
-  },
-  featuresContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    marginBottom: 16,
   },
   sectionContainer: {
     paddingHorizontal: 20,
@@ -610,132 +869,227 @@ const styles = StyleSheet.create({
   },
   sectionHeaderRow: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 8,
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 12,
   },
   viewAllText: {
-    fontWeight: "600",
+    fontSize: 14,
+    fontWeight: "500",
   },
   cardList: {
     borderRadius: 16,
+    overflow: "hidden",
     borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
   },
   listItem: {
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#eee",
   },
   listItemIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#PPP", // Placeholder color logic handles this usually
     justifyContent: "center",
+    alignItems: "center",
     marginRight: 12,
   },
   listItemBody: {
     flex: 1,
   },
   listItemTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "600",
     marginBottom: 2,
   },
   listItemSub: {
-    fontSize: 12,
+    fontSize: 13,
+    color: "#888",
   },
   emptyState: {
-    padding: 16,
+    padding: 20,
     alignItems: "center",
   },
   emptyText: {
-    fontSize: 12,
+    fontSize: 14,
+    fontStyle: 'italic',
   },
   cardGrid: {
-    gap: 12,
+    gap: 16,
   },
   scholarshipCard: {
     borderRadius: 16,
     borderWidth: 1,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 3,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-    padding: 16,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  cardInternalRow: {
+    flexDirection: "row",
+    marginBottom: 16,
+  },
+  cardImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  cardIconPlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  cardContent: {
+    flex: 1,
+    justifyContent: "space-between",
   },
   scholarshipTitle: {
     fontSize: 16,
     fontWeight: "600",
     marginBottom: 6,
   },
-  scholarshipAmount: {
-    fontSize: 13,
-    marginBottom: 12,
+  tagRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginBottom: 4,
+  },
+  tag: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  tagText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  scholarshipDeadline: {
+    fontSize: 12,
   },
   scholarshipActions: {
     flexDirection: "row",
-    gap: 8,
+    gap: 10,
   },
-  progressBar: {
-    width: "100%",
-    height: 10,
-    borderRadius: 6,
-    overflow: "hidden",
+  viewBtn: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
   },
-  progressFill: {
-    height: "100%",
-    backgroundColor: "#4CAF50",
-  },
-  progressLabel: {
-    marginTop: 8,
-    fontSize: 12,
+  viewBtnText: {
     fontWeight: "600",
+    fontSize: 14,
+  },
+  applyBtn: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
+  },
+  applyBtnText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  featuresContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 30,
   },
   featuresGrid: {
     gap: 12,
   },
   featureCard: {
+    padding: 16,
     borderRadius: 16,
     borderWidth: 1,
     borderLeftWidth: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
   },
   featureContent: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
+    gap: 16,
   },
   featureIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: "center",
-    marginRight: 12,
+    alignItems: "center",
   },
   featureInfo: {
     flex: 1,
+    gap: 2,
   },
   featureTitle: {
     fontSize: 16,
     fontWeight: "600",
-    marginBottom: 2,
   },
   featureDescription: {
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 13,
+    color: "#666",
+  },
+  progressCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 20,
+  },
+  progressHeader: {
+    marginBottom: 16,
+  },
+  progressTotal: {
+    fontSize: 32,
+    fontWeight: "800",
+    letterSpacing: -1,
+  },
+  segmentedProgressBar: {
+    height: 12,
+    flexDirection: "row",
+    gap: 4,
+    marginBottom: 20,
+  },
+  progressSegment: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  progressLegend: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 16,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontSize: 13,
+    fontWeight: "500",
   },
 });
-

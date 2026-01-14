@@ -1,12 +1,48 @@
 import { AppHeader } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
+import { getPrivacyPolicy } from "@/utils/api";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { WebView } from "react-native-webview";
 
 export default function StudentPrivacyScreen() {
     const { isDark, colors } = useTheme();
+    const [content, setContent] = useState("");
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        getPrivacyPolicy().then(res => {
+            if (res.success && res.data) {
+                setContent(res.data.content || "<p>No privacy policy available.</p>");
+            } else {
+                setContent("<p>Failed to load privacy policy.</p>");
+            }
+            setLoading(false);
+        }).catch(() => {
+            setContent("<p>Failed to load privacy policy.</p>");
+            setLoading(false);
+        });
+    }, []);
+
+    const htmlContent = `
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body { font-family: -apple-system, system-ui; color: ${colors.text}; background-color: transparent; padding: 20px; }
+            p { line-height: 1.6; font-size: 15px; color: ${colors.textSecondary}; }
+            h1, h2, h3, h4, h5, h6 { color: ${colors.text}; margin-top: 20px; margin-bottom: 10px; }
+            a { color: ${colors.primary}; }
+          </style>
+        </head>
+        <body>
+          ${content}
+        </body>
+      </html>
+    `;
+
     return (
         <View style={styles.container}>
             <LinearGradient
@@ -17,39 +53,20 @@ export default function StudentPrivacyScreen() {
 
             <AppHeader title="Privacy Policy" onBack={() => router.back()} />
 
-            <ScrollView
-                style={styles.scrollView}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.contentContainer}
-            >
-                <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 0 }]}>1. Data Collection</Text>
-                    <Text style={[styles.text, { color: colors.textSecondary }]}>
-                        We collect information that you provide to us directly, such as your name, email address, phone number, and academic details when you create an account or apply for scholarships.
-                    </Text>
-
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>2. Use of Information</Text>
-                    <Text style={[styles.text, { color: colors.textSecondary }]}>
-                        The information we collect is used to facilitate scholarship applications, communicate with you about opportunities, and improve our services.
-                    </Text>
-
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>3. Information Sharing</Text>
-                    <Text style={[styles.text, { color: colors.textSecondary }]}>
-                        We may share your information with scholarship providers and partners involved in the educational process. We do not sell your personal data to third parties.
-                    </Text>
-
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>4. Data Security</Text>
-                    <Text style={[styles.text, { color: colors.textSecondary }]}>
-                        We implement industry-standard security measures to protect your data from unauthorized access, disclosure, or alteration.
-                    </Text>
-
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>5. Your Rights</Text>
-                    <Text style={[styles.text, { color: colors.textSecondary }]}>
-                        You have the right to access, update, or delete your personal information. You can manage your data through your profile settings or by contacting us.
-                    </Text>
+            {loading ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={colors.primary} />
                 </View>
-                <View style={{ height: 40 }} />
-            </ScrollView>
+            ) : (
+                <View style={[styles.cardContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <WebView
+                        originWhitelist={['*']}
+                        source={{ html: htmlContent }}
+                        style={{ backgroundColor: 'transparent' }}
+                        showsVerticalScrollIndicator={false}
+                    />
+                </View>
+            )}
         </View>
     );
 }
@@ -65,30 +82,17 @@ const styles = StyleSheet.create({
         bottom: 0,
         right: 0,
     },
-    scrollView: {
+    loadingContainer: {
         flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center'
     },
-    contentContainer: {
-        padding: 20,
-    },
-    card: {
+    cardContainer: {
+        flex: 1,
+        margin: 20,
         borderRadius: 16,
-        padding: 24,
+        overflow: 'hidden',
         borderWidth: 1,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
         elevation: 2,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: "700",
-        marginTop: 20,
-        marginBottom: 8,
-    },
-    text: {
-        fontSize: 15,
-        lineHeight: 22,
-    },
+    }
 });

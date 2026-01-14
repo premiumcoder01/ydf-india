@@ -193,7 +193,7 @@ export default function StudentProfilePersonalScreen() {
                 religion: user.religion || user.customfields?.find((f: any) => f.shortname === 'religion')?.value || prev.religion,
                 caste: user.caste || user.customfields?.find((f: any) => f.shortname === 'caste')?.value || prev.caste,
                 domicileState: user.domicilestate || user.customfields?.find((f: any) => f.shortname === 'domicilestate')?.value || prev.domicileState,
-                district: user.district || user.customfields?.find((f: any) => f.shortname === 'district')?.value || prev.district,
+                district: user.district || user.customfields?.find((f: any) => f.shortname === 'district' || f.shortname === 'domiciledistrict')?.value || prev.district,
                 village: user.village || user.customfields?.find((f: any) => f.shortname === 'village')?.value || prev.village,
                 fatherName: user.fathername || user.customfields?.find((f: any) => f.shortname === 'fathername')?.value || prev.fatherName,
                 motherName: user.mothername || user.customfields?.find((f: any) => f.shortname === 'mothername')?.value || prev.motherName,

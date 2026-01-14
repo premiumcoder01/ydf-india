@@ -1,11 +1,14 @@
 import { AppHeader, Button, CustomTextInput, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
+import { createAcademicDetail, getAcademicDetails, updateAcademicDetail } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Modal,
@@ -67,29 +70,11 @@ export default function StudentProfileAcademicScreen() {
   const { isDark, colors } = useTheme();
   const insets = useSafeAreaInsets();
 
+
   // State for list of records
-  const [records, setRecords] = useState<AcademicRecord[]>([
-    {
-      id: "1",
-      institution: "Delhi University",
-      major: "Computer Science",
-      gpa: "8.5",
-      graduation: "15/05/2025",
-      year: "2024",
-      currentCourse: "B.Tech",
-      currentCourseCategory: "Engineering"
-    },
-    {
-      id: "2",
-      institution: "Modern School",
-      major: "Science",
-      gpa: "9.2",
-      graduation: "20/03/2021",
-      year: "2021",
-      currentCourse: "12th Grade",
-      currentCourseCategory: "Science"
-    }
-  ]);
+  const [records, setRecords] = useState<AcademicRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   // Modal & Editing State
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -107,6 +92,43 @@ export default function StudentProfileAcademicScreen() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState<"success" | "error" | "info">("error");
+
+  useEffect(() => {
+    fetchAcademicDetails();
+  }, []);
+
+  const fetchAcademicDetails = async () => {
+    try {
+      setLoading(true);
+      const authDataStr = await AsyncStorage.getItem("authData");
+      if (authDataStr) {
+        const authData = JSON.parse(authDataStr);
+        if (authData.token) {
+          const response = await getAcademicDetails(authData.token);
+          if (response.success && Array.isArray(response.data)) {
+            const mappedRecords: AcademicRecord[] = response.data.map((item: any) => ({
+              id: item.id.toString(),
+              institution: item.institution,
+              major: item.major,
+              gpa: item.cgpa ? item.cgpa.toString() : (item.percentage ? item.percentage.toString() : ""),
+              graduation: item.graduation_year ? item.graduation_year.toString() : "",
+              year: item.academic_year,
+              currentCourse: item.course_name,
+              currentCourseCategory: item.category
+            }));
+            setRecords(mappedRecords);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch academic details", error);
+      setToastMessage("Failed to load academic details");
+      setToastType("error");
+      setShowToast(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // --- Handlers ---
 
@@ -157,7 +179,7 @@ export default function StudentProfileAcademicScreen() {
     return Object.keys(errors).length === 0;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validateForm()) {
       setToastMessage("Please fix errors");
       setToastType("error");
@@ -165,20 +187,47 @@ export default function StudentProfileAcademicScreen() {
       return;
     }
 
-    setRecords(prev => {
-      // If ID exists, update. Else, create new.
-      if (editingRecord.id) {
-        return prev.map(r => r.id === editingRecord.id ? editingRecord : r);
-      } else {
-        const newRecord = { ...editingRecord, id: Date.now().toString() };
-        return [...prev, newRecord];
-      }
-    });
+    try {
+      setSaving(true);
+      const authDataStr = await AsyncStorage.getItem("authData");
+      if (authDataStr) {
+        const authData = JSON.parse(authDataStr);
+        if (authData.token) {
+          const apiParams = {
+            course_name: editingRecord.currentCourse,
+            category: editingRecord.currentCourseCategory,
+            institution: editingRecord.institution,
+            major: editingRecord.major,
+            percentage: editingRecord.gpa,
+            cgpa: editingRecord.gpa,
+            academic_year: editingRecord.year,
+            graduation_year: editingRecord.graduation,
+          };
 
-    setIsModalVisible(false);
-    setToastMessage(editingRecord.id ? "Record updated" : "Record added");
-    setToastType("success");
-    setShowToast(true);
+          let response;
+          if (editingRecord.id) {
+            response = await updateAcademicDetail(authData.token, parseInt(editingRecord.id), apiParams);
+          } else {
+            response = await createAcademicDetail(authData.token, apiParams);
+          }
+
+          if (response.success) {
+            await fetchAcademicDetails();
+            setIsModalVisible(false);
+            setToastMessage(editingRecord.id ? "Record updated successfully" : "Record created successfully");
+            setToastType("success");
+            setShowToast(true);
+          } else {
+            Alert.alert("Error", response.error || (editingRecord.id ? "Failed to update record" : "Failed to create record"));
+          }
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      Alert.alert("Error", "An unexpected error occurred");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleFieldChange = (field: keyof AcademicRecord, value: string) => {
@@ -234,85 +283,101 @@ export default function StudentProfileAcademicScreen() {
         locations={[0, 0.3, 1]}
       />
 
+
       <AppHeader
         title="Academic Details"
         onBack={() => router.back()}
       />
 
-      <ScrollView
-        contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.headerRow}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Academic Records</Text>
-          <TouchableOpacity
-            style={[styles.addButton, { backgroundColor: colors.primary }]}
-            onPress={handleAddNew}
-          >
-            <Ionicons name="add" size={24} color="#fff" />
-          </TouchableOpacity>
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
-
-        {records.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={{ color: colors.textSecondary }}>No academic records found.</Text>
-            <Button title="Add First Record" onPress={handleAddNew} style={{ marginTop: 12 }} />
+      ) : (
+        <ScrollView
+          contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.headerRow}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Academic Records</Text>
+            <TouchableOpacity
+              style={[styles.addButton, { backgroundColor: colors.primary }]}
+              onPress={handleAddNew}
+            >
+              <Ionicons name="add" size={24} color="#fff" />
+            </TouchableOpacity>
           </View>
-        ) : (
-          <View style={{ gap: 16 }}>
-            {records.map((record) => (
-              <View key={record.id} style={[styles.recordCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={styles.recordHeader}>
-                  <View style={[styles.iconBox, { backgroundColor: colors.primary + '15' }]}>
-                    <Ionicons name="school" size={24} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.recordTitle, { color: colors.text }]}>{record.currentCourse}</Text>
-                    <Text style={[styles.recordSubtitle, { color: colors.textSecondary }]}>{record.institution}</Text>
-                  </View>
-                  <View style={styles.actionButtons}>
-                    <TouchableOpacity
-                      style={[styles.actionBtn, { backgroundColor: '#E3F2FD' }]}
-                      onPress={() => handleEdit(record)}
-                    >
-                      <Ionicons name="pencil" size={16} color="#2196F3" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.actionBtn, { backgroundColor: '#FFEBEE' }]}
-                      onPress={() => handleDelete(record.id)}
-                    >
-                      <Ionicons name="trash" size={16} color="#F44336" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
 
-                <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-                <View style={styles.recordDetails}>
-                  <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Year</Text>
-                    <Text style={[styles.detailValue, { color: colors.text }]}>{record.year}</Text>
-                  </View>
-                  <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Major</Text>
-                    <Text style={[styles.detailValue, { color: colors.text }]}>{record.major || "N/A"}</Text>
-                  </View>
-                  <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Graduation</Text>
-                    <Text style={[styles.detailValue, { color: colors.text }]}>{record.graduation || "N/A"}</Text>
-                  </View>
-                </View>
+          {records.length === 0 ? (
+            <View style={styles.emptyState}>
+              <View style={[styles.emptyIconContainer, { backgroundColor: isDark ? '#333' : '#f5f5f5' }]}>
+                <Ionicons name="school-outline" size={48} color={colors.textSecondary} />
               </View>
-            ))}
-          </View>
-        )}
-      </ScrollView>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>No Academic Records</Text>
+              <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                Add your educational background to build your profile.
+              </Text>
+              <Button
+                title="Add Academic Record"
+                onPress={handleAddNew}
+                style={{ marginTop: 16, minWidth: 200 }}
+              />
+            </View>
+          ) : (
+            <View style={{ gap: 16 }}>
+              {records.map((record) => (
+                <View key={record.id} style={[styles.recordCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <View style={styles.recordHeader}>
+                    <View style={[styles.iconBox, { backgroundColor: colors.primary + '15' }]}>
+                      <Ionicons name="school" size={24} color={colors.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.recordTitle, { color: colors.text }]}>{record.currentCourse}</Text>
+                      <Text style={[styles.recordSubtitle, { color: colors.textSecondary }]}>{record.institution}</Text>
+                    </View>
+                    <View style={styles.actionButtons}>
+                      <TouchableOpacity
+                        style={[styles.actionBtn, { backgroundColor: '#E3F2FD' }]}
+                        onPress={() => handleEdit(record)}
+                      >
+                        <Ionicons name="pencil" size={16} color="#2196F3" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.actionBtn, { backgroundColor: '#FFEBEE' }]}
+                        onPress={() => handleDelete(record.id)}
+                      >
+                        <Ionicons name="trash" size={16} color="#F44336" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+                  <View style={styles.recordDetails}>
+                    <View style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>Year</Text>
+                      <Text style={[styles.detailValue, { color: colors.text }]}>{record.year}</Text>
+                    </View>
+                    <View style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>Major</Text>
+                      <Text style={[styles.detailValue, { color: colors.text }]}>{record.major || "N/A"}</Text>
+                    </View>
+                    <View style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>Graduation</Text>
+                      <Text style={[styles.detailValue, { color: colors.text }]}>{record.graduation || "N/A"}</Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </ScrollView>
+      )}
 
       {/* Add/Edit Modal */}
       <Modal
         visible={isModalVisible}
         animationType="slide"
-        presentationStyle="pageSheet"
         onRequestClose={() => setIsModalVisible(false)}
       >
         <View style={[styles.fullScreenModal, { backgroundColor: colors.background }]}>
@@ -420,7 +485,8 @@ export default function StudentProfileAcademicScreen() {
               </View>
 
               <Button
-                title="Save Details"
+                title={saving ? "Saving..." : "Save Details"}
+                loading={saving}
                 onPress={handleSave}
                 style={{ marginTop: 20 }}
               />
@@ -566,7 +632,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    height: 56
+    minHeight: 56
   },
   errorText: { color: '#EF4444', fontSize: 12, marginTop: 4 },
 
@@ -581,4 +647,25 @@ const styles = StyleSheet.create({
   optionText: { fontSize: 16 },
   optionTextSelected: { fontWeight: "700", color: "#2196F3" },
   emptyState: { alignItems: 'center', justifyContent: 'center', padding: 40 },
+  emptyIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 0,
+    paddingHorizontal: 20,
+    lineHeight: 20,
+  },
 });
