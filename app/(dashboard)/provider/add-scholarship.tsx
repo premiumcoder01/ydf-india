@@ -1,6 +1,8 @@
 import { Button, CustomTextInput, ReviewerHeader } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
+import { createScholarship } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
@@ -248,9 +250,93 @@ export default function ProviderAddScholarshipScreen() {
     }
   };
 
-  const handleSubmit = () => {
-    Alert.alert("Success", "Scholarship details submitted for verification.");
-    router.back();
+  const handleSubmit = async () => {
+    try {
+      if (!formData.schemeName || !formData.category) {
+        Alert.alert("Error", "Please fill in all required fields");
+        return;
+      }
+
+      // Get token
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) {
+        Alert.alert("Error", "User not authenticated");
+        return;
+      }
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
+
+      if (!token) {
+        Alert.alert("Error", "User not authenticated");
+        return;
+      }
+
+      // Prepare API Payload
+      const payload = {
+        fullname: formData.schemeName,
+        shortname: formData.schemeName.substring(0, 100).replace(/\s+/g, '-').toLowerCase() + '-' + Date.now(),
+        categoryid: 1, // TODO: Get actual category ID
+        provider_name: formData.providerName,
+        summary: formData.description,
+        startdate: formData.startDate ? Math.floor(formData.startDate.getTime() / 1000) : null,
+        enddate: formData.endDate ? Math.floor(formData.endDate.getTime() / 1000) : null,
+        visible: 1,
+        total_seats: formData.totalSeats,
+        scholarship_cycle: formData.paymentCycle,
+        scholarship_amount: formData.amountType === "fixed" ? formData.fixedAmount : formData.actualAmountLimit,
+        fund_amount: formData.amountType === "fixed"
+          ? (Number(formData.fixedAmount) * Number(formData.totalSeats))
+          : (Number(formData.actualAmountLimit) * Number(formData.totalSeats)),
+        student_pct: formData.distributionStudent,
+        institute_pct: formData.distributionInstitute,
+        selection_stages_json: formData.stages.map(stage => stage.name), // API expects simple array of names based on example? "JSON array of selection stages (example: ["Application review"...])"
+        geo_eligibility_json: {
+          states: formData.states,
+          districts: formData.districts,
+          blocks: formData.blocks,
+          villages: formData.villages
+        },
+        personal_eligibility_json: {
+          gender: formData.gender,
+          caste: formData.casteCategory,
+          special_category: formData.specialCategory,
+          income_limit: formData.incomeLimit
+        },
+        academic_eligibility_json: {
+          education_level: formData.educationLevel,
+          streams: formData.streams,
+          min_class_score: formData.lastClassPercent,
+          min_10th_score: formData.tenthClassPercent,
+          min_12th_score: formData.twelfthClassPercent,
+          competitive_exam: {
+            name: formData.competitiveExams,
+            rank: formData.minRank,
+            score: formData.minScore
+          }
+        },
+        document_requirements_json: formData.requiredDocuments,
+        // Optional Draft IDs for images - would need separate upload API
+        // logo_draftitemid: ... 
+        // banner_draftitemid: ...
+        eligibility_criteria: `Income Limit: ${formData.incomeLimit}, ${formData.gender.join(', ')}`
+      };
+
+      console.log("Submitting Payload:", JSON.stringify(payload, null, 2));
+
+      const response = await createScholarship(token, payload);
+
+      if (response.success) {
+        Alert.alert("Success", "Scholarship created successfully!", [
+          { text: "OK", onPress: () => router.back() }
+        ]);
+      } else {
+        Alert.alert("Error", response.message || "Failed to create scholarship");
+      }
+
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Error", "An unexpected error occurred");
+    }
   };
 
   const handleDistributionChange = (field: "distributionStudent" | "distributionInstitute", value: string) => {

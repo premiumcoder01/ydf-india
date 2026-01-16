@@ -2078,3 +2078,1115 @@ export const getFAQs = async (token: string): Promise<ApiResponse> => {
     return { success: false, error: error.message };
   }
 };
+
+/**
+ * Get All Applications in Scheme for Reviewer
+ * Endpoint: /webservice/rest/server.php
+ * Method: POST
+ * Token Required: YES
+ */
+export const getReviewerApplications = async (
+  token: string,
+  scholarshipId: number,
+  params?: {
+    status?: "new" | "approved" | "waitlisted" | "rejected";
+    page?: number;
+    per_page?: number;
+  }
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add required query parameters
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_reviewer_get_all_applications");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("scholarship_id", String(scholarshipId));
+    
+    // Add optional parameters if provided
+    if (params?.status) {
+      urlObj.searchParams.append("status", params.status);
+    }
+    if (params?.page) {
+      urlObj.searchParams.append("page", String(params.page));
+    }
+    if (params?.per_page) {
+      urlObj.searchParams.append("per_page", String(params.per_page));
+    }
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Reviewer Applications URL:", finalUrl);
+    
+    // Make POST request with query parameters in URL
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    // Get response text first to handle different response types
+    const responseText = await response.text();
+    let data: any = {};
+
+    // Try to parse as JSON
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      // If not JSON, treat as plain text error
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    // Check if request was successful
+    if (response.ok) {
+      return {
+        success: true,
+        data: data,
+        message: data.message || "Applications retrieved successfully",
+      };
+    } else {
+      // Handle API errors
+      return {
+        success: false,
+        error: data.error || data.message || data.error_message || "Something went wrong",
+        message: data.message || "Failed to retrieve applications",
+      };
+    }
+  } catch (error: any) {
+    // Handle network errors
+    return {
+      success: false,
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server",
+    };
+  }
+};
+
+/**
+ * Get Application Details for Reviewer
+ * Endpoint: /webservice/rest/server.php
+ * Method: POST
+ * Token Required: YES
+ */
+export const getReviewerApplicationDetails = async (
+  token: string,
+  applicationId: number
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add required query parameters
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_reviewer_get_application_details");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("application_id", String(applicationId));
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Reviewer Application Details URL:", finalUrl);
+    
+    // Make POST request with query parameters in URL
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    // Get response text first to handle different response types
+    const responseText = await response.text();
+    let data: any = {};
+
+    // Try to parse as JSON
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+      
+      // Check for Moodle exception format
+      if (data.exception || data.errorcode) {
+        return {
+          success: false,
+          error: data.message || "Permission denied",
+          message: data.message || "You do not have permission to view this application"
+        };
+      }
+    } catch (e) {
+      // If not JSON, treat as plain text error
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    // Check if request was successful
+    if (response.ok) {
+      return {
+        success: true,
+        data: data,
+        message: data.message || "Application details retrieved successfully",
+      };
+    } else {
+      // Handle API errors
+      return {
+        success: false,
+        error: data.error || data.message || data.error_message || "Something went wrong",
+        message: data.message || "Failed to retrieve application details",
+      };
+    }
+  } catch (error: any) {
+    // Handle network errors
+    return {
+      success: false,
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server",
+    };
+  }
+};
+
+/**
+ * Review Application (Approve/Reject)
+ * Endpoint: /webservice/rest/server.php
+ * Method: POST
+ * Token Required: YES
+ */
+export const reviewApplication = async (
+  token: string,
+  applicationId: number,
+  action: "approve" | "reject",
+  notes?: string
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add required query parameters
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_reviewer_review_application");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("application_id", String(applicationId));
+    urlObj.searchParams.append("action", action);
+    
+    if (notes) {
+      urlObj.searchParams.append("notes", notes);
+    }
+    
+    const finalUrl = urlObj.toString();
+    console.log(`Review Application (${action}) URL:`, finalUrl);
+    
+    // Make POST request
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    // Get response text first
+    const responseText = await response.text();
+    let data: any = {};
+
+    // Try to parse as JSON
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+      
+      // Check for Moodle exception format
+      if (data.exception || data.errorcode) {
+        return {
+          success: false,
+          error: data.message || "Permission denied",
+          message: data.message || "Action failed"
+        };
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    // Check if request was successful
+    if (response.ok) {
+        if (data.success === false) {
+             return {
+                success: false,
+                error: data.message || "Action failed",
+                message: data.message || "Action failed"
+            };
+        }
+
+      return {
+        success: true,
+        data: data,
+        message: data.message || `Application ${action}d successfully`,
+      };
+    } else {
+      return {
+        success: false,
+        error: data.error || data.message || "Something went wrong",
+        message: data.message || "Failed to submit review",
+      };
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || "Network error",
+      message: "Failed to connect to server",
+    };
+  }
+};
+
+/**
+ * Get Dashboard Statistics for Reviewer
+ * Endpoint: /webservice/rest/server.php
+ * Method: POST
+ * Token Required: YES
+ */
+export const getReviewerDashboardStats = async (token: string): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add required query parameters
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_reviewer_get_dashboard_stats");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Reviewer Dashboard Stats URL:", finalUrl);
+    
+    // Make POST request
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+      
+      if (data.exception || data.errorcode) {
+        return {
+          success: false,
+          error: data.message || "Permission denied",
+          message: data.message || "Failed to fetch stats"
+        };
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    if (response.ok) {
+        if (data.success === false) {
+             return {
+                success: false,
+                error: data.message || "Failed to fetch stats",
+                message: data.message || "Failed to fetch stats"
+             };
+        }
+      return {
+        success: true,
+        data: data,
+        message: "Stats retrieved successfully",
+      };
+    } else {
+      return {
+        success: false,
+        error: data.error || data.message || "Something went wrong",
+        message: "Failed to retrieve stats",
+      };
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || "Network error",
+      message: "Failed to connect to server",
+    };
+  }
+};
+
+/**
+ * Get Recent Applications for Reviewer
+ * Endpoint: /webservice/rest/server.php
+ * Method: POST
+ * Token Required: YES
+ */
+export const getReviewerRecentApplications = async (token: string, limit: number = 10): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add required query parameters
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_reviewer_get_recent_applications");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("limit", String(limit));
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Recent Applications URL:", finalUrl);
+    
+    // Make POST request
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+      
+      if (data.exception || data.errorcode) {
+        return {
+          success: false,
+          error: data.message || "Permission denied",
+          message: data.message || "Failed to fetch recent applications"
+        };
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    if (response.ok) {
+        if (data.success === false) {
+             return {
+                success: false,
+                error: data.message || "Failed to fetch recent applications",
+                message: data.message || "Failed to fetch recent applications"
+             };
+        }
+      return {
+        success: true,
+        data: data,
+        message: "Recent applications retrieved successfully",
+      };
+    } else {
+      return {
+        success: false,
+        error: data.error || data.message || "Something went wrong",
+        message: "Failed to retrieve recent applications",
+      };
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || "Network error",
+      message: "Failed to connect to server",
+    };
+  }
+};
+
+/**
+ * Get Reviewer Progress
+ * Endpoint: /webservice/rest/server.php
+ * Method: POST
+ * Token Required: YES
+ */
+export const getReviewerProgress = async (token: string): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add required query parameters
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_reviewer_get_progress");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Reviewer Progress URL:", finalUrl);
+    
+    // Make POST request
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+      
+      if (data.exception || data.errorcode) {
+        return {
+          success: false,
+          error: data.message || "Permission denied",
+          message: data.message || "Failed to fetch progress"
+        };
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    if (response.ok) {
+        if (data.success === false) {
+             return {
+                success: false,
+                error: data.message || "Failed to fetch progress",
+                message: data.message || "Failed to fetch progress"
+             };
+        }
+      return {
+        success: true,
+        data: data,
+        message: "Progress retrieved successfully",
+      };
+    } else {
+      return {
+        success: false,
+        error: data.error || data.message || "Something went wrong",
+        message: "Failed to retrieve progress",
+      };
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || "Network error",
+      message: "Failed to connect to server",
+    };
+  }
+};
+
+/**
+ * Get Dashboard Statistics for Donor/Provider
+ * Endpoint: /webservice/rest/server.php
+ * Method: POST
+ * Token Required: YES
+ */
+export const getDonorDashboardStats = async (
+  token: string,
+  startDate?: number,
+  endDate?: number
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add required query parameters
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_get_dashboard_stats");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    if (startDate) {
+      urlObj.searchParams.append("start_date", String(startDate));
+    }
+    if (endDate) {
+      urlObj.searchParams.append("end_date", String(endDate));
+    }
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Donor Dashboard Stats URL:", finalUrl);
+    
+    // Make POST request
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+      
+      if (data.exception || data.errorcode) {
+        return {
+          success: false,
+          error: data.message || "Permission denied",
+          message: data.message || "Failed to fetch stats"
+        };
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    if (response.ok) {
+        if (data.success === false) {
+             return {
+                success: false,
+                error: data.message || "Failed to fetch stats",
+                message: data.message || "Failed to fetch stats"
+             };
+        }
+      return {
+        success: true,
+        data: data,
+        message: "Stats retrieved successfully",
+      };
+    } else {
+      return {
+        success: false,
+        error: data.error || data.message || "Something went wrong",
+        message: "Failed to retrieve stats",
+      };
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || "Network error",
+      message: "Failed to connect to server",
+    };
+  }
+};
+
+/**
+ * Get Recent Scholarships for Donor/Provider
+ * Endpoint: /webservice/rest/server.php
+ * Method: POST
+ * Token Required: YES
+ */
+export const getDonorRecentScholarships = async (
+  token: string,
+  limit: number = 10
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add required query parameters
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_get_recent_scholarships");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("limit", String(limit));
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Donor Recent Scholarships URL:", finalUrl);
+    
+    // Make POST request
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+      
+      if (data.exception || data.errorcode) {
+        return {
+          success: false,
+          error: data.message || "Permission denied",
+          message: data.message || "Failed to fetch recent scholarships"
+        };
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    if (response.ok) {
+        if (data.success === false) {
+             return {
+                success: false,
+                error: data.message || "Failed to fetch recent scholarships",
+                message: data.message || "Failed to fetch recent scholarships"
+             };
+        }
+      return {
+        success: true,
+        data: data,
+        message: "Recent scholarships retrieved successfully",
+      };
+    } else {
+      return {
+        success: false,
+        error: data.error || data.message || "Something went wrong",
+        message: "Failed to retrieve recent scholarships",
+      };
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || "Network error",
+      message: "Failed to connect to server",
+    };
+  }
+};
+
+/**
+ * Get Scholarship Progress for Donor/Provider
+ * Endpoint: /webservice/rest/server.php
+ * Method: POST
+ * Token Required: YES
+ */
+export const getDonorScholarshipProgress = async (
+  token: string,
+  scholarshipId: number
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add required query parameters
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_get_scholarship_progress");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("scholarship_id", String(scholarshipId));
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Scholarship Progress URL:", finalUrl);
+    
+    // Make POST request
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+      
+      if (data.exception || data.errorcode) {
+        return {
+          success: false,
+          error: data.message || "Permission denied",
+          message: data.message || "Failed to fetch progress"
+        };
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    if (response.ok) {
+      return {
+        success: true,
+        data: data,
+        message: "Progress retrieved successfully",
+      };
+    } else {
+      return {
+        success: false,
+        error: data.error || data.message || "Something went wrong",
+        message: "Failed to retrieve progress",
+      };
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || "Network error",
+      message: "Failed to connect to server",
+    };
+  }
+};
+
+/**
+ *Create Scholarship API call (POST)
+ * This requires a token from AsyncStorage
+ */
+export const createScholarship = async (
+  token: string,
+  scholarshipData: any
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add required query parameters
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_create_scholarship");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    // Add scholarship data parameters
+    Object.keys(scholarshipData).forEach(key => {
+        if (typeof scholarshipData[key] === 'object') {
+            urlObj.searchParams.append(key, JSON.stringify(scholarshipData[key]));
+        } else {
+             urlObj.searchParams.append(key, String(scholarshipData[key]));
+        }
+    });
+
+    const finalUrl = urlObj.toString();
+    console.log("Create Scholarship URL:", finalUrl);
+    
+    // Make POST request with query parameters in URL
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    // Get response text first to handle different response types
+    const responseText = await response.text();
+    let data: any = {};
+
+    // Try to parse as JSON
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      // If not JSON, treat as plain text error
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    // Check if request was successful
+    if (response.ok) {
+        if (data.exception) {
+            return {
+              success: false,
+              error: data.message || data.exception,
+              message: data.message || "Failed to create scholarship",
+            };
+        }
+      return {
+        success: true,
+        data: data,
+        message: data.message || "Scholarship created successfully",
+      };
+    } else {
+      // Handle API errors
+      return {
+        success: false,
+        error: data.error || data.message || data.error_message || "Something went wrong",
+        message: data.message || "Failed to create scholarship",
+      };
+    }
+  } catch (error: any) {
+    // Handle network errors
+    return {
+      success: false,
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server",
+    };
+  }
+};
+/**
+ * Get My Scholarships API call (POST with query parameters)
+ * This requires a token from AsyncStorage
+ */
+export const getMyScholarships = async (
+  token: string,
+  params?: {
+    page?: number;
+    per_page?: number;
+    search?: string;
+    status?: string;
+    categoryid?: number;
+    start_date?: number;
+    end_date?: number;
+  }
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add required query parameters
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_get_my_scholarships");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    // Add optional parameters if provided
+    if (params?.page) {
+      urlObj.searchParams.append("page", String(params.page));
+    }
+    if (params?.per_page) {
+      urlObj.searchParams.append("per_page", String(params.per_page));
+    }
+    if (params?.search) {
+      urlObj.searchParams.append("search", params.search);
+    }
+    if (params?.status) {
+      urlObj.searchParams.append("status", params.status);
+    }
+    if (params?.categoryid) {
+      urlObj.searchParams.append("categoryid", String(params.categoryid));
+    }
+    if (params?.start_date) {
+      urlObj.searchParams.append("start_date", String(params.start_date));
+    }
+    if (params?.end_date) {
+      urlObj.searchParams.append("end_date", String(params.end_date));
+    }
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get My Scholarships URL:", finalUrl);
+    
+    // Make POST request with query parameters in URL
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    // Get response text first to handle different response types
+    const responseText = await response.text();
+    let data: any = {};
+
+    // Try to parse as JSON
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      // If not JSON, treat as plain text error
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    // Check if request was successful
+    if (response.ok) {
+        if (data.exception) {
+            return {
+              success: false,
+              error: data.message || data.exception,
+              message: data.message || "Failed to retrieve scholarships",
+            };
+        }
+      return {
+        success: true,
+        data: data,
+        message: data.message || "Scholarships retrieved successfully",
+      };
+    } else {
+      // Handle API errors
+      return {
+        success: false,
+        error: data.error || data.message || data.error_message || "Something went wrong",
+        message: data.message || "Failed to retrieve scholarships",
+      };
+    }
+  } catch (error: any) {
+    // Handle network errors
+    return {
+      success: false,
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server",
+    };
+  }
+};
+
+/**
+ * Get Scholarship Applicants API call (POST with query parameters)
+ * This requires a token from AsyncStorage and scholarship_id
+ */
+export const getScholarshipApplicants = async (
+  token: string,
+  scholarshipId: number,
+  params?: {
+    status?: string;
+    page?: number;
+    per_page?: number;
+  }
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add required query parameters
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_get_scholarship_applicants");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("scholarship_id", String(scholarshipId));
+    
+    // Add optional parameters if provided
+    if (params?.status) {
+      urlObj.searchParams.append("status", params.status);
+    }
+    if (params?.page) {
+      urlObj.searchParams.append("page", String(params.page));
+    }
+    if (params?.per_page) {
+      urlObj.searchParams.append("per_page", String(params.per_page));
+    }
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Scholarship Applicants URL:", finalUrl);
+    
+    // Make POST request with query parameters in URL
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    // Get response text first to handle different response types
+    const responseText = await response.text();
+    let data: any = {};
+
+    // Try to parse as JSON
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      // If not JSON, treat as plain text error
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    // Check if request was successful
+    if (response.ok) {
+        if (data.exception) {
+            return {
+              success: false,
+              error: data.message || data.exception,
+              message: data.message || "Failed to retrieve applicants",
+            };
+        }
+      return {
+        success: true,
+        data: data, 
+        message: "Applicants retrieved successfully",
+      };
+    } else {
+      // Handle API errors
+      return {
+        success: false,
+        error: data.error || data.message || data.error_message || "Something went wrong",
+        message: data.message || "Failed to retrieve applicants",
+      };
+    }
+  } catch (error: any) {
+    // Handle network errors
+    return {
+      success: false,
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server",
+    };
+  }
+};
+
+/**
+ * Get Donor Analytics API call (POST with query parameters)
+ * This requires a token from AsyncStorage
+ */
+export const getDonorAnalytics = async (
+  token: string,
+  params?: {
+    scholarship_id?: number;
+    start_date?: number;
+    end_date?: number;
+  }
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add required query parameters
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_get_analytics");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    // Add optional parameters if provided
+    if (params?.scholarship_id !== undefined) {
+      urlObj.searchParams.append("scholarship_id", String(params.scholarship_id));
+    }
+    if (params?.start_date) {
+      urlObj.searchParams.append("start_date", String(params.start_date));
+    }
+    if (params?.end_date) {
+      urlObj.searchParams.append("end_date", String(params.end_date));
+    }
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Donor Analytics URL:", finalUrl);
+    
+    // Make POST request with query parameters in URL
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    // Get response text first to handle different response types
+    const responseText = await response.text();
+    let data: any = {};
+
+    // Try to parse as JSON
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      // If not JSON, treat as plain text error
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    // Check if request was successful
+    if (response.ok) {
+        if (data.exception) {
+            return {
+              success: false,
+              error: data.message || data.exception,
+              message: data.message || "Failed to retrieve analytics",
+            };
+        }
+      return {
+        success: true,
+        data: data,
+        message: "Analytics retrieved successfully",
+      };
+    } else {
+      // Handle API errors
+      return {
+        success: false,
+        error: data.error || data.message || data.error_message || "Something went wrong",
+        message: data.message || "Failed to retrieve analytics",
+      };
+    }
+  } catch (error: any) {
+    // Handle network errors
+    return {
+      success: false,
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server",
+    };
+  }
+};

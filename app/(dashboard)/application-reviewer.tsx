@@ -1,14 +1,15 @@
 import { useTheme } from "@/context/ThemeContext";
-import { getUserProfile } from "@/utils/api";
+import { getReviewerDashboardStats, getReviewerProgress, getReviewerRecentApplications, getUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   BackHandler,
   Image,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,7 +22,25 @@ type ApplicationItem = {
   id: string;
   scholarshipTitle: string;
   studentName: string;
-  status: "Pending" | "Approved" | "Rejected";
+  status: string;
+};
+
+type DashboardStats = {
+  total_applications_assigned: number;
+  pending_review: number;
+  approved: number;
+  rejected: number;
+  bookmarked: number;
+  verified_today: number;
+  verified_this_week: number;
+};
+
+type ReviewerProgress = {
+  total_assigned: number;
+  reviewed: number;
+  pending: number;
+  progress_percentage: number;
+  current_stage: string;
 };
 
 export default function ApplicationReviewerDashboard() {
@@ -51,88 +70,114 @@ export default function ApplicationReviewerDashboard() {
   // Reviewer state
   const [reviewerName, setReviewerName] = useState("Reviewer");
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
-  const [unreadCount] = useState<number>(3);
+
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Fetch user profile on component mount
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        setLoading(true);
-        const authDataString = await AsyncStorage.getItem("authData");
-        if (!authDataString) {
-          setLoading(false);
-          return;
+  const [stats, setStats] = useState<DashboardStats>({
+    total_applications_assigned: 0,
+    pending_review: 0,
+    approved: 0,
+    rejected: 0,
+    bookmarked: 0,
+    verified_today: 0,
+    verified_this_week: 0,
+  });
+
+  const [progress, setProgress] = useState<ReviewerProgress>({
+    total_assigned: 0,
+    reviewed: 0,
+    pending: 0,
+    progress_percentage: 0,
+    current_stage: "Loading...",
+  });
+
+  const fetchData = async (isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setRefreshing(true);
+      }
+
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) return;
+
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
+
+      if (!token) return;
+
+      // Fetch Profile, Stats, Recent Apps, and Progress in parallel
+      const [profileRes, statsRes, recentAppsRes, progressRes] = await Promise.all([
+        getUserProfile(token),
+        getReviewerDashboardStats(token),
+        getReviewerRecentApplications(token, 5),
+        getReviewerProgress(token)
+      ]);
+
+      // Update Profile
+      if (profileRes.success && profileRes.data?.user) {
+        const user = profileRes.data.user;
+        const name = user.fullname ||
+          `${user.firstname || ""} ${user.lastname || ""}`.trim() ||
+          "Reviewer";
+        setReviewerName(name);
+
+        if (user.profileimageurl) {
+          setProfilePhotoUrl(user.profileimageurl);
         }
-
-        const authData = JSON.parse(authDataString);
-        const token = authData?.token;
-
-        if (!token) {
-          setLoading(false);
-          return;
-        }
-
-        const response = await getUserProfile(token);
-        console.log(response);
-
-        if (response.success && response.data?.user) {
-          const user = response.data.user;
-          const name = user.fullname ||
-            `${user.firstname || ""} ${user.lastname || ""}`.trim() ||
-            "Reviewer";
+      } else {
+        // Fallback to cached profile if available
+        if (authData?.user) {
+          const user = authData.user;
+          const name = user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || "Reviewer";
           setReviewerName(name);
-
           if (user.profileimageurl) {
             setProfilePhotoUrl(user.profileimageurl);
           }
-        } else {
-          if (authData?.user) {
-            const user = authData.user;
-            const name = user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || "Reviewer";
-            setReviewerName(name);
-            if (user.profileimageurl) {
-              setProfilePhotoUrl(user.profileimageurl);
-            }
-          }
         }
-      } catch (error) {
-        console.error("Error fetching user profile:", error);
-      } finally {
-        setLoading(false);
       }
-    };
 
-    fetchUserProfile();
+      // Update Stats
+      if (statsRes.success && statsRes.data?.stats) {
+        setStats(statsRes.data.stats);
+      }
+
+      // Update Recent Applications
+      if (recentAppsRes.success && recentAppsRes.data && Array.isArray(recentAppsRes.data.applications)) {
+        const mappedApps = recentAppsRes.data.applications.map((app: any) => ({
+          id: String(app.id),
+          scholarshipTitle: app.scholarship?.name || "Unknown Scholarship",
+          studentName: app.user?.fullname || "Unknown Student",
+          status: app.status ? app.status.charAt(0).toUpperCase() + app.status.slice(1) : "Unknown"
+        }));
+        setRecentApplications(mappedApps);
+      }
+
+      // Update Progress
+      if (progressRes.success && progressRes.data?.progress) {
+        setProgress(progressRes.data.progress);
+      }
+
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
   }, []);
 
-  const [stats] = useState({
-    total: 24,
-    pending: 5,
-    approved: 15,
-    rejected: 4,
-  });
+  const onRefresh = useCallback(() => {
+    fetchData(true);
+  }, []);
 
-  const [recentApplications] = useState<ApplicationItem[]>([
-    { id: "a1", scholarshipTitle: "STEM Excellence Scholarship", studentName: "Ravi Patel", status: "Pending" },
-    { id: "a2", scholarshipTitle: "Global Leaders Grant", studentName: "Sara Lee", status: "Approved" },
-    { id: "a3", scholarshipTitle: "Arts & Culture Fund", studentName: "Omar Hassan", status: "Rejected" },
-    { id: "a4", scholarshipTitle: "Women in Tech Award", studentName: "Priya Verma", status: "Pending" },
-    { id: "a5", scholarshipTitle: "Community Impact Scholarship", studentName: "Daniel Kim", status: "Approved" },
-  ]);
-  const [notifications] = useState<Array<{ id: string; title: string; timeAgo: string }>>([
-    { id: "n1", title: "New application assigned: STEM Excellence", timeAgo: "2h ago" },
-    { id: "n2", title: "Document updated: Sara Lee (Passport)", timeAgo: "5h ago" },
-    { id: "n3", title: "Weekly summary is ready", timeAgo: "1d ago" },
-  ]);
+  const [recentApplications, setRecentApplications] = useState<ApplicationItem[]>([]);
 
-  const reviewCompletion = useMemo(() => {
-    const completed = stats.approved + stats.rejected;
-    const total = stats.total || 0;
-    if (!total) return { ratio: 0, label: "0% reviewed" };
-    const ratio = Math.round((completed / total) * 100);
-    return { ratio, label: `${ratio}% reviewed` };
-  }, [stats]);
+
+
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -180,15 +225,16 @@ export default function ApplicationReviewerDashboard() {
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: inset.bottom + 30 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* Overview Cards */}
         <View style={styles.statsContainer}>
           <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.total}</Text>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.total_applications_assigned}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Applications</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.pending}</Text>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.pending_review}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Pending Reviews</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
@@ -205,9 +251,9 @@ export default function ApplicationReviewerDashboard() {
         <View style={styles.sectionContainer}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Review Progress</Text>
           <View style={[styles.progressBar, { backgroundColor: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(51, 51, 51, 0.08)" }]}>
-            <View style={[styles.progressFill, { width: `${reviewCompletion.ratio}%` }]} />
+            <View style={[styles.progressFill, { width: `${progress.progress_percentage}%` }]} />
           </View>
-          <Text style={[styles.progressLabel, { color: colors.text }]}>{reviewCompletion.label}</Text>
+          <Text style={[styles.progressLabel, { color: colors.text }]}>{progress.progress_percentage}% reviewed</Text>
         </View>
 
         {/* Recent Applications */}
@@ -220,7 +266,7 @@ export default function ApplicationReviewerDashboard() {
           </View>
           <View style={[styles.cardList, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
             {recentApplications.slice(0, 5).map((app) => (
-              <TouchableOpacity key={app.id} style={[styles.listItem, { borderBottomColor: isDark ? colors.border : "rgba(51, 51, 51, 0.06)" }]} activeOpacity={0.8} onPress={() => router.push("/(dashboard)/reviewer/application-details")}>
+              <TouchableOpacity key={app.id} style={[styles.listItem, { borderBottomColor: isDark ? colors.border : "rgba(51, 51, 51, 0.06)" }]} activeOpacity={0.8} onPress={() => router.push({ pathname: "/(dashboard)/reviewer/application-details", params: { id: app.id } })}>
                 <View style={[styles.listItemIcon, { backgroundColor: isDark ? colors.surface : "#f5f5f5" }]}>
                   <Ionicons name="document-text-outline" size={18} color="#2196F3" />
                 </View>
@@ -242,29 +288,7 @@ export default function ApplicationReviewerDashboard() {
           </View>
         </View>
 
-        {/* Latest Notifications */}
-        <View style={styles.sectionContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Latest Notifications</Text>
-          <View style={[styles.cardList, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
-            {notifications.slice(0, 3).map((n) => (
-              <TouchableOpacity key={n.id} style={[styles.listItem, { borderBottomColor: isDark ? colors.border : "rgba(51, 51, 51, 0.06)" }]} activeOpacity={0.8} onPress={() => router.push("/(dashboard)/reviewer/notifications")}>
-                <View style={[styles.listItemIcon, { backgroundColor: isDark ? colors.surface : "#f5f5f5" }]}>
-                  <Ionicons name="notifications-outline" size={18} color="#FF9800" />
-                </View>
-                <View style={styles.listItemBody}>
-                  <Text style={[styles.listItemTitle, { color: colors.text }]}>{n.title}</Text>
-                  <Text style={[styles.listItemSub, { color: colors.textSecondary }]}>{n.timeAgo}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-              </TouchableOpacity>
-            ))}
-            {notifications.length === 0 && (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>No notifications</Text>
-              </View>
-            )}
-          </View>
-        </View>
+
 
         {/* Quick Actions */}
         <View style={styles.featuresContainer}>
@@ -315,12 +339,16 @@ export default function ApplicationReviewerDashboard() {
   );
 }
 
-function getStatusBadgeStyle(status: ApplicationItem["status"], isDark: boolean) {
-  switch (status) {
-    case "Approved":
+function getStatusBadgeStyle(status: string, isDark: boolean) {
+  switch (status?.toLowerCase()) {
+    case "approved":
       return { backgroundColor: isDark ? "#1B5E2030" : "#E8F5E9", borderColor: "#4CAF50" };
-    case "Rejected":
+    case "rejected":
       return { backgroundColor: isDark ? "#B71C1C30" : "#FBE9E7", borderColor: "#F44336" };
+    case "pending":
+    case "new":
+    case "waitlisted":
+      return { backgroundColor: isDark ? "#FFF3E030" : "#FFF8E1", borderColor: "#FFC107" }; // Yellow/Amber for pending/new
     default:
       return { backgroundColor: isDark ? "#0D47A130" : "#E3F2FD", borderColor: "#2196F3" };
   }

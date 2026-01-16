@@ -1,7 +1,9 @@
 import { useTheme } from "@/context/ThemeContext";
+import { getMyScholarships } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useMemo, useState } from "react";
 import {
     ScrollView,
     StyleSheet,
@@ -37,77 +39,63 @@ export default function MyCreatedSchemesScreen() {
     const [query, setQuery] = useState("");
     const [activeTab, setActiveTab] =
         useState<(typeof TABS)[number]["key"]>("All");
+    const [loading, setLoading] = useState(true);
+    const [scholarships, setScholarships] = useState<Scholarship[]>([]);
 
-    const [scholarships] = useState<Scholarship[]>([
-        {
-            id: "s1",
-            title: "Merit Excellence Scholarship",
-            amount: 5000,
-            deadline: "2025-12-31",
-            applicants: 126,
-            status: "Active",
-            category: "Merit",
-        },
-        {
-            id: "s2",
-            title: "STEM Innovation Grant",
-            amount: 8000,
-            deadline: "2025-11-15",
-            applicants: 89,
-            status: "Active",
-            category: "STEM",
-        },
-        {
-            id: "s3",
-            title: "Community Service Award",
-            amount: 3000,
-            deadline: "2025-10-30",
-            applicants: 54,
-            status: "Closed",
-            category: "Community",
-        },
-        {
-            id: "s4",
-            title: "Academic Achievement Scholarship",
-            amount: 6000,
-            deadline: "2026-01-20",
-            applicants: 12,
-            status: "Draft",
-            category: "Academics",
-        },
-        {
-            id: "s5",
-            title: "Women in Tech Scholarship",
-            amount: 7000,
-            deadline: "2025-12-05",
-            applicants: 203,
-            status: "Active",
-            category: "Technology",
-        },
-        {
-            id: "s6",
-            title: "Future Leaders Grant",
-            amount: 10000,
-            deadline: "2026-02-15",
-            applicants: 0,
-            status: "Pending",
-            category: "Leadership",
-        },
-    ]);
+    useFocusEffect(
+        useCallback(() => {
+            fetchMySchemes();
+        }, [])
+    );
+
+    const fetchMySchemes = async () => {
+        try {
+            setLoading(true);
+            const authDataString = await AsyncStorage.getItem("authData");
+            if (!authDataString) {
+                setLoading(false);
+                return;
+            }
+
+            const authData = JSON.parse(authDataString);
+            const token = authData?.token;
+            if (!token) {
+                setLoading(false);
+                return;
+            }
+
+            // Fetch all schemes for now, can implement pagination later
+            const response = await getMyScholarships(token, { per_page: 100 });
+
+            if (response.success && response.data && Array.isArray(response.data.data)) {
+                const apiSchemes = response.data.data.map((item: any) => ({
+                    id: String(item.id),
+                    title: item.fullname || item.title || "Untitled", // Fallback as API might return fullname
+                    amount: item.scholarship_amount || item.fund_amount || 0, // Using specific amount if available, else fund amount
+                    deadline: item.enddate ? new Date(item.enddate * 1000).toISOString() : (item.end_date || new Date().toISOString()),
+                    applicants: item.applications_count || 0,
+                    status: (item.visible == 1 ? "Active" : "Draft") as ScholarshipStatus, // Simple mapping for now
+                    category: item.category || "General"
+                }));
+                setScholarships(apiSchemes);
+            }
+        } catch (error) {
+            console.error("Error fetching my schemes:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const filtered = useMemo(() => {
         const q = query.trim().toLowerCase();
         return scholarships
             .filter((s) => {
-                if (activeTab !== "All" && s.status !== activeTab) return false;
-                return (
-                    s.title.toLowerCase().includes(q) || s.category.toLowerCase().includes(q)
-                );
+                const matchesTab = activeTab === "All" || s.status === activeTab;
+                const matchesQuery = s.title.toLowerCase().includes(q) || s.category.toLowerCase().includes(q);
+                return matchesTab && matchesQuery;
             })
             .sort((a, b) => {
-                // Sort pending/draft first for easy visibility
-                if (a.status === "Pending" && b.status !== "Pending") return -1;
-                if (a.status === "Draft" && b.status !== "Draft" && b.status !== "Pending") return -1;
+                // Sort pending/draft first for easy visibility if needed, or by newest
                 return 0;
             });
     }, [scholarships, query, activeTab]);

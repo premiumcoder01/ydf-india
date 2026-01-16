@@ -1,7 +1,9 @@
 import { useTheme } from "@/context/ThemeContext";
+import { getMyScholarships, getScholarshipApplicants } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   FlatList,
   ListRenderItem,
@@ -33,6 +35,7 @@ const TABS: Array<{ key: "All" | ApplicantStatus; label: string }> = [
 const PAGE_SIZE = 10;
 
 export default function ProviderApplicantsScreen() {
+  const params = useLocalSearchParams();
   const { isDark, colors } = useTheme();
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] =
@@ -40,6 +43,107 @@ export default function ProviderApplicantsScreen() {
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const isMultiSelect = selectedIds.length > 0;
+
+  const [scholarshipId, setScholarshipId] = useState<string | null>((params.scholarship_id as string) || null);
+  const [allApplicants, setAllApplicants] = useState<Applicant[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+
+  // Fetch scholarships if no ID provided
+  const fetchScholarshipsAndSelectOne = async () => {
+    try {
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) return;
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
+      if (!token) return;
+
+      const response = await getMyScholarships(token, { per_page: 10, status: 'active' }); // Default to active?
+      if (response.success && response.data?.data && response.data.data.length > 0) {
+        setScholarshipId(String(response.data.data[0].id));
+      } else {
+        // Try fetching any status if no active ones
+        const responseAll = await getMyScholarships(token, { per_page: 10 });
+        if (responseAll.success && responseAll.data?.data && responseAll.data.data.length > 0) {
+          setScholarshipId(String(responseAll.data.data[0].id));
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching scholarships:", error);
+    }
+  };
+
+  const fetchApplicants = async (reset = false) => {
+    if (!scholarshipId) return;
+
+    try {
+      if (reset) setLoading(true);
+      else setLoadingMore(true);
+
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) return;
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
+      if (!token) return;
+
+      const response = await getScholarshipApplicants(token, Number(scholarshipId), {
+        page: reset ? 1 : page,
+        per_page: PAGE_SIZE,
+        status: activeTab !== "All" ? activeTab.toLowerCase() : undefined
+      });
+
+      if (response.success && response.data?.applicants) {
+        const newApplicants = response.data.applicants.map((app: any) => ({
+          id: String(app.id),
+          name: app.user?.fullname || `${app.user?.firstname} ${app.user?.lastname}`,
+          course: app.application_text || "N/A", // Using application_text as placeholder for course/details
+          income: 0, // API doesn't seem to return income in list, maybe in details
+          status: app.status ? (app.status.charAt(0).toUpperCase() + app.status.slice(1)) : "Pending"
+        }));
+
+        if (reset) {
+          setAllApplicants(newApplicants);
+        } else {
+          setAllApplicants(prev => [...prev, ...newApplicants]);
+        }
+
+        // Check pagination
+        if (response.data.pagination) {
+          const { page: currentPage, total_pages } = response.data.pagination;
+          setHasMore(currentPage < total_pages);
+        } else {
+          setHasMore(false);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching applicants:", error);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!scholarshipId && !params.scholarship_id) {
+        fetchScholarshipsAndSelectOne();
+      } else if (params.scholarship_id && scholarshipId !== params.scholarship_id) {
+        setScholarshipId(params.scholarship_id as string);
+      }
+    }, [params.scholarship_id])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (scholarshipId) {
+        fetchApplicants(true);
+      }
+    }, [scholarshipId, activeTab]) // Refetch when tab changes too? Or handle client side filtering? 
+    // API supports status filtering. Using API filtering might be better for pagination.
+    // The current UI kept "All" and filtered client side. But if we paginating, client side filtering on partial data is wrong.
+    // Let's rely on API filtering if activeTab changes.
+  );
 
   const toggleSelection = (id: string) => {
     setSelectedIds((prev) =>
@@ -54,28 +158,16 @@ export default function ProviderApplicantsScreen() {
     // setAllApplicants(prev => prev.map(a => selectedIds.includes(a.id) ? {...a, status: action} : a));
     setSelectedIds([]);
   };
-  const [allApplicants] = useState<Applicant[]>(
-    Array.from({ length: 57 }).map((_, i) => {
-      const statuses: ApplicantStatus[] = ["Pending", "Approved", "Rejected"];
-      const status = statuses[i % statuses.length];
-      return {
-        id: `app-${i + 1}`,
-        name: `Applicant ${i + 1}`,
-        course: ["BSc Computer Science", "BCom", "BA Economics"][i % 3],
-        income: 20000 + (i % 10) * 1500,
-        status,
-      };
-    })
-  );
 
+  // We are now fetching filtered data from API, so 'filtered' is just allApplicants locally, 
+  // optionally filtered by query
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return allApplicants
-      .filter((a) => (activeTab === "All" ? true : a.status === activeTab))
       .filter((a) =>
         q.length === 0 ? true : a.name.toLowerCase().includes(q)
       );
-  }, [allApplicants, query, activeTab]);
+  }, [allApplicants, query]);
 
   const paginated = useMemo(
     () => filtered.slice(0, page * PAGE_SIZE),

@@ -1,8 +1,11 @@
 import { ReviewerHeader } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
+import { getDonorAnalytics, getMyScholarships } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useMemo } from "react";
+import { useFocusEffect } from "expo-router";
+import React, { useCallback, useMemo, useState } from "react";
 import { Alert, Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { BarChart, LineChart, PieChart } from "react-native-gifted-charts";
 
@@ -12,15 +15,103 @@ const CHART_WIDTH = SCREEN_WIDTH - (CARD_PADDING * 4);
 
 export default function ProviderReportsScreen() {
   const { isDark, colors } = useTheme();
-  const [filterModalVisible, setFilterModalVisible] = React.useState(false);
-  const [activeFilter, setActiveFilter] = React.useState("All");
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [activeFilter, setActiveFilter] = useState("All");
 
-  const [activeScheme, setActiveScheme] = React.useState("All Schemes");
-  const [schemeModalVisible, setSchemeModalVisible] = React.useState(false);
-  const schemes = ["All Schemes", "Merit Excellence Scholarship", "STEM Innovation Grant", "Community Service Award"];
+  const [activeScheme, setActiveScheme] = useState("All Schemes");
+  const [activeSchemeId, setActiveSchemeId] = useState<number>(0);
+  const [schemeModalVisible, setSchemeModalVisible] = useState(false);
+  const [schemesList, setSchemesList] = useState<{ name: string, id: number }[]>([{ name: "All Schemes", id: 0 }]);
 
-  const handleSchemeSelect = (scheme: string) => {
-    setActiveScheme(scheme);
+  const [loading, setLoading] = useState(true);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
+
+  const fetchSchemes = async () => {
+    try {
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) return;
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
+      if (!token) return;
+
+      const response = await getMyScholarships(token, { per_page: 100 });
+      if (response.success && response.data?.data) {
+        const fetchedSchemes = response.data.data.map((s: any) => ({
+          name: s.fullname || s.title || "Untitled",
+          id: s.id
+        }));
+        setSchemesList([{ name: "All Schemes", id: 0 }, ...fetchedSchemes]);
+      }
+    } catch (e) {
+      console.error("Error fetching schemes for reports:", e);
+    }
+  };
+
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true);
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) return;
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
+      if (!token) return;
+
+      // Calculate dates based on filter
+      let startDate, endDate;
+      const now = new Date();
+      if (activeFilter === "This Month") {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1).getTime() / 1000;
+        endDate = now.getTime() / 1000;
+      } else if (activeFilter === "Last 3 Months") {
+        startDate = new Date(now.getFullYear(), now.getMonth() - 3, 1).getTime() / 1000;
+        endDate = now.getTime() / 1000;
+      } else if (activeFilter === "YTD") {
+        startDate = new Date(now.getFullYear(), 0, 1).getTime() / 1000;
+        endDate = now.getTime() / 1000;
+      }
+
+      const response = await getDonorAnalytics(token, {
+        scholarship_id: activeSchemeId,
+        start_date: startDate ? Math.floor(startDate) : undefined,
+        end_date: endDate ? Math.floor(endDate) : undefined
+      });
+
+      if (response.success && response.data?.analytics) {
+        setAnalyticsData(response.data.analytics);
+      } else {
+        // Set default valid structure if API fails or returns null
+        setAnalyticsData({
+          total_applications: 0,
+          approved_applications: 0,
+          rejected_applications: 0,
+          funds_distributed: 0,
+          success_rate: 0,
+          application_trend: [],
+          fund_split: []
+        });
+      }
+    } catch (e) {
+      console.error("Error fetching analytics:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchSchemes();
+    }, [])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchAnalytics();
+    }, [activeSchemeId, activeFilter])
+  );
+
+  const handleSchemeSelect = (scheme: { name: string, id: number }) => {
+    setActiveScheme(scheme.name);
+    setActiveSchemeId(scheme.id);
     setSchemeModalVisible(false);
   };
 
@@ -31,102 +122,93 @@ export default function ProviderReportsScreen() {
     setFilterModalVisible(false);
   };
 
-  // ... (stats useMemo update to depend on activeScheme)
   const stats = useMemo(
     () => {
-      // Simulate data change based on scheme
-      const multiplier = activeScheme === "All Schemes" ? 1 : 0.4;
+      const funds = analyticsData?.funds_distributed || 0;
+      const approved = analyticsData?.approved_applications || 0;
+
+      // Formatting funds
+      const formattedFunds = funds > 100000
+        ? `₹${(funds / 100000).toFixed(1)}L`
+        : `₹${funds.toLocaleString()}`;
+
       return [
         {
           label: "Funds Distributed",
-          value: activeScheme === "All Schemes" ? "₹12.5L" : "₹5.2L",
+          value: formattedFunds,
           icon: "cash" as keyof typeof Ionicons.glyphMap,
           gradient: ['#f093fb', '#f5576c'] as const,
-          change: activeScheme === "All Schemes" ? "+8.5%" : "+2.1%",
+          change: "N/A", // API doesn't return change % yet
           isPositive: true
         },
         {
           label: "Approved Apps",
-          value: activeScheme === "All Schemes" ? "312" : "89",
+          value: String(approved),
           icon: "checkmark-circle" as keyof typeof Ionicons.glyphMap,
           gradient: ['#4facfe', '#00f2fe'] as const,
-          change: activeScheme === "All Schemes" ? "+24%" : "+12%",
+          change: "N/A",
           isPositive: true
         },
       ]
     },
-    [activeScheme]
+    [analyticsData]
   );
 
 
-  const barData = useMemo(() => [
-    {
-      value: 85,
-      label: 'Jan',
+  const barData = useMemo(() => {
+    if (!analyticsData?.application_trend || !Array.isArray(analyticsData.application_trend)) {
+      return [{ value: 0, label: 'No Data' }];
+    }
+    // Map trend data
+    return analyticsData.application_trend.map((item: any) => ({
+      value: item.count,
+      label: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       frontColor: '#667eea',
       gradientColor: '#764ba2',
-    },
-    {
-      value: 120,
-      label: 'Feb',
-      frontColor: '#667eea',
-      gradientColor: '#764ba2',
-    },
-    {
-      value: 95,
-      label: 'Mar',
-      frontColor: '#667eea',
-      gradientColor: '#764ba2',
-    },
-    {
-      value: 140,
-      label: 'Apr',
-      frontColor: '#667eea',
-      gradientColor: '#764ba2',
-    },
-    {
-      value: 110,
-      label: 'May',
-      frontColor: '#667eea',
-      gradientColor: '#764ba2',
-    },
-    {
-      value: 155,
-      label: 'Jun',
-      frontColor: '#667eea',
-      gradientColor: '#764ba2',
-    },
-  ], []);
+    }));
+  }, [analyticsData]);
 
-  const pieData = useMemo(() => [
-    {
-      value: 60,
-      color: '#667eea',
-      gradientCenterColor: '#764ba2',
-      text: '60%',
-    },
-    {
-      value: 30,
-      color: '#4facfe',
-      gradientCenterColor: '#00f2fe',
-      text: '30%',
-    },
-    {
-      value: 10,
-      color: '#f093fb',
-      gradientCenterColor: '#f5576c',
-      text: '10%',
-    },
-  ], []);
+  const pieData = useMemo(() => {
+    const approved = analyticsData?.approved_applications || 0;
+    const rejected = analyticsData?.rejected_applications || 0;
+    const pending = analyticsData?.pending_applications || 0;
+    const total = Math.max(approved + rejected + pending, 1);
 
-  const lineData = useMemo(() => [
-    { value: 45, label: 'Jan', dataPointText: '45' },
-    { value: 62, label: 'Feb', dataPointText: '62' },
-    { value: 58, label: 'Mar', dataPointText: '58' },
-    { value: 78, label: 'Apr', dataPointText: '78' },
-    { value: 85, label: 'May', dataPointText: '85' },
-    { value: 95, label: 'Jun', dataPointText: '95' },
-  ], []);
+    return [
+      {
+        value: Math.round((approved / total) * 100),
+        color: '#667eea',
+        gradientCenterColor: '#764ba2',
+        text: `${Math.round((approved / total) * 100)}%`,
+      },
+      {
+        value: Math.round((pending / total) * 100),
+        color: '#4facfe',
+        gradientCenterColor: '#00f2fe',
+        text: `${Math.round((pending / total) * 100)}%`,
+      },
+      {
+        value: Math.round((rejected / total) * 100),
+        color: '#f093fb',
+        gradientCenterColor: '#f5576c',
+        text: `${Math.round((rejected / total) * 100)}%`,
+      },
+    ];
+  }, [analyticsData]);
+
+  const lineData = useMemo(() => {
+    // API example doesn't have explicit line chart data for success rate over time. 
+    // We can just mirror barData or use dummy if unavailable. 
+    // For now, let's use application trend as user interest line.
+    if (!analyticsData?.application_trend || !Array.isArray(analyticsData.application_trend)) {
+      return [{ value: 0, label: '', dataPointText: '' }];
+    }
+    return analyticsData.application_trend.map((item: any) => ({
+      value: item.count,
+      label: new Date(item.date).toLocaleDateString('en-US', { month: 'short' }),
+      dataPointText: String(item.count)
+    }));
+  }, [analyticsData]);
 
   const handleExport = (format: string) => {
     Alert.alert("Export", `Exporting ${format} report...`);
@@ -183,20 +265,20 @@ export default function ProviderReportsScreen() {
 
               <ScrollView style={{ maxHeight: 300 }}>
                 <View style={styles.filterOptionsContainer}>
-                  {schemes.map((option) => (
+                  {schemesList.map((option) => (
                     <TouchableOpacity
-                      key={option}
+                      key={option.id}
                       style={[
                         styles.filterOption,
-                        { backgroundColor: activeScheme === option ? colors.primary : colors.surface },
+                        { backgroundColor: activeScheme === option.name ? colors.primary : colors.surface },
                       ]}
                       onPress={() => handleSchemeSelect(option)}
                     >
                       <Text style={[
                         styles.filterOptionText,
-                        { color: activeScheme === option ? '#fff' : colors.text }
-                      ]}>{option}</Text>
-                      {activeScheme === option && <Ionicons name="checkmark" size={16} color="#fff" />}
+                        { color: activeScheme === option.name ? '#fff' : colors.text }
+                      ]}>{option.name}</Text>
+                      {activeScheme === option.name && <Ionicons name="checkmark" size={16} color="#fff" />}
                     </TouchableOpacity>
                   ))}
                 </View>

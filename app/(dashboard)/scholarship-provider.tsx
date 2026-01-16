@@ -1,5 +1,5 @@
 import { useTheme } from "@/context/ThemeContext";
-import { getUserProfile } from "@/utils/api";
+import { getDonorDashboardStats, getDonorRecentScholarships, getDonorScholarshipProgress, getUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -33,6 +33,24 @@ export default function ScholarshipProviderDashboard() {
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const [unreadCount] = useState<number>(2);
   const [loading, setLoading] = useState(true);
+
+  const [stats, setStats] = useState({
+    activeScholarships: 0,
+    totalApplicants: 0,
+    approvedStudents: 0,
+    fundsUtilized: 0,
+    totalScholarshipsCreated: 0,
+  });
+
+  const [recentScholarships, setRecentScholarships] = useState<ScholarshipItem[]>([]);
+
+  const [notifications] = useState<Array<{ id: string; title: string; timeAgo: string }>>([
+    { id: "n1", title: "KYC Verification Required", timeAgo: "1h ago" },
+    { id: "n2", title: "Monthly Report Available", timeAgo: "3h ago" },
+    { id: "n3", title: "New Application Alert: STEM Innovation Grant", timeAgo: "6h ago" },
+  ]);
+
+  const [scholarshipProgressData, setScholarshipProgressData] = useState<{ ratio: number, label: string, name?: string } | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -103,36 +121,130 @@ export default function ScholarshipProviderDashboard() {
     };
 
     fetchUserProfile();
+
+    const fetchStats = async () => {
+      try {
+        const authDataString = await AsyncStorage.getItem("authData");
+        if (!authDataString) return;
+
+        const authData = JSON.parse(authDataString);
+        const token = authData?.token;
+
+        if (!token) return;
+
+        const response = await getDonorDashboardStats(token);
+
+        if (response.success && response.data?.stats) {
+          const apiStats = response.data.stats;
+          setStats({
+            activeScholarships: apiStats.total_active_scholarships || 0,
+            totalApplicants: apiStats.total_applications_received || 0,
+            approvedStudents: apiStats.total_students_selected || 0,
+            fundsUtilized: apiStats.total_fund_disbursed || 0,
+            totalScholarshipsCreated: apiStats.total_scholarships_created || 0,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard stats:", error);
+      }
+    };
+
+    const fetchRecentScholarships = async () => {
+      try {
+        const authDataString = await AsyncStorage.getItem("authData");
+        if (!authDataString) return;
+
+        const authData = JSON.parse(authDataString);
+        const token = authData?.token;
+
+        if (!token) return;
+
+        const response = await getDonorRecentScholarships(token, 5);
+
+        if (response.success && response.data?.scholarships) {
+          const mappedScholarships: ScholarshipItem[] = response.data.scholarships.map((s: any) => ({
+            id: String(s.id),
+            title: s.name || "Untitled Scholarship",
+            applicants: s.applications_count || 0,
+            status: s.status === 1 ? "Active" : s.status === 0 ? "Draft" : "Closed", // Assuming status 1 is active, 0 is draft. Adjust as needed.
+          }));
+          setRecentScholarships(mappedScholarships);
+        }
+      } catch (error) {
+        console.error("Error fetching recent scholarships:", error);
+      }
+    };
+
+    fetchStats();
+    fetchRecentScholarships();
   }, []);
 
-  const [stats] = useState({
-    activeScholarships: 8,
-    totalApplicants: 1247,
-    approvedStudents: 89,
-    fundsUtilized: 245000,
-  });
+  const fetchScholarshipProgress = async (scholarshipId: string) => {
+    try {
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) return;
 
-  const [recentScholarships] = useState<ScholarshipItem[]>([
-    { id: "s1", title: "Merit Excellence Scholarship", applicants: 12, status: "Active" },
-    { id: "s2", title: "STEM Innovation Grant", applicants: 8, status: "Active" },
-    { id: "s3", title: "Community Service Award", applicants: 15, status: "Active" },
-    { id: "s4", title: "Academic Achievement Scholarship", applicants: 6, status: "Draft" },
-    { id: "s5", title: "Women in Tech Scholarship", applicants: 23, status: "Active" },
-  ]);
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
+      if (!token) return;
 
-  const [notifications] = useState<Array<{ id: string; title: string; timeAgo: string }>>([
-    { id: "n1", title: "KYC Verification Required", timeAgo: "1h ago" },
-    { id: "n2", title: "Monthly Report Available", timeAgo: "3h ago" },
-    { id: "n3", title: "New Application Alert: STEM Innovation Grant", timeAgo: "6h ago" },
-  ]);
+      const response = await getDonorScholarshipProgress(token, Number(scholarshipId));
+      if (response.success && response.data) {
+        // Assuming response.data has a progress field or we calculate it
+        // Since we don't have the exact response structure, we'll look for common fields
+        let progressValue = 0;
+        let progressLabel = "Setup in progress";
+
+        if (typeof response.data.progress === 'number') {
+          progressValue = response.data.progress;
+          progressLabel = `${progressValue}% setup complete`;
+        } else if (response.data.stages) {
+          // Calculate from stages if available
+          const stages = Object.values(response.data.stages);
+          const completed = stages.filter((s: any) => s.completed).length;
+          progressValue = Math.round((completed / stages.length) * 100) || 0;
+          progressLabel = `${progressValue}% setup complete`;
+        }
+
+        setScholarshipProgressData({ ratio: progressValue, label: progressLabel, name: response.data.name });
+      }
+    } catch (error) {
+      console.error("Error fetching scholarship progress:", error);
+    }
+  };
+
+  // Trigger progress fetch when recent scholarships are loaded
+  useEffect(() => {
+    if (recentScholarships.length > 0) {
+      // Find the most recent draft
+      const draft = recentScholarships.find(s => s.status === 'Draft');
+      if (draft) {
+        fetchScholarshipProgress(draft.id);
+      } else {
+        // If no draft, maybe show progress of the most recent one?
+        // Or keep the default 'Active' ratio logic?
+        // For now, let's fall back to the default logic if NO draft exists
+        // But if we want to show 'Scholarship Management', maybe showing the active ratio is fine.
+        // However, if we fetched a draft, we overwrite the default derived value.
+      }
+    }
+  }, [recentScholarships]);
+
+
 
   const scholarshipProgress = useMemo(() => {
+    if (scholarshipProgressData) {
+      return {
+        ratio: scholarshipProgressData.ratio,
+        label: scholarshipProgressData.name ? `${scholarshipProgressData.name}: ${scholarshipProgressData.label}` : scholarshipProgressData.label
+      };
+    }
     const active = stats.activeScholarships;
-    const total = stats.activeScholarships + 2; // Including drafts
+    const total = stats.totalScholarshipsCreated;
     if (!total) return { ratio: 0, label: "0% active" };
     const ratio = Math.round((active / total) * 100);
     return { ratio, label: `${ratio}% active scholarships` };
-  }, [stats]);
+  }, [stats, scholarshipProgressData]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -251,29 +363,7 @@ export default function ScholarshipProviderDashboard() {
           </View>
         </View>
 
-        {/* Latest Notifications */}
-        <View style={styles.sectionContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Latest Notifications</Text>
-          <View style={[styles.cardList, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
-            {notifications.slice(0, 3).map((n) => (
-              <TouchableOpacity key={n.id} style={[styles.listItem, { borderBottomColor: isDark ? colors.border : "rgba(51, 51, 51, 0.06)" }]} activeOpacity={0.8} onPress={() => router.push("/(dashboard)/provider/notifications")}>
-                <View style={[styles.listItemIcon, { backgroundColor: isDark ? colors.surface : "#f5f5f5" }]}>
-                  <Ionicons name="notifications-outline" size={18} color="#FF9800" />
-                </View>
-                <View style={styles.listItemBody}>
-                  <Text style={[styles.listItemTitle, { color: colors.text }]}>{n.title}</Text>
-                  <Text style={[styles.listItemSub, { color: colors.textSecondary }]}>{n.timeAgo}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-              </TouchableOpacity>
-            ))}
-            {notifications.length === 0 && (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>No notifications</Text>
-              </View>
-            )}
-          </View>
-        </View>
+
 
         {/* Quick Actions */}
         <View style={styles.featuresContainer}>

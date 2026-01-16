@@ -1,8 +1,12 @@
 import { useTheme } from "@/context/ThemeContext";
+import { getReviewerApplicationDetails, reviewApplication } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -11,57 +15,235 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ReviewerHeader } from "../../../components";
 
+// API Types
+interface User {
+  id: number;
+  firstname: string;
+  lastname: string;
+  email: string;
+  fullname: string;
+}
+
+interface AssignedReviewer {
+  id: number;
+  name: string;
+}
+
+interface Attachment {
+  id: number;
+  filename: string;
+  filesize: number;
+  mimetype: string;
+  fileurl: string;
+}
+
+interface DocumentFile {
+  id: number;
+  filename: string;
+  filesize: number;
+  mimetype: string;
+  fileurl: string;
+  verified: boolean;
+  verified_by: number | null;
+  verified_at: string | null;
+  rejection_reason: string | null;
+}
+
+interface DocumentGroup {
+  id: number;
+  cmid: number;
+  label: string;
+  files: DocumentFile[];
+}
+
+interface ApplicationDetails {
+  id: number;
+  user: User;
+  application_text: string | null;
+  status: "new" | "approved" | "waitlisted" | "rejected" | null;
+  priority: number;
+  assigned_reviewer: AssignedReviewer | null;
+  is_bookmarked: boolean;
+  comments_count: number;
+  attachments: Attachment[];
+  documents: DocumentGroup[];
+  timecreated: string;
+  timemodified: string;
+}
+
 export default function ReviewerApplicationDetailsScreen() {
   const inset = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const params = useLocalSearchParams();
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
 
-  const app = useMemo(
-    () => ({
-      scholarshipTitle: "STEM Excellence Scholarship",
-      studentName: "Ravi Patel",
-      status: "Pending",
-      student: {
-        age: 19,
-        course: "B.Sc. Computer Science",
-        category: "General",
-        annualIncome: "₹2,40,000",
-        email: "ravi.patel@example.com",
-        phone: "+91 98765 43210",
-      },
-      documents: [
-        { id: "d1", name: "Aadhaar Card.pdf", type: "ID" },
-        { id: "d2", name: "Income Certificate.jpg", type: "Financial" },
-        { id: "d3", name: "Marksheet Sem 1.pdf", type: "Academic" },
-        { id: "d4", name: "Bank Passbook.jpg", type: "Financial" },
-        { id: "d5", name: "Admission Letter.pdf", type: "Academic" },
-        { id: "d6", name: "Domicile Certificate.pdf", type: "ID" },
-      ],
-      personalStatement:
-        "I aspire to contribute to AI for social good. This scholarship will help me focus on research and community projects.",
-      comments: [
-        {
-          id: "c1",
-          author: "You",
-          text: "Check income certificate clarity.",
-          time: "2h ago",
-        },
-        {
-          id: "c2",
-          author: "Team",
-          text: "Marksheets verified.",
-          time: "1d ago",
-        },
-      ],
-    }),
-    []
-  );
+  // Data State
+  const [application, setApplication] = useState<ApplicationDetails | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchApplicationDetails();
+  }, []);
+
+  const fetchApplicationDetails = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Get Application ID from params
+      // TODO: Ensure we're passing the ID correctly from the list screen
+      // If params.id is missing, we might use a fallback for testing or error out
+      const appId = params.id ? Number(params.id) : 123;
+
+      console.log("Fetching details for App ID:", appId);
+
+      // Get token
+      const authDataStr = await AsyncStorage.getItem("authData");
+      const authData = authDataStr ? JSON.parse(authDataStr) : null;
+      const token = authData?.token;
+
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
+
+      const response = await getReviewerApplicationDetails(token, appId);
+
+      if (response.success && response.data && response.data.application) {
+        console.log("Details fetched:", response.data.application);
+        setApplication(response.data.application);
+      } else {
+        throw new Error(response.error || "Failed to load application details");
+      }
+
+    } catch (err: any) {
+      console.error("Error details:", err);
+      setError(err.message || "Failed to load details");
+      Alert.alert("Error", err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleReview = async (action: "approve" | "reject", notes?: string) => {
+    if (!application) return;
+
+    // Confirm approval
+    if (action === "approve") {
+      // We can add an alert confirmation here if desired
+      // For now, proceed.
+    }
+
+    try {
+      setSubmitting(true);
+      const authDataStr = await AsyncStorage.getItem("authData");
+      const authData = authDataStr ? JSON.parse(authDataStr) : null;
+      const token = authData?.token;
+
+      if (!token) {
+        Alert.alert("Error", "Authentication token missing");
+        return;
+      }
+
+      console.log(`Submitting review: ${action} for App ID ${application.id}`);
+      const response = await reviewApplication(token, application.id, action, notes);
+
+      if (response.success) {
+        Alert.alert("Success", response.message, [
+          {
+            text: "OK", onPress: () => {
+              // Refresh details or Go Back?
+              // Usually better to refresh to show new status
+              fetchApplicationDetails();
+            }
+          }
+        ]);
+        if (action === "reject") {
+          setShowRejectModal(false);
+          setRejectReason("");
+        }
+      } else {
+        Alert.alert("Error", response.message || "Action failed");
+      }
+
+    } catch (error: any) {
+      console.error("Review error:", error);
+      Alert.alert("Error", error.message || "Something went wrong");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ marginTop: 16, color: colors.textSecondary }}>Loading details...</Text>
+      </View>
+    );
+  }
+
+  if (error || !application) {
+    const isPermissionError = error?.toLowerCase().includes("permission");
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, justifyContent: "center", alignItems: "center", padding: 20 }]}>
+        <View style={{
+          width: 80,
+          height: 80,
+          borderRadius: 40,
+          backgroundColor: isPermissionError ? "#FFEBEE" : isDark ? "#333" : "#f5f5f5",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 20
+        }}>
+          <Ionicons
+            name={isPermissionError ? "lock-closed" : "alert-circle"}
+            size={40}
+            color={isPermissionError ? "#F44336" : colors.textSecondary}
+          />
+        </View>
+        <Text style={{
+          color: colors.text,
+          textAlign: 'center',
+          fontSize: 18,
+          fontWeight: '700',
+          marginBottom: 8
+        }}>
+          {isPermissionError ? "Access Denied" : "Something went wrong"}
+        </Text>
+        <Text style={{
+          color: colors.textSecondary,
+          textAlign: 'center',
+          fontSize: 14,
+          maxWidth: 300,
+          lineHeight: 20
+        }}>
+          {error || "We couldn't load the application details."}
+        </Text>
+
+        <TouchableOpacity
+          style={[styles.actionBtn, styles.updateBtn, { marginTop: 32, paddingHorizontal: 32 }]}
+          onPress={fetchApplicationDetails}
+        >
+          <Text style={styles.actionText}>Try Again</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{ marginTop: 20, padding: 10 }}
+          onPress={() => router.back()}
+        >
+          <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -70,19 +252,19 @@ export default function ReviewerApplicationDetailsScreen() {
         style={{ flex: 1 }}
       >
         <ReviewerHeader
-          title={app.scholarshipTitle}
-          subtitle={app.studentName}
+          title={application.user.fullname} // Using fullname as title based on design context
+          subtitle={`Application #${application.id}`}
           rightElement={
             <View
-              style={[styles.statusBadge, getStatusBadgeStyle(app.status as any, isDark)]}
+              style={[styles.statusBadge, getStatusBadgeStyle(application.status, isDark)]}
             >
               <Text
                 style={[
                   styles.statusBadgeText,
-                  { color: getStatusColor(app.status as any) },
+                  { color: getStatusColor(application.status) },
                 ]}
               >
-                {app.status}
+                {application.status ? application.status.charAt(0).toUpperCase() + application.status.slice(1) : "New"}
               </Text>
             </View>
           }
@@ -95,13 +277,10 @@ export default function ReviewerApplicationDetailsScreen() {
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Student Info</Text>
             <View style={styles.infoGrid}>
-              <InfoRow label="Name" value={app.studentName} colors={colors} />
-              <InfoRow label="Age" value={String(app.student.age)} colors={colors} />
-              <InfoRow label="Course" value={app.student.course} colors={colors} />
-              <InfoRow label="Category" value={app.student.category} colors={colors} />
-              <InfoRow label="Annual Income" value={app.student.annualIncome} colors={colors} />
-              <InfoRow label="Email" value={app.student.email} colors={colors} />
-              <InfoRow label="Phone" value={app.student.phone} colors={colors} />
+              <InfoRow label="Full Name" value={application.user.fullname} colors={colors} />
+              <InfoRow label="Email" value={application.user.email} colors={colors} />
+              <InfoRow label="Date Applied" value={new Date(application.timecreated).toLocaleDateString()} colors={colors} />
+              {/* Add more fields if available in API response later */}
             </View>
           </View>
 
@@ -109,109 +288,93 @@ export default function ReviewerApplicationDetailsScreen() {
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Uploaded Documents</Text>
             <View style={styles.docList}>
-              {app.documents.slice(0, 3).map((d) => (
-                <View key={d.id} style={styles.docItem}>
-                  <View style={styles.docLeft}>
-                    <View style={[styles.docIcon, { backgroundColor: isDark ? colors.border : "#E3F2FD" }]}>
-                      <Ionicons
-                        name="document-text-outline"
-                        size={18}
-                        color={isDark ? colors.primary : "#2196F3"}
-                      />
+              {/* Display Documents from 'documents' array (verification needed usually) */}
+              {application.documents && application.documents.length > 0 ? (
+                application.documents.map((docGroup) => (
+                  docGroup.files.map((file) => (
+                    <View key={file.id} style={styles.docItem}>
+                      <View style={styles.docLeft}>
+                        <View style={[styles.docIcon, { backgroundColor: isDark ? colors.border : "#E3F2FD" }]}>
+                          <Ionicons
+                            name="document-text-outline"
+                            size={18}
+                            color={isDark ? colors.primary : "#2196F3"}
+                          />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.docName, { color: colors.text }]}>
+                            {docGroup.label || file.filename}
+                          </Text>
+                          <Text style={[styles.docMeta, { color: colors.textSecondary }]}>
+                            {file.mimetype.split('/')[1]?.toUpperCase() || 'FILE'} • {(file.filesize / 1024).toFixed(0)} KB
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={{ flexDirection: "row", gap: 8 }}>
+                        <TouchableOpacity
+                          onPress={() => router.push({
+                            pathname: "/(dashboard)/reviewer/document-view",
+                            params: {
+                              id: file.id,
+                              title: docGroup.label || file.filename,
+                              fileName: file.filename,
+                              url: file.fileurl
+                            }
+                          })}
+                          style={[styles.viewDocBtn, { backgroundColor: isDark ? colors.surface : "#E3F2FD" }]}
+                        >
+                          <Text style={[styles.viewDocText, { color: isDark ? colors.primary : "#2196F3" }]}>View</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.docName, { color: colors.text }]}>{d.name}</Text>
-                      <Text style={[styles.docMeta, { color: colors.textSecondary }]}>{d.type}</Text>
-                    </View>
-                  </View>
-                  <View style={{ flexDirection: "row", gap: 8 }}>
-                    <TouchableOpacity
-                      onPress={() => router.push({
-                        pathname: "/(dashboard)/reviewer/document-edit",
-                        params: { id: d.id, title: d.name, status: "pending" }
-                      })}
-                      style={[styles.viewDocBtn, { backgroundColor: isDark ? colors.surface : "#FFF3E0" }]}
-                    >
-                      <Text style={[styles.viewDocText, { color: isDark ? "#FF9800" : "#FF9800" }]}>Edit</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => router.push({
-                        pathname: "/(dashboard)/reviewer/document-view",
-                        params: { id: d.id, title: d.name, fileName: d.name } // Passing title/filename
-                      })}
-                      style={[styles.viewDocBtn, { backgroundColor: isDark ? colors.surface : "#E3F2FD" }]}
-                    >
-                      <Text style={[styles.viewDocText, { color: isDark ? colors.primary : "#2196F3" }]}>View</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))}
-              {app.documents.length > 3 && (
-                <TouchableOpacity
-                  style={styles.viewAllBtn}
-                  onPress={() => router.push("/(dashboard)/reviewer/documents")}
-                >
-                  <Text style={styles.viewAllText}>View All Documents ({app.documents.length})</Text>
-                </TouchableOpacity>
+                  ))
+                ))
+              ) : (
+                <Text style={{ color: colors.textSecondary, fontStyle: 'italic' }}>No documents found.</Text>
               )}
             </View>
           </View>
 
           {/* Application Details */}
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Application Details</Text>
-            <Text style={[styles.bodyText, { color: colors.text }]}>{app.personalStatement}</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Application Statement</Text>
+            <Text style={[styles.bodyText, { color: colors.text }]}>
+              {application.application_text || "No application text provided."}
+            </Text>
           </View>
 
-          {/* Comments */}
+          {/* Comments Section Placeholder - API response has comments_count but not list, assuming separate API for list or simpler implementation */}
+          {/* keeping it simple for now or fetch if needed later */}
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Comments</Text>
-            <View style={{ gap: 12 }}>
-              {app.comments.map((c) => (
-                <View key={c.id} style={styles.commentRow}>
-                  <View style={[styles.commentAvatar, { backgroundColor: isDark ? colors.border : "#f5f5f5" }]}>
-                    <Ionicons
-                      name="chatbubble-ellipses-outline"
-                      size={16}
-                      color={colors.textSecondary}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.commentMeta, { color: colors.textSecondary }]}>
-                      {c.author} • {c.time}
-                    </Text>
-                    <Text style={[styles.commentText, { color: colors.text }]}>{c.text}</Text>
-                  </View>
-                </View>
-              ))}
-              <View style={styles.commentInputRow}>
-                <TextInput
-                  placeholder="Add a comment..."
-                  placeholderTextColor={colors.textSecondary}
-                  style={[styles.commentInput, { color: colors.text, borderColor: colors.border }]}
-                />
-                <TouchableOpacity style={[styles.commentSendBtn, { backgroundColor: isDark ? colors.primary : "#333" }]}>
-                  <Ionicons name="send" size={18} color="#fff" />
-                </TouchableOpacity>
-              </View>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Comments ({application.comments_count})
+            </Text>
+            <Text style={{ color: colors.textSecondary, marginBottom: 10 }}>Comments feature coming soon.</Text>
+
+            <View style={styles.commentInputRow}>
+              <TextInput
+                placeholder="Add a comment..."
+                placeholderTextColor={colors.textSecondary}
+                style={[styles.commentInput, { color: colors.text, borderColor: colors.border }]}
+              />
+              <TouchableOpacity style={[styles.commentSendBtn, { backgroundColor: isDark ? colors.primary : "#333" }]}>
+                <Ionicons name="send" size={18} color="#fff" />
+              </TouchableOpacity>
             </View>
           </View>
 
-          {/* Request Update Button */}
-          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <TouchableOpacity style={[styles.actionBtn, styles.updateBtn, styles.fullWidthBtn]}>
-              <Ionicons name="refresh-outline" size={18} color="#fff" />
-              <Text style={styles.actionText}>Request Update</Text>
-            </TouchableOpacity>
-          </View>
         </ScrollView>
 
         {/* Sticky Footer Actions */}
         <View style={[styles.footer, { paddingBottom: inset.bottom + 8, backgroundColor: colors.background, borderTopColor: colors.border }]}>
           <View style={styles.footerActions}>
-            <TouchableOpacity style={[styles.actionBtn, styles.approveBtn, styles.footerBtn]}>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.approveBtn, styles.footerBtn, submitting && { opacity: 0.7 }]}
+              disabled={submitting}
+              onPress={() => handleReview("approve")}
+            >
               <Ionicons name="checkmark-outline" size={18} color="#fff" />
-              <Text style={styles.actionText}>Approve</Text>
+              <Text style={styles.actionText}>{submitting ? "Processing..." : "Approve"}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionBtn, styles.rejectBtn, styles.footerBtn]}
@@ -251,13 +414,11 @@ export default function ReviewerApplicationDetailsScreen() {
                   <Text style={[styles.modalCancelText, { color: colors.text }]}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.modalBtn, styles.modalReject]}
-                  onPress={() => {
-                    setShowRejectModal(false);
-                    setRejectReason("");
-                  }}
+                  style={[styles.modalBtn, styles.modalReject, submitting && { opacity: 0.7 }]}
+                  disabled={submitting}
+                  onPress={() => handleReview("reject", rejectReason)}
                 >
-                  <Text style={styles.modalRejectText}>Submit</Text>
+                  <Text style={styles.modalRejectText}>{submitting ? "Submitting..." : "Submit"}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -277,26 +438,39 @@ function InfoRow({ label, value, colors }: { label: string; value: string; color
   );
 }
 
-function getStatusColor(status: "Pending" | "Approved" | "Rejected") {
-  switch (status) {
-    case "Approved":
+function getStatusColor(status: string | null) {
+  if (!status) return "#2196F3"; // Default blue
+  const s = status.toLowerCase();
+  switch (s) {
+    case "approved":
       return "#4CAF50";
-    case "Rejected":
+    case "rejected":
       return "#F44336";
-    default:
+    case "waitlisted":
       return "#FF9800";
+    case "pending": // Handling legacy/mock value just in case
+      return "#FF9800";
+    default:
+      return "#2196F3"; // New/Default
   }
 }
 
-function getStatusBadgeStyle(status: "Pending" | "Approved" | "Rejected", isDark: boolean = false) {
+function getStatusBadgeStyle(status: string | null, isDark: boolean = false) {
   const opacity = isDark ? 0.2 : 1;
-  switch (status) {
-    case "Approved":
+  const s = status ? status.toLowerCase() : "";
+
+  if (!s) return { backgroundColor: isDark ? `rgba(33, 150, 243, ${opacity})` : "#E3F2FD" };
+
+  switch (s) {
+    case "approved":
       return { backgroundColor: isDark ? `rgba(76, 175, 80, ${opacity})` : "#E8F5E9" };
-    case "Rejected":
+    case "rejected":
       return { backgroundColor: isDark ? `rgba(244, 67, 54, ${opacity})` : "#FFEBEE" };
-    default:
+    case "waitlisted":
+    case "pending":
       return { backgroundColor: isDark ? `rgba(255, 152, 0, ${opacity})` : "#FFF3E0" };
+    default:
+      return { backgroundColor: isDark ? `rgba(33, 150, 243, ${opacity})` : "#E3F2FD" };
   }
 }
 
