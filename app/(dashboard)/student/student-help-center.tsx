@@ -2,6 +2,7 @@ import { AppHeader } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
 import { getFAQs } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -16,15 +17,25 @@ export default function StudentHelpCenterScreen() {
     const { width } = useWindowDimensions();
 
     useEffect(() => {
-        getFAQs().then(res => {
-            if (res.success && res.data) {
-                setFaqs(res.data);
+        const fetchFAQs = async () => {
+            try {
+                const authDataStr = await AsyncStorage.getItem("authData");
+                if (authDataStr) {
+                    const authData = JSON.parse(authDataStr);
+                    if (authData.token) {
+                        const res = await getFAQs(authData.token);
+                        if (res.success && res.data) {
+                            setFaqs(res.data);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
-        }).catch(err => {
-            console.error(err);
-            setLoading(false);
-        });
+        };
+        fetchFAQs();
     }, []);
 
     return (

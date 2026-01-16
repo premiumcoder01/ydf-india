@@ -1,6 +1,7 @@
 import { AppHeader } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
 import { getPrivacyPolicy } from "@/utils/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -13,17 +14,29 @@ export default function StudentPrivacyScreen() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        getPrivacyPolicy().then(res => {
-            if (res.success && res.data) {
-                setContent(res.data.content || "<p>No privacy policy available.</p>");
-            } else {
+        const fetchPolicy = async () => {
+            try {
+                const authDataStr = await AsyncStorage.getItem("authData");
+                if (authDataStr) {
+                    const authData = JSON.parse(authDataStr);
+                    if (authData.token) {
+                        const res = await getPrivacyPolicy(authData.token);
+                        if (res.success && res.data) {
+                            setContent(res.data.content || "<p>No privacy policy available.</p>");
+                        } else {
+                            setContent("<p>Failed to load privacy policy.</p>");
+                        }
+                    }
+                } else {
+                    setContent("<p>Please login to view privacy policy.</p>");
+                }
+            } catch (e) {
                 setContent("<p>Failed to load privacy policy.</p>");
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
-        }).catch(() => {
-            setContent("<p>Failed to load privacy policy.</p>");
-            setLoading(false);
-        });
+        };
+        fetchPolicy();
     }, []);
 
     const htmlContent = `

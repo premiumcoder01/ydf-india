@@ -1,6 +1,7 @@
 import { AppHeader } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
 import { getTermsAndConditions } from "@/utils/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -13,17 +14,29 @@ export default function StudentTermsScreen() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        getTermsAndConditions().then(res => {
-            if (res.success && res.data) {
-                setContent(res.data.content || "<p>No terms available.</p>");
-            } else {
+        const fetchTerms = async () => {
+            try {
+                const authDataStr = await AsyncStorage.getItem("authData");
+                if (authDataStr) {
+                    const authData = JSON.parse(authDataStr);
+                    if (authData.token) {
+                        const res = await getTermsAndConditions(authData.token);
+                        if (res.success && res.data) {
+                            setContent(res.data.content || "<p>No terms available.</p>");
+                        } else {
+                            setContent("<p>Failed to load terms.</p>");
+                        }
+                    }
+                } else {
+                    setContent("<p>Please login to view terms.</p>");
+                }
+            } catch (e) {
                 setContent("<p>Failed to load terms.</p>");
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
-        }).catch(() => {
-            setContent("<p>Failed to load terms.</p>");
-            setLoading(false);
-        });
+        };
+        fetchTerms();
     }, []);
 
     const htmlContent = `

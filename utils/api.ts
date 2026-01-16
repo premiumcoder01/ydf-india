@@ -1930,11 +1930,12 @@ export const updateFinancialInfo = async (
 /**
  * Get Terms and Conditions API call
  */
-export const getTermsAndConditions = async (): Promise<ApiResponse> => {
+export const getTermsAndConditions = async (token: string): Promise<ApiResponse> => {
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
     
+    urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_get_terms_conditions");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     
@@ -1966,11 +1967,12 @@ export const getTermsAndConditions = async (): Promise<ApiResponse> => {
 /**
  * Get Privacy Policy API call
  */
-export const getPrivacyPolicy = async (): Promise<ApiResponse> => {
+export const getPrivacyPolicy = async (token: string): Promise<ApiResponse> => {
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
     
+    urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_get_privacy_policy");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     
@@ -2043,11 +2045,12 @@ export const contactSupport = async (token: string, subject: string, message: st
 /**
  * Get FAQs API call
  */
-export const getFAQs = async (): Promise<ApiResponse> => {
+export const getFAQs = async (token: string): Promise<ApiResponse> => {
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
     
+    urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_get_faqs");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     
