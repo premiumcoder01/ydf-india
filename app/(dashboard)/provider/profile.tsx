@@ -78,7 +78,6 @@ export default function ProviderProfileScreen() {
   }, []);
 
   const handleEditProfile = () => router.push("/(dashboard)/provider/edit-profile");
-  const handleChangePassword = () => router.push("/(dashboard)/provider/change-password");
   const handleLogout = () => setShowLogoutModal(true);
   const confirmLogout = async () => {
     try {
@@ -222,30 +221,7 @@ export default function ProviderProfileScreen() {
           </LinearGradient>
         </Animated.View>
 
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : '#fff', borderColor: colors.border }]}>
-            <View style={[styles.statIcon, { backgroundColor: isDark ? 'rgba(33, 150, 243, 0.1)' : '#EBF5FF' }]}>
-              <Ionicons name="checkmark-done" size={24} color="#2196F3" />
-            </View>
-            <Text style={[styles.statValue, { color: colors.text }]}>248</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Completed</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : '#fff', borderColor: colors.border }]}>
-            <View style={[styles.statIcon, { backgroundColor: isDark ? 'rgba(255, 152, 0, 0.1)' : '#FFF4E6' }]}>
-              <Ionicons name="hourglass" size={24} color="#FF9800" />
-            </View>
-            <Text style={[styles.statValue, { color: colors.text }]}>12</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Pending</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : '#fff', borderColor: colors.border }]}>
-            <View style={[styles.statIcon, { backgroundColor: isDark ? 'rgba(156, 39, 176, 0.1)' : '#F3E8FF' }]}>
-              <Ionicons name="star" size={24} color="#9C27B0" />
-            </View>
-            <Text style={[styles.statValue, { color: colors.text }]}>4.8</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Rating</Text>
-          </View>
-        </View>
+
 
         {/* Organization Details - Modern Card */}
         <View style={styles.modernSection}>
@@ -281,7 +257,6 @@ export default function ProviderProfileScreen() {
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
           <View style={[styles.modernActionsCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border, marginTop: 15 }]}>
             <ActionButton icon="create-outline" label="Edit Profile" onPress={handleEditProfile} color="#2196F3" />
-            <ActionButton icon="lock-closed-outline" label="Change Password" onPress={handleChangePassword} color="#FF9800" />
             <ActionButton icon="help-circle-outline" label="Help & Support" onPress={() => router.push("/(dashboard)/provider/help-support")} color="#673AB7" />
             <ActionButton icon="document-text-outline" label="Terms & Conditions" onPress={() => router.push("/(dashboard)/provider/terms-conditions")} color="#795548" />
             <ActionButton icon="information-circle-outline" label="About" onPress={() => router.push("/(dashboard)/provider/about")} color="#0091EA" />

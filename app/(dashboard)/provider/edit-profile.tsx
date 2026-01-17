@@ -1,16 +1,21 @@
-import { AppHeader, Button, CustomTextInput } from "@/components";
+import { AppHeader, Button, CustomTextInput, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { getUserProfile } from "@/utils/api";
+import { getUserProfile, updateUserProfile } from "@/utils/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ProviderEditProfileScreen() {
     const { colors, isDark } = useTheme();
     const inset = useSafeAreaInsets();
     const [loading, setLoading] = useState(false);
+
+    // Toast State
+    const [showToast, setShowToast] = useState(false);
+    const [toastMessage, setToastMessage] = useState("");
+    const [toastType, setToastType] = useState<"success" | "error" | "info">("error");
 
     const [formData, setFormData] = useState({
         firstName: "",
@@ -50,17 +55,107 @@ export default function ProviderEditProfileScreen() {
     }, []);
 
     const handleSave = async () => {
+        // Validation
+        if (!formData.firstName.trim()) {
+            setToastMessage("First name is required");
+            setToastType("error");
+            setShowToast(true);
+            return;
+        }
+
+        if (!formData.lastName.trim()) {
+            setToastMessage("Last name is required");
+            setToastType("error");
+            setShowToast(true);
+            return;
+        }
+
+        if (!formData.email.trim()) {
+            setToastMessage("Email is required");
+            setToastType("error");
+            setShowToast(true);
+            return;
+        }
+
+        // Email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(formData.email)) {
+            setToastMessage("Please enter a valid email address");
+            setToastType("error");
+            setShowToast(true);
+            return;
+        }
+
         try {
             setLoading(true);
-            // Simulate API call
-            setTimeout(() => {
+
+            // Get token from AsyncStorage
+            const authDataStr = await AsyncStorage.getItem("authData");
+            if (!authDataStr) {
+                setToastMessage("Authentication error. Please login again.");
+                setToastType("error");
+                setShowToast(true);
                 setLoading(false);
-                Alert.alert("Success", "Profile updated successfully");
-                router.back();
-            }, 1000);
-        } catch (error) {
+                return;
+            }
+
+            const authData = JSON.parse(authDataStr);
+            const token = authData?.token;
+
+            if (!token) {
+                setToastMessage("Authentication token not found. Please login again.");
+                setToastType("error");
+                setShowToast(true);
+                setLoading(false);
+                return;
+            }
+
+            // Call the updateUserProfile API
+            const response = await updateUserProfile(token, {
+                firstName: formData.firstName,
+                lastName: formData.lastName,
+                email: formData.email,
+                phone: formData.phone,
+                address: formData.address,
+            });
+
+            if (response.success) {
+                // Update the authData in AsyncStorage with new profile info
+                const updatedAuthData = {
+                    ...authData,
+                    user: {
+                        ...authData.user,
+                        firstname: formData.firstName,
+                        lastname: formData.lastName,
+                        email: formData.email,
+                        phone: formData.phone,
+                        phone1: formData.phone,
+                        address: formData.address,
+                        fullname: `${formData.firstName} ${formData.lastName}`,
+                    },
+                };
+                await AsyncStorage.setItem("authData", JSON.stringify(updatedAuthData));
+
+                setToastMessage("Profile updated successfully");
+                setToastType("success");
+                setShowToast(true);
+
+                // Navigate back after a short delay
+                setTimeout(() => {
+                    router.back();
+                }, 1500);
+            } else {
+                setToastMessage(response.error || "Failed to update profile");
+                setToastType("error");
+                setShowToast(true);
+            }
+        } catch (error: any) {
+            console.error("Error updating profile:", error);
+            setToastMessage(error.message || "Failed to update profile");
+            setToastType("error");
+            setShowToast(true);
+        } finally {
             setLoading(false);
-            Alert.alert("Error", "Failed to update profile");
         }
     };
 
@@ -115,6 +210,14 @@ export default function ProviderEditProfileScreen() {
                     <Button title="Save Changes" onPress={handleSave} loading={loading} />
                 </View>
             </ScrollView>
+
+            <Toast
+                message={toastMessage}
+                type={toastType}
+                visible={showToast}
+                onHide={() => setShowToast(false)}
+                duration={3000}
+            />
         </View>
     );
 }

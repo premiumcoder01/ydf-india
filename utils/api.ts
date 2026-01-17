@@ -1397,6 +1397,43 @@ export const markAllNotificationsRead = async (token: string): Promise<ApiRespon
 };
 
 /**
+ * Mark Single Notification as Read API call
+ */
+export const markNotificationRead = async (
+  token: string,
+  notificationId: number | string
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_mark_notification_read");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("notification_id", String(notificationId));
+    
+    const finalUrl = urlObj.toString();
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    try { data = JSON.parse(responseText); } catch(e) {}
+
+    if (response.ok) {
+      return { success: true, data, message: "Notification marked as read" };
+    } else {
+      return { success: false, error: "Failed to mark notification as read" };
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
+/**
  * Submit Scholarship Application API call
  */
 export const submitApplication = async (
@@ -2056,6 +2093,43 @@ export const getPrivacyPolicy = async (token: string): Promise<ApiResponse> => {
         return { success: false, error: data.message || "Failed to retrieve privacy policy" };
     } else {
       return { success: false, error: "Failed to retrieve privacy policy" };
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Get About Page API call
+ */
+export const getAboutPage = async (token: string): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_get_about_page");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get About Page URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    try { data = JSON.parse(responseText); } catch(e) {}
+
+    if (response.ok) {
+        if (data.success && data.data) {
+             return { success: true, data: data.data, message: "About page retrieved successfully" };
+        }
+        return { success: false, error: data.message || "Failed to retrieve about page" };
+    } else {
+      return { success: false, error: "Failed to retrieve about page" };
     }
   } catch (error: any) {
     return { success: false, error: error.message };

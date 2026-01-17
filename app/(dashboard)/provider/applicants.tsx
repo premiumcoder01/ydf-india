@@ -75,7 +75,7 @@ export default function ProviderApplicantsScreen() {
   };
 
   const fetchApplicants = async (reset = false) => {
-    if (!scholarshipId) return;
+    // if (!scholarshipId) return;
 
     try {
       if (reset) setLoading(true);
@@ -136,9 +136,9 @@ export default function ProviderApplicantsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (scholarshipId) {
-        fetchApplicants(true);
-      }
+
+      fetchApplicants(true);
+
     }, [scholarshipId, activeTab]) // Refetch when tab changes too? Or handle client side filtering? 
     // API supports status filtering. Using API filtering might be better for pagination.
     // The current UI kept "All" and filtered client side. But if we paginating, client side filtering on partial data is wrong.
@@ -411,11 +411,11 @@ export default function ProviderApplicantsScreen() {
       />
 
       {/* Results Count */}
-      <View style={styles.resultsRow}>
+      {/* <View style={styles.resultsRow}>
         <Text style={[styles.resultsText, { color: colors.textSecondary }]}>
           Showing {paginated.length} of {filtered.length} applicants
         </Text>
-      </View>
+      </View> */}
 
       {/* List */}
       <FlatList

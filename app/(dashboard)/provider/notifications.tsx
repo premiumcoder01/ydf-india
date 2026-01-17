@@ -1,22 +1,152 @@
 import { ReviewerHeader } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import React, { useMemo, useState } from "react";
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { getNotifications, markAllNotificationsRead, markNotificationRead } from "@/utils/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from "react-native";
 import Button from "../../../components/Button";
+
+interface Notification {
+  id: string;
+  type: "Application" | "KYC";
+  text: string;
+  ts: string;
+  read: boolean;
+  subject?: string;
+  component?: string;
+  event_type?: string;
+}
 
 export default function ProviderNotificationsScreen() {
   const { isDark, colors } = useTheme();
   const [activeTab, setActiveTab] = useState<"All" | "New" | "KYC" | "Application">("All");
-  const [items, setItems] = useState(
-    () => [
-      { id: "1", type: "Application" as const, text: "10 new applicants for XYZ Scholarship", ts: "2h ago", read: false },
-      { id: "2", type: "KYC" as const, text: "Your KYC is under review", ts: "1d ago", read: false },
-      { id: "3", type: "Application" as const, text: "Application ABC approved", ts: "2d ago", read: true },
-      { id: "4", type: "KYC" as const, text: "KYC verified successfully", ts: "3d ago", read: true },
-    ]
-  );
+  const [items, setItems] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const tabs = useMemo(() => ["All", "New", "KYC", "Application"] as const, []);
+
+  // Helper function to format timestamp
+  const formatTimestamp = (timestamp: string): string => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  };
+
+  // Helper function to determine notification type
+  const getNotificationType = (component: string, eventType: string): "Application" | "KYC" => {
+    // Map component/event types to our notification types
+    if (eventType?.toLowerCase().includes('kyc') || component?.toLowerCase().includes('kyc')) {
+      return "KYC";
+    }
+    return "Application";
+  };
+
+  // Fetch notifications from API
+  const fetchNotifications = async () => {
+    try {
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) {
+        setError("No authentication data found");
+        setLoading(false);
+        return;
+      }
+
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
+
+      if (!token) {
+        setError("No authentication token found");
+        setLoading(false);
+        return;
+      }
+
+      console.log("Fetching notifications with token:", token.substring(0, 20) + "...");
+
+      const response = await getNotifications(token, {
+        page: 1,
+        per_page: 20,
+      });
+
+      console.log("API Response:", JSON.stringify(response, null, 2));
+      console.log("Response success:", response.success);
+      console.log("Response data type:", typeof response.data);
+      console.log("Response data:", response.data);
+
+      if (response.success && response.data) {
+        // The API wraps the response, so response.data contains the actual API response
+        // which has { success: true, data: [...], pagination: {...} }
+        let notificationsData: any[] = [];
+
+        if (Array.isArray(response.data)) {
+          // If response.data is directly an array
+          notificationsData = response.data;
+        } else if (response.data.data && Array.isArray(response.data.data)) {
+          // If response.data has a nested data property
+          notificationsData = response.data.data;
+        } else if (typeof response.data === 'object' && response.data.success && Array.isArray(response.data.data)) {
+          // If the API response is wrapped again
+          notificationsData = response.data.data;
+        }
+
+        console.log("Notifications data array:", notificationsData);
+        console.log("Number of notifications:", notificationsData.length);
+
+        const notifications: Notification[] = notificationsData.map((item: any) => ({
+          id: String(item.id),
+          type: getNotificationType(item.component, item.event_type),
+          text: item.message || item.subject || "No message",
+          subject: item.subject,
+          ts: formatTimestamp(item.created_at),
+          read: item.is_read === true || item.read_at !== null,
+          component: item.component,
+          event_type: item.event_type,
+        }));
+
+        console.log("Mapped notifications:", notifications);
+        setItems(notifications);
+        setError(null);
+      } else {
+        console.log("API call failed or no data");
+        setError(response.error || "Failed to load notifications");
+      }
+    } catch (err: any) {
+      console.error("Error in fetchNotifications:", err);
+      setError(err.message || "An error occurred");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Load notifications on mount
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  // Pull to refresh
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchNotifications();
+  };
+
 
   const filtered = useMemo(() => {
     switch (activeTab) {
@@ -33,12 +163,68 @@ export default function ProviderNotificationsScreen() {
 
   const unreadCount = useMemo(() => items.filter(i => !i.read).length, [items]);
 
-  const markAllAsRead = () => {
-    setItems((prev) => prev.map((i) => ({ ...i, read: true })));
+  const markAllAsRead = async () => {
+    try {
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) {
+        Alert.alert("Error", "No authentication data found");
+        return;
+      }
+
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
+
+      if (!token) {
+        Alert.alert("Error", "No authentication token found");
+        return;
+      }
+
+      const response = await markAllNotificationsRead(token);
+
+      if (response.success) {
+        // Update local state
+        setItems((prev) => prev.map((i) => ({ ...i, read: true })));
+        Alert.alert("Success", "All notifications marked as read");
+      } else {
+        Alert.alert("Error", response.error || "Failed to mark notifications as read");
+      }
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "An error occurred");
+    }
   };
 
-  const toggleRead = (id: string) => {
-    setItems((prev) => prev.map((i) => i.id === id ? { ...i, read: !i.read } : i));
+  const toggleRead = async (id: string) => {
+    try {
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) return;
+
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
+      if (!token) return;
+
+      // Find the notification to check if it's already read
+      const notification = items.find(i => i.id === id);
+      if (!notification || notification.read) {
+        // If already read, do nothing
+        return;
+      }
+
+      // Optimistically update UI
+      setItems((prev) => prev.map((i) => i.id === id ? { ...i, read: true } : i));
+
+      // Call API to mark as read
+      const response = await markNotificationRead(token, id);
+
+      if (!response.success) {
+        // Revert on failure
+        setItems((prev) => prev.map((i) => i.id === id ? { ...i, read: false } : i));
+        console.error("Failed to mark notification as read:", response.error);
+      }
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      // Revert on error
+      setItems((prev) => prev.map((i) => i.id === id ? { ...i, read: false } : i));
+    }
   };
 
   const renderItem = ({ item }: { item: (typeof items)[number] }) => (
@@ -87,80 +273,114 @@ export default function ProviderNotificationsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ReviewerHeader title="Notifications" />
-      <FlatList
-        data={filtered}
-        keyExtractor={(i) => i.id}
-        renderItem={renderItem}
-        ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-        ListHeaderComponent={() => (
-          <View style={styles.listHeaderArea}>
-            <View style={styles.titleRow}>
-              <Text style={[styles.title, { color: colors.text }]}>Notifications</Text>
-              {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{unreadCount} new</Text>
-                </View>
-              )}
-            </View>
-            <View style={styles.tabs}>
-              {tabs.map((t) => {
-                const count = t === "New" ? unreadCount :
-                  t === "All" ? items.length :
-                    items.filter(i => i.type === t).length;
-                return (
-                  <TouchableOpacity
-                    key={t}
-                    onPress={() => setActiveTab(t)}
-                    style={[
-                      styles.tab,
-                      { backgroundColor: colors.card, borderColor: colors.border },
-                      activeTab === t && [styles.tabActive, { borderColor: isDark ? colors.primary : "#F59E0B", backgroundColor: isDark ? colors.primary + "15" : "#FFFBEB" }]
-                    ]}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[
-                      styles.tabText,
-                      { color: colors.textSecondary },
-                      activeTab === t && [styles.tabTextActive, { color: isDark ? colors.primary : "#92400E" }]
-                    ]}>
-                      {t}
-                    </Text>
-                    {count > 0 && (
-                      <View style={[
-                        styles.tabBadge,
-                        { backgroundColor: isDark ? colors.surface : "#F3F4F6" },
-                        activeTab === t && [styles.tabBadgeActive, { backgroundColor: isDark ? colors.primary + "33" : "#FCD34D" }]
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+            Loading notifications...
+          </Text>
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Text style={[styles.errorText, { color: colors.error || "#EF4444" }]}>
+            {error}
+          </Text>
+          <Button
+            title="Retry"
+            variant="primary"
+            onPress={() => {
+              setLoading(true);
+              setError(null);
+              fetchNotifications();
+            }}
+          />
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={(i) => i.id}
+          renderItem={renderItem}
+          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+          ListHeaderComponent={() => (
+            <View style={styles.listHeaderArea}>
+              <View style={styles.titleRow}>
+                <Text style={[styles.title, { color: colors.text }]}>Notifications</Text>
+                {unreadCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{unreadCount} new</Text>
+                  </View>
+                )}
+              </View>
+              <View style={styles.tabs}>
+                {tabs.map((t) => {
+                  const count = t === "New" ? unreadCount :
+                    t === "All" ? items.length :
+                      items.filter(i => i.type === t).length;
+                  return (
+                    <TouchableOpacity
+                      key={t}
+                      onPress={() => setActiveTab(t)}
+                      style={[
+                        styles.tab,
+                        { backgroundColor: colors.card, borderColor: colors.border },
+                        activeTab === t && [styles.tabActive, { borderColor: isDark ? colors.primary : "#F59E0B", backgroundColor: isDark ? colors.primary + "15" : "#FFFBEB" }]
+                      ]}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        styles.tabText,
+                        { color: colors.textSecondary },
+                        activeTab === t && [styles.tabTextActive, { color: isDark ? colors.primary : "#92400E" }]
                       ]}>
-                        <Text style={[
-                          styles.tabBadgeText,
-                          { color: colors.textSecondary },
-                          activeTab === t && [styles.tabBadgeTextActive, { color: isDark ? colors.primary : "#78350F" }]
+                        {t}
+                      </Text>
+                      {count > 0 && (
+                        <View style={[
+                          styles.tabBadge,
+                          { backgroundColor: isDark ? colors.surface : "#F3F4F6" },
+                          activeTab === t && [styles.tabBadgeActive, { backgroundColor: isDark ? colors.primary + "33" : "#FCD34D" }]
                         ]}>
-                          {count}
-                        </Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
+                          <Text style={[
+                            styles.tabBadgeText,
+                            { color: colors.textSecondary },
+                            activeTab === t && [styles.tabBadgeTextActive, { color: isDark ? colors.primary : "#78350F" }]
+                          ]}>
+                            {count}
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
-          </View>
-        )}
-        ListFooterComponent={() => (
-          unreadCount > 0 ? (
-            <View style={styles.footer}>
-              <Button title="Mark All as Read" variant="secondary" onPress={markAllAsRead} />
+          )}
+          ListFooterComponent={() => (
+            unreadCount > 0 ? (
+              <View style={styles.footer}>
+                <Button title="Mark All as Read" variant="secondary" onPress={markAllAsRead} />
+              </View>
+            ) : null
+          )}
+          ListEmptyComponent={() => (
+            <View style={styles.empty}>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                No notifications to display
+              </Text>
             </View>
-          ) : null
-        )}
-        ListEmptyComponent={() => (
-          <View style={styles.empty}>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No notifications to display</Text>
-          </View>
-        )}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
+          )}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </View>
   );
 }
@@ -169,6 +389,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: 12,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    gap: 16,
+  },
+  errorText: {
+    fontSize: 16,
+    fontWeight: "500",
+    textAlign: "center",
   },
   listContent: {
     padding: 20,
