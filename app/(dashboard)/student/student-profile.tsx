@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Image,
   Modal,
@@ -39,11 +39,7 @@ export default function StudentProfileScreen() {
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Mock data - in real app, this would come from API/context
-  const academicInfo = {
-    gpa: "3.75",
-    year: "Senior",
-  };
+
   const documents = INITIAL_DOCUMENTS;
 
   // Fetch user profile on component mount
@@ -134,16 +130,7 @@ export default function StudentProfileScreen() {
     fetchUserProfile();
   }, []);
 
-  // Calculate profile completion
-  const calculateProfileCompletion = useMemo(() => {
-    const personalScore = 25;
-    const academicScore = 25;
-    const mandatoryComplete = documents.filter(
-      (d) => d.mandatory === true && d.status === "verified"
-    ).length;
-    const documentsScore = (mandatoryComplete / MANDATORY_DOCUMENTS.length) * 50;
-    return Math.round(personalScore + academicScore + documentsScore);
-  }, [documents]);
+
 
   // Logout Handler
   const handleLogout = async () => {
@@ -240,60 +227,12 @@ export default function StudentProfileScreen() {
                 style={[styles.profileImage, { borderColor: isDark ? colors.card : "#fff" }]}
               />
             )}
-            <TouchableOpacity style={[styles.editPhotoButton, { borderColor: isDark ? colors.card : "#fff" }]}>
-              <Ionicons name="camera" size={16} color="#fff" />
-            </TouchableOpacity>
+
           </View>
           <Text style={[styles.profileName, { color: colors.text }]}>{personalInfo.fullName}</Text>
           {personalInfo.email ? (
             <Text style={[styles.profileEmail, { color: colors.textSecondary }]}>{personalInfo.email}</Text>
           ) : null}
-
-
-          {/* <View style={styles.completionCard}>
-            <View style={styles.completionHeader}>
-              <Text style={styles.completionLabel}>Profile Complete</Text>
-              <Text style={styles.completionPercent}>{calculateProfileCompletion}%</Text>
-            </View>
-            <View style={styles.progressBar}>
-              <LinearGradient
-                colors={
-                  calculateProfileCompletion >= 80
-                    ? ["#4CAF50", "#45a049"]
-                    : calculateProfileCompletion >= 50
-                    ? ["#FF9800", "#fb8c00"]
-                    : ["#F44336", "#e53935"]
-                }
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={[
-                  styles.progressFill,
-                  { width: `${calculateProfileCompletion}%` },
-                ]}
-              />
-            </View>
-          </View> */}
-
-
-          {/* <View style={styles.quickStats}>
-            <View style={styles.statBox}>
-              <Ionicons name="trophy" size={20} color="#FF9800" />
-              <Text style={styles.statValue}>{academicInfo.gpa}</Text>
-              <Text style={styles.statLabel}>GPA</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
-              <Text style={styles.statValue}>
-                {documents.filter((d) => d.status === "verified").length}
-              </Text>
-              <Text style={styles.statLabel}>Verified</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Ionicons name="calendar" size={20} color="#2196F3" />
-              <Text style={styles.statValue}>{academicInfo.year}</Text>
-              <Text style={styles.statLabel}>Year</Text>
-            </View>
-          </View> */}
         </View>
 
         {/* Profile Sections Grid */}

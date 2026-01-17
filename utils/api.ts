@@ -1215,14 +1215,33 @@ export const updateUserProfile = async (
     }
 
     console.log("Update Profile URL:", baseUrl);
-    console.log("Update Profile Payload:", JSON.stringify(payload, null, 2));
+    // console.log("Update Profile Payload:", JSON.stringify(payload, null, 2));
+
+    // Convert payload to x-www-form-urlencoded string with indexed arrays for Moodle
+    const formDataParts: string[] = [];
+    
+    Object.keys(payload).forEach(key => {
+      const value = payload[key];
+      if (key === 'customfields' && Array.isArray(value)) {
+        value.forEach((field, index) => {
+          Object.keys(field).forEach(fieldKey => {
+            formDataParts.push(`customfields[${index}][${fieldKey}]=${encodeURIComponent(field[fieldKey])}`);
+          });
+        });
+      } else if (value !== undefined && value !== null) {
+        formDataParts.push(`${key}=${encodeURIComponent(String(value))}`);
+      }
+    });
+
+    const formBody = formDataParts.join("&");
+    console.log("Update Profile Form Body:", formBody);
 
     const response = await fetch(baseUrl, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: JSON.stringify(payload),
+      body: formBody,
     });
 
     const responseText = await response.text();
@@ -1838,6 +1857,48 @@ export const updateAcademicDetail = async (
     return { success: false, error: error.message };
   }
 };
+
+/**
+ * Delete Academic Detail API call
+ */
+export const deleteAcademicDetail = async (
+  token: string,
+  id: number
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_delete_academic_detail");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("id", String(id));
+    
+    const finalUrl = urlObj.toString();
+    console.log("Delete Academic Detail URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    try { data = JSON.parse(responseText); } catch(e) {}
+
+    if (response.ok) {
+        if (data.success) {
+             return { success: true, data: data, message: data.message || "Academic detail deleted successfully" };
+        }
+        return { success: false, error: data.message || "Failed to delete academic detail" };
+    } else {
+      return { success: false, error: "Failed to delete academic detail" };
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
 /**
  * Get Financial Info API call
  */

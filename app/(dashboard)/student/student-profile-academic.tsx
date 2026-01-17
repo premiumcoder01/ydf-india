@@ -1,9 +1,8 @@
 import { AppHeader, Button, CustomTextInput, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { createAcademicDetail, getAcademicDetails, updateAcademicDetail } from "@/utils/api";
+import { createAcademicDetail, deleteAcademicDetail, getAcademicDetails, updateAcademicDetail } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -19,6 +18,7 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface AcademicRecord {
@@ -108,13 +108,13 @@ export default function StudentProfileAcademicScreen() {
           if (response.success && Array.isArray(response.data)) {
             const mappedRecords: AcademicRecord[] = response.data.map((item: any) => ({
               id: item.id.toString(),
-              institution: item.institution,
-              major: item.major,
+              institution: item.institution || "",
+              major: item.major || "",
               gpa: item.cgpa ? item.cgpa.toString() : (item.percentage ? item.percentage.toString() : ""),
               graduation: item.graduation_year ? item.graduation_year.toString() : "",
-              year: item.academic_year,
-              currentCourse: item.course_name,
-              currentCourseCategory: item.category
+              year: item.academic_year ? item.academic_year.toString() : "",
+              currentCourse: item.course_name || "",
+              currentCourseCategory: item.category || ""
             }));
             setRecords(mappedRecords);
           }
@@ -150,11 +150,29 @@ export default function StudentProfileAcademicScreen() {
       {
         text: "Delete",
         style: "destructive",
-        onPress: () => {
-          setRecords(prev => prev.filter(r => r.id !== id));
-          setToastMessage("Record deleted");
-          setToastType("info");
-          setShowToast(true);
+        onPress: async () => {
+          try {
+            const authDataStr = await AsyncStorage.getItem("authData");
+            if (authDataStr) {
+              const authData = JSON.parse(authDataStr);
+              if (authData.token) {
+                const response = await deleteAcademicDetail(authData.token, parseInt(id));
+                if (response.success) {
+                  setRecords(prev => prev.filter(r => r.id !== id));
+                  setToastMessage("Record deleted successfully");
+                  setToastType("success");
+                } else {
+                  setToastMessage(response.error || "Failed to delete record");
+                  setToastType("error");
+                }
+                setShowToast(true);
+              }
+            }
+          } catch (error) {
+            setToastMessage("An error occurred");
+            setToastType("error");
+            setShowToast(true);
+          }
         }
       }
     ]);
@@ -243,9 +261,10 @@ export default function StudentProfileAcademicScreen() {
 
   // --- Render Components ---
 
-  const SelectionModal = ({ visible, onClose, title, options, selected, onSelect }: any) => (
-    <Modal visible={visible} transparent animationType="fade">
-      <View style={styles.modalOverlay}>
+  const SelectionModal = ({ visible, onClose, title, options, selected, onSelect }: any) => {
+    if (!visible) return null;
+    return (
+      <View style={[styles.modalOverlay, { zIndex: 1000, elevation: 1000 }]}>
         <TouchableOpacity style={styles.modalBackdrop} onPress={onClose} activeOpacity={1} />
         <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20, backgroundColor: colors.surface }]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
@@ -272,8 +291,8 @@ export default function StudentProfileAcademicScreen() {
           </ScrollView>
         </View>
       </View>
-    </Modal>
-  );
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -317,11 +336,7 @@ export default function StudentProfileAcademicScreen() {
               <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
                 Add your educational background to build your profile.
               </Text>
-              <Button
-                title="Add Academic Record"
-                onPress={handleAddNew}
-                style={{ marginTop: 16, minWidth: 200 }}
-              />
+
             </View>
           ) : (
             <View style={{ gap: 16 }}>
@@ -381,7 +396,7 @@ export default function StudentProfileAcademicScreen() {
         onRequestClose={() => setIsModalVisible(false)}
       >
         <View style={[styles.fullScreenModal, { backgroundColor: colors.background }]}>
-          <View style={[styles.fsModalHeader, { borderBottomColor: colors.border }]}>
+          <View style={[styles.fsModalHeader, { borderBottomColor: colors.border, paddingTop: insets.top + 16 }]}>
             <Text style={[styles.fsModalTitle, { color: colors.text }]}>
               {editingRecord.id ? "Edit Academic Record" : "Add Academic Record"}
             </Text>
@@ -391,7 +406,7 @@ export default function StudentProfileAcademicScreen() {
           </View>
 
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-            <ScrollView contentContainerStyle={{ padding: 20 }}>
+            <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 30 }}>
               {/* Course & Category */}
               <View style={styles.inputGroup}>
                 <Text style={[styles.label, { color: colors.textSecondary }]}>Course Name *</Text>
@@ -493,63 +508,63 @@ export default function StudentProfileAcademicScreen() {
 
             </ScrollView>
           </KeyboardAvoidingView>
+
+          {/* Selection Pickers Nested Inside Modal */}
+          <SelectionModal
+            visible={showCoursePicker}
+            onClose={() => setShowCoursePicker(false)}
+            title="Select Course"
+            options={COURSE_OPTIONS}
+            selected={editingRecord.currentCourse}
+            onSelect={(val: string) => { handleFieldChange("currentCourse", val); setShowCoursePicker(false); }}
+          />
+          <SelectionModal
+            visible={showCategoryPicker}
+            onClose={() => setShowCategoryPicker(false)}
+            title="Select Category"
+            options={COURSE_CATEGORY_OPTIONS}
+            selected={editingRecord.currentCourseCategory}
+            onSelect={(val: string) => { handleFieldChange("currentCourseCategory", val); setShowCategoryPicker(false); }}
+          />
+          <SelectionModal
+            visible={showMajorPicker}
+            onClose={() => setShowMajorPicker(false)}
+            title="Select Major"
+            options={MAJOR_OPTIONS}
+            selected={editingRecord.major}
+            onSelect={(val: string) => { handleFieldChange("major", val); setShowMajorPicker(false); }}
+          />
+
+          {/* Date Pickers (Moved inside Modal to fix z-order overlay issue) */}
+          <DateTimePickerModal
+            isVisible={showAcademicYearPicker}
+            mode="date"
+            display="spinner"
+            locale="en-GB"
+            onConfirm={(date) => {
+              handleFieldChange("year", date.getFullYear().toString());
+              setShowAcademicYearPicker(false);
+            }}
+            onCancel={() => setShowAcademicYearPicker(false)}
+            isDarkModeEnabled={isDark}
+          />
+
+          <DateTimePickerModal
+            isVisible={showGradDatePicker}
+            mode="date"
+            display="spinner"
+            locale="en-GB"
+            onConfirm={(date) => {
+              handleFieldChange("graduation", date.toLocaleDateString('en-GB'));
+              setShowGradDatePicker(false);
+            }}
+            onCancel={() => setShowGradDatePicker(false)}
+            isDarkModeEnabled={isDark}
+          />
         </View>
       </Modal>
 
       <Toast message={toastMessage} type={toastType} visible={showToast} onHide={() => setShowToast(false)} />
-
-      {/* Selection Pickers */}
-      <SelectionModal
-        visible={showCoursePicker}
-        onClose={() => setShowCoursePicker(false)}
-        title="Select Course"
-        options={COURSE_OPTIONS}
-        selected={editingRecord.currentCourse}
-        onSelect={(val: string) => { handleFieldChange("currentCourse", val); setShowCoursePicker(false); }}
-      />
-      <SelectionModal
-        visible={showCategoryPicker}
-        onClose={() => setShowCategoryPicker(false)}
-        title="Select Category"
-        options={COURSE_CATEGORY_OPTIONS}
-        selected={editingRecord.currentCourseCategory}
-        onSelect={(val: string) => { handleFieldChange("currentCourseCategory", val); setShowCategoryPicker(false); }}
-      />
-      <SelectionModal
-        visible={showMajorPicker}
-        onClose={() => setShowMajorPicker(false)}
-        title="Select Major"
-        options={MAJOR_OPTIONS}
-        selected={editingRecord.major}
-        onSelect={(val: string) => { handleFieldChange("major", val); setShowMajorPicker(false); }}
-      />
-
-      {/* Date Pickers (Invisible, triggered by state) */}
-      {showAcademicYearPicker && (
-        <DateTimePicker
-          value={new Date()}
-          mode="date"
-          display="spinner"
-          onChange={(e, date) => {
-            setShowAcademicYearPicker(Platform.OS === 'ios');
-            if (date) handleFieldChange("year", date.getFullYear().toString());
-            if (Platform.OS !== 'ios') setShowAcademicYearPicker(false);
-          }}
-        />
-      )}
-
-      {showGradDatePicker && (
-        <DateTimePicker
-          value={new Date()}
-          mode="date"
-          display="spinner"
-          onChange={(e, date) => {
-            setShowGradDatePicker(Platform.OS === 'ios');
-            if (date) handleFieldChange("graduation", date.toLocaleDateString('en-GB'));
-            if (Platform.OS !== 'ios') setShowGradDatePicker(false);
-          }}
-        />
-      )}
     </View>
   );
 }
@@ -618,7 +633,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 16,
     borderBottomWidth: 1,
-    marginTop: Platform.OS === 'android' ? 24 : 0
   },
   fsModalTitle: { fontSize: 18, fontWeight: '700' },
   closeBtn: { padding: 4 },
@@ -637,7 +651,7 @@ const styles = StyleSheet.create({
   errorText: { color: '#EF4444', fontSize: 12, marginTop: 4 },
 
   // Selection Modal (Internal)
-  modalOverlay: { flex: 1, justifyContent: "flex-end" },
+  modalOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: "flex-end", zIndex: 1000 },
   modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.5)" },
   modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24 },
   modalHeader: { flexDirection: "row", justifyContent: "space-between", padding: 20, borderBottomWidth: 1 },

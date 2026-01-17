@@ -1,5 +1,7 @@
+import Toast from "@/components/Toast";
 import { useTheme } from "@/context/ThemeContext";
 import { bookmarkScholarship, getApplicationProgress, getDashboardStats, getRecommendedScholarships, getUpcomingDeadlines, getUserProfile } from "@/utils/api";
+import { getCategoryColor, getDaysRemaining } from "@/utils/dashboard-helpers";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -9,6 +11,7 @@ import {
   Alert,
   BackHandler,
   Image,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -46,74 +49,32 @@ const studentFeatures = [
     icon: "cloud-upload-outline",
     color: "#FF9800",
   },
-  // {
-  //   id: 5,
-  //   title: "Reminders",
-  //   description: "Track deadlines and important dates",
-  //   icon: "calendar-outline",
-  //   color: "#9C27B0",
-  // },
 ];
 
-// Helper function to get category color
-const getCategoryColor = (category: string): string => {
-  const colors: Record<string, string> = {
-    Gujarat: "#4CAF50",
-    Bihar: "#2196F3",
-    "All India": "#FF9800",
-    Punjab: "#9C27B0",
-    Rajasthan: "#E91E63",
-    Maharashtra: "#00BCD4",
-    Delhi: "#795548",
-    Sikar: "#607D8B",
-  };
-  return colors[category] || "#666";
-};
 
-const getDaysRemaining = (deadline: string | null, isExpired: boolean = false) => {
-  if (isExpired) return { text: "Expired", color: "#F44336" };
-  if (!deadline) return { text: "Open", color: "#4CAF50" };
 
-  // Handle "No Deadline" string from API map
-  if (deadline === "No Deadline" || deadline.startsWith("Deadline: ")) {
-    const dateStr = deadline.replace("Deadline: ", "");
-    if (dateStr === "No Deadline") return { text: "Open", color: "#4CAF50" };
-    // Try parsing if it's a date string
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return { text: deadline, color: "#666" };
-
-    const today = new Date();
-    const diffTime = date.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 0) return { text: "Expired", color: "#F44336" };
-    if (diffDays === 0) return { text: "Today", color: "#FF9800" };
-    if (diffDays === 1) return { text: "1 day left", color: "#FF9800" };
-    if (diffDays <= 7) return { text: `${diffDays} days left`, color: "#FF9800" };
-    return { text: `${diffDays} days left`, color: "#666" };
-  }
-
-  const today = new Date();
-  const deadlineDate = new Date(deadline);
-  const diffTime = deadlineDate.getTime() - today.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  if (diffDays < 0) return { text: "Expired", color: "#F44336" };
-  if (diffDays === 0) return { text: "Today", color: "#FF9800" };
-  if (diffDays === 1) return { text: "1 day left", color: "#FF9800" };
-  if (diffDays <= 7)
-    return { text: `${diffDays} days left`, color: "#FF9800" };
-  return { text: `${diffDays} days left`, color: "#666" };
-};
 
 export default function StudentDashboardScreen() {
   const { isDark, colors } = useTheme();
+  const [refreshing, setRefreshing] = useState(false);
+  const [statusCounts, setStatusCounts] = useState({
+    applied: 0,
+    approved: 0,
+    pending: 0,
+    rejected: 0,
+  });
+
   const [studentName, setStudentName] = useState("Student");
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const [unreadCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [bookmarks, setBookmarks] = useState<Record<number, boolean>>({});
   const [bookmarking, setBookmarking] = useState<Record<number, boolean>>({});
+  const [toast, setToast] = useState<{ visible: boolean; message: string; type: "success" | "error" | "info" }>({
+    visible: false,
+    message: "",
+    type: "success",
+  });
   const inset = useSafeAreaInsets();
 
   const toggleBookmark = async (id: number, currentBookmarkState: boolean) => {
@@ -141,7 +102,17 @@ export default function StudentDashboardScreen() {
             setRecommendedScholarships((prev) =>
               prev.map(s => s.id === String(id) ? { ...s, bookmarked: !newBookmarkState } : s)
             );
-            Alert.alert("Error", "Failed to update bookmark");
+            setToast({
+              visible: true,
+              message: "Failed to update bookmark",
+              type: "error",
+            });
+          } else {
+            setToast({
+              visible: true,
+              message: newBookmarkState ? "Scholarship bookmarked" : "Scholarship removed from bookmarks",
+              type: "success",
+            });
           }
         }
       }
@@ -152,202 +123,19 @@ export default function StudentDashboardScreen() {
       setRecommendedScholarships((prev) =>
         prev.map(s => s.id === String(id) ? { ...s, bookmarked: !newBookmarkState } : s)
       );
+      setToast({
+        visible: true,
+        message: "An error occurred",
+        type: "error",
+      });
     } finally {
       setBookmarking((prev) => ({ ...prev, [id]: false }));
     }
   };
 
-
-  useFocusEffect(
-    useCallback(() => {
-      const onBackPress = () => {
-        Alert.alert("Exit App", "Are you sure you want to exit?", [
-          {
-            text: "Cancel",
-            onPress: () => null,
-            style: "cancel"
-          },
-          { text: "YES", onPress: () => BackHandler.exitApp() }
-        ]);
-        return true;
-      };
-
-      const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
-
-      return () => subscription.remove();
-    }, [])
-  );
-
-  // Fetch user profile on component mount
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        setLoading(true);
-        // Get auth token from AsyncStorage
-        const authDataString = await AsyncStorage.getItem("authData");
-        if (!authDataString) {
-          console.log("No auth data found");
-          setLoading(false);
-          return;
-        }
-
-        const authData = JSON.parse(authDataString);
-        const token = authData?.token;
-
-        if (!token) {
-          console.log("No token found in auth data");
-          setLoading(false);
-          return;
-        }
-
-        // Call getUserProfile API
-        const response = await getUserProfile(token);
-
-        // Response structure: { success: true, data: { success: true, user: {...} } }
-        if (response.success && response.data?.user) {
-          const user = response.data.user;
-
-          // Update student name (use fullname if available, otherwise firstname + lastname)
-          const name = user.fullname ||
-            `${user.firstname || ""} ${user.lastname || ""}`.trim() ||
-            "Student";
-          setStudentName(name);
-
-          // Update profile photo URL if available
-          if (user.profileimageurl) {
-            setProfilePhotoUrl(user.profileimageurl);
-          }
-        } else {
-          console.log("Failed to fetch user profile:", response.error || response.message);
-          // Fallback to authData user info if API fails
-          if (authData?.user) {
-            const user = authData.user;
-            const name = user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || "Student";
-            setStudentName(name);
-            if (user.profileimageurl) {
-              setProfilePhotoUrl(user.profileimageurl);
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching user profile:", error);
-        // Fallback to authData user info on error
-        try {
-          const authDataString = await AsyncStorage.getItem("authData");
-          if (authDataString) {
-            const authData = JSON.parse(authDataString);
-            if (authData?.user) {
-              const user = authData.user;
-              const name = user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || "Student";
-              setStudentName(name);
-              if (user.profileimageurl) {
-                setProfilePhotoUrl(user.profileimageurl);
-              }
-            }
-          }
-        } catch (fallbackError) {
-          console.error("Error in fallback:", fallbackError);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUserProfile();
-  }, []);
-
-
-
-  const [statusCounts, setStatusCounts] = useState({
-    applied: 0,
-    approved: 0,
-    pending: 0,
-    rejected: 0,
-  });
-
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const authDataData = await AsyncStorage.getItem("authData");
-        if (authDataData) {
-          const authData = JSON.parse(authDataData);
-          if (authData.token) {
-            // Fetch Stats
-            getDashboardStats(authData.token).then(response => {
-              if (response.success && response.data && response.data.stats) {
-                const stats = response.data.stats;
-                setStatusCounts({
-                  applied: stats.total_applications || 0,
-                  approved: stats.approved_applications || 0,
-                  pending: stats.pending_applications || 0,
-                  rejected: stats.rejected_applications || 0
-                });
-              }
-            });
-
-            // Fetch Upcoming Deadlines
-            getUpcomingDeadlines(authData.token).then(response => {
-              if (response.success && Array.isArray(response.data)) {
-                const deadlines = response.data.map((item: any) => ({
-                  id: String(item.scholarship_id),
-                  title: item.scholarship_title,
-                  deadline: `Due in ${item.days_remaining} days`
-                }));
-                setUpcomingDeadlines(deadlines);
-              }
-            });
-
-            // Fetch Recommended Scholarships
-            getRecommendedScholarships(authData.token, { page: 1, per_page: 5 }).then(response => {
-              if (response.success && Array.isArray(response.data)) {
-                // Map API fields to UI state fields
-                const recommendations = response.data.map((item: any) => ({
-                  id: String(item.id),
-                  title: item.title || item.name || "Scholarship",
-                  category: item.category || "General",
-                  deadline: item.end_date || null, // Keep raw date for logic
-                  start_date: item.start_date || null,
-                  image: item.image || "",
-                  amount: item.amount || "",
-                  bookmarked: item.bookmarked || false,
-                  expired: item.expired || false,
-                  description: item.description || ""
-                }));
-                setRecommendedScholarships(recommendations);
-
-                // Initialize bookmarks state
-                const bookmarksMap: Record<number, boolean> = {};
-                recommendations.forEach((s: any) => {
-                  bookmarksMap[Number(s.id)] = s.bookmarked;
-                });
-                setBookmarks(prev => ({ ...prev, ...bookmarksMap }));
-              }
-            });
-
-            // Fetch Application Progress
-            getApplicationProgress(authData.token).then(response => {
-              if (response.success && response.data) {
-                setApplicationProgress({
-                  total: response.data.total_submitted || 0,
-                  approved: response.data.approved || 0,
-                  pending: response.data.pending || 0,
-                  rejected: response.data.rejected || 0
-                });
-              }
-            });
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch dashboard data", error);
-      }
-    };
-    fetchDashboardData();
-  }, []);
-
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<
     Array<{ id: string; title: string; deadline: string }>
   >([]);
-
 
   const [recommendedScholarships, setRecommendedScholarships] = useState<
     Array<{
@@ -370,6 +158,139 @@ export default function StudentDashboardScreen() {
     pending: 0,
     rejected: 0
   });
+
+
+
+
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        Alert.alert("Exit App", "Are you sure you want to exit?", [
+          {
+            text: "Cancel",
+            onPress: () => null,
+            style: "cancel"
+          },
+          { text: "YES", onPress: () => BackHandler.exitApp() }
+        ]);
+        return true;
+      };
+
+      const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+
+      return () => subscription.remove();
+    }, [])
+  );
+
+  const fetchUserProfile = useCallback(async () => {
+    try {
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) return;
+
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
+      if (!token) return;
+
+      const response = await getUserProfile(token);
+      if (response.success && response.data?.user) {
+        const user = response.data.user;
+        setStudentName(user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || "Student");
+        if (user.profileimageurl) setProfilePhotoUrl(user.profileimageurl);
+      }
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      try {
+        const authDataString = await AsyncStorage.getItem("authData");
+        if (authDataString) {
+          const authData = JSON.parse(authDataString);
+          if (authData?.user) {
+            const user = authData.user;
+            setStudentName(user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || "Student");
+            if (user.profileimageurl) setProfilePhotoUrl(user.profileimageurl);
+          }
+        }
+      } catch (e) { }
+    }
+  }, []);
+
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      const authDataData = await AsyncStorage.getItem("authData");
+      if (!authDataData) return;
+      const authData = JSON.parse(authDataData);
+      if (!authData.token) return;
+
+      const [statsRes, deadlinesRes, recRes, progRes] = await Promise.all([
+        getDashboardStats(authData.token),
+        getUpcomingDeadlines(authData.token),
+        getRecommendedScholarships(authData.token, { page: 1, per_page: 5 }),
+        getApplicationProgress(authData.token)
+      ]);
+
+      if (statsRes.success && statsRes.data?.stats) {
+        const stats = statsRes.data.stats;
+        setStatusCounts({
+          applied: stats.total_applications || 0,
+          approved: stats.approved_applications || 0,
+          pending: stats.pending_applications || 0,
+          rejected: stats.rejected_applications || 0
+        });
+      }
+
+      if (deadlinesRes.success && Array.isArray(deadlinesRes.data)) {
+        setUpcomingDeadlines(deadlinesRes.data.map((item: any) => ({
+          id: String(item.scholarship_id),
+          title: item.scholarship_title,
+          deadline: `Due in ${item.days_remaining} days`
+        })));
+      }
+
+      if (recRes.success && Array.isArray(recRes.data)) {
+        const recs = recRes.data.map((item: any) => ({
+          id: String(item.id),
+          title: item.title || item.name || "Scholarship",
+          category: item.category || "General",
+          deadline: item.end_date || null,
+          start_date: item.start_date || null,
+          image: item.image || "",
+          amount: item.amount || "",
+          bookmarked: item.bookmarked || false,
+          expired: item.expired || false,
+          description: item.description || ""
+        }));
+        setRecommendedScholarships(recs);
+        const bMap: Record<number, boolean> = {};
+        recs.forEach((s: any) => { bMap[Number(s.id)] = s.bookmarked; });
+        setBookmarks(prev => ({ ...prev, ...bMap }));
+      }
+
+      if (progRes.success && progRes.data) {
+        setApplicationProgress({
+          total: progRes.data.total_submitted || 0,
+          approved: progRes.data.approved || 0,
+          pending: progRes.data.pending || 0,
+          rejected: progRes.data.rejected || 0
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fetch dashboard data", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    const init = async () => {
+      setLoading(true);
+      await Promise.all([fetchUserProfile(), fetchDashboardData()]);
+      setLoading(false);
+    };
+    init();
+  }, [fetchUserProfile, fetchDashboardData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([fetchUserProfile(), fetchDashboardData()]);
+    setRefreshing(false);
+  }, [fetchUserProfile, fetchDashboardData]);
 
   const progress = useMemo(() => {
     const { approved, total } = applicationProgress;
@@ -398,6 +319,13 @@ export default function StudentDashboardScreen() {
         colors={isDark ? ["#121212", "#121212", "#1e1e1e"] : ["#fff", "#fff", "#f2c44d"]}
         style={styles.background}
         locations={[0, 0.3, 1]}
+      />
+
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onHide={() => setToast((prev) => ({ ...prev, visible: false }))}
       />
 
       {/* Header Section */}
@@ -459,6 +387,14 @@ export default function StudentDashboardScreen() {
         style={styles.scrollView}
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[isDark ? "#fff" : "#000"]} // Android
+            tintColor={isDark ? "#fff" : "#000"} // iOS
+          />
+        }
       >
 
         {/* Scholarship Overview Cards */}

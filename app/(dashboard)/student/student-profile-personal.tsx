@@ -20,6 +20,7 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface ValidationErrors {
@@ -198,6 +199,7 @@ export default function StudentProfilePersonalScreen() {
                 fatherName: user.fathername || user.customfields?.find((f: any) => f.shortname === 'fathername')?.value || prev.fatherName,
                 motherName: user.mothername || user.customfields?.find((f: any) => f.shortname === 'mothername')?.value || prev.motherName,
                 annualIncome: user.annualincome || user.customfields?.find((f: any) => f.shortname === 'annualincome')?.value || prev.annualIncome,
+                profileImageUrl: user.profileimageurl || prev.profileImageUrl,
               }));
             }
           }
@@ -370,8 +372,20 @@ export default function StudentProfilePersonalScreen() {
     }
   };
 
-  const onDateChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(Platform.OS === 'ios');
+  // Handler for iOS Modal Picker
+  const onConfirmDate = (date: Date) => {
+    const formattedDate = date.toLocaleDateString('en-GB'); // DD/MM/YYYY
+    handlePersonalInfoChange("dob", formattedDate);
+    setShowDatePicker(false);
+  };
+
+  const onCancelDate = () => {
+    setShowDatePicker(false);
+  };
+
+  // Handler for Android Picker
+  const onAndroidDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
     if (selectedDate) {
       const formattedDate = selectedDate.toLocaleDateString('en-GB'); // DD/MM/YYYY
       handlePersonalInfoChange("dob", formattedDate);
@@ -581,15 +595,32 @@ export default function StudentProfilePersonalScreen() {
                 )}
               </View>
 
-              {showDatePicker && (
-                <DateTimePicker
-                  value={personalInfo.dob ? new Date(personalInfo.dob.split('/').reverse().join('-')) : new Date()}
+
+
+              {Platform.OS === 'ios' ? (
+                <DateTimePickerModal
+                  isVisible={showDatePicker}
                   mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  themeVariant={isDark ? "dark" : "light"}
-                  onChange={onDateChange}
+                  display="spinner"
+                  locale="en-GB"
+                  onConfirm={onConfirmDate}
+                  onCancel={onCancelDate}
+                  date={personalInfo.dob ? new Date(personalInfo.dob.split('/').reverse().join('-')) : new Date()}
                   maximumDate={new Date()}
+                  fullscreen={true}
+
                 />
+              ) : (
+                showDatePicker && (
+                  <DateTimePicker
+                    value={personalInfo.dob ? new Date(personalInfo.dob.split('/').reverse().join('-')) : new Date()}
+                    mode="date"
+                    display="default"
+                    themeVariant={isDark ? "dark" : "light"}
+                    onChange={onAndroidDateChange}
+                    maximumDate={new Date()}
+                  />
+                )
               )}
 
               <View style={styles.inputGroup}>
@@ -819,7 +850,7 @@ export default function StudentProfilePersonalScreen() {
           setShowGenderPicker(false);
         }}
       />
-    </View>
+    </View >
   );
 }
 

@@ -168,9 +168,11 @@ export default function NotificationsScreen() {
         title="Notifications"
         onBack={() => router.back()}
         rightIcon={
-          <TouchableOpacity onPress={markAllRead}>
-            <Text style={styles.markAllText}>Mark All Read</Text>
-          </TouchableOpacity>
+          notifications.length > 0 ? (
+            <TouchableOpacity onPress={markAllRead}>
+              <Text style={styles.markAllText}>Mark All Read</Text>
+            </TouchableOpacity>
+          ) : undefined
         }
       />
 
@@ -360,39 +362,7 @@ export default function NotificationsScreen() {
           </View>
         )}
 
-        {/* Notification Settings */}
-        <View style={styles.settingsContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Notification Settings</Text>
-          <View style={[styles.settingsCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
-            <View style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text style={[styles.settingTitle, { color: colors.text }]}>Push Notifications</Text>
-                <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>Receive notifications on your device</Text>
-              </View>
-              <TouchableOpacity style={[styles.toggle, styles.toggleActive]}>
-                <View style={styles.toggleThumb} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text style={[styles.settingTitle, { color: colors.text }]}>Email Notifications</Text>
-                <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>Receive notifications via email</Text>
-              </View>
-              <TouchableOpacity style={[styles.toggle, styles.toggleActive]}>
-                <View style={styles.toggleThumb} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text style={[styles.settingTitle, { color: colors.text }]}>Deadline Reminders</Text>
-                <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>Get reminded about upcoming deadlines</Text>
-              </View>
-              <TouchableOpacity style={[styles.toggle, styles.toggleActive]}>
-                <View style={styles.toggleThumb} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+
       </ScrollView>
     </View>
   );
@@ -581,62 +551,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
   },
-  settingsContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#333",
-    marginBottom: 12,
-  },
-  settingsCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "rgba(51, 51, 51, 0.1)",
-  },
-  settingItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  settingInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  settingTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#333",
-    marginBottom: 2,
-  },
-  settingDescription: {
-    fontSize: 14,
-    color: "#666",
-  },
-  toggle: {
-    width: 44,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#ddd",
-    justifyContent: "center",
-    paddingHorizontal: 2,
-  },
-  toggleActive: {
-    backgroundColor: "#4CAF50",
-  },
-  toggleThumb: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: "#fff",
-    alignSelf: "flex-end",
-  },
+
 });
 
