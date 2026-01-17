@@ -4,7 +4,6 @@ import { getScholarshipDetails, getUserProfile, submitApplication } from "@/util
 import { Ionicons } from "@expo/vector-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import * as DocumentPicker from "expo-document-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
@@ -24,6 +23,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import StepIndicator from "react-native-step-indicator";
 import { z } from "zod";
@@ -174,20 +174,29 @@ export default function ApplyFormScreen() {
     setPickerState({ show: true, mode, field });
   };
 
-  const handleDateChange = (event: any, selectedDate?: Date) => {
-    setPickerState((prev) => ({ ...prev, show: false }));
-    if (selectedDate && pickerState.field) {
-      if (pickerState.field === "gradDate") {
-        // Format MM/YYYY
-        const month = selectedDate.getMonth() + 1;
-        const year = selectedDate.getFullYear();
-        const formatted = `${month.toString().padStart(2, '0')}/${year}`;
-        setValue("gradDate", formatted, { shouldValidate: true });
-      } else if (pickerState.field === "verificationTime") {
-        setValue("verificationTime" as any, selectedDate as any, { shouldValidate: true });
-      }
+  const handleDateConfirm = (selectedDate: Date) => {
+    const currentField = pickerState.field;
+    setPickerState({ show: false, mode: "date", field: null });
+
+    if (!selectedDate || !currentField) {
+      return;
+    }
+
+    if (currentField === "gradDate") {
+      // Format MM/YYYY
+      const month = selectedDate.getMonth() + 1;
+      const year = selectedDate.getFullYear();
+      const formatted = `${month.toString().padStart(2, '0')}/${year}`;
+      setValue("gradDate", formatted, { shouldValidate: true });
+    } else if (currentField === "verificationTime") {
+      setValue("verificationTime" as any, selectedDate as any, { shouldValidate: true });
     }
   };
+
+  const handleDateCancel = () => {
+    setPickerState({ show: false, mode: "date", field: null });
+  };
+
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -829,16 +838,17 @@ export default function ApplyFormScreen() {
           </View>
         </View>
       </KeyboardAvoidingView>
-      {pickerState.show && (
-        <DateTimePicker
-          testID="dateTimePicker"
-          value={new Date()}
-          mode={pickerState.mode}
-          is24Hour={true}
-          display="default"
-          onChange={handleDateChange}
-        />
-      )}
+      <DateTimePickerModal
+        isVisible={pickerState.show}
+        mode={pickerState.mode}
+        onConfirm={handleDateConfirm}
+        onCancel={handleDateCancel}
+        date={new Date()}
+        is24Hour={true}
+        display="spinner"
+        confirmTextIOS="Confirm"
+        cancelTextIOS="Cancel"
+      />
       <Toast
         visible={toast.visible}
         message={toast.message}

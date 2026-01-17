@@ -292,6 +292,38 @@ export default function ScholarshipDetailsScreen() {
       />
       {/* App Header Replacement */}
       <AppHeader title="Scholarship Details" onBack={() => router.back()} />
+      {/* Title and Category Section */}
+      <View style={styles.titleSection}>
+        <View style={styles.titleHeader}>
+          <Text style={[styles.mainTitle, { color: colors.text }]}>{scholarship.title}</Text>
+          <TouchableOpacity
+            onPress={handleBookmark}
+            disabled={bookmarking}
+            activeOpacity={0.7}
+            style={[styles.bookmarkButton, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5", borderRadius: 12 }]}
+          >
+            <Ionicons
+              name={scholarship?.bookmarked || saved ? "bookmark" : "bookmark-outline"}
+              size={24}
+              color={scholarship?.bookmarked || saved ? "#FFB400" : (isDark ? colors.textSecondary : "#999")}
+            />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.categoryRow}>
+          <View style={[styles.categoryBadgeLarge, { backgroundColor: `${categoryColor}15` }]}>
+            <Ionicons name="location" size={16} color={categoryColor} />
+            <Text style={[styles.categoryTextLarge, { color: categoryColor }]}>
+              {scholarship.category || "General"}
+            </Text>
+          </View>
+          {scholarship.shortname && (
+            <View style={[styles.shortnameBadge, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f0f0f0" }]}>
+              <Text style={[styles.shortnameText, { color: colors.textSecondary }]}>{scholarship.shortname}</Text>
+            </View>
+          )}
+        </View>
+      </View>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
 
         {/* Hero Image Section */}
@@ -333,38 +365,7 @@ export default function ScholarshipDetailsScreen() {
           </View>
         )}
 
-        {/* Title and Category Section */}
-        <View style={styles.titleSection}>
-          <View style={styles.titleHeader}>
-            <Text style={[styles.mainTitle, { color: colors.text }]}>{scholarship.title}</Text>
-            <TouchableOpacity
-              onPress={handleBookmark}
-              disabled={bookmarking}
-              activeOpacity={0.7}
-              style={[styles.bookmarkButton, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5", borderRadius: 12 }]}
-            >
-              <Ionicons
-                name={scholarship?.bookmarked || saved ? "bookmark" : "bookmark-outline"}
-                size={24}
-                color={scholarship?.bookmarked || saved ? "#FFB400" : (isDark ? colors.textSecondary : "#999")}
-              />
-            </TouchableOpacity>
-          </View>
 
-          <View style={styles.categoryRow}>
-            <View style={[styles.categoryBadgeLarge, { backgroundColor: `${categoryColor}15` }]}>
-              <Ionicons name="location" size={16} color={categoryColor} />
-              <Text style={[styles.categoryTextLarge, { color: categoryColor }]}>
-                {scholarship.category || "General"}
-              </Text>
-            </View>
-            {scholarship.shortname && (
-              <View style={[styles.shortnameBadge, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f0f0f0" }]}>
-                <Text style={[styles.shortnameText, { color: colors.textSecondary }]}>{scholarship.shortname}</Text>
-              </View>
-            )}
-          </View>
-        </View>
 
         {/* Key Information Cards */}
         <View style={styles.infoCardsContainer}>
@@ -791,7 +792,7 @@ const styles = StyleSheet.create({
   },
   mainTitle: {
     flex: 1,
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: "800",
     color: "#1a1a1a",
     lineHeight: 34,

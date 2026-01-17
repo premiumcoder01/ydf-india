@@ -4,7 +4,6 @@ import { useTheme } from "@/context/ThemeContext";
 import { bookmarkScholarship, getAllScholarships } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -59,8 +58,7 @@ export default function ScholarshipListingScreen() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedSort, setSelectedSort] =
     useState<(typeof sortOptions)[number]>("Latest");
-  const [deadlineBefore, setDeadlineBefore] = useState<Date | null>(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
+
   const [eligibility, setEligibility] = useState("");
   const [bookmarks, setBookmarks] = useState<Record<number, boolean>>({});
   const [page, setPage] = useState(1);
@@ -194,10 +192,7 @@ export default function ScholarshipListingScreen() {
       const catMatch =
         selectedCategory === "All" || s.category === selectedCategory;
 
-      // Deadline filter (use end_date or start_date)
-      const deadlineDate = s.end_date ? new Date(s.end_date) : null;
-      const deadlineMatch =
-        !deadlineBefore || !deadlineDate || deadlineDate <= deadlineBefore;
+      const deadlineMatch = true; // Removed deadline filter
 
       // Eligibility filter (search in description)
       const descriptionText = stripHtml(s.description || "").toLowerCase();
@@ -237,7 +232,6 @@ export default function ScholarshipListingScreen() {
     apiScholarships,
     selectedCategory,
     selectedSort,
-    deadlineBefore,
     eligibility,
   ]);
 
@@ -375,7 +369,6 @@ export default function ScholarshipListingScreen() {
 
   const clearFilters = useCallback(() => {
     setSelectedCategory("All");
-    setDeadlineBefore(null);
     setEligibility("");
     setSelectedSort("Latest");
   }, []);
@@ -384,15 +377,6 @@ export default function ScholarshipListingScreen() {
     setPage(1);
     closeFilters();
   }, [closeFilters]);
-
-  const formatDate = (date: Date | null) => {
-    if (!date) return "Select date";
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
 
   const getDaysRemaining = (deadline: string | null, isExpired: boolean = false) => {
     if (isExpired) return { text: "Expired", color: "#F44336" };
@@ -414,11 +398,11 @@ export default function ScholarshipListingScreen() {
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (selectedCategory !== "All") count++;
-    if (deadlineBefore) count++;
+    // Removed deadline filter
     if (eligibility) count++;
     if (selectedSort !== "Latest") count++;
     return count;
-  }, [selectedCategory, deadlineBefore, eligibility, selectedSort]);
+  }, [selectedCategory, eligibility, selectedSort]);
 
   const Header = (
     <View>
@@ -681,20 +665,30 @@ export default function ScholarshipListingScreen() {
             ]}
           >
             <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
+
+            {/* Header */}
             <View style={styles.sheetHeader}>
-              <Text style={[styles.sheetTitle, { color: colors.text }]}>Filters & Sorting</Text>
+              <View>
+                <Text style={[styles.sheetTitle, { color: colors.text }]}>Filters & Sorting</Text>
+                <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]}>
+                  Refine your scholarship search
+                </Text>
+              </View>
               {activeFiltersCount > 0 && (
                 <View style={styles.activeFiltersBadge}>
                   <Text style={styles.activeFiltersText}>
-                    {activeFiltersCount} active
+                    {activeFiltersCount}
                   </Text>
                 </View>
               )}
             </View>
 
-            <View style={styles.filterSection}>
+            {/* Category Section */}
+            <View style={[styles.filterSection, styles.filterCard, { backgroundColor: isDark ? colors.card : 'rgba(255,255,255,0.5)', borderColor: colors.border }]}>
               <View style={styles.sectionHeaderRow}>
-                <Ionicons name="grid-outline" size={18} color={colors.textSecondary} />
+                <View style={[styles.iconCircle, { backgroundColor: isDark ? 'rgba(76, 175, 80, 0.15)' : '#E8F5E9' }]}>
+                  <Ionicons name="grid-outline" size={18} color="#4CAF50" />
+                </View>
                 <Text style={[styles.sectionLabel, { color: colors.text }]}>Category</Text>
               </View>
               <FlatList
@@ -705,8 +699,8 @@ export default function ScholarshipListingScreen() {
                     onPress={() => setSelectedCategory(item)}
                     style={[
                       styles.categoryChip,
-                      { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" },
-                      selectedCategory === item && [styles.categoryChipActive, { backgroundColor: colors.primary }],
+                      { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#fff", borderColor: colors.border },
+                      selectedCategory === item && [styles.categoryChipActive, { backgroundColor: colors.primary, borderColor: colors.primary }],
                     ]}
                   >
                     <Text
@@ -726,53 +720,21 @@ export default function ScholarshipListingScreen() {
               />
             </View>
 
-            <View style={styles.filterSection}>
-              <View style={styles.sectionHeaderRow}>
-                <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
-                <Text style={[styles.sectionLabel, { color: colors.text }]}>Deadline</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setShowDatePicker(true)}
-                style={[styles.datePickerButton, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5", borderColor: colors.border }]}
-              >
-                <Ionicons
-                  name="calendar-outline"
-                  size={20}
-                  color={deadlineBefore ? colors.text : colors.textSecondary}
-                />
-                <Text
-                  style={[
-                    styles.datePickerText,
-                    { color: colors.textSecondary },
-                    deadlineBefore && [styles.datePickerTextActive, { color: colors.text }],
-                  ]}
-                >
-                  {formatDate(deadlineBefore)}
-                </Text>
-                {deadlineBefore && (
-                  <TouchableOpacity
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      setDeadlineBefore(null);
-                    }}
-                    style={styles.clearDateBtn}
-                  >
-                    <Ionicons name="close-circle" size={20} color="#999" />
-                  </TouchableOpacity>
-                )}
-              </TouchableOpacity>
-            </View>
 
-            <View style={styles.filterSection}>
+
+            {/* Eligibility Section */}
+            <View style={[styles.filterSection, styles.filterCard, { backgroundColor: isDark ? colors.card : 'rgba(255,255,255,0.5)', borderColor: colors.border }]}>
               <View style={styles.sectionHeaderRow}>
-                <Ionicons
-                  name="shield-checkmark-outline"
-                  size={18}
-                  color={colors.textSecondary}
-                />
+                <View style={[styles.iconCircle, { backgroundColor: isDark ? 'rgba(255, 152, 0, 0.15)' : '#FFF3E0' }]}>
+                  <Ionicons
+                    name="shield-checkmark-outline"
+                    size={18}
+                    color="#FF9800"
+                  />
+                </View>
                 <Text style={[styles.sectionLabel, { color: colors.text }]}>Eligibility Keywords</Text>
               </View>
-              <View style={[styles.inputContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5", borderColor: colors.border }]}>
+              <View style={[styles.inputContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#fff", borderColor: colors.border }]}>
                 <Ionicons
                   name="search-outline"
                   size={18}
@@ -789,9 +751,12 @@ export default function ScholarshipListingScreen() {
               </View>
             </View>
 
-            <View style={styles.filterSection}>
+            {/* Sort Section */}
+            <View style={[styles.filterSection, styles.filterCard, { backgroundColor: isDark ? colors.card : 'rgba(255,255,255,0.5)', borderColor: colors.border }]}>
               <View style={styles.sectionHeaderRow}>
-                <Ionicons name="swap-vertical-outline" size={18} color={colors.textSecondary} />
+                <View style={[styles.iconCircle, { backgroundColor: isDark ? 'rgba(156, 39, 176, 0.15)' : '#F3E5F5' }]}>
+                  <Ionicons name="swap-vertical-outline" size={18} color="#9C27B0" />
+                </View>
                 <Text style={[styles.sectionLabel, { color: colors.text }]}>Sort By</Text>
               </View>
               <View style={styles.sortRow}>
@@ -801,8 +766,8 @@ export default function ScholarshipListingScreen() {
                     onPress={() => setSelectedSort(opt)}
                     style={[
                       styles.sortChip,
-                      { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" },
-                      selectedSort === opt && [styles.sortChipActive, { backgroundColor: colors.primary }],
+                      { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#fff", borderColor: colors.border },
+                      selectedSort === opt && [styles.sortChipActive, { backgroundColor: colors.primary, borderColor: colors.primary }],
                     ]}
                   >
                     <Text
@@ -819,6 +784,7 @@ export default function ScholarshipListingScreen() {
               </View>
             </View>
 
+            {/* Actions */}
             <View style={[styles.sheetActions, { borderTopColor: colors.border }]}>
               <TouchableOpacity onPress={clearFilters} style={[styles.clearBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" }]}>
                 <Ionicons name="refresh-outline" size={20} color={colors.textSecondary} />
@@ -835,21 +801,10 @@ export default function ScholarshipListingScreen() {
           </Animated.View>
         </View>
 
-        {showDatePicker && (
-          <DateTimePicker
-            value={deadlineBefore || new Date()}
-            mode="date"
-            display={Platform.OS === "ios" ? "spinner" : "default"}
-            onChange={(event, selectedDate) => {
-              setShowDatePicker(Platform.OS === "ios");
-              if (event.type === "set" && selectedDate) {
-                setDeadlineBefore(selectedDate);
-              }
-            }}
-            minimumDate={new Date()}
-          />
-        )}
+
       </Modal>
+
+
 
       {/* Toast Notification */}
       <Toast
@@ -1161,36 +1116,54 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#333",
   },
+  sheetSubtitle: {
+    fontSize: 13,
+    color: "#999",
+    marginTop: 4,
+  },
   activeFiltersBadge: {
     backgroundColor: "#4CAF50",
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 16,
+    minWidth: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   activeFiltersText: {
     color: "#fff",
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "700",
   },
   filterSection: {
-    marginBottom: 24,
+    marginBottom: 16,
+  },
+  filterCard: {
+    marginHorizontal: 16,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  iconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   sectionHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 20,
-    marginBottom: 12,
+    gap: 10,
+    marginBottom: 14,
   },
   sectionLabel: {
-    fontSize: 14,
-    color: "#666",
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+    fontSize: 15,
+    color: "#333",
+    fontWeight: "700",
   },
   categoryScroll: {
-    paddingHorizontal: 20,
     gap: 8,
   },
   categoryChip: {
@@ -1235,7 +1208,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderWidth: 1.5,
     borderColor: "#f0f0f0",
-    marginHorizontal: 20,
   },
   currencySymbol: {
     fontSize: 16,
@@ -1256,34 +1228,10 @@ const styles = StyleSheet.create({
   fullWidthInput: {
     paddingLeft: 0,
   },
-  datePickerButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f8f8f8",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginHorizontal: 20,
-    borderWidth: 1.5,
-    borderColor: "#f0f0f0",
-  },
-  datePickerText: {
-    flex: 1,
-    marginLeft: 12,
-    fontSize: 15,
-    color: "#999",
-    fontWeight: "500",
-  },
-  datePickerTextActive: {
-    color: "#333",
-  },
-  clearDateBtn: {
-    padding: 4,
-  },
+
   sortRow: {
     flexDirection: "row",
     gap: 10,
-    paddingHorizontal: 20,
   },
   sortChip: {
     flex: 1,

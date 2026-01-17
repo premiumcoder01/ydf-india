@@ -5,11 +5,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
-import { WebView } from "react-native-webview";
+import { ActivityIndicator, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import RenderHtml from "react-native-render-html";
 
 export default function StudentTermsScreen() {
     const { isDark, colors } = useTheme();
+    const { width } = useWindowDimensions();
     const [content, setContent] = useState("");
     const [loading, setLoading] = useState(true);
 
@@ -39,29 +40,28 @@ export default function StudentTermsScreen() {
         fetchTerms();
     }, []);
 
-    const htmlContent = `
-      <html>
-        <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            body { font-family: -apple-system, system-ui; color: ${colors.text}; background-color: transparent; padding: 20px; }
-            p { line-height: 1.6; font-size: 15px; color: ${colors.textSecondary}; }
-            h1, h2, h3, h4, h5, h6 { color: ${colors.text}; margin-top: 20px; margin-bottom: 10px; }
-            a { color: ${colors.primary}; }
-          </style>
-        </head>
-        <body>
-          ${content}
-        </body>
-      </html>
-    `;
+    const tagsStyles = {
+        body: {
+            color: colors.text,
+            fontSize: 15,
+            lineHeight: 24,
+        },
+        p: {
+            color: colors.textSecondary,
+            marginBottom: 10,
+        },
+        h1: { color: colors.text, marginTop: 20, marginBottom: 10 },
+        h2: { color: colors.text, marginTop: 20, marginBottom: 10 },
+        h3: { color: colors.text, marginTop: 20, marginBottom: 10 },
+        a: { color: colors.primary, textDecorationLine: 'none' },
+        li: { color: colors.textSecondary },
+    };
 
     return (
         <View style={styles.container}>
             <LinearGradient
-                colors={isDark ? ["#121212", "#121212", "#1e1e1e"] : ["#fff", "#fff", "#f2c44d"]}
+                colors={isDark ? ["#121212", "#1e1e1e"] : ["#fff", "#f8f9fa"]}
                 style={styles.background}
-                locations={[0, 0.3, 1]}
             />
 
             <AppHeader title="Terms of Service" onBack={() => router.back()} />
@@ -71,14 +71,20 @@ export default function StudentTermsScreen() {
                     <ActivityIndicator size="large" color={colors.primary} />
                 </View>
             ) : (
-                <View style={[styles.cardContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <WebView
-                        originWhitelist={['*']}
-                        source={{ html: htmlContent }}
-                        style={{ backgroundColor: 'transparent' }}
-                        showsVerticalScrollIndicator={false}
-                    />
-                </View>
+                <ScrollView
+                    style={styles.scrollView}
+                    contentContainerStyle={styles.contentContainer}
+                    showsVerticalScrollIndicator={false}
+                >
+                    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                        <RenderHtml
+                            contentWidth={width - 80} // adjusted for padding
+                            source={{ html: content }}
+                            tagsStyles={tagsStyles as any}
+                            systemFonts={["System", "sans-serif"]}
+                        />
+                    </View>
+                </ScrollView>
             )}
         </View>
     );
@@ -89,23 +95,28 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     background: {
-        position: "absolute",
-        top: 0,
-        left: 0,
-        bottom: 0,
-        right: 0,
+        ...StyleSheet.absoluteFillObject,
     },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center'
     },
-    cardContainer: {
+    scrollView: {
         flex: 1,
-        margin: 20,
-        borderRadius: 16,
-        overflow: 'hidden',
+    },
+    contentContainer: {
+        padding: 20,
+        paddingBottom: 40,
+    },
+    card: {
+        borderRadius: 20,
+        padding: 20,
         borderWidth: 1,
-        elevation: 2,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 4,
     }
 });

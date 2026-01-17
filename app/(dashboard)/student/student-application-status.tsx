@@ -13,14 +13,25 @@ const statusColors = {
   review: "#FF9800",
   approved: "#4CAF50",
   rejected: "#F44336",
-  new: "#2196F3"
+  new: "#2196F3",
+  under_review: "#FF9800"
+};
+
+const statusIcons = {
+  submitted: "paper-plane",
+  review: "time",
+  approved: "checkmark-circle",
+  rejected: "close-circle",
+  new: "paper-plane",
+  under_review: "time"
 };
 
 export default function ApplicationStatusScreen() {
   const { isDark, colors } = useTheme();
   const [selectedYear, setSelectedYear] = useState<string>("All");
   const [selectedType, setSelectedType] = useState<string>("All");
-  const [applications, setApplications] = useState<any[]>([]);
+  const [activeApplications, setActiveApplications] = useState<any[]>([]);
+  const [pastApplications, setPastApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -42,56 +53,22 @@ export default function ApplicationStatusScreen() {
       }
 
       const response = await getMyApplications(token);
-      console.log("My Applications Response:", JSON.stringify(response));
+      console.log("My Applications Response:", JSON.stringify(response, null, 2));
 
-      if (response.success && response.data?.data) {
-        // Map API data to UI structur
-        const mappedApps = response.data.data.map((app: any) => {
-          let status = app.status || "submitted";
-          if (status === "new") status = "submitted";
+      if (response.success) {
+        // Handle nested data structure: response.data.active and response.data.past
+        const responseData = response.data || response;
 
-          let color = statusColors[status as keyof typeof statusColors] || "#666";
-          if (app.status === "under_review") {
-            color = statusColors.review;
-            status = "under_review";
-          }
+        // Map active applications
+        const mappedActive = (responseData.active || []).map((app: any) => mapApplication(app));
+        // Map past applications
+        const mappedPast = (responseData.past || []).map((app: any) => mapApplication(app));
 
-          // Format date helper
-          const formatDate = (dateStr: string) => {
-            if (!dateStr) return "N/A";
-            try {
-              return dateStr.split(' ')[0];
-            } catch (e) {
-              return dateStr;
-            }
-          };
+        console.log("Mapped Active:", mappedActive.length);
+        console.log("Mapped Past:", mappedPast.length);
 
-          const submittedDate = formatDate(app.submitted_at);
-
-          // Construct a default timeline if missing (or use API provided one)
-          const timeline = app.timeline || [
-            {
-              date: submittedDate !== "N/A" ? submittedDate : "Recently",
-              status: "submitted",
-              title: "Application Submitted",
-              description: "Your application has been successfully submitted"
-            }
-          ];
-
-          return {
-            id: app.id,
-            title: app.scholarship_title || "Scholarship Application",
-            amount: app.amount || "N/A",
-            status: status,
-            statusText: app.status ? (app.status.charAt(0).toUpperCase() + app.status.slice(1)).replace('_', ' ') : "Submitted",
-            submittedDate: submittedDate,
-            deadline: app.deadline ? formatDate(app.deadline) : "N/A",
-            type: app.scholarship_shortname || "General",
-            color: color,
-            timeline: timeline
-          };
-        });
-        setApplications(mappedApps);
+        setActiveApplications(mappedActive);
+        setPastApplications(mappedPast);
       }
     } catch (error) {
       console.error("Error fetching applications:", error);
@@ -100,6 +77,38 @@ export default function ApplicationStatusScreen() {
       setLoading(false);
       setRefreshing(false);
     }
+  };
+
+  const mapApplication = (app: any) => {
+    let status = app.status || "new";
+    let color = statusColors[status as keyof typeof statusColors] || "#666";
+
+    const formatDate = (dateStr: string) => {
+      if (!dateStr) return "N/A";
+      try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      } catch (e) {
+        return dateStr.split(' ')[0];
+      }
+    };
+
+    const submittedDate = formatDate(app.submitted_at);
+    const updatedDate = formatDate(app.updated_at);
+
+    return {
+      id: app.id,
+      scholarshipId: app.scholarship_id,
+      title: app.scholarship_title || "Scholarship Application",
+      shortname: app.scholarship_shortname || "General",
+      status: status,
+      statusText: status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' '),
+      submittedDate: submittedDate,
+      updatedDate: updatedDate,
+      deadline: app.deadline ? formatDate(app.deadline) : null,
+      color: color,
+      icon: statusIcons[status as keyof typeof statusIcons] || "document"
+    };
   };
 
   useEffect(() => {
@@ -111,101 +120,183 @@ export default function ApplicationStatusScreen() {
     fetchApplications();
   }, []);
 
+  const allApplications = useMemo(() => [...activeApplications, ...pastApplications], [activeApplications, pastApplications]);
+
   const years = useMemo(() => {
     const set = new Set<string>();
-    applications.forEach((a) => {
+    allApplications.forEach((a) => {
       if (a.submittedDate && a.submittedDate !== "N/A") {
-        set.add(String(new Date(a.submittedDate).getFullYear()));
+        try {
+          set.add(String(new Date(a.submittedDate).getFullYear()));
+        } catch (e) { }
       }
     });
     return ["All", ...Array.from(set).sort((a, b) => Number(b) - Number(a))];
-  }, [applications]);
+  }, [allApplications]);
 
   const types = useMemo(() => {
     const set = new Set<string>();
-    applications.forEach((a) => set.add(a.type));
+    allApplications.forEach((a) => set.add(a.shortname));
     return ["All", ...Array.from(set)];
-  }, [applications]);
+  }, [allApplications]);
 
-  const filtered = useMemo(() => {
-    return applications.filter((a) => {
+  const filteredActive = useMemo(() => {
+    return activeApplications.filter((a) => {
       let yearOk = true;
       if (selectedYear !== "All") {
-        yearOk = a.submittedDate && a.submittedDate !== "N/A" && String(new Date(a.submittedDate).getFullYear()) === selectedYear;
+        try {
+          yearOk = a.submittedDate && a.submittedDate !== "N/A" && String(new Date(a.submittedDate).getFullYear()) === selectedYear;
+        } catch (e) {
+          yearOk = false;
+        }
       }
-      const typeOk = selectedType === "All" || a.type === selectedType;
+      const typeOk = selectedType === "All" || a.shortname === selectedType;
       return yearOk && typeOk;
     });
-  }, [selectedYear, selectedType, applications]);
+  }, [selectedYear, selectedType, activeApplications]);
 
-  const activeApps = useMemo(() => filtered.filter((a) => a.status === "under_review" || a.status === "submitted" || a.status === "new"), [filtered]);
-  const pastApps = useMemo(() => filtered.filter((a) => a.status === "approved" || a.status === "rejected"), [filtered]);
+  const filteredPast = useMemo(() => {
+    return pastApplications.filter((a) => {
+      let yearOk = true;
+      if (selectedYear !== "All") {
+        try {
+          yearOk = a.submittedDate && a.submittedDate !== "N/A" && String(new Date(a.submittedDate).getFullYear()) === selectedYear;
+        } catch (e) {
+          yearOk = false;
+        }
+      }
+      const typeOk = selectedType === "All" || a.shortname === selectedType;
+      return yearOk && typeOk;
+    });
+  }, [selectedYear, selectedType, pastApplications]);
 
   const totalCounts = useMemo(() => {
+    const all = [...activeApplications, ...pastApplications];
     return {
-      total: filtered.length,
-      approved: filtered.filter((a) => a.status === "approved").length,
-      underReview: filtered.filter((a) => a.status === "under_review" || a.status === "submitted" || a.status === "new").length,
-      rejected: filtered.filter((a) => a.status === "rejected").length,
+      total: all.length,
+      approved: all.filter((a) => a.status === "approved").length,
+      pending: activeApplications.length,
+      rejected: all.filter((a) => a.status === "rejected").length,
     };
-  }, [filtered]);
+  }, [activeApplications, pastApplications]);
 
+  const renderApplicationCard = (application: any, isPast: boolean = false) => (
+    <TouchableOpacity
+      key={application.id}
+      style={[styles.applicationCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+      activeOpacity={0.7}
+      onPress={() => {
+        if (application.scholarshipId) {
+          router.push({
+            pathname: "/(dashboard)/student/student-scholarship-details",
+            params: { scholarshipId: application.scholarshipId }
+          });
+        }
+      }}
+    >
+      {/* Status Indicator Bar */}
+      <View style={[styles.statusBar, { backgroundColor: application.color }]} />
 
+      {/* Card Content */}
+      <View style={styles.cardContent}>
+        {/* Header */}
+        <View style={styles.cardHeader}>
+          <View style={[styles.iconCircle, { backgroundColor: application.color + '15' }]}>
+            <Ionicons name={application.icon as any} size={24} color={application.color} />
+          </View>
+          <View style={styles.headerText}>
+            <Text style={[styles.applicationTitle, { color: colors.text }]} numberOfLines={2}>
+              {application.title}
+            </Text>
+            <View style={styles.metaRow}>
+              <Ionicons name="pricetag-outline" size={12} color={colors.textSecondary} />
+              <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                {application.shortname}
+              </Text>
+            </View>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: application.color + '20', borderColor: application.color + '40' }]}>
+            <Text style={[styles.statusText, { color: application.color }]}>
+              {application.statusText}
+            </Text>
+          </View>
+        </View>
 
-  const buildDecisionHtml = (a: any) => `
-    <html>
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <style>
-          body { font-family: -apple-system, Roboto, Arial, sans-serif; padding: 24px; color: #333; }
-          .card { border: 1px solid #eee; border-radius: 12px; padding: 20px; }
-          h1 { margin: 0 0 8px; font-size: 22px; }
-          p { line-height: 1.5; }
-          .status { margin-top: 12px; font-weight: 800; color: ${a.color}; }
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          <h1>Decision Letter</h1>
-          <p>Scholarship: <strong>${a.title}</strong></p>
-          <p>Amount: ${a.amount}</p>
-          <p class="status">Status: ${a.statusText}</p>
-          <p>
-            ${a.status === "approved"
-      ? "Congratulations! Your application has been approved. Please review the next steps in your dashboard."
-      : a.status === "rejected"
-        ? "We appreciate your interest. Unfortunately, your application was not selected at this time."
-        : "Your application is currently under review."
-    }
-          </p>
-        </div>
-      </body>
-    </html>
-  `;
+        {/* Details Grid */}
+        <View style={styles.detailsGrid}>
+          <View style={styles.detailItem}>
+            <View style={[styles.detailIconCircle, { backgroundColor: isDark ? 'rgba(33, 150, 243, 0.15)' : '#E3F2FD' }]}>
+              <Ionicons name="calendar-outline" size={14} color="#2196F3" />
+            </View>
+            <View style={styles.detailTextContainer}>
+              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Submitted</Text>
+              <Text style={[styles.detailValue, { color: colors.text }]}>{application.submittedDate}</Text>
+            </View>
+          </View>
 
+          {application.updatedDate && application.updatedDate !== application.submittedDate && (
+            <View style={styles.detailItem}>
+              <View style={[styles.detailIconCircle, { backgroundColor: isDark ? 'rgba(156, 39, 176, 0.15)' : '#F3E5F5' }]}>
+                <Ionicons name="sync-outline" size={14} color="#9C27B0" />
+              </View>
+              <View style={styles.detailTextContainer}>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Updated</Text>
+                <Text style={[styles.detailValue, { color: colors.text }]}>{application.updatedDate}</Text>
+              </View>
+            </View>
+          )}
 
+          {application.deadline && (
+            <View style={styles.detailItem}>
+              <View style={[styles.detailIconCircle, { backgroundColor: isDark ? 'rgba(255, 152, 0, 0.15)' : '#FFF3E0' }]}>
+                <Ionicons name="time-outline" size={14} color="#FF9800" />
+              </View>
+              <View style={styles.detailTextContainer}>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Deadline</Text>
+                <Text style={[styles.detailValue, { color: colors.text }]}>{application.deadline}</Text>
+              </View>
+            </View>
+          )}
+        </View>
 
-  const handleViewDecision = async (a: any) => {
-    try {
-      const Print = await import("expo-print");
-      await Print.printAsync({ html: buildDecisionHtml(a) });
-    } catch (e) {
-      Alert.alert("Unavailable", "PDF viewer is not available on this build.");
-    }
-  };
+        {/* Action Footer */}
+        <View style={styles.cardFooter}>
+          <TouchableOpacity
+            style={[styles.viewButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#F5F5F5' }]}
+            onPress={() => {
+              if (application.scholarshipId) {
+                router.push({
+                  pathname: "/(dashboard)/student/student-scholarship-details",
+                  params: { scholarshipId: application.scholarshipId }
+                });
+              }
+            }}
+          >
+            <Ionicons name="eye-outline" size={16} color={colors.text} />
+            <Text style={[styles.viewButtonText, { color: colors.text }]}>View Details</Text>
+          </TouchableOpacity>
+
+          {isPast && (
+            <View style={[styles.completedBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#F5F5F5' }]}>
+              <Ionicons name="checkmark-done" size={14} color={colors.textSecondary} />
+              <Text style={[styles.completedText, { color: colors.textSecondary }]}>Completed</Text>
+            </View>
+          )}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? "#121212" : "#f2c44d" }]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#121212" : "#fff"} />
-      {/* Gradient Background */}
       <LinearGradient
         colors={isDark ? ["#121212", "#121212", "#1e1e1e"] : ["#fff", "#fff", "#f2c44d"]}
         style={styles.background}
         locations={[0, 0.3, 1]}
       />
 
-      {/* App Header outside scroll */}
-      <AppHeader title="Application Status" onBack={() => router.back()} />
+      <AppHeader title="My Applications" onBack={() => router.back()} />
 
       <ScrollView
         style={styles.scrollView}
@@ -215,203 +306,151 @@ export default function ApplicationStatusScreen() {
         }
       >
         {loading ? (
-          <View style={{ padding: 20, alignItems: 'center' }}>
+          <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading applications...</Text>
           </View>
         ) : (
           <>
-            {/* Filters */}
-            <View style={styles.filtersContainer}>
-              <View style={styles.filterRow}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-                  {years.map((y) => (
-                    <TouchableOpacity
-                      key={`year-${y}`}
-                      onPress={() => setSelectedYear(y)}
-                      style={[styles.chip, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f8f8", borderColor: colors.border }, selectedYear === y && [styles.chipActive, { backgroundColor: colors.primary, borderColor: colors.primary }]]}
-                    >
-                      <Ionicons name="calendar-outline" size={14} color={selectedYear === y ? "#fff" : colors.textSecondary} />
-                      <Text style={[styles.chipText, { color: colors.textSecondary }, selectedYear === y && styles.chipTextActive]}>{y}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-              <View style={styles.filterRow}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-                  {types.map((t) => (
-                    <TouchableOpacity
-                      key={`type-${t}`}
-                      onPress={() => setSelectedType(t)}
-                      style={[styles.chip, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f8f8", borderColor: colors.border }, selectedType === t && [styles.chipActive, { backgroundColor: colors.primary, borderColor: colors.primary }]]}
-                    >
-                      <Ionicons name="pricetag-outline" size={14} color={selectedType === t ? "#fff" : colors.textSecondary} />
-                      <Text style={[styles.chipText, { color: colors.textSecondary }, selectedType === t && styles.chipTextActive]}>{t}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-              {(selectedYear !== "All" || selectedType !== "All") && (
-                <TouchableOpacity onPress={() => { setSelectedYear("All"); setSelectedType("All"); }} style={[styles.clearFiltersBtn, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <Ionicons name="refresh-outline" size={16} color={colors.textSecondary} />
-                  <Text style={[styles.clearFiltersText, { color: colors.textSecondary }]}>Clear filters</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Summary Stats */}
+            {/* Stats Cards */}
             <View style={styles.statsContainer}>
               <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={[styles.statIconCircle, { backgroundColor: isDark ? 'rgba(33, 150, 243, 0.15)' : '#E3F2FD' }]}>
+                  <Ionicons name="documents-outline" size={20} color="#2196F3" />
+                </View>
                 <Text style={[styles.statNumber, { color: colors.text }]}>{totalCounts.total}</Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Applications</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total</Text>
               </View>
+
               <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={[styles.statIconCircle, { backgroundColor: isDark ? 'rgba(76, 175, 80, 0.15)' : '#E8F5E9' }]}>
+                  <Ionicons name="checkmark-circle-outline" size={20} color="#4CAF50" />
+                </View>
                 <Text style={[styles.statNumber, { color: colors.text }]}>{totalCounts.approved}</Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Approved</Text>
               </View>
+
               <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={[styles.statNumber, { color: colors.text }]}>{totalCounts.underReview}</Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Under Review</Text>
+                <View style={[styles.statIconCircle, { backgroundColor: isDark ? 'rgba(255, 152, 0, 0.15)' : '#FFF3E0' }]}>
+                  <Ionicons name="time-outline" size={20} color="#FF9800" />
+                </View>
+                <Text style={[styles.statNumber, { color: colors.text }]}>{totalCounts.pending}</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Pending</Text>
               </View>
+
               <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={[styles.statIconCircle, { backgroundColor: isDark ? 'rgba(244, 67, 54, 0.15)' : '#FFEBEE' }]}>
+                  <Ionicons name="close-circle-outline" size={20} color="#F44336" />
+                </View>
                 <Text style={[styles.statNumber, { color: colors.text }]}>{totalCounts.rejected}</Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Rejected</Text>
               </View>
             </View>
+
+            {/* Filters */}
+            {(years.length > 1 || types.length > 1) && (
+              <View style={styles.filtersContainer}>
+                {years.length > 1 && (
+                  <View style={styles.filterRow}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+                      {years.map((y) => (
+                        <TouchableOpacity
+                          key={`year-${y}`}
+                          onPress={() => setSelectedYear(y)}
+                          style={[
+                            styles.chip,
+                            { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#fff", borderColor: colors.border },
+                            selectedYear === y && [styles.chipActive, { backgroundColor: colors.primary, borderColor: colors.primary }]
+                          ]}
+                        >
+                          <Ionicons name="calendar-outline" size={14} color={selectedYear === y ? "#fff" : colors.textSecondary} />
+                          <Text style={[styles.chipText, { color: colors.textSecondary }, selectedYear === y && styles.chipTextActive]}>{y}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+
+                {types.length > 1 && (
+                  <View style={styles.filterRow}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+                      {types.map((t) => (
+                        <TouchableOpacity
+                          key={`type-${t}`}
+                          onPress={() => setSelectedType(t)}
+                          style={[
+                            styles.chip,
+                            { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#fff", borderColor: colors.border },
+                            selectedType === t && [styles.chipActive, { backgroundColor: colors.primary, borderColor: colors.primary }]
+                          ]}
+                        >
+                          <Ionicons name="pricetag-outline" size={14} color={selectedType === t ? "#fff" : colors.textSecondary} />
+                          <Text style={[styles.chipText, { color: colors.textSecondary }, selectedType === t && styles.chipTextActive]}>{t}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+
+                {(selectedYear !== "All" || selectedType !== "All") && (
+                  <TouchableOpacity
+                    onPress={() => { setSelectedYear("All"); setSelectedType("All"); }}
+                    style={[styles.clearFiltersBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  >
+                    <Ionicons name="refresh-outline" size={16} color={colors.textSecondary} />
+                    <Text style={[styles.clearFiltersText, { color: colors.textSecondary }]}>Clear filters</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
             {/* Active Applications */}
-            <View style={styles.applicationsContainer}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Active Applications</Text>
-              {activeApps.length === 0 && (
+            <View style={styles.sectionContainer}>
+              <View style={styles.sectionHeader}>
+                <View style={[styles.sectionIconCircle, { backgroundColor: isDark ? 'rgba(33, 150, 243, 0.15)' : '#E3F2FD' }]}>
+                  <Ionicons name="rocket-outline" size={18} color="#2196F3" />
+                </View>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Active Applications</Text>
+                <View style={[styles.countBadge, { backgroundColor: isDark ? 'rgba(33, 150, 243, 0.15)' : '#E3F2FD' }]}>
+                  <Text style={[styles.countText, { color: "#2196F3" }]}>{filteredActive.length}</Text>
+                </View>
+              </View>
+
+              {filteredActive.length === 0 ? (
                 <View style={[styles.emptyState, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Ionicons name="document-text-outline" size={48} color={colors.textSecondary} style={{ opacity: 0.3 }} />
                   <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No active applications</Text>
+                  <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Your pending applications will appear here</Text>
                 </View>
+              ) : (
+                filteredActive.map((app) => renderApplicationCard(app, false))
               )}
-              {activeApps.map((application) => (
-                <View key={application.id} style={[styles.applicationCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <View style={styles.applicationHeader}>
-                    <View style={styles.applicationInfo}>
-                      <Text style={[styles.applicationTitle, { color: colors.text }]}>{application.title}</Text>
-                      <Text style={styles.applicationAmount}>{application.amount}</Text>
-                    </View>
-                    <View style={[styles.statusBadge, { backgroundColor: application.color + '20' }]}>
-                      <Text style={[styles.statusText, { color: application.color }]}>
-                        {application.statusText}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.applicationDetails}>
-                    <View style={styles.detailRow}>
-                      <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
-                      <Text style={[styles.detailText, { color: colors.textSecondary }]}>Submitted: {application.submittedDate}</Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                      <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
-                      <Text style={[styles.detailText, { color: colors.textSecondary }]}>Deadline: {application.deadline}</Text>
-                    </View>
-                  </View>
-
-                  {/* Timeline */}
-                  <View style={styles.timelineContainer}>
-                    <Text style={[styles.timelineTitle, { color: colors.text }]}>Application Timeline</Text>
-                    {application.timeline.map((event: any, index: number) => (
-                      <View key={index} style={styles.timelineItem}>
-                        <View style={[styles.timelineDot, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f0f0f0" }]}>
-                          <View style={[
-                            styles.timelineDotInner,
-                            { backgroundColor: statusColors[event.status as keyof typeof statusColors] || '#ccc' }
-                          ]} />
-                        </View>
-                        <View style={styles.timelineContent}>
-                          <Text style={[styles.timelineEventTitle, { color: colors.text }]}>{event.title}</Text>
-                          <Text style={[styles.timelineEventDescription, { color: colors.textSecondary }]}>{event.description}</Text>
-                          <Text style={styles.timelineEventDate}>{event.date}</Text>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-
-                  {/* <View style={styles.applicationActions}>
-
-                    <TouchableOpacity style={[styles.actionButton, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f9fa" }]} onPress={() => router.push({ pathname: "/(dashboard)/student/student-scholarship-details", params: { scholarshipId: application.id } })}>
-                      <Ionicons name="eye-outline" size={16} color={colors.textSecondary} />
-                      <Text style={[styles.actionText, { color: colors.textSecondary }]}>View Details</Text>
-                    </TouchableOpacity>
-                  </View> */}
-                </View>
-              ))}
             </View>
 
             {/* Past Applications */}
-            <View style={styles.applicationsContainer}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Past Applications</Text>
-              {pastApps.length === 0 && (
+            <View style={styles.sectionContainer}>
+              <View style={styles.sectionHeader}>
+                <View style={[styles.sectionIconCircle, { backgroundColor: isDark ? 'rgba(156, 39, 176, 0.15)' : '#F3E5F5' }]}>
+                  <Ionicons name="archive-outline" size={18} color="#9C27B0" />
+                </View>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Past Applications</Text>
+                <View style={[styles.countBadge, { backgroundColor: isDark ? 'rgba(156, 39, 176, 0.15)' : '#F3E5F5' }]}>
+                  <Text style={[styles.countText, { color: "#9C27B0" }]}>{filteredPast.length}</Text>
+                </View>
+              </View>
+
+              {filteredPast.length === 0 ? (
                 <View style={[styles.emptyState, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Ionicons name="folder-open-outline" size={48} color={colors.textSecondary} style={{ opacity: 0.3 }} />
                   <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No past applications</Text>
+                  <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Completed applications will appear here</Text>
                 </View>
+              ) : (
+                filteredPast.map((app) => renderApplicationCard(app, true))
               )}
-              {pastApps.map((application) => (
-                <View key={application.id} style={[styles.applicationCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <View style={styles.applicationHeader}>
-                    <View style={styles.applicationInfo}>
-                      <Text style={[styles.applicationTitle, { color: colors.text }]}>{application.title}</Text>
-                      <Text style={styles.applicationAmount}>{application.amount}</Text>
-                    </View>
-                    <View style={[styles.statusBadge, { backgroundColor: application.color + '20' }]}>
-                      <Text style={[styles.statusText, { color: application.color }]}>
-                        {application.statusText}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.applicationDetails}>
-                    <View style={styles.detailRow}>
-                      <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
-                      <Text style={[styles.detailText, { color: colors.textSecondary }]}>Submitted: {application.submittedDate}</Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                      <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
-                      <Text style={[styles.detailText, { color: colors.textSecondary }]}>Deadline: {application.deadline}</Text>
-                    </View>
-                  </View>
-
-                  {/* Timeline */}
-                  <View style={styles.timelineContainer}>
-                    <Text style={[styles.timelineTitle, { color: colors.text }]}>Application Timeline</Text>
-                    {application.timeline.map((event: any, index: number) => (
-                      <View key={index} style={styles.timelineItem}>
-                        <View style={[styles.timelineDot, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f0f0f0" }]}>
-                          <View style={[
-                            styles.timelineDotInner,
-                            { backgroundColor: statusColors[event.status as keyof typeof statusColors] || "#ccc" }
-                          ]} />
-                        </View>
-                        <View style={styles.timelineContent}>
-                          <Text style={[styles.timelineEventTitle, { color: colors.text }]}>{event.title}</Text>
-                          <Text style={[styles.timelineEventDescription, { color: colors.textSecondary }]}>{event.description}</Text>
-                          <Text style={styles.timelineEventDate}>{event.date}</Text>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-
-                  <View style={styles.applicationActions}>
-                    {application.status === 'approved' && (
-                      <TouchableOpacity style={[styles.actionButton, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f9fa" }]} onPress={() => handleViewDecision(application)}>
-                        <Ionicons name="document-text-outline" size={16} color="#4CAF50" />
-                        <Text style={[styles.actionText, { color: "#4CAF50" }]}>View Decision Letter</Text>
-                      </TouchableOpacity>
-                    )}
-                    {application.status === 'rejected' && (
-                      <TouchableOpacity style={[styles.actionButton, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f9fa" }]} onPress={() => handleViewDecision(application)}>
-                        <Ionicons name="document-text-outline" size={16} color="#F44336" />
-                        <Text style={[styles.actionText, { color: "#F44336" }]}>View Decision Letter</Text>
-                      </TouchableOpacity>
-                    )}
-
-                  </View>
-                </View>
-              ))}
             </View>
+
+            <View style={{ height: 40 }} />
           </>
         )}
       </ScrollView>
@@ -433,10 +472,51 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+  },
+  statsContainer: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    marginBottom: 8,
+    gap: 10,
+  },
+  statCard: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    gap: 6,
+  },
+  statIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  statNumber: {
+    fontSize: 20,
+    fontWeight: "800",
+    letterSpacing: -0.5,
+  },
+  statLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    textAlign: "center",
+  },
   filtersContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   filterRow: {
     marginBottom: 8,
@@ -448,21 +528,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    backgroundColor: "#f8f8f8",
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#f0f0f0",
-    marginRight: 8,
+    borderWidth: 1.5,
   },
-  chipActive: {
-    backgroundColor: "#333",
-    borderColor: "#333",
-  },
+  chipActive: {},
   chipText: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: 13,
     fontWeight: "700",
   },
   chipTextActive: {
@@ -473,185 +546,187 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#eee",
-    paddingHorizontal: 12,
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 10,
+    borderRadius: 20,
   },
   clearFiltersText: {
-    color: "#666",
-    fontWeight: "600",
-    fontSize: 12,
+    fontWeight: "700",
+    fontSize: 13,
   },
-  statsContainer: {
-    flexDirection: "row",
-    paddingHorizontal: 20,
+  sectionContainer: {
+    paddingHorizontal: 16,
     marginBottom: 24,
-    gap: 8,
   },
-  statCard: {
-    flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderRadius: 12,
-    padding: 12,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(51, 51, 51, 0.1)",
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 10,
   },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#333",
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 10,
-    color: "#666",
-    textAlign: "center",
-    lineHeight: 12,
-  },
-  applicationsContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
+  sectionIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#333",
-    marginBottom: 16,
+    fontSize: 20,
+    fontWeight: "800",
+    flex: 1,
+    letterSpacing: -0.5,
+  },
+  countBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    minWidth: 32,
+    alignItems: 'center',
+  },
+  countText: {
+    fontSize: 14,
+    fontWeight: "800",
   },
   emptyState: {
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "rgba(51, 51, 51, 0.1)",
+    borderRadius: 16,
+    padding: 40,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
     alignItems: "center",
   },
   emptyText: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: 16,
+    fontWeight: "600",
+    marginTop: 12,
+  },
+  emptySubtext: {
+    fontSize: 13,
+    marginTop: 4,
+    opacity: 0.7,
   },
   applicationCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "rgba(51, 51, 51, 0.1)",
-    shadowColor: "#333",
-    shadowOffset: { width: 0, height: 2 },
+    overflow: 'hidden',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  applicationHeader: {
+  statusBar: {
+    height: 4,
+  },
+  cardContent: {
+    padding: 16,
+  },
+  cardHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 12,
+    marginBottom: 16,
+    gap: 12,
   },
-  applicationInfo: {
+  iconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerText: {
     flex: 1,
-    marginRight: 12,
   },
   applicationTitle: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 4,
-  },
-  applicationAmount: {
-    fontSize: 18,
     fontWeight: "700",
-    color: "#4CAF50",
+    marginBottom: 6,
+    lineHeight: 22,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  metaText: {
+    fontSize: 12,
+    fontWeight: "600",
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 12,
+    borderWidth: 1,
   },
   statusText: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  applicationDetails: {
+  detailsGrid: {
+    gap: 12,
     marginBottom: 16,
   },
-  detailRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 4,
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
-  detailText: {
-    fontSize: 14,
-    color: "#666",
-    marginLeft: 8,
+  detailIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  timelineContainer: {
-    marginBottom: 16,
-  },
-  timelineTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 12,
-  },
-  timelineItem: {
-    flexDirection: "row",
-    marginBottom: 12,
-  },
-  timelineDot: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: "#f0f0f0",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  timelineDotInner: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  timelineContent: {
+  detailTextContainer: {
     flex: 1,
   },
-  timelineEventTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 2,
-  },
-  timelineEventDescription: {
-    fontSize: 12,
-    color: "#666",
-    marginBottom: 2,
-  },
-  timelineEventDate: {
+  detailLabel: {
     fontSize: 11,
-    color: "#999",
+    fontWeight: "600",
+    marginBottom: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  applicationActions: {
-    flexDirection: "row",
-    gap: 12,
+  detailValue: {
+    fontSize: 14,
+    fontWeight: "700",
   },
-  actionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: "#f8f9fa",
-    borderRadius: 8,
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
   },
-  actionText: {
+  viewButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  viewButtonText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  completedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  completedText: {
     fontSize: 12,
-    color: "#666",
-    marginLeft: 4,
+    fontWeight: "600",
   },
 });
-
-

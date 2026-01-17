@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface ValidationErrors {
@@ -14,10 +14,7 @@ interface ValidationErrors {
 
 export default function StudentProfileSettingsScreen() {
   const { theme, toggleTheme, isDark, colors } = useTheme();
-  const [settings, setSettings] = useState({
-    pushEnabled: true,
-    emailEnabled: true,
-  });
+  // Removed unused settings state
 
   const [passwordData, setPasswordData] = useState({
     oldPassword: "",
@@ -41,10 +38,6 @@ export default function StudentProfileSettingsScreen() {
       /\d/.test(password)
     );
   };
-
-  const toggleSetting = useCallback((key: keyof typeof settings) => {
-    setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
-  }, []);
 
   const handleChangePassword = async () => {
     const errors: ValidationErrors = {};
@@ -126,131 +119,52 @@ export default function StudentProfileSettingsScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={isDark ? ["#121212", "#121212", "#1e1e1e"] : ["#fff", "#fff", "#f2c44d"]}
+        colors={isDark ? ["#121212", "#1e1e1e"] : ["#fff", "#f8f9fa"]}
         style={styles.background}
-        locations={[0, 0.3, 1]}
       />
 
       <AppHeader title="Settings" onBack={() => router.back()} />
 
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Notifications</Text>
-          <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <TouchableOpacity
-              style={[styles.settingItem, { borderBottomColor: colors.border }]}
-              onPress={() => toggleSetting("pushEnabled")}
-              activeOpacity={0.7}
-            >
-              <View style={styles.settingInfo}>
-                <View style={[styles.settingIconContainer, { backgroundColor: isDark ? "#2c2c2c" : "#f8f8f8" }]}>
-                  <Ionicons
-                    name="notifications-outline"
-                    size={20}
-                    color="#4CAF50"
-                  />
-                </View>
-                <View style={styles.settingText}>
-                  <Text style={[styles.settingTitle, { color: colors.text }]}>Push Notifications</Text>
-                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
-                    Receive notifications on your device
-                  </Text>
-                </View>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+          Appearance
+        </Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <TouchableOpacity
+            style={styles.settingRow}
+            onPress={toggleTheme}
+            activeOpacity={0.7}
+          >
+            <View style={styles.settingLeft}>
+              <View style={[styles.iconBox, { backgroundColor: isDark ? "#2c2c2c" : "#f0f2f5" }]}>
+                <Ionicons name={isDark ? "moon" : "sunny"} size={22} color={colors.primary} />
               </View>
-              <TouchableOpacity
-                onPress={() => toggleSetting("pushEnabled")}
-                style={[
-                  styles.toggle,
-                  settings.pushEnabled
-                    ? styles.toggleActive
-                    : styles.toggleInactive,
-                ]}
-              >
-                <View
-                  style={[
-                    styles.toggleThumb,
-                    settings.pushEnabled && styles.toggleThumbActive,
-                  ]}
-                />
-              </TouchableOpacity>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.settingItem, { borderBottomColor: colors.border }]}
-              onPress={() => toggleSetting("emailEnabled")}
-              activeOpacity={0.7}
-            >
-              <View style={styles.settingInfo}>
-                <View style={[styles.settingIconContainer, { backgroundColor: isDark ? "#2c2c2c" : "#f8f8f8" }]}>
-                  <Ionicons name="mail-outline" size={20} color="#2196F3" />
-                </View>
-                <View style={styles.settingText}>
-                  <Text style={[styles.settingTitle, { color: colors.text }]}>Email Notifications</Text>
-                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
-                    Receive updates via email
-                  </Text>
-                </View>
+              <View style={styles.settingTexts}>
+                <Text style={[styles.settingLabel, { color: colors.text }]}>Dark Mode</Text>
+                <Text style={[styles.settingSubLabel, { color: colors.textSecondary }]}>
+                  {isDark ? "On" : "Off"}
+                </Text>
               </View>
-              <TouchableOpacity
-                onPress={() => toggleSetting("emailEnabled")}
-                style={[
-                  styles.toggle,
-                  settings.emailEnabled
-                    ? styles.toggleActive
-                    : styles.toggleInactive,
-                ]}
-              >
-                <View
-                  style={[
-                    styles.toggleThumb,
-                    settings.emailEnabled && styles.toggleThumbActive,
-                  ]}
-                />
-              </TouchableOpacity>
-            </TouchableOpacity>
+            </View>
+            <View pointerEvents="none">
+              <Ionicons
+                name={isDark ? "toggle" : "toggle-outline"}
+                size={32}
+                color={isDark ? colors.primary : colors.textSecondary}
+              />
+            </View>
+          </TouchableOpacity>
+        </View>
 
-            <TouchableOpacity
-              style={[styles.settingItem, { borderBottomWidth: 0 }]}
-              onPress={toggleTheme}
-              activeOpacity={0.7}
-            >
-              <View style={styles.settingInfo}>
-                <View style={[styles.settingIconContainer, { backgroundColor: isDark ? "#2c2c2c" : "#f8f8f8" }]}>
-                  <Ionicons name="moon-outline" size={20} color="#9C27B0" />
-                </View>
-                <View style={styles.settingText}>
-                  <Text style={[styles.settingTitle, { color: colors.text }]}>Dark Mode</Text>
-                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
-                    Switch to dark theme
-                  </Text>
-                </View>
-              </View>
-              <TouchableOpacity
-                onPress={toggleTheme}
-                style={[
-                  styles.toggle,
-                  isDark
-                    ? styles.toggleActive
-                    : styles.toggleInactive,
-                ]}
-              >
-                <View
-                  style={[
-                    styles.toggleThumb,
-                    isDark && styles.toggleThumbActive,
-                  ]}
-                />
-              </TouchableOpacity>
-            </TouchableOpacity>
-          </View>
-
-          <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 24 }]}>
-            Security
-          </Text>
-          <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+          Security
+        </Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.inputDetails}>
             <CustomTextInput
               label="Current Password"
               value={passwordData.oldPassword}
@@ -259,9 +173,8 @@ export default function StudentProfileSettingsScreen() {
               }
               secureTextEntry
               showPasswordToggle
-              style={styles.input}
               error={validationErrors.oldPassword}
-              placeholder="Enter your current password"
+              placeholder="Enter current password"
             />
             <CustomTextInput
               label="New Password"
@@ -271,7 +184,6 @@ export default function StudentProfileSettingsScreen() {
               }
               secureTextEntry
               showPasswordToggle
-              style={styles.input}
               error={validationErrors.newPassword}
               placeholder="Min 8 chars, 1 uppercase, 1 number"
             />
@@ -286,26 +198,24 @@ export default function StudentProfileSettingsScreen() {
               }
               secureTextEntry
               showPasswordToggle
-              style={styles.input}
               error={validationErrors.confirmPassword}
-              placeholder="Re-enter your new password"
-            />
-            <Button
-              title={isSaving ? "Updating..." : "Update Password"}
-              onPress={handleChangePassword}
-              variant="primary"
-              style={styles.saveButton}
-              disabled={
-                isSaving ||
-                !passwordData.oldPassword ||
-                !passwordData.newPassword ||
-                !passwordData.confirmPassword
-              }
+              placeholder="Re-enter new password"
             />
           </View>
-        </View>
 
-        <View style={{ height: 40 }} />
+          <Button
+            title={isSaving ? "Updating..." : "Update Password"}
+            onPress={handleChangePassword}
+            variant="primary"
+            style={styles.saveButton}
+            disabled={
+              isSaving ||
+              !passwordData.oldPassword ||
+              !passwordData.newPassword ||
+              !passwordData.confirmPassword
+            }
+          />
+        </View>
       </ScrollView>
 
       <Toast
@@ -324,109 +234,71 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   background: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    bottom: 0,
-    right: 0,
+    ...StyleSheet.absoluteFillObject,
   },
   scrollView: {
     flex: 1,
   },
-  section: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-    marginTop: 8,
+  contentContainer: {
+    padding: 20,
+    paddingTop: 10,
+    paddingBottom: 40,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
-    marginBottom: 12,
+    marginBottom: 16,
+    letterSpacing: 0.5,
+    marginTop: 10,
+    textTransform: "uppercase",
   },
-  settingsCard: {
-    borderRadius: 16,
-    padding: 16,
+  card: {
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 24,
     borderWidth: 1,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  settingItem: {
+  settingRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 14,
-    borderBottomWidth: 1,
   },
-  settingInfo: {
+  settingLeft: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 16,
     flex: 1,
-    gap: 12,
   },
-  settingIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+  iconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },
-  settingText: {
+  settingTexts: {
     flex: 1,
   },
-  settingTitle: {
-    fontSize: 15,
+  settingLabel: {
+    fontSize: 16,
     fontWeight: "600",
-    marginBottom: 2,
+    marginBottom: 4,
   },
-  settingDescription: {
+  settingSubLabel: {
     fontSize: 13,
   },
-  toggle: {
-    width: 50,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: "center",
-    paddingHorizontal: 3,
-  },
-  toggleActive: {
-    backgroundColor: "#4CAF50",
-  },
-  toggleInactive: {
-    backgroundColor: "#ddd",
-  },
-  toggleThumb: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: "#fff",
-    alignSelf: "flex-start",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  toggleThumbActive: {
-    alignSelf: "flex-end",
-  },
-  formCard: {
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  input: {
-    marginBottom: 16,
+  inputDetails: {
+    gap: 16,
   },
   saveButton: {
-    marginTop: 8,
+    marginTop: 24,
+    height: 50,
+    borderRadius: 14,
   },
 });
 

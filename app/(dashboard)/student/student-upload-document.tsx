@@ -37,23 +37,27 @@ export default function StudentUploadDocumentScreen() {
     const pickDocument = async () => {
         try {
             const result = await DocumentPicker.getDocumentAsync({
-                type: "*/*", // Allow all file types or restrict as needed e.g. ['application/pdf', 'image/*']
-                copyToCacheDirectory: true,
+                type: ["application/pdf", "image/*"],
+                multiple: false,
             });
 
             if (result.assets && result.assets.length > 0) {
-                const selectedFile = result.assets[0];
-
+                const asset = result.assets[0];
                 // Check file size (10MB limit)
-                const fileSizeInBytes = selectedFile.size;
+                const fileSizeInBytes = asset.size;
                 const maxSizeInBytes = 10 * 1024 * 1024; // 10MB
 
                 if (fileSizeInBytes && fileSizeInBytes > maxSizeInBytes) {
                     showToast("File size exceeds 10MB limit. Please choose a smaller file.", "error");
                     return;
                 }
+                setFile({
+                    uri: asset.uri,
+                    name: asset.name,
+                    mimeType: asset.mimeType || "application/unknown",
+                    size: asset.size || 0,
+                });
 
-                setFile(selectedFile);
             }
         } catch (err) {
             console.error("Error picking document:", err);
@@ -84,62 +88,52 @@ export default function StudentUploadDocumentScreen() {
     };
 
     const performUpload = async () => {
-        if (!file) return;
-
+        if (!file) {
+            showToast("Please select a document first", "error");
+            return;
+        }
         setUploading(true);
-
         try {
-            // Get token
             const authDataStr = await AsyncStorage.getItem("authData");
             const authData = authDataStr ? JSON.parse(authDataStr) : null;
             const token = authData?.token;
-
             if (!token) {
-                showToast("Authentication failed. Please login again.", "error");
+                Alert.alert("Error", "Authentication token not found. Please login again.");
                 setUploading(false);
                 return;
             }
-
+            const uploadUrl = `${API_CONFIG.BASE_URL}local/mobileapi/upload_document.php?wstoken=${token}`;
             const formData = new FormData();
-
-            // Append file
             formData.append('file', {
                 uri: file.uri,
                 name: file.name,
-                type: file.mimeType || 'application/octet-stream',
+                type: file.mimeType,
             } as any);
+            formData.append('mode', 'scheme');
+            formData.append('cmid', cmid as any);
 
-            // Append other fields
-            if (mode) formData.append('mode', mode as string);
-            if (cmid) formData.append('cmid', cmid as string);
-
-            console.log('Uploading with params:', { mode, cmid, fileName: file.name });
-
-            // Construct URL
-            const url = `${API_CONFIG.BASE_URL}local/mobileapi/upload_document.php?wstoken=${token}`;
-            console.log('Upload URL:', url);
-
-            const response = await fetch(url, {
+            console.log('Upload URL:', uploadUrl);
+            console.log('Form Data:', JSON.stringify(formData));
+            const response = await fetch(uploadUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
                 body: formData,
             });
-            console.log('Upload response:', response);
+
+
             const result = await response.json();
-            console.log('Upload result:', result);
+            if (response.ok && (result.success || result.status === true || result[0]?.status === true)) {
+                setFile(null);
+                Alert.alert("Success", "File uploaded successfully!");
 
-            if (result.status === true || result.success === true) {
-                showToast("Document uploaded successfully", "success");
-                setTimeout(() => router.back(), 1000);
             } else {
-                showToast(result.message || "Upload failed", "error");
+                Alert.alert("Upload Failed", result.message || "Something went wrong during upload.");
             }
-
         } catch (error) {
-            console.error("Upload error:", error);
-            showToast("An error occurred during upload", "error");
+            console.error("Upload Error:", error);
+            showToast("Failed to upload file. Please try again.", "error");
         } finally {
             setUploading(false);
         }
