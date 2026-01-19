@@ -224,19 +224,7 @@ export default function ApplyFormScreen() {
                   return;
                 }
 
-                // Check dates manually
-                const deadline = scholarData.application_deadline || scholarData.end_date || scholarData.start_date;
-                if (deadline) {
-                  const today = new Date();
-                  const deadlineDate = new Date(deadline);
-                  if (deadlineDate.getTime() < today.setHours(0, 0, 0, 0)) {
-                    Alert.alert("Application Closed", "This scholarship has expired.", [
-                      { text: "OK", onPress: () => router.back() }
-                    ]);
-                    setLoading(false);
-                    return;
-                  }
-                }
+
               }
             }
 

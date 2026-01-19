@@ -4,7 +4,7 @@ import { getUserProfile, updateUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import * as DocumentPicker from 'expo-document-picker';
+
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -111,23 +111,31 @@ export default function StudentProfilePersonalScreen() {
     firstName: "",
     lastName: "",
     email: "",
-    phone: "",
+
     dob: "",
     gender: "",
     religion: "",
     caste: "",
-    domicileState: "",
-    district: "",
-    address: "",
+
     city: "",
-    village: "",
+
     profileImageUrl: "",
-    aadharFront: null as { name: string, uri: string } | null,
-    aadharBack: null as { name: string, uri: string } | null,
+
     // Family
     fatherName: "",
     motherName: "",
     annualIncome: "",
+    // New Fields
+    session: "",
+    yearOfCourse: "",
+    passing10th: "",
+    board12th: "",
+    stream12th: "",
+    applicationYear: "",
+    registeringAs: "",
+    schemeName: "",
+    passingYear12th: "",
+    address: "",
   });
 
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
@@ -147,10 +155,23 @@ export default function StudentProfilePersonalScreen() {
 
   const [showReligionPicker, setShowReligionPicker] = useState(false);
   const [showCastePicker, setShowCastePicker] = useState(false);
-  const [showDomicileStatePicker, setShowDomicileStatePicker] = useState(false);
-  const [showDistrictPicker, setShowDistrictPicker] = useState(false);
+
   const [showGenderPicker, setShowGenderPicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showIncomePicker, setShowIncomePicker] = useState(false);
+  const [showSchemePicker, setShowSchemePicker] = useState(false);
+  const [showRegisteringAsPicker, setShowRegisteringAsPicker] = useState(false);
+
+  const ANNUAL_INCOME_OPTIONS = [
+    "Below ₹50,000",
+    "₹50,000 - ₹1,00,000",
+    "₹1,00,000 - ₹2,50,000",
+    "₹2,50,000 - ₹5,00,000",
+    "Above ₹5,00,000"
+  ];
+
+  const SCHEME_OPTIONS = ["Select any one", "Post Metric", "Pre Metric"];
+  const REGISTERING_AS_OPTIONS = ["New Applicant", "Renew Applicant"];
 
   // Validation Functions
   const validateEmail = (email: string): boolean => {
@@ -158,10 +179,7 @@ export default function StudentProfilePersonalScreen() {
     return emailRegex.test(email);
   };
 
-  const validatePhone = (phone: string): boolean => {
-    const phoneRegex = /^\+?[\d\s\-()]+$/;
-    return phoneRegex.test(phone) && phone.replace(/\D/g, "").length >= 10;
-  };
+
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -173,10 +191,6 @@ export default function StudentProfilePersonalScreen() {
             const response = await getUserProfile(authData.token);
             if (response.success && response.data && response.data.user) {
               const user = response.data.user;
-              console.log("User Data:", response.data);
-
-              // Map API fields to state
-              // Note: Many of these might be in customfields depending on the API structure
               setPersonalInfo((prev) => ({
                 ...prev,
                 username: user.username || prev.username,
@@ -184,22 +198,36 @@ export default function StudentProfilePersonalScreen() {
                 firstName: user.firstname || prev.firstName,
                 lastName: user.lastname || prev.lastName,
                 email: user.email || prev.email,
-                phone: user.phone1 || user.phone || prev.phone,
+
                 address: user.address || prev.address,
                 city: user.city || prev.city,
-                dob: user.dob ? (user.dob.includes('-') && user.dob.split('-')[0].length === 4 ? user.dob.split('-').reverse().join('/') : user.dob) : prev.dob,
+                dob: user.dob
+                  ? (user.dob.includes('-') && user.dob.split('-')[0].length === 4
+                    ? user.dob.split('-').reverse().join('/')
+                    : user.dob)
+                  : (user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'dob')?.value
+                    ? new Date(parseInt(user.customfields.find((f: any) => f.shortname.toLowerCase() === 'dob').value) * 1000).toLocaleDateString('en-GB')
+                    : prev.dob),
+                gender: user.gender || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'gender')?.value || prev.gender,
+                religion: user.religion || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'religion')?.value || prev.religion,
+                caste: user.caste || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'caste')?.value || prev.caste,
 
-                // Fields from user object or customfields
-                gender: user.gender || user.customfields?.find((f: any) => f.shortname === 'gender')?.value || prev.gender,
-                religion: user.religion || user.customfields?.find((f: any) => f.shortname === 'religion')?.value || prev.religion,
-                caste: user.caste || user.customfields?.find((f: any) => f.shortname === 'caste')?.value || prev.caste,
-                domicileState: user.domicilestate || user.customfields?.find((f: any) => f.shortname === 'domicilestate')?.value || prev.domicileState,
-                district: user.district || user.customfields?.find((f: any) => f.shortname === 'district' || f.shortname === 'domiciledistrict')?.value || prev.district,
-                village: user.village || user.customfields?.find((f: any) => f.shortname === 'village')?.value || prev.village,
-                fatherName: user.fathername || user.customfields?.find((f: any) => f.shortname === 'fathername')?.value || prev.fatherName,
-                motherName: user.mothername || user.customfields?.find((f: any) => f.shortname === 'mothername')?.value || prev.motherName,
-                annualIncome: user.annualincome || user.customfields?.find((f: any) => f.shortname === 'annualincome')?.value || prev.annualIncome,
-                profileImageUrl: user.profileimageurl || prev.profileImageUrl,
+                fatherName: user.fathername || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'fathername')?.value || prev.fatherName,
+                motherName: user.mothername || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'mothername')?.value || prev.motherName,
+                annualIncome: user.annualincome || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'family_income' || f.shortname.toLowerCase() === 'annualincome')?.value || prev.annualIncome,
+
+                // New Fields Mapping
+                session: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'session')?.value || prev.session,
+                yearOfCourse: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'year_of_course')?.value || prev.yearOfCourse,
+                passing10th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'passing_10th')?.value || prev.passing10th,
+                board12th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === '12th_board')?.value || prev.board12th,
+                stream12th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'stream_in_12th')?.value || prev.stream12th,
+                applicationYear: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'applicationyear')?.value || prev.applicationYear,
+                registeringAs: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'registering_as')?.value || prev.registeringAs,
+                schemeName: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'schemename')?.value || prev.schemeName,
+                passingYear12th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === '12th_passing_year')?.value || prev.passingYear12th,
+
+                profileImageUrl: user?.profileimageurl || prev?.profileImageUrl,
               }));
             }
           }
@@ -240,12 +268,9 @@ export default function StudentProfilePersonalScreen() {
     if (!validateEmail(personalInfo.email)) {
       errors.email = "Please enter a valid email address";
     }
-    if (!personalInfo.fatherName.trim()) errors.fatherName = "Father's name is required";
-    if (!personalInfo.motherName.trim()) errors.motherName = "Mother's name is required";
+
     if (!personalInfo.annualIncome.trim()) errors.annualIncome = "Annual income is required";
-    if (!validatePhone(personalInfo.phone)) {
-      errors.phone = "Please enter a valid phone number";
-    }
+
     if (!personalInfo.gender) {
       errors.gender = "Gender is required";
     }
@@ -258,15 +283,8 @@ export default function StudentProfilePersonalScreen() {
     if (!personalInfo.caste) {
       errors.caste = "Caste is required";
     }
-    if (!personalInfo.domicileState) {
-      errors.domicileState = "Domicile state is required";
-    }
-    if (!personalInfo.aadharFront) {
-      errors.aadharFront = "Front side of Aadhar is required";
-    }
-    if (!personalInfo.aadharBack) {
-      errors.aadharBack = "Back side of Aadhar is required";
-    }
+
+
 
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
@@ -295,40 +313,7 @@ export default function StudentProfilePersonalScreen() {
     }
   };
 
-  const handleAadharUpload = async (side: 'front' | 'back') => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: "*/*",
-        multiple: false,
-        copyToCacheDirectory: true,
-      });
 
-      if (!result.canceled && result.assets && result.assets[0]) {
-        const file = {
-          name: result.assets[0].name,
-          uri: result.assets[0].uri,
-        };
-
-        setPersonalInfo(prev => ({
-          ...prev,
-          [side === 'front' ? 'aadharFront' : 'aadharBack']: file
-        }));
-        setHasUnsavedChanges(true);
-      }
-    } catch (err) {
-      setToastMessage("Failed to pick document");
-      setToastType("error");
-      setShowToast(true);
-    }
-  };
-
-  const removeAadharFile = (side: 'front' | 'back') => {
-    setPersonalInfo(prev => ({
-      ...prev,
-      [side === 'front' ? 'aadharFront' : 'aadharBack']: null,
-    }));
-    setHasUnsavedChanges(true);
-  };
 
   const handleSavePersonal = async () => {
     if (!validatePersonalInfo()) {
@@ -345,7 +330,7 @@ export default function StudentProfilePersonalScreen() {
       const authData = JSON.parse(authDataStr);
       if (!authData.token) throw new Error("Invalid session token");
 
-      const payload = { ...personalInfo, phone: personalInfo.phone.replace(/\D/g, "") };
+      const payload = { ...personalInfo, phone: "" };
       const response = await updateUserProfile(authData.token, payload);
 
       if (response.success) {
@@ -454,9 +439,9 @@ export default function StudentProfilePersonalScreen() {
               onPress={handleImagePick}
               activeOpacity={0.8}
             >
-              {personalInfo.profileImageUrl ? (
+              {personalInfo?.profileImageUrl !== "" ? (
                 <Image
-                  source={{ uri: personalInfo.profileImageUrl }}
+                  source={{ uri: personalInfo?.profileImageUrl }}
                   style={[styles.profileImage, { borderColor: isDark ? colors.card : "#fff" }]}
                 />
               ) : (
@@ -487,7 +472,7 @@ export default function StudentProfilePersonalScreen() {
                 value={personalInfo.username}
                 onChangeText={(val) => handlePersonalInfoChange("username", val)}
                 style={styles.input}
-                editable={false} // Usually usernames are not editable after creation
+                editable={false}
               />
               <CustomTextInput
                 label="Full Name *"
@@ -519,14 +504,7 @@ export default function StudentProfilePersonalScreen() {
                 style={styles.input}
                 error={validationErrors.email}
               />
-              <CustomTextInput
-                label="Phone Number *"
-                value={personalInfo.phone}
-                onChangeText={(val) => handlePersonalInfoChange("phone", val)}
-                keyboardType="phone-pad"
-                style={styles.input}
-                error={validationErrors.phone}
-              />
+
             </View>
           </View>
 
@@ -534,28 +512,134 @@ export default function StudentProfilePersonalScreen() {
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 10 }]}>Family Details</Text>
             <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <CustomTextInput
-                label="Father's Name *"
+              {/* <CustomTextInput
+                label="Father's Name"
                 value={personalInfo.fatherName}
                 onChangeText={(val: string) => handlePersonalInfoChange("fatherName", val)}
                 style={styles.input}
                 error={validationErrors.fatherName}
               />
               <CustomTextInput
-                label="Mother's Name *"
+                label="Mother's Name"
                 value={personalInfo.motherName}
                 onChangeText={(val: string) => handlePersonalInfoChange("motherName", val)}
                 style={styles.input}
                 error={validationErrors.motherName}
-              />
+              /> */}
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Annual Income *</Text>
+                <TouchableOpacity
+                  style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.annualIncome && styles.selectorError]}
+                  onPress={() => setShowIncomePicker(true)}
+                >
+                  <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.annualIncome && styles.placeholderText]}>
+                    {personalInfo.annualIncome || "Select Income Range"}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+                {validationErrors.annualIncome && (
+                  <Text style={styles.errorText}>{validationErrors.annualIncome}</Text>
+                )}
+              </View>
+            </View>
+          </View>
+
+          {/* Section: Educational & Application Details */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 10 }]}>Education & Application</Text>
+            <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Scheme Name</Text>
+                <TouchableOpacity
+                  style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
+                  onPress={() => setShowSchemePicker(true)}
+                >
+                  <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.schemeName && styles.placeholderText]}>
+                    {personalInfo.schemeName || "Select Scheme"}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Registering As</Text>
+                <TouchableOpacity
+                  style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
+                  onPress={() => setShowRegisteringAsPicker(true)}
+                >
+                  <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.registeringAs && styles.placeholderText]}>
+                    {personalInfo.registeringAs || "Select Type"}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <CustomTextInput
+                    label="Session"
+                    value={personalInfo.session}
+                    onChangeText={(val) => handlePersonalInfoChange("session", val)}
+                    style={styles.input}
+                    placeholder="e.g. 24-25"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <CustomTextInput
+                    label="Application Year"
+                    value={personalInfo.applicationYear}
+                    onChangeText={(val) => handlePersonalInfoChange("applicationYear", val)}
+                    style={styles.input}
+                    placeholder="e.g. 25-26"
+                  />
+                </View>
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <CustomTextInput
+                    label="10th Passing Year"
+                    value={personalInfo.passing10th}
+                    onChangeText={(val) => handlePersonalInfoChange("passing10th", val)}
+                    style={styles.input}
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <CustomTextInput
+                    label="12th Passing Year"
+                    value={personalInfo.passingYear12th}
+                    onChangeText={(val) => handlePersonalInfoChange("passingYear12th", val)}
+                    style={styles.input}
+                    keyboardType="numeric"
+                  />
+                </View>
+              </View>
+
               <CustomTextInput
-                label="Annual Income *"
-                value={personalInfo.annualIncome}
-                onChangeText={(val: string) => handlePersonalInfoChange("annualIncome", val)}
-                keyboardType="numeric"
+                label="12th Board"
+                value={personalInfo.board12th}
+                onChangeText={(val) => handlePersonalInfoChange("board12th", val)}
                 style={styles.input}
-                error={validationErrors.annualIncome}
               />
+
+              <CustomTextInput
+                label="Stream in 12th"
+                value={personalInfo.stream12th}
+                onChangeText={(val) => handlePersonalInfoChange("stream12th", val)}
+                style={styles.input}
+              />
+
+              <CustomTextInput
+                label="Year of Course"
+                value={personalInfo.yearOfCourse}
+                onChangeText={(val) => handlePersonalInfoChange("yearOfCourse", val)}
+                style={styles.input}
+                placeholder="e.g. 1st Year or 23-24"
+              />
+
             </View>
           </View>
 
@@ -655,34 +739,7 @@ export default function StudentProfilePersonalScreen() {
                 )}
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Domicile State *</Text>
-                <TouchableOpacity
-                  style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.domicileState && styles.selectorError]}
-                  onPress={() => setShowDomicileStatePicker(true)}
-                >
-                  <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.domicileState && styles.placeholderText]}>
-                    {personalInfo.domicileState || "Choose..."}
-                  </Text>
-                  <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
-                {validationErrors.domicileState && (
-                  <Text style={styles.errorText}>{validationErrors.domicileState}</Text>
-                )}
-              </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>District</Text>
-                <TouchableOpacity
-                  style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
-                  onPress={() => setShowDistrictPicker(true)}
-                >
-                  <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.district && styles.placeholderText]}>
-                    {personalInfo.district || "Choose..."}
-                  </Text>
-                  <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
 
               <CustomTextInput
                 label="Address"
@@ -697,80 +754,13 @@ export default function StudentProfilePersonalScreen() {
                 onChangeText={(val) => handlePersonalInfoChange("city", val)}
                 style={[styles.input, { flex: 1, marginRight: 8 }]}
               />
-              <CustomTextInput
-                label="Village"
-                value={personalInfo.village}
-                onChangeText={(val) => handlePersonalInfoChange("village", val)}
-                style={[styles.input, { flex: 1 }]}
-              />
-
+              {/* Village removed as requested */}
             </View>
           </View>
 
 
 
-          {/* Section 3: Documents Section */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Aadhar Card Verification</Text>
-            </View>
-            <View style={styles.row}>
-              {/* Front Side */}
-              <View style={{ flex: 1 }}>
-                <Text style={styles.uploadLabel}>Front Side *</Text>
-                <View style={[styles.uploadCard, { backgroundColor: colors.card, borderColor: colors.border }, validationErrors.aadharFront && styles.selectorError]}>
-                  {personalInfo.aadharFront ? (
-                    <View style={[styles.fileItemCompact, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f0f7ff" }]}>
-                      <Ionicons name="document-text" size={20} color={colors.primary} />
-                      <Text style={[styles.fileNameSmall, { color: colors.text }]} numberOfLines={1}>{personalInfo.aadharFront.name}</Text>
-                      <TouchableOpacity onPress={() => removeAadharFile('front')}>
-                        <Ionicons name="close-circle" size={18} color="#FF5252" />
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <TouchableOpacity
-                      style={styles.uploadZoneSmall}
-                      onPress={() => handleAadharUpload('front')}
-                    >
-                      <Ionicons name="cloud-upload-outline" size={24} color={colors.primary} />
-                      <Text style={[styles.uploadZoneTextSmall, { color: colors.primary }]}>Upload Front</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                {validationErrors.aadharFront && (
-                  <Text style={styles.errorText}>{validationErrors.aadharFront}</Text>
-                )}
-              </View>
 
-              {/* Back Side */}
-              <View style={{ flex: 1 }}>
-                <Text style={styles.uploadLabel}>Back Side *</Text>
-                <View style={[styles.uploadCard, { backgroundColor: colors.card, borderColor: colors.border }, validationErrors.aadharBack && styles.selectorError]}>
-                  {personalInfo.aadharBack ? (
-                    <View style={[styles.fileItemCompact, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f0f7ff" }]}>
-                      <Ionicons name="document-text" size={20} color={colors.primary} />
-                      <Text style={[styles.fileNameSmall, { color: colors.text }]} numberOfLines={1}>{personalInfo.aadharBack.name}</Text>
-                      <TouchableOpacity onPress={() => removeAadharFile('back')}>
-                        <Ionicons name="close-circle" size={18} color="#FF5252" />
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <TouchableOpacity
-                      style={styles.uploadZoneSmall}
-                      onPress={() => handleAadharUpload('back')}
-                    >
-                      <Ionicons name="cloud-upload-outline" size={24} color={colors.primary} />
-                      <Text style={[styles.uploadZoneTextSmall, { color: colors.primary }]}>Upload Back</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                {validationErrors.aadharBack && (
-                  <Text style={styles.errorText}>{validationErrors.aadharBack}</Text>
-                )}
-              </View>
-            </View>
-            <Text style={[styles.helperTextUnder, { color: colors.textSecondary }]}>Supported: PDF, JPG, PNG (Max 5MB)</Text>
-          </View>
 
           {/* Save Button */}
           <View style={[styles.section, { marginTop: 0 }]}>
@@ -806,6 +796,42 @@ export default function StudentProfilePersonalScreen() {
           setShowReligionPicker(false);
         }}
       />
+
+      <SelectionModal
+        visible={showIncomePicker}
+        onClose={() => setShowIncomePicker(false)}
+        title="Select Annual Income"
+        options={ANNUAL_INCOME_OPTIONS}
+        selected={personalInfo.annualIncome}
+        onSelect={(val: string) => {
+          handlePersonalInfoChange("annualIncome", val);
+          setShowIncomePicker(false);
+        }}
+      />
+
+      <SelectionModal
+        visible={showSchemePicker}
+        onClose={() => setShowSchemePicker(false)}
+        title="Select Scheme"
+        options={SCHEME_OPTIONS}
+        selected={personalInfo.schemeName}
+        onSelect={(val: string) => {
+          handlePersonalInfoChange("schemeName", val);
+          setShowSchemePicker(false);
+        }}
+      />
+
+      <SelectionModal
+        visible={showRegisteringAsPicker}
+        onClose={() => setShowRegisteringAsPicker(false)}
+        title="Registering As"
+        options={REGISTERING_AS_OPTIONS}
+        selected={personalInfo.registeringAs}
+        onSelect={(val: string) => {
+          handlePersonalInfoChange("registeringAs", val);
+          setShowRegisteringAsPicker(false);
+        }}
+      />
       <SelectionModal
         visible={showCastePicker}
         onClose={() => setShowCastePicker(false)}
@@ -817,28 +843,7 @@ export default function StudentProfilePersonalScreen() {
           setShowCastePicker(false);
         }}
       />
-      <SelectionModal
-        visible={showDomicileStatePicker}
-        onClose={() => setShowDomicileStatePicker(false)}
-        title="Select Domicile State"
-        options={DOMICILE_STATE_OPTIONS}
-        selected={personalInfo.domicileState}
-        onSelect={(val: string) => {
-          handlePersonalInfoChange("domicileState", val);
-          setShowDomicileStatePicker(false);
-        }}
-      />
-      <SelectionModal
-        visible={showDistrictPicker}
-        onClose={() => setShowDistrictPicker(false)}
-        title="Select District"
-        options={DISTRICT_OPTIONS}
-        selected={personalInfo.district}
-        onSelect={(val: string) => {
-          handlePersonalInfoChange("district", val);
-          setShowDistrictPicker(false);
-        }}
-      />
+
       <SelectionModal
         visible={showGenderPicker}
         onClose={() => setShowGenderPicker(false)}

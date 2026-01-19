@@ -25,7 +25,7 @@ export default function StudentProfileFinancialScreen() {
         bankAccountNo: "",
         ifscCode: "",
         bankName: "",
-        branchName: "",
+
         accountHolderName: "",
     });
 
@@ -51,10 +51,10 @@ export default function StudentProfileFinancialScreen() {
                         if (response.success && response.data) {
                             const data = response.data;
                             setFinancialInfo({
-                                bankAccountNo: data.account_number || "",
+                                bankAccountNo: data.account_number_full || data.account_number || "",
                                 ifscCode: data.ifsc || "",
                                 bankName: data.bank_name || "",
-                                branchName: data.branch_name || "",
+
                                 accountHolderName: data.accountholder || "",
                             });
                         }
@@ -93,7 +93,7 @@ export default function StudentProfileFinancialScreen() {
         if (!financialInfo.bankAccountNo.trim()) errors.bankAccountNo = "Bank account number is required";
         if (!financialInfo.ifscCode.trim()) errors.ifscCode = "IFSC code is required";
         if (!financialInfo.bankName.trim()) errors.bankName = "Bank name is required";
-        if (!financialInfo.branchName.trim()) errors.branchName = "Branch name is required";
+
         if (!financialInfo.accountHolderName.trim()) errors.accountHolderName = "Account holder name is required";
 
         setValidationErrors(errors);
@@ -209,13 +209,7 @@ export default function StudentProfileFinancialScreen() {
                                 style={styles.input}
                                 error={validationErrors.bankName}
                             />
-                            <CustomTextInput
-                                label="Branch Name *"
-                                value={financialInfo.branchName}
-                                onChangeText={(val: string) => handleFinancialInfoChange("branchName", val)}
-                                style={styles.input}
-                                error={validationErrors.branchName}
-                            />
+
                         </View>
                     </View>
 

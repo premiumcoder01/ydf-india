@@ -572,20 +572,26 @@ export default function ScholarshipListingScreen() {
                   params: { scholarshipId: item.id },
                 })
               }
-              disabled={isExpired}
+              disabled={isExpired || item.has_applied}
               style={[
                 styles.applyBtn,
-                { backgroundColor: categoryColor },
-                isExpired && { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#eee", opacity: 0.8 }
+                item.has_applied
+                  ? {
+                    backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f0f0f0",
+                    borderWidth: 1,
+                    borderColor: isDark ? "rgba(255,255,255,0.1)" : "#e0e0e0"
+                  }
+                  : { backgroundColor: categoryColor },
+                isExpired && !item.has_applied && { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#eee", opacity: 0.8 }
               ]}
             >
               <Ionicons
-                name={isExpired ? "close-circle-outline" : "paper-plane-outline"}
+                name={item.has_applied ? "checkmark-circle-outline" : (isExpired ? "close-circle-outline" : "paper-plane-outline")}
                 size={18}
-                color={isExpired ? (isDark ? colors.textSecondary : "#999") : "#fff"}
+                color={item.has_applied ? "#4CAF50" : (isExpired ? (isDark ? colors.textSecondary : "#999") : "#fff")}
               />
-              <Text style={[styles.applyBtnText, isExpired && { color: isDark ? colors.textSecondary : "#999" }]}>
-                {isExpired ? "Expired" : "Apply Now"}
+              <Text style={[styles.applyBtnText, item.has_applied ? { color: "#4CAF50" } : (isExpired && { color: isDark ? colors.textSecondary : "#999" })]}>
+                {item.has_applied ? "Already Applied" : (isExpired ? "Expired" : "Apply Now")}
               </Text>
             </TouchableOpacity>
           </View>

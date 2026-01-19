@@ -225,7 +225,11 @@ export default function ScholarshipDetailsScreen() {
     const deadlineDate = new Date(deadline);
     const diffTime = deadlineDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    if (diffDays < 0) return { text: "Expired", color: "#F44336" };
+    if (diffDays < 0) {
+      // If API says not expired, but date passed, don't show "Expired" text based on date logic
+      // User requested to rely strictly on API key for expiry
+      return { text: "", color: "transparent" };
+    }
     if (diffDays === 0) return { text: "Today", color: "#FF9800" };
     if (diffDays === 1) return { text: "1 day left", color: "#FF9800" };
     if (diffDays <= 7) return { text: `${diffDays} days left`, color: "#FF9800" };
@@ -242,6 +246,9 @@ export default function ScholarshipDetailsScreen() {
     // If deadline is passed (yesterday or before)
     return deadlineDate.getTime() < today.setHours(0, 0, 0, 0);
   }, [deadline]);
+
+  // Simplify application closed logic: rely on API 'expired' flag primarily
+  const isApplicationClosed = scholarship?.expired === true;
 
   if (loading) {
     return (
@@ -276,8 +283,8 @@ export default function ScholarshipDetailsScreen() {
   const categoryColor = getCategoryColor(scholarship.category || "");
   const description = stripHtml(scholarship.description || "");
 
+  /* Removed old logic to avoid overwriting API status */
   const daysInfo = getDaysRemaining(deadline, scholarship.expired);
-  const isApplicationClosed = scholarship.expired || isDeadlinePassed || description.toLowerCase().includes("closed") || description.toLowerCase().includes("applications closed");
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? "#121212" : "#FFF9EC" }]}>
@@ -348,12 +355,6 @@ export default function ScholarshipDetailsScreen() {
                     <Text style={[styles.statusBadgeText, { color: isDark ? "#ff6b6b" : "#333" }]}>Expired</Text>
                   </View>
                 )}
-                {!scholarship.expired && isApplicationClosed && (
-                  <View style={[styles.statusBadge, styles.closedBadge, { backgroundColor: isDark ? "rgba(244, 67, 54, 0.2)" : "rgba(244, 67, 54, 0.15)" }]}>
-                    <Ionicons name="close-circle" size={16} color="#F44336" />
-                    <Text style={[styles.statusBadgeText, { color: isDark ? "#ff6b6b" : "#333" }]}>Closed</Text>
-                  </View>
-                )}
                 {!isApplicationClosed && !scholarship.has_applied && (
                   <View style={[styles.statusBadge, styles.openBadge, { backgroundColor: isDark ? "rgba(255, 152, 0, 0.2)" : "rgba(255, 152, 0, 0.15)" }]}>
                     <Ionicons name="time" size={16} color="#FF9800" />
@@ -393,6 +394,9 @@ export default function ScholarshipDetailsScreen() {
             </View>
           </View>
 
+          {/* Only show Start/End dates if not expired, or if you want to see history. User asked to not see end_date if expired logic applies incorrectly */}
+
+
           {/* Start Date Card */}
           {scholarship.start_date && (
             <View style={[styles.infoCard, { borderTopColor: "#2196F3", backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
@@ -413,7 +417,7 @@ export default function ScholarshipDetailsScreen() {
           )}
 
           {/* End Date Card */}
-          {scholarship.end_date && (
+          {scholarship.end_date && !scholarship.expired && (
             <View style={[styles.infoCard, { borderTopColor: "#FF9800", backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
               <View style={[styles.infoIconContainer, { backgroundColor: "#FF980015" }]}>
                 <Ionicons name="stop-circle" size={24} color="#FF9800" />

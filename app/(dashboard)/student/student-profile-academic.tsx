@@ -555,7 +555,7 @@ export default function StudentProfileAcademicScreen() {
             display="spinner"
             locale="en-GB"
             onConfirm={(date) => {
-              handleFieldChange("graduation", date.toLocaleDateString('en-GB'));
+              handleFieldChange("graduation", date.getFullYear().toString());
               setShowGradDatePicker(false);
             }}
             onCancel={() => setShowGradDatePicker(false)}

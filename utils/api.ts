@@ -1202,20 +1202,32 @@ export const updateUserProfile = async (
     addCustomField('caste', profileData.caste);
     addCustomField('domicilestate', profileData.domicileState);
     addCustomField('domiciledistrict', profileData.district);
-    addCustomField('village', profileData.village);
+    // addCustomField('village', profileData.village); // Removed as requested
     addCustomField('fathername', profileData.fatherName);
     addCustomField('mothername', profileData.motherName);
-    addCustomField('annualincome', profileData.annualIncome);
+    addCustomField('Family_income', profileData.annualIncome); // Note: API uses Family_income or annualincome, user req to match response which showed Family_income
     
+    // New fields from API response
+    addCustomField('session', profileData.session);
+    addCustomField('year_of_course', profileData.yearOfCourse);
+    addCustomField('passing_10th', profileData.passing10th);
+    addCustomField('12th_board', profileData.board12th);
+    addCustomField('stream_in_12th', profileData.stream12th);
+    addCustomField('applicationyear', profileData.applicationYear);
+    addCustomField('Registering_as', profileData.registeringAs);
+    addCustomField('schemename', profileData.schemeName);
+    addCustomField('12th_passing_year', profileData.passingYear12th);
+
     // Add phone as custom field as well based on example
     addCustomField('phone', profileData.phone);
+    addCustomField('phone_number', profileData.phone); // API response showed phone_number as well
 
     if (customFields.length > 0) {
       payload.customfields = customFields;
     }
 
     console.log("Update Profile URL:", baseUrl);
-    // console.log("Update Profile Payload:", JSON.stringify(payload, null, 2));
+    console.log("Update Profile Payload:", JSON.stringify(payload, null, 2));
 
     // Convert payload to x-www-form-urlencoded string with indexed arrays for Moodle
     const formDataParts: string[] = [];
@@ -1224,9 +1236,8 @@ export const updateUserProfile = async (
       const value = payload[key];
       if (key === 'customfields' && Array.isArray(value)) {
         value.forEach((field, index) => {
-          Object.keys(field).forEach(fieldKey => {
-            formDataParts.push(`customfields[${index}][${fieldKey}]=${encodeURIComponent(field[fieldKey])}`);
-          });
+          formDataParts.push(`customfields[${index}][shortname]=${encodeURIComponent(field.shortname)}`);
+          formDataParts.push(`customfields[${index}][value]=${encodeURIComponent(field.value)}`);
         });
       } else if (value !== undefined && value !== null) {
         formDataParts.push(`${key}=${encodeURIComponent(String(value))}`);
@@ -1947,6 +1958,7 @@ export const getFinancialInfo = async (token: string): Promise<ApiResponse> => {
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_get_financial_info");
     urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("include_full_account_number", "1");
     
     const finalUrl = urlObj.toString();
     console.log("Get Financial Info URL:", finalUrl);

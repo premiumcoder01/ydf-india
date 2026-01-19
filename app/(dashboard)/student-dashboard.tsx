@@ -148,6 +148,7 @@ export default function StudentDashboardScreen() {
       amount: string;
       bookmarked: boolean;
       expired: boolean;
+      has_applied: boolean;
       description: string;
     }>
   >([]);
@@ -256,6 +257,7 @@ export default function StudentDashboardScreen() {
           amount: item.amount || "",
           bookmarked: item.bookmarked || false,
           expired: item.expired || false,
+          has_applied: item.has_applied || false,
           description: item.description || ""
         }));
         setRecommendedScholarships(recs);
@@ -488,7 +490,7 @@ export default function StudentDashboardScreen() {
               // So s.deadline is the raw date string (e.g. "2025-11-30") or null.
               // getDaysRemaining expects raw string. So this is correct.
 
-              const isExpired = s.expired || daysInfo.text === "Expired";
+              const isExpired = s.expired;
 
               return (
                 <View key={s.id} style={[styles.scholarshipCard, { borderLeftColor: categoryColor, borderLeftWidth: 4, backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -517,7 +519,7 @@ export default function StudentDashboardScreen() {
                         <Text style={[styles.scholarshipDeadline, { color: colors.textSecondary }]}>
                           {s.deadline ? s.deadline : "No Deadline"}
                         </Text>
-                        {!isExpired && s.deadline && daysInfo.text !== "Open" && (
+                        {!isExpired && s.deadline && daysInfo.text !== "Open" && daysInfo.text !== "Expired" && (
                           <Text style={[styles.scholarshipDeadline, { marginLeft: 6, color: daysInfo.color }]}>
                             • {daysInfo.text}
                           </Text>
@@ -556,20 +558,26 @@ export default function StudentDashboardScreen() {
                           params: { scholarshipId: s.id }
                         })
                       }
-                      disabled={isExpired}
+                      disabled={isExpired || s.has_applied}
                       style={[
                         styles.applyBtn,
-                        { backgroundColor: categoryColor },
-                        isExpired && { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#eee", opacity: 0.8 }
+                        s.has_applied
+                          ? {
+                            backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f0f0f0",
+                            borderWidth: 1,
+                            borderColor: isDark ? "rgba(255,255,255,0.1)" : "#e0e0e0"
+                          }
+                          : { backgroundColor: categoryColor },
+                        isExpired && !s.has_applied && { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#eee", opacity: 0.8 }
                       ]}
                     >
                       <Ionicons
-                        name={isExpired ? "close-circle-outline" : "paper-plane-outline"}
+                        name={s.has_applied ? "checkmark-circle-outline" : (isExpired ? "close-circle-outline" : "paper-plane-outline")}
                         size={18}
-                        color={isExpired ? (isDark ? colors.textSecondary : "#999") : "#fff"}
+                        color={s.has_applied ? "#4CAF50" : (isExpired ? (isDark ? colors.textSecondary : "#999") : "#fff")}
                       />
-                      <Text style={[styles.applyBtnText, isExpired && { color: isDark ? colors.textSecondary : "#999" }]}>
-                        {isExpired ? "Expired" : "Apply Now"}
+                      <Text style={[styles.applyBtnText, s.has_applied ? { color: "#4CAF50" } : (isExpired && { color: isDark ? colors.textSecondary : "#999" })]}>
+                        {s.has_applied ? "Already Applied" : (isExpired ? "Expired" : "Apply Now")}
                       </Text>
                     </TouchableOpacity>
                   </View>
