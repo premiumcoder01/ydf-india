@@ -202,7 +202,9 @@ export default function StudentMobilizerDashboard() {
           <View style={styles.welcomeSection}>
             <Text style={[styles.welcomeText, { color: isDark ? colors.textSecondary : "#666" }]}>Hi,</Text>
             <Text style={[styles.userName, { color: colors.text }]}>{studentName}</Text>
-            <HelloWave />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <HelloWave />
+            </View>
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity

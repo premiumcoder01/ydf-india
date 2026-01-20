@@ -14,7 +14,9 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StatusBar,
@@ -170,6 +172,13 @@ export default function ApplyFormScreen() {
     field: null,
   });
 
+  const [optionPickerState, setOptionPickerState] = useState<{
+    visible: boolean;
+    title: string;
+    options: string[];
+    onSelect: (val: string) => void;
+  }>({ visible: false, title: "", options: [], onSelect: () => { } });
+
   const openPicker = (field: keyof FormValues, mode: "date" | "time") => {
     setPickerState({ show: true, mode, field });
   };
@@ -188,6 +197,10 @@ export default function ApplyFormScreen() {
       const year = selectedDate.getFullYear();
       const formatted = `${month.toString().padStart(2, '0')}/${year}`;
       setValue("gradDate", formatted, { shouldValidate: true });
+    } else if (currentField === "currentYear") {
+      // Format YYYY
+      const year = selectedDate.getFullYear().toString();
+      setValue("currentYear", year, { shouldValidate: true });
     } else if (currentField === "verificationTime") {
       setValue("verificationTime" as any, selectedDate as any, { shouldValidate: true });
     }
@@ -540,17 +553,20 @@ export default function ApplyFormScreen() {
                     </View>
                   </TouchableOpacity>
                 )} />
-                <Controller control={control} name="currentYear" render={({ field: { onChange, value, onBlur } }) => (
-                  <CustomTextInput
-                    label="Current Year of Study"
-                    placeholder="e.g. 1, 2, 3"
-                    value={value}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
-                    keyboardType="numeric"
-                    error={errors.currentYear?.message}
-                    required
-                  />
+                <Controller control={control} name="currentYear" render={({ field: { value } }) => (
+                  <TouchableOpacity onPress={() => openPicker("currentYear", "date")}>
+                    <View pointerEvents="none">
+                      <CustomTextInput
+                        label="Current Year of Study"
+                        placeholder="Select Year"
+                        value={value}
+                        editable={false}
+                        error={errors.currentYear?.message}
+                        onChangeText={() => { }}
+                        required
+                      />
+                    </View>
+                  </TouchableOpacity>
                 )} />
                 <Controller control={control} name="gpa" render={({ field: { onChange, value, onBlur } }) => (
                   <CustomTextInput
@@ -586,24 +602,51 @@ export default function ApplyFormScreen() {
                 <Text style={{ fontSize: 14, color: isDark ? colors.textSecondary : "#666", marginBottom: 12 }}>
                   Please answer the following to help us assess your need level.
                 </Text>
-                <Controller control={control} name="assessmentQ1" render={({ field: { onChange, value, onBlur } }) => (
-                  <CustomTextInput
-                    label="Do you own any vehicle (2-wheeler/4-wheeler)?"
-                    placeholder="Yes/No, please specify details..."
-                    value={value || ""}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
-                  />
+
+                <Controller control={control} name="assessmentQ1" render={({ field: { value, onChange } }) => (
+                  <TouchableOpacity onPress={() => {
+                    setOptionPickerState({
+                      visible: true,
+                      title: "Do you own any vehicle?",
+                      options: ["Yes", "No"],
+                      onSelect: (val) => onChange(val)
+                    });
+                  }}>
+                    <View pointerEvents="none">
+                      <CustomTextInput
+                        label="Do you own any vehicle (2-wheeler/4-wheeler)?"
+                        placeholder="Select Yes/No"
+                        value={value || ""}
+                        editable={false}
+                        onChangeText={() => { }}
+                        inputStyle={{ color: colors.text }} // Ensure text is visible
+                      />
+                    </View>
+                  </TouchableOpacity>
                 )} />
-                <Controller control={control} name="assessmentQ2" render={({ field: { onChange, value, onBlur } }) => (
-                  <CustomTextInput
-                    label="Type of Housing"
-                    placeholder="e.g. Owned, Rented, Kutcha/Pucca house"
-                    value={value || ""}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
-                  />
+
+                <Controller control={control} name="assessmentQ2" render={({ field: { value, onChange } }) => (
+                  <TouchableOpacity onPress={() => {
+                    setOptionPickerState({
+                      visible: true,
+                      title: "Type of Housing",
+                      options: ["Owned", "Rented", "Kutcha House", "Pucca House", "Other"],
+                      onSelect: (val) => onChange(val)
+                    });
+                  }}>
+                    <View pointerEvents="none">
+                      <CustomTextInput
+                        label="Type of Housing"
+                        placeholder="Select Housing Type"
+                        value={value || ""}
+                        editable={false}
+                        onChangeText={() => { }}
+                        inputStyle={{ color: colors.text }}
+                      />
+                    </View>
+                  </TouchableOpacity>
                 )} />
+
                 <View style={{ marginTop: 8, padding: 12, backgroundColor: isDark ? colors.surface : "#FFF9E6", borderRadius: 8 }}>
                   <Text style={{ fontSize: 13, color: isDark ? colors.text : "#B45309", fontStyle: 'italic' }}>
                     Note: This information helps prioritize applications based on socio-economic markers.
@@ -837,6 +880,41 @@ export default function ApplyFormScreen() {
         confirmTextIOS="Confirm"
         cancelTextIOS="Cancel"
       />
+
+      <Modal
+        visible={optionPickerState.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOptionPickerState(prev => ({ ...prev, visible: false }))}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: 'center', padding: 20 }}
+          activeOpacity={1}
+          onPress={() => setOptionPickerState(prev => ({ ...prev, visible: false }))}
+        >
+          <View style={{ backgroundColor: isDark ? colors.card : "#fff", borderRadius: 12, overflow: 'hidden', maxHeight: '60%' }}>
+            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: isDark ? colors.border : '#eee' }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>{optionPickerState.title}</Text>
+            </View>
+            <FlatList
+              data={optionPickerState.options}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: isDark ? colors.border : '#f5f5f5' }}
+                  onPress={() => {
+                    optionPickerState.onSelect(item);
+                    setOptionPickerState(prev => ({ ...prev, visible: false }));
+                  }}
+                >
+                  <Text style={{ fontSize: 16, color: colors.text }}>{item}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       <Toast
         visible={toast.visible}
         message={toast.message}

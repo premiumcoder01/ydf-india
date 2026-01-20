@@ -135,7 +135,7 @@ export default function StudentDashboardScreen() {
   };
 
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<
-    Array<{ id: string; title: string; deadline: string }>
+    Array<{ id: string; title: string; deadline: string; daysRemaining: number }>
   >([]);
 
   const [recommendedScholarships, setRecommendedScholarships] = useState<
@@ -243,7 +243,8 @@ export default function StudentDashboardScreen() {
         setUpcomingDeadlines(deadlinesRes.data.map((item: any) => ({
           id: String(item.scholarship_id),
           title: item.scholarship_title,
-          deadline: `Due in ${item.days_remaining} days`
+          deadline: `Due in ${item.days_remaining} days`,
+          daysRemaining: item.days_remaining
         })));
       }
 
@@ -336,8 +337,11 @@ export default function StudentDashboardScreen() {
         <View style={styles.headerContent}>
           <View style={styles.welcomeSection}>
             <Text style={[styles.welcomeText, { color: isDark ? colors.textSecondary : "#666" }]}>Hi,</Text>
-            <Text style={[styles.userName, { color: colors.text }]}>{studentName}</Text>
-            <HelloWave />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+
+              <Text style={[styles.userName, { color: colors.text }]}>{studentName}</Text>
+              <HelloWave />
+            </View>
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity
@@ -450,26 +454,56 @@ export default function StudentDashboardScreen() {
               <Text style={[styles.viewAllText, { color: colors.text }]}>View All</Text>
             </TouchableOpacity>
           </View>
-          <View style={[styles.cardList, { backgroundColor: colors.card, borderColor: colors.textSecondary }]}>
+          <View style={{ gap: 12 }}>
             {upcomingDeadlines.slice(0, 3).map((item) => (
               <TouchableOpacity
                 key={item.id}
-                style={styles.listItem}
+                activeOpacity={0.9}
                 onPress={() =>
-                  router.push(
-                    "/(dashboard)/student/student-scholarship-details"
-                  )
+                  router.push({
+                    pathname: "/(dashboard)/student/student-scholarship-details",
+                    params: { scholarshipId: item.id }
+                  })
                 }
-                activeOpacity={0.8}
               >
-                <View style={styles.listItemIcon}>
-                  <Ionicons name="time-outline" size={18} color="#FF9800" />
-                </View>
-                <View style={styles.listItemBody}>
-                  <Text style={styles.listItemTitle}>{item.title}</Text>
-                  <Text style={styles.listItemSub}>{item.deadline}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color="#666" />
+                <LinearGradient
+                  colors={isDark ? ['#1a1a1a', '#121212'] : ['#ffffff', '#fceaec']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[
+                    styles.deadlineCard,
+                    {
+                      borderColor: item.daysRemaining < 30 ? '#FF9800' : (isDark ? '#333' : '#e0e0e0'),
+                      borderWidth: 1,
+                    }
+                  ]}
+                >
+                  <View style={[
+                    styles.deadlineIconBox,
+                    { backgroundColor: item.daysRemaining < 30 ? 'rgba(255, 152, 0, 0.1)' : (isDark ? 'rgba(255, 255, 255, 0.05)' : '#f0f0f0') }
+                  ]}>
+                    <Ionicons
+                      name="time-outline"
+                      size={24}
+                      color={item.daysRemaining < 30 ? '#FF9800' : (isDark ? colors.text : '#666')}
+                    />
+                  </View>
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.deadlineTitle, { color: colors.text }]}>{item.title}</Text>
+                    <Text style={[styles.deadlineSubtitle, { color: item.daysRemaining < 30 ? '#FF9800' : colors.textSecondary }]}>
+                      {item.deadline}
+                    </Text>
+                  </View>
+
+                  <View style={{
+                    width: 32, height: 32, borderRadius: 16,
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f5f5f5',
+                    justifyContent: 'center', alignItems: 'center'
+                  }}>
+                    <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+                  </View>
+                </LinearGradient>
               </TouchableOpacity>
             ))}
             {upcomingDeadlines.length === 0 && (
@@ -1037,5 +1071,33 @@ const styles = StyleSheet.create({
   legendText: {
     fontSize: 13,
     fontWeight: "500",
+  },
+  deadlineCard: {
+    padding: 16,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  deadlineIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deadlineTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  deadlineSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
   },
 });
