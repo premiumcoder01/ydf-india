@@ -78,7 +78,7 @@ export default function ReviewerApplicationsScreen() {
   const [activeTab, setActiveTab] =
     useState<(typeof STATUS_TABS)[number]>("All");
   const [page, setPage] = useState(1);
-  const pageSize = 200;
+  const pageSize = 70;
 
   // View state
   const [viewMode, setViewMode] = useState<"scholarships" | "applications">("scholarships");
@@ -169,18 +169,14 @@ export default function ReviewerApplicationsScreen() {
 
       // Prepare API parameters
       const apiParams: {
-        status?: "new" | "approved" | "waitlisted" | "rejected";
+        status: "new" | "approved" | "waitlisted" | "rejected" | "";
         page: number;
         per_page: number;
       } = {
         page: 1,
         per_page: pageSize,
+        status: activeTab === "All" ? "" : activeTab,
       };
-
-      // Add status filter if not "All"
-      if (activeTab !== "All") {
-        apiParams.status = activeTab;
-      }
 
       // Call API
       const response = await getReviewerApplications(token, scholarshipId, apiParams);
@@ -467,46 +463,76 @@ export default function ReviewerApplicationsScreen() {
                       <View style={styles.priorityIndicator} />
                     )}
 
-                    <View style={styles.listItemMain}>
-                      <View style={styles.listItemLeft}>
-                        <View
-                          style={[styles.listItemIcon, getStatusIconStyle(a.status, isDark)]}
-                        >
-                          <Ionicons
-                            name={getStatusIcon(a.status)}
-                            size={20}
-                            color={getStatusColor(a.status)}
-                          />
+                    {/* Header Section with User Info */}
+                    <View style={styles.cardHeader}>
+                      <View style={styles.userSection}>
+                        {/* User Avatar */}
+                        <View style={[styles.userAvatar, { backgroundColor: isDark ? "rgba(33, 150, 243, 0.2)" : "#E3F2FD" }]}>
+                          <Text style={[styles.userAvatarText, { color: "#2196F3" }]}>
+                            {a.user.firstname.charAt(0)}{a.user.lastname.charAt(0)}
+                          </Text>
                         </View>
-                        <View style={styles.listItemBody}>
-                          <View style={styles.titleRow}>
-                            <Text style={[styles.listItemTitle, { color: colors.text }]} numberOfLines={2}>
-                              {a.application_text && a.application_text.trim()
-                                ? a.application_text.substring(0, 60) + (a.application_text.length > 60 ? "..." : "")
-                                : "No application text provided"}
-                            </Text>
 
-                          </View>
-                          <Text style={[styles.listItemSub, { color: colors.textSecondary }]}>{a.user.fullname}</Text>
-                          <Text style={[styles.listItemDate, { color: colors.textSecondary }]}>{new Date(a.timecreated).toLocaleDateString()}</Text>
+                        {/* User Details */}
+                        <View style={styles.userInfo}>
+                          <Text style={[styles.userName, { color: colors.text }]} numberOfLines={1}>
+                            {a.user.fullname}
+                          </Text>
+                          <Text style={[styles.userEmail, { color: colors.textSecondary }]} numberOfLines={1}>
+                            {a.user.email}
+                          </Text>
                         </View>
                       </View>
 
-                      <View style={styles.listItemRight}>
-                        <TouchableOpacity
-                          onPress={() => toggleBookmark(a.id)}
-                          style={styles.bookmarkBtn}
-                        >
-                          <Ionicons
-                            name={a.is_bookmarked ? "bookmark" : "bookmark-outline"}
-                            size={20}
-                            color={a.is_bookmarked ? "#2196F3" : colors.textSecondary}
-                          />
-                        </TouchableOpacity>
-                      </View>
+                      {/* Bookmark Button */}
+                      {/* <TouchableOpacity
+                        onPress={() => toggleBookmark(a.id)}
+                        style={[styles.bookmarkBtn, { backgroundColor: isDark ? colors.surface : "#F5F7FA" }]}
+                      >
+                        <Ionicons
+                          name={a.is_bookmarked ? "bookmark" : "bookmark-outline"}
+                          size={20}
+                          color={a.is_bookmarked ? "#2196F3" : colors.textSecondary}
+                        />
+                      </TouchableOpacity> */}
                     </View>
 
-                    <View style={[styles.listItemFooter, { borderTopColor: isDark ? colors.border : "#f5f5f5" }]}>
+                    {/* Application Text */}
+                    {a.application_text && a.application_text.trim() ? (
+                      <Text style={[styles.applicationText, { color: colors.text }]} numberOfLines={2}>
+                        {a.application_text}
+                      </Text>
+                    ) : (
+                      <Text style={[styles.applicationTextEmpty, { color: colors.textSecondary }]}>
+                        No application text provided
+                      </Text>
+                    )}
+
+                    {/* Metadata Row */}
+                    <View style={styles.metadataRow}>
+                      <View style={styles.metadataItem}>
+                        <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
+                        <Text style={[styles.metadataText, { color: colors.textSecondary }]}>
+                          {new Date(a.timecreated).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
+                        </Text>
+                      </View>
+
+                      {a.attachments && a.attachments.length > 0 && (
+                        <View style={styles.metadataItem}>
+                          <Ionicons name="attach-outline" size={14} color={colors.textSecondary} />
+                          <Text style={[styles.metadataText, { color: colors.textSecondary }]}>
+                            {a.attachments.length} {a.attachments.length === 1 ? 'file' : 'files'}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Footer with Status and Action */}
+                    <View style={styles.cardFooter}>
                       <View
                         style={[styles.statusBadge, getStatusBadgeStyle(a.status, isDark)]}
                       >
@@ -533,10 +559,10 @@ export default function ReviewerApplicationsScreen() {
                             params: { id: a.id }
                           })
                         }
-                        style={[styles.viewBtn, { backgroundColor: isDark ? colors.surface : "#E3F2FD" }]}
+                        style={[styles.reviewBtn, { backgroundColor: "#2196F3" }]}
                       >
-                        <Text style={[styles.viewBtnText, { color: isDark ? colors.primary : "#2196F3" }]}>Review</Text>
-                        <Ionicons name="arrow-forward" size={14} color={isDark ? colors.primary : "#2196F3"} />
+                        <Text style={styles.reviewBtnText}>Review</Text>
+                        <Ionicons name="arrow-forward" size={16} color="#fff" />
                       </TouchableOpacity>
                     </View>
                   </TouchableOpacity>
@@ -838,9 +864,10 @@ const styles = StyleSheet.create({
   },
   listItem: {
     borderWidth: 1,
-    borderRadius: 18,
-    padding: 18,
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 4,
+    gap: 14,
   },
   listItemLast: {
     marginBottom: 8,
@@ -852,7 +879,50 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: 4,
     backgroundColor: "#F44336",
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
   },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  userSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+  },
+  userAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#E3F2FD",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  userAvatarText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#2196F3",
+    letterSpacing: 0.5,
+  },
+  userInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  userName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1a1a1a",
+    letterSpacing: -0.3,
+  },
+  userEmail: {
+    fontSize: 13,
+    color: "#666",
+    fontWeight: "500",
+  },
+  // Scholarship card styles (used in scholarships list)
   listItemMain: {
     flexDirection: "row",
     alignItems: "center",
@@ -874,49 +944,66 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
   },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
   listItemTitle: {
     fontSize: 16,
     fontWeight: "700",
     color: "#1a1a1a",
     letterSpacing: -0.3,
-    flex: 1,
   },
   listItemSub: {
     fontSize: 14,
     color: "#666",
     fontWeight: "500",
   },
-  listItemDate: {
-    fontSize: 12,
-    color: "#999",
+  bookmarkBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F5F7FA",
+  },
+  applicationText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: "#1a1a1a",
     fontWeight: "500",
   },
-  listItemRight: {
-    marginLeft: 8,
+  applicationTextEmpty: {
+    fontSize: 14,
+    fontStyle: "italic",
+    color: "#999",
   },
-  bookmarkBtn: {
-    padding: 8,
-    borderRadius: 8,
+  metadataRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    flexWrap: "wrap",
   },
-  listItemFooter: {
+  metadataItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  metadataText: {
+    fontSize: 13,
+    color: "#666",
+    fontWeight: "500",
+  },
+  cardFooter: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: 16,
+    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: "#f5f5f5",
+    borderTopColor: "#f0f0f0",
   },
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: 10,
   },
   statusDot: {
@@ -928,19 +1015,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
   },
-  viewBtn: {
+  reviewBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: "#E3F2FD",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: "#2196F3",
+    shadowColor: "#2196F3",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  viewBtnText: {
-    fontSize: 13,
+  reviewBtnText: {
+    fontSize: 14,
     fontWeight: "700",
-    color: "#2196F3",
+    color: "#fff",
   },
   emptyState: {
     padding: 48,

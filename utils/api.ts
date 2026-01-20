@@ -2322,7 +2322,7 @@ export const getReviewerApplications = async (
   token: string,
   scholarshipId: number,
   params?: {
-    status?: "new" | "approved" | "waitlisted" | "rejected";
+    status?: "new" | "approved" | "waitlisted" | "rejected" | "";
     page?: number;
     per_page?: number;
   }
@@ -2338,7 +2338,8 @@ export const getReviewerApplications = async (
     urlObj.searchParams.append("scholarship_id", String(scholarshipId));
     
     // Add optional parameters if provided
-    if (params?.status) {
+    // Always append status, even if it's an empty string
+    if (params?.status !== undefined) {
       urlObj.searchParams.append("status", params.status);
     }
     if (params?.page) {
@@ -2488,6 +2489,102 @@ export const getReviewerApplicationDetails = async (
     };
   }
 };
+
+
+/**
+ * Verify or Reject Individual Document
+ * Endpoint: /webservice/rest/server.php
+ * Method: POST
+ * Token Required: YES
+ */
+export const verifyDocument = async (
+  token: string,
+  fileId: number,
+  action: "verify" | "reject",
+  notes?: string
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add required query parameters
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_reviewer_verify_document");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("file_id", String(fileId));
+    urlObj.searchParams.append("action", action);
+    
+    if (notes) {
+      urlObj.searchParams.append("notes", notes);
+    }
+    
+    const finalUrl = urlObj.toString();
+    console.log(`Verify Document (${action}) URL:`, finalUrl);
+    
+    // Make POST request
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    // Get response text first
+    const responseText = await response.text();
+    let data: any = {};
+
+    // Try to parse as JSON
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+      
+      // Check for Moodle exception format
+      if (data.exception || data.errorcode) {
+        return {
+          success: false,
+          error: data.message || "Permission denied",
+          message: data.message || "Action failed"
+        };
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    // Check if request was successful
+    if (response.ok) {
+        if (data.success === false) {
+             return {
+                success: false,
+                error: data.message || "Action failed",
+                message: data.message || "Action failed"
+            };
+        }
+
+      return {
+        success: true,
+        data: data,
+        message: data.message || `Document ${action === "verify" ? "verified" : "rejected"} successfully`,
+      };
+    } else {
+      return {
+        success: false,
+        error: data.error || data.message || "Something went wrong",
+        message: data.message || "Failed to verify document",
+      };
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || "Network error",
+      message: "Failed to connect to server",
+    };
+  }
+};
+
+
 
 /**
  * Review Application (Approve/Reject)

@@ -388,7 +388,6 @@ export default function ReviewerNotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 12,
   },
   loadingContainer: {
     flex: 1,
