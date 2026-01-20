@@ -1,5 +1,5 @@
 import { useTheme } from "@/context/ThemeContext";
-import { getReviewerApplications } from "@/utils/api";
+import { getAllScholarships, getReviewerApplications } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
@@ -32,6 +32,15 @@ type ApplicationAttachment = {
   filesize: number;
   mimetype: string;
   fileurl: string;
+};
+
+type Scholarship = {
+  id: number;
+  title: string;
+  category: string;
+  description: string;
+  start_date: string;
+  end_date: string;
 };
 
 type AppItem = {
@@ -71,15 +80,60 @@ export default function ReviewerApplicationsScreen() {
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
+  // View state
+  const [viewMode, setViewMode] = useState<"scholarships" | "applications">("scholarships");
+  const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null);
+
   // API state
+  const [scholarships, setScholarships] = useState<Scholarship[]>([]);
   const [applications, setApplications] = useState<AppItem[]>([]);
   const [pagination, setPagination] = useState<PaginationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Fetch scholarships
+  const fetchScholarships = async (isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+
+      const authDataStr = await AsyncStorage.getItem("authData");
+      const authData = authDataStr ? JSON.parse(authDataStr) : null;
+      const token = authData?.token;
+
+      if (!token) {
+        throw new Error("No authentication token found. Please login again.");
+      }
+
+      const response = await getAllScholarships(token);
+
+      if (response.success && response.data) {
+        const list = Array.isArray(response.data)
+          ? response.data
+          : response.data.data || response.data.scholarships || [];
+        setScholarships(list);
+      } else {
+        throw new Error(response.error || "Failed to fetch scholarships");
+      }
+    } catch (err: any) {
+      console.error("Error fetching scholarships:", err);
+      setError(err.message || "Failed to load scholarships");
+      Alert.alert("Error", err.message || "Failed to load scholarships");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
   // Fetch applications from API
   const fetchApplications = async (isRefresh = false) => {
+    if (!selectedScholarship) return;
+
     try {
       if (isRefresh) {
         setRefreshing(true);
@@ -97,9 +151,7 @@ export default function ReviewerApplicationsScreen() {
         throw new Error("No authentication token found. Please login again.");
       }
 
-      // For now, using a hardcoded scholarship_id
-      // TODO: Get this from route params or context
-      const scholarshipId = 51;
+      const scholarshipId = selectedScholarship.id;
 
       // Prepare API parameters
       const apiParams: {
@@ -118,16 +170,18 @@ export default function ReviewerApplicationsScreen() {
 
       // Call API
       const response = await getReviewerApplications(token, scholarshipId, apiParams);
-      console.log(response.data.applications[0]);
+      console.log("getReviewerApplications response:", JSON.stringify(response, null, 2));
 
       if (response.success && response.data) {
-        setApplications(response.data.applications || []);
+        // Handle case where applications might be nested or direct
+        const apps = response.data.applications || [];
+        setApplications(apps);
         setPagination(response.data.pagination || null);
       } else {
         throw new Error(response.error || "Failed to fetch applications");
       }
     } catch (err: any) {
-      console.error("Error fetching applications:", err);
+      console.log("Error fetching applications:", err);
       setError(err.message || "Failed to load applications");
       Alert.alert("Error", err.message || "Failed to load applications");
     } finally {
@@ -136,10 +190,17 @@ export default function ReviewerApplicationsScreen() {
     }
   };
 
-  // Fetch applications on mount and when activeTab changes
+  // Initial fetch
   useEffect(() => {
-    fetchApplications();
-  }, [activeTab]);
+    fetchScholarships();
+  }, []);
+
+  // Fetch applications when entering applications view
+  useEffect(() => {
+    if (viewMode === "applications" && selectedScholarship) {
+      fetchApplications();
+    }
+  }, [viewMode, selectedScholarship, activeTab]);
 
   // Toggle bookmark
   const toggleBookmark = (applicationId: number) => {
@@ -154,6 +215,16 @@ export default function ReviewerApplicationsScreen() {
   };
 
   const filtered = useMemo(() => {
+    if (viewMode === "scholarships") {
+      const q = query.trim().toLowerCase();
+      return scholarships.filter(
+        (s) =>
+          !q ||
+          s.title.toLowerCase().includes(q) ||
+          (s.category && s.category.toLowerCase().includes(q))
+      );
+    }
+
     const q = query.trim().toLowerCase();
     let items = applications.filter(
       (a) =>
@@ -163,7 +234,7 @@ export default function ReviewerApplicationsScreen() {
         (a.application_text && a.application_text.toLowerCase().includes(q))
     );
     return items;
-  }, [applications, query]);
+  }, [applications, scholarships, query, viewMode]);
 
   const visible = useMemo(
     () => filtered.slice(0, page * pageSize),
@@ -172,19 +243,34 @@ export default function ReviewerApplicationsScreen() {
 
   const stats = useMemo(() => {
     return {
-      total: applications.length,
+      total: viewMode === "applications" ? applications.length : scholarships.length,
       new: applications.filter((a) => a.status === "new").length,
       approved: applications.filter((a) => a.status === "approved").length,
       waitlisted: applications.filter((a) => a.status === "waitlisted").length,
       rejected: applications.filter((a) => a.status === "rejected").length,
     };
-  }, [applications]);
+  }, [applications, scholarships, viewMode]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ReviewerHeader
-        title="Applications"
-        subtitle={`${filtered.length} ${filtered.length === 1 ? "result" : "results"}`}
+        title={viewMode === "scholarships" ? "Schemes" : "Applications"}
+        subtitle={
+          viewMode === "scholarships"
+            ? "Select a scheme to review applications"
+            : `${selectedScholarship?.title || "Scheme"} • ${filtered.length} applications`
+        }
+        showBackButton={true}
+        onBackPress={() => {
+          if (viewMode === "applications") {
+            setViewMode("scholarships");
+            setSelectedScholarship(null);
+            setApplications([]);
+            setQuery("");
+          } else {
+            router.back();
+          }
+        }}
       />
       <ScrollView
         contentContainerStyle={styles.content}
@@ -195,7 +281,7 @@ export default function ReviewerApplicationsScreen() {
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-              Loading applications...
+              {viewMode === "scholarships" ? "Loading schemes..." : "Loading applications..."}
             </Text>
           </View>
         )}
@@ -205,10 +291,16 @@ export default function ReviewerApplicationsScreen() {
           <>
             {/* Enhanced Search Bar */}
             <View style={styles.searchContainer}>
-              <View style={[styles.searchRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={[
+                styles.searchRow,
+                {
+                  backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#fff",
+                  borderColor: isDark ? "rgba(255,255,255,0.1)" : "#e0e0e0"
+                }
+              ]}>
                 <Ionicons name="search-outline" size={20} color={colors.textSecondary} />
                 <TextInput
-                  placeholder="Search applications..."
+                  placeholder={viewMode === "scholarships" ? "Search schemes..." : "Search applications..."}
                   placeholderTextColor={colors.textSecondary}
                   style={[styles.searchInput, { color: colors.text }]}
                   value={query}
@@ -222,171 +314,229 @@ export default function ReviewerApplicationsScreen() {
               </View>
             </View>
 
-            {/* Enhanced Filter Tabs */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.tabsRow}
-            >
-              {STATUS_TABS.map((tab) => {
-                const count =
-                  tab === "All"
-                    ? stats.total
-                    : tab === "new"
-                      ? stats.new
-                      : tab === "approved"
-                        ? stats.approved
-                        : tab === "waitlisted"
-                          ? stats.waitlisted
-                          : stats.rejected;
+            {/* Enhanced Filter Tabs - Only for Applications */}
+            {viewMode === "applications" && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.tabsRow}
+              >
+                {STATUS_TABS.map((tab) => {
+                  const count =
+                    tab === "All"
+                      ? stats.total
+                      : tab === "new"
+                        ? stats.new
+                        : tab === "approved"
+                          ? stats.approved
+                          : tab === "waitlisted"
+                            ? stats.waitlisted
+                            : stats.rejected;
 
-                const isActive = activeTab === tab;
+                  const isActive = activeTab === tab;
 
-                return (
+                  return (
+                    <TouchableOpacity
+                      key={tab}
+                      style={[
+                        styles.tabBtn,
+                        { backgroundColor: colors.card, borderColor: colors.border },
+                        isActive && { backgroundColor: colors.primary, borderColor: colors.primary },
+                      ]}
+                      onPress={() => {
+                        setActiveTab(tab);
+                        setPage(1);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.tabText,
+                          { color: colors.textSecondary },
+                          isActive && { color: "#fff" },
+                        ]}
+                      >
+                        {tab === "All" ? tab : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                      </Text>
+                      <View
+                        style={[
+                          styles.tabBadge,
+                          { backgroundColor: isDark ? colors.surface : "#f5f5f5" },
+                          isActive && styles.tabBadgeActive,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.tabBadgeText,
+                            { color: colors.textSecondary },
+                            isActive && styles.tabBadgeTextActive,
+                          ]}
+                        >
+                          {count}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            {/* List */}
+            <View style={styles.cardList}>
+              {viewMode === "scholarships" ? (
+                // Scholarships List
+                (filtered as Scholarship[]).map((s, index) => (
                   <TouchableOpacity
-                    key={tab}
+                    key={s.id}
                     style={[
-                      styles.tabBtn,
-                      { backgroundColor: colors.card, borderColor: colors.border },
-                      isActive && { backgroundColor: colors.primary, borderColor: colors.primary },
+                      styles.listItem,
+                      {
+                        backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#fff",
+                        borderColor: isDark ? "rgba(255,255,255,0.1)" : "#f0f0f0",
+                        borderWidth: 1
+                      },
+                      index === (filtered as Scholarship[]).length - 1 && styles.listItemLast,
                     ]}
+                    activeOpacity={0.7}
                     onPress={() => {
-                      setActiveTab(tab);
-                      setPage(1);
+                      setSelectedScholarship(s);
+                      setViewMode("applications");
+                      setQuery("");
                     }}
                   >
-                    <Text
-                      style={[
-                        styles.tabText,
-                        { color: colors.textSecondary },
-                        isActive && { color: "#fff" },
-                      ]}
-                    >
-                      {tab === "All" ? tab : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                    </Text>
-                    <View
-                      style={[
-                        styles.tabBadge,
-                        { backgroundColor: isDark ? colors.surface : "#f5f5f5" },
-                        isActive && styles.tabBadgeActive,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.tabBadgeText,
-                          { color: colors.textSecondary },
-                          isActive && styles.tabBadgeTextActive,
-                        ]}
-                      >
-                        {count}
-                      </Text>
+                    <View style={styles.listItemMain}>
+                      <View style={styles.listItemLeft}>
+                        <View
+                          style={[
+                            styles.listItemIcon,
+                            { backgroundColor: isDark ? "rgba(33, 150, 243, 0.15)" : "#E3F2FD" }
+                          ]}
+                        >
+                          <Ionicons
+                            name="school"
+                            size={22}
+                            color="#2196F3"
+                          />
+                        </View>
+                        <View style={styles.listItemBody}>
+                          <Text style={[styles.listItemTitle, { color: colors.text }]} numberOfLines={2}>
+                            {s.title}
+                          </Text>
+                          <Text style={[styles.listItemSub, { color: colors.textSecondary }]}>
+                            {s.category || "General"}
+                          </Text>
+                        </View>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
                     </View>
                   </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+                ))
+              ) : (
+                // Applications List
+                (visible as AppItem[]).map((a, index) => (
+                  <TouchableOpacity
+                    key={a.id}
+                    style={[
+                      styles.listItem,
+                      { backgroundColor: colors.card, borderColor: colors.border },
+                      index === (visible as AppItem[]).length - 1 && styles.listItemLast,
+                    ]}
+                    activeOpacity={0.7}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/(dashboard)/reviewer/application-details",
+                        params: { id: a.id }
+                      })
+                    }
+                  >
+                    {/* Priority Indicator */}
+                    {a.priority >= 7 && (
+                      <View style={styles.priorityIndicator} />
+                    )}
 
-            {/* Enhanced Application Cards */}
-            <View style={styles.cardList}>
-              {visible.map((a, index) => (
-                <TouchableOpacity
-                  key={a.id}
-                  style={[
-                    styles.listItem,
-                    { backgroundColor: colors.card, borderColor: colors.border },
-                    index === visible.length - 1 && styles.listItemLast,
-                  ]}
-                  activeOpacity={0.7}
-                  onPress={() =>
-                    router.push("/(dashboard)/reviewer/application-details")
-                  }
-                >
-                  {/* Priority Indicator */}
-                  {a.priority >= 7 && (
-                    <View style={styles.priorityIndicator} />
-                  )}
-
-                  <View style={styles.listItemMain}>
-                    <View style={styles.listItemLeft}>
-                      <View
-                        style={[styles.listItemIcon, getStatusIconStyle(a.status, isDark)]}
-                      >
-                        <Ionicons
-                          name={getStatusIcon(a.status)}
-                          size={20}
-                          color={getStatusColor(a.status)}
-                        />
-                      </View>
-                      <View style={styles.listItemBody}>
-                        <View style={styles.titleRow}>
-                          <Text style={[styles.listItemTitle, { color: colors.text }]} numberOfLines={2}>
-                            {a.application_text && a.application_text.trim()
-                              ? a.application_text.substring(0, 60) + (a.application_text.length > 60 ? "..." : "")
-                              : "No application text provided"}
-                          </Text>
-
+                    <View style={styles.listItemMain}>
+                      <View style={styles.listItemLeft}>
+                        <View
+                          style={[styles.listItemIcon, getStatusIconStyle(a.status, isDark)]}
+                        >
+                          <Ionicons
+                            name={getStatusIcon(a.status)}
+                            size={20}
+                            color={getStatusColor(a.status)}
+                          />
                         </View>
-                        <Text style={[styles.listItemSub, { color: colors.textSecondary }]}>{a.user.fullname}</Text>
-                        <Text style={[styles.listItemDate, { color: colors.textSecondary }]}>{new Date(a.timecreated).toLocaleDateString()}</Text>
+                        <View style={styles.listItemBody}>
+                          <View style={styles.titleRow}>
+                            <Text style={[styles.listItemTitle, { color: colors.text }]} numberOfLines={2}>
+                              {a.application_text && a.application_text.trim()
+                                ? a.application_text.substring(0, 60) + (a.application_text.length > 60 ? "..." : "")
+                                : "No application text provided"}
+                            </Text>
+
+                          </View>
+                          <Text style={[styles.listItemSub, { color: colors.textSecondary }]}>{a.user.fullname}</Text>
+                          <Text style={[styles.listItemDate, { color: colors.textSecondary }]}>{new Date(a.timecreated).toLocaleDateString()}</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.listItemRight}>
+                        <TouchableOpacity
+                          onPress={() => toggleBookmark(a.id)}
+                          style={styles.bookmarkBtn}
+                        >
+                          <Ionicons
+                            name={a.is_bookmarked ? "bookmark" : "bookmark-outline"}
+                            size={20}
+                            color={a.is_bookmarked ? "#2196F3" : colors.textSecondary}
+                          />
+                        </TouchableOpacity>
                       </View>
                     </View>
 
-                    <View style={styles.listItemRight}>
-                      <TouchableOpacity
-                        onPress={() => toggleBookmark(a.id)}
-                        style={styles.bookmarkBtn}
+                    <View style={[styles.listItemFooter, { borderTopColor: isDark ? colors.border : "#f5f5f5" }]}>
+                      <View
+                        style={[styles.statusBadge, getStatusBadgeStyle(a.status, isDark)]}
                       >
-                        <Ionicons
-                          name={a.is_bookmarked ? "bookmark" : "bookmark-outline"}
-                          size={20}
-                          color={a.is_bookmarked ? "#2196F3" : colors.textSecondary}
+                        <View
+                          style={[
+                            styles.statusDot,
+                            { backgroundColor: getStatusColor(a.status) },
+                          ]}
                         />
+                        <Text
+                          style={[
+                            styles.statusBadgeText,
+                            { color: getStatusColor(a.status) },
+                          ]}
+                        >
+                          {a.status ? a.status.charAt(0).toUpperCase() + a.status.slice(1) : "New"}
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity
+                        onPress={() =>
+                          router.push({
+                            pathname: "/(dashboard)/reviewer/application-details",
+                            params: { id: a.id }
+                          })
+                        }
+                        style={[styles.viewBtn, { backgroundColor: isDark ? colors.surface : "#E3F2FD" }]}
+                      >
+                        <Text style={[styles.viewBtnText, { color: isDark ? colors.primary : "#2196F3" }]}>Review</Text>
+                        <Ionicons name="arrow-forward" size={14} color={isDark ? colors.primary : "#2196F3"} />
                       </TouchableOpacity>
                     </View>
-                  </View>
+                  </TouchableOpacity>
+                ))
+              )}
 
-                  <View style={[styles.listItemFooter, { borderTopColor: isDark ? colors.border : "#f5f5f5" }]}>
-                    <View
-                      style={[styles.statusBadge, getStatusBadgeStyle(a.status, isDark)]}
-                    >
-                      <View
-                        style={[
-                          styles.statusDot,
-                          { backgroundColor: getStatusColor(a.status) },
-                        ]}
-                      />
-                      <Text
-                        style={[
-                          styles.statusBadgeText,
-                          { color: getStatusColor(a.status) },
-                        ]}
-                      >
-                        {a.status ? a.status.charAt(0).toUpperCase() + a.status.slice(1) : "New"}
-                      </Text>
-                    </View>
-
-                    <TouchableOpacity
-                      onPress={() =>
-                        router.push({
-                          pathname: "/(dashboard)/reviewer/application-details",
-                          params: { id: a.id }
-                        })
-                      }
-                      style={[styles.viewBtn, { backgroundColor: isDark ? colors.surface : "#E3F2FD" }]}
-                    >
-                      <Text style={[styles.viewBtnText, { color: isDark ? colors.primary : "#2196F3" }]}>Review</Text>
-                      <Ionicons name="arrow-forward" size={14} color={isDark ? colors.primary : "#2196F3"} />
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
-              ))}
-
-              {visible.length === 0 && (
+              {(viewMode === "scholarships" ? filtered.length === 0 : visible.length === 0) && (
                 <View style={[styles.emptyState, { backgroundColor: colors.card, borderColor: colors.border }]}>
                   <View style={[styles.emptyIconContainer, { backgroundColor: isDark ? colors.surface : "#f5f5f5" }]}>
                     <Ionicons name="document-text-outline" size={48} color={colors.textSecondary} />
                   </View>
-                  <Text style={[styles.emptyTitle, { color: colors.text }]}>No applications found</Text>
+                  <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                    {viewMode === "scholarships" ? "No schemes found" : "No applications found"}
+                  </Text>
                   <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
                     Try adjusting your search or filters
                   </Text>
@@ -395,7 +545,7 @@ export default function ReviewerApplicationsScreen() {
             </View>
 
             {/* Enhanced Pagination */}
-            {visible.length < filtered.length && (
+            {viewMode === "applications" && visible.length < filtered.length && (
               <TouchableOpacity
                 style={styles.loadMoreBtn}
                 onPress={() => setPage((p) => p + 1)}
@@ -409,7 +559,7 @@ export default function ReviewerApplicationsScreen() {
           </>
         )}
       </ScrollView>
-    </View>
+    </View >
   );
 }
 
@@ -593,17 +743,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    borderWidth: 1.5,
-    borderColor: "#e0e0e0",
-    backgroundColor: "#fff",
-    borderRadius: 16,
+    borderWidth: 1,
+    borderRadius: 14,
     paddingHorizontal: 16,
-    paddingVertical: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    paddingVertical: 12,
   },
   searchInput: {
     flex: 1,
@@ -680,18 +823,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   listItem: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1.5,
-    borderColor: "#f0f0f0",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-    position: "relative",
-    overflow: "hidden",
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 4,
   },
   listItemLast: {
     marginBottom: 8,
@@ -706,9 +841,8 @@ const styles = StyleSheet.create({
   },
   listItemMain: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 16,
   },
   listItemLeft: {
     flexDirection: "row",
@@ -718,7 +852,7 @@ const styles = StyleSheet.create({
   listItemIcon: {
     width: 48,
     height: 48,
-    borderRadius: 14,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },

@@ -2291,6 +2291,15 @@ export const getReviewerApplications = async (
 
     // Check if request was successful
     if (response.ok) {
+      // Check for Moodle exception in 200 OK response
+      if (data.exception || data.errorcode) {
+        return {
+          success: false,
+          error: data.message || data.errorcode || "An error occurred",
+          message: data.message || "Permission denied",
+        };
+      }
+
       return {
         success: true,
         data: data,
