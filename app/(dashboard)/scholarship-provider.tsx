@@ -1,3 +1,4 @@
+import { HelloWave } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
 import { getDonorDashboardStats, getDonorRecentScholarships, getDonorScholarshipProgress, getUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
@@ -120,8 +121,6 @@ export default function ScholarshipProviderDashboard() {
       }
     };
 
-    fetchUserProfile();
-
     const fetchStats = async () => {
       try {
         const authDataString = await AsyncStorage.getItem("authData");
@@ -175,6 +174,7 @@ export default function ScholarshipProviderDashboard() {
       }
     };
 
+    fetchUserProfile();
     fetchStats();
     fetchRecentScholarships();
   }, []);
@@ -267,7 +267,10 @@ export default function ScholarshipProviderDashboard() {
         <View style={styles.headerContent}>
           <View style={styles.welcomeSection}>
             <Text style={[styles.welcomeText, { color: isDark ? colors.textSecondary : "#666" }]}>Hi,</Text>
-            <Text style={[styles.userName, { color: colors.text }]}>{providerName} 👋</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={[styles.userName, { color: colors.text }]}>{providerName}</Text>
+              <HelloWave />
+            </View>
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity

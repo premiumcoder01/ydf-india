@@ -1,3 +1,4 @@
+import { HelloWave } from "@/components";
 import Toast from "@/components/Toast";
 import { useTheme } from "@/context/ThemeContext";
 import { bookmarkScholarship, getApplicationProgress, getDashboardStats, getRecommendedScholarships, getUpcomingDeadlines, getUserProfile } from "@/utils/api";
@@ -335,7 +336,8 @@ export default function StudentDashboardScreen() {
         <View style={styles.headerContent}>
           <View style={styles.welcomeSection}>
             <Text style={[styles.welcomeText, { color: isDark ? colors.textSecondary : "#666" }]}>Hi,</Text>
-            <Text style={[styles.userName, { color: colors.text }]}>{studentName} 👋</Text>
+            <Text style={[styles.userName, { color: colors.text }]}>{studentName}</Text>
+            <HelloWave />
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity

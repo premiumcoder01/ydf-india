@@ -1,3 +1,4 @@
+import { HelloWave } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
 import { getAllScholarships, getBookmarkedScholarships, getMyApplications, getNotifications, getUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
@@ -200,7 +201,8 @@ export default function StudentMobilizerDashboard() {
         <View style={styles.headerContent}>
           <View style={styles.welcomeSection}>
             <Text style={[styles.welcomeText, { color: isDark ? colors.textSecondary : "#666" }]}>Hi,</Text>
-            <Text style={[styles.userName, { color: colors.text }]}>{studentName} 👋</Text>
+            <Text style={[styles.userName, { color: colors.text }]}>{studentName}</Text>
+            <HelloWave />
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity

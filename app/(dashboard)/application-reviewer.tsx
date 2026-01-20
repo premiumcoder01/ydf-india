@@ -1,3 +1,4 @@
+import { HelloWave } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
 import { getReviewerDashboardStats, getReviewerProgress, getReviewerRecentApplications, getUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
@@ -192,7 +193,8 @@ export default function ApplicationReviewerDashboard() {
         <View style={styles.headerContent}>
           <View style={styles.welcomeSection}>
             <Text style={[styles.welcomeText, { color: isDark ? colors.textSecondary : "#666" }]}>Hi,</Text>
-            <Text style={[styles.userName, { color: colors.text }]}>{reviewerName} 👋</Text>
+            <Text style={[styles.userName, { color: colors.text }]}>{reviewerName}</Text>
+            <HelloWave />
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity
