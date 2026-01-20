@@ -1,9 +1,10 @@
 import { useTheme } from "@/context/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,21 +16,69 @@ import ReviewerHeader from "../../../components/ReviewerHeader";
 
 export default function ProviderApplicantDetailsScreen() {
   const { isDark, colors } = useTheme();
-  const applicant = {
+  const params = useLocalSearchParams();
+
+  const applicantData = useMemo(() => {
+    if (params.applicant) {
+      try {
+        return JSON.parse(params.applicant as string);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }, [params.applicant]);
+
+  // Fallback or loading state could be better, but for now we map to the structure used by the view
+  const applicant = applicantData ? {
+    id: applicantData.id,
+    name: applicantData.name,
+    age: "N/A", // Not available in data
+    course: applicantData.major,
+    college: applicantData.institution,
+    income: 0, // Not available in data
+    category: applicantData.assessment_q2 || "N/A",
+    essay: applicantData.assessment_q1 || "No details provided.",
+    motivation: applicantData.activities || "No activities listing provided.",
+    progress: applicantData.status === "Approved" ? 100 : (applicantData.status === "Rejected" ? 100 : 50),
+    appliedDate: applicantData.submittedAt,
+    gpa: applicantData.gpa,
+    documents: applicantData.documents || [],
+    email: applicantData.email,
+    phone: applicantData.phone,
+    avatarUrl: applicantData.avatarUrl,
+    student_id: applicantData.student_id,
+    current_year: applicantData.current_year,
+    financial_info: applicantData.financial_info,
+    interview_mode: applicantData.interview_mode,
+    verification_time: applicantData.verification_time,
+    graduation_date: applicantData.graduation_date,
+    institution: applicantData.institution
+  } : {
+    // Fallback if accessed directly without params (dev only mostly)
     id: "app-1",
-    name: "Ravi Patel",
-    age: 20,
-    course: "BSc Computer Science",
-    college: "ABC Institute of Technology",
-    income: 24000,
-    category: "OBC",
-    essay:
-      "I aspire to build scalable solutions that positively impact education accessibility across rural areas.",
-    motivation:
-      "This scholarship will reduce financial burden and allow me to focus on research and community projects.",
-    progress: 72,
-    appliedDate: "Mar 15, 2025",
-    gpa: "3.8/4.0",
+    name: "Loading...",
+    age: 0,
+    course: "Loading...",
+    college: "Loading...",
+    income: 0,
+    category: "Loading...",
+    essay: "",
+    motivation: "",
+    progress: 0,
+    appliedDate: "",
+    gpa: "",
+    documents: [],
+    email: "",
+    phone: "",
+    avatarUrl: null,
+    student_id: "",
+    current_year: "",
+    financial_info: "",
+    interview_mode: "",
+    verification_time: "",
+    graduation_date: "",
+    institution: ""
   };
 
   const [notes, setNotes] = useState("");
@@ -37,21 +86,17 @@ export default function ProviderApplicantDetailsScreen() {
     "overview" | "documents" | "notes"
   >("overview");
 
-  const formattedIncome = useMemo(
-    () =>
-      new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "INR",
-        minimumFractionDigits: 0,
-      }).format(applicant.income),
-    [applicant.income]
-  );
+  // Removed formattedIncome as we are using financial_info string now or fallback
 
   const getProgressColor = (progress: number): readonly [string, string] => {
     if (progress >= 70) return ["#10b981", "#059669"] as const;
     if (progress >= 40) return ["#f59e0b", "#d97706"] as const;
     return ["#ef4444", "#dc2626"] as const;
   };
+
+  if (!applicantData) {
+    // Optional: Handle error or loading state
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -64,33 +109,45 @@ export default function ProviderApplicantDetailsScreen() {
       >
         <View style={styles.heroContent}>
           <View style={styles.avatarContainer}>
-            <LinearGradient
-              colors={["#fbbf24", "#f59e0b"]}
-              style={styles.avatar}
-            >
-              <Text style={styles.avatarText}>
-                {applicant.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")}
-              </Text>
-            </LinearGradient>
+            {applicant.avatarUrl ? (
+              <Image
+                source={{ uri: applicant.avatarUrl }}
+                style={[styles.avatar, { borderWidth: 3, borderColor: "rgba(255,255,255,0.3)" }]}
+                resizeMode="cover"
+              />
+            ) : (
+              <LinearGradient
+                colors={["#fbbf24", "#f59e0b"]}
+                style={styles.avatar}
+              >
+                <Text style={styles.avatarText}>
+                  {applicant.name && applicant.name.length > 0 ? applicant.name.charAt(0) : "U"}
+                </Text>
+              </LinearGradient>
+            )}
             <View style={[styles.statusBadge, { backgroundColor: "rgba(255,255,255,0.2)" }]}>
-              <View style={styles.statusDot} />
-              <Text style={styles.statusText}>Under Review</Text>
+              <View style={[styles.statusDot, { backgroundColor: applicantData?.status === "Approved" ? "#10b981" : applicantData?.status === "Rejected" ? "#ef4444" : "#f59e0b" }]} />
+              <Text style={styles.statusText}>{applicantData?.status || "Pending"}</Text>
             </View>
           </View>
           <View style={styles.heroInfo}>
             <Text style={styles.heroName}>{applicant.name}</Text>
             <Text style={styles.heroSubtitle}>{applicant.course}</Text>
+
+            <View style={styles.heroMetaRow}>
+              <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '600' }}>
+                ID: {applicant.student_id || "N/A"}
+              </Text>
+            </View>
+
             <View style={styles.heroMetaRow}>
               <View style={styles.heroMetaItem}>
                 <Ionicons
-                  name="calendar-outline"
+                  name="call-outline"
                   size={14}
                   color="rgba(255,255,255,0.9)"
                 />
-                <Text style={styles.heroMetaText}>{applicant.age} years</Text>
+                <Text style={styles.heroMetaText}>{applicant.phone}</Text>
               </View>
               <View style={styles.heroMetaDivider} />
               <View style={styles.heroMetaItem}>
@@ -108,7 +165,11 @@ export default function ProviderApplicantDetailsScreen() {
                 size={14}
                 color="rgba(255,255,255,0.9)"
               />
-              <Text style={styles.heroMetaText}>{applicant.appliedDate}</Text>
+              <Text style={styles.heroMetaText}>Applied: {applicant.appliedDate}</Text>
+            </View>
+            <View style={styles.heroMetaItem}>
+              <Ionicons name="mail-outline" size={14} color="rgba(255,255,255,0.9)" />
+              <Text style={styles.heroMetaText}>{applicant.email}</Text>
             </View>
           </View>
         </View>
@@ -207,8 +268,10 @@ export default function ProviderApplicantDetailsScreen() {
                 >
                   <Ionicons name="cash-outline" size={20} color={isDark ? "#4ade80" : "#16a34a"} />
                 </View>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Annual Income</Text>
-                <Text style={[styles.statValue, { color: colors.text }]}>{formattedIncome}</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Financial Info</Text>
+                <Text style={[styles.statValue, { color: colors.text }]} numberOfLines={1}>
+                  {applicant.financial_info || "N/A"}
+                </Text>
               </View>
               <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View
@@ -225,6 +288,27 @@ export default function ProviderApplicantDetailsScreen() {
                 </View>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Category</Text>
                 <Text style={[styles.statValue, { color: colors.text }]}>{applicant.category}</Text>
+              </View>
+            </View>
+
+            {/* Extra Details Card */}
+            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 16 }]}>Interview Details</Text>
+              <View style={{ gap: 12 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ color: colors.textSecondary }}>Mode</Text>
+                  <Text style={{ fontWeight: '600', color: colors.text }}>{applicant.interview_mode || "Not Scheduled"}</Text>
+                </View>
+                <View style={[styles.divider, { marginVertical: 4, backgroundColor: colors.border }]} />
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ color: colors.textSecondary }}>Verified At</Text>
+                  <Text style={{ fontWeight: '600', color: colors.text }}>{applicant.verification_time ? new Date(applicant.verification_time).toLocaleDateString() : "Pending"}</Text>
+                </View>
+                <View style={[styles.divider, { marginVertical: 4, backgroundColor: colors.border }]} />
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ color: colors.textSecondary }}>Current Year</Text>
+                  <Text style={{ fontWeight: '600', color: colors.text }}>{applicant.current_year || "N/A"}</Text>
+                </View>
               </View>
             </View>
 
@@ -311,35 +395,26 @@ export default function ProviderApplicantDetailsScreen() {
             <View style={styles.cardHeader}>
               <View>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Uploaded Documents</Text>
-                <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>3 files attached</Text>
+                <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+                  {applicant.documents.length} files attached
+                </Text>
               </View>
-              {/* <TouchableOpacity
-                style={[styles.downloadAllBtn, { backgroundColor: isDark ? colors.surface : "#eef2ff" }]}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="download-outline" size={16} color={colors.primary} />
-                <Text style={[styles.downloadAllText, { color: colors.primary }]}>Download All</Text>
-              </TouchableOpacity> */}
             </View>
             <View style={styles.docsList}>
-              <DocCard
-                title="ID Proof.pdf"
-                size="2.4 MB"
-                date="Mar 15, 2025"
-                type="pdf"
-              />
-              <DocCard
-                title="Income Certificate.jpg"
-                size="1.8 MB"
-                date="Mar 15, 2025"
-                type="image"
-              />
-              <DocCard
-                title="Marksheets.zip"
-                size="5.2 MB"
-                date="Mar 15, 2025"
-                type="zip"
-              />
+              {applicant.documents.length > 0 ? (
+                applicant.documents.map((doc: any, index: number) => (
+                  <DocCard
+                    key={index}
+                    title={doc.name}
+                    size={doc.size ? `${(doc.size / 1024 / 1024).toFixed(2)} MB` : "N/A"}
+                    date={applicant.appliedDate || "N/A"}
+                    type={doc.mimeType?.includes("image") ? "image" : doc.mimeType?.includes("pdf") ? "pdf" : "zip"}
+                    uri={doc.uri}
+                  />
+                ))
+              ) : (
+                <Text style={{ color: colors.textSecondary, fontStyle: 'italic' }}>No documents uploaded.</Text>
+              )}
             </View>
           </View>
         )}
@@ -455,11 +530,13 @@ function DocCard({
   size,
   date,
   type,
+  uri,
 }: {
   title: string;
   size: string;
   date: string;
   type: "pdf" | "image" | "zip";
+  uri?: string;
 }) {
   const { isDark, colors } = useTheme();
   const iconMap = {
@@ -486,7 +563,7 @@ function DocCard({
         <TouchableOpacity
           style={[styles.docActionBtn, { backgroundColor: isDark ? "rgba(99, 102, 241, 0.2)" : "#eef2ff", marginRight: 8 }]}
           activeOpacity={0.7}
-          onPress={() => router.push({ pathname: "/(dashboard)/provider/view-document", params: { title, type } })}
+          onPress={() => router.push({ pathname: "/(dashboard)/provider/view-document", params: { title, type, uri } })}
         >
           <Ionicons name="eye-outline" size={20} color={colors.primary} />
         </TouchableOpacity>

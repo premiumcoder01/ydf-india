@@ -141,6 +141,8 @@ export default function ProviderReportsScreen() {
     () => {
       const funds = analyticsData?.funds_distributed || 0;
       const approved = analyticsData?.approved_applications || 0;
+      const total = analyticsData?.total_applications || 0;
+      const pending = analyticsData?.pending_applications || 0;
 
       // Formatting funds
       const formattedFunds = funds > 100000
@@ -149,12 +151,20 @@ export default function ProviderReportsScreen() {
 
       return [
         {
-          label: "Funds Distributed",
-          value: formattedFunds,
-          icon: "cash" as keyof typeof Ionicons.glyphMap,
-          gradient: ['#f093fb', '#f5576c'] as const,
-          change: "N/A", // API doesn't return change % yet
+          label: "Total Apps",
+          value: String(total),
+          icon: "people" as keyof typeof Ionicons.glyphMap,
+          gradient: ['#a18cd1', '#fbc2eb'] as const,
+          change: "N/A",
           isPositive: true
+        },
+        {
+          label: "Pending Reviews",
+          value: String(pending),
+          icon: "time" as keyof typeof Ionicons.glyphMap,
+          gradient: ['#ff9a9e', '#fecfef'] as const,
+          change: "Action Needed",
+          isPositive: false
         },
         {
           label: "Approved Apps",
@@ -164,14 +174,22 @@ export default function ProviderReportsScreen() {
           change: "N/A",
           isPositive: true
         },
-      ]
+        {
+          label: "Funds Distributed",
+          value: formattedFunds,
+          icon: "cash" as keyof typeof Ionicons.glyphMap,
+          gradient: ['#f093fb', '#f5576c'] as const,
+          change: "N/A",
+          isPositive: true
+        },
+      ];
     },
     [analyticsData]
   );
 
 
   const barData = useMemo(() => {
-    if (!analyticsData?.application_trend || !Array.isArray(analyticsData.application_trend)) {
+    if (!analyticsData?.application_trend || !Array.isArray(analyticsData.application_trend) || analyticsData.application_trend.length === 0) {
       return [{ value: 0, label: 'No Data' }];
     }
     // Map trend data
@@ -187,35 +205,41 @@ export default function ProviderReportsScreen() {
     const approved = analyticsData?.approved_applications || 0;
     const rejected = analyticsData?.rejected_applications || 0;
     const pending = analyticsData?.pending_applications || 0;
-    const total = Math.max(approved + rejected + pending, 1);
+    const total = Math.max(approved + rejected + pending, 1); // Avoid div by 0
 
     return [
       {
-        value: Math.round((approved / total) * 100),
-        color: '#667eea',
-        gradientCenterColor: '#764ba2',
-        text: `${Math.round((approved / total) * 100)}%`,
-      },
-      {
-        value: Math.round((pending / total) * 100),
+        value: approved,
+        percentage: Math.round((approved / total) * 100),
         color: '#4facfe',
         gradientCenterColor: '#00f2fe',
-        text: `${Math.round((pending / total) * 100)}%`,
+        text: `${Math.round((approved / total) * 100)}%`,
+        label: 'Approved',
+        legendColor: '#4facfe'
       },
       {
-        value: Math.round((rejected / total) * 100),
+        value: pending,
+        percentage: Math.round((pending / total) * 100),
         color: '#f093fb',
         gradientCenterColor: '#f5576c',
-        text: `${Math.round((rejected / total) * 100)}%`,
+        text: `${Math.round((pending / total) * 100)}%`,
+        label: 'Pending',
+        legendColor: '#f093fb'
       },
-    ];
+      {
+        value: rejected,
+        percentage: Math.round((rejected / total) * 100),
+        color: '#ff9a9e',
+        gradientCenterColor: '#fecfef',
+        text: `${Math.round((rejected / total) * 100)}%`,
+        label: 'Rejected',
+        legendColor: '#ff9a9e'
+      },
+    ].filter(item => item.value > 0 || (analyticsData?.total_applications === 0 && item.label === 'Pending')); // Show something if empty? or filter zeros
   }, [analyticsData]);
 
   const lineData = useMemo(() => {
-    // API example doesn't have explicit line chart data for success rate over time. 
-    // We can just mirror barData or use dummy if unavailable. 
-    // For now, let's use application trend as user interest line.
-    if (!analyticsData?.application_trend || !Array.isArray(analyticsData.application_trend)) {
+    if (!analyticsData?.application_trend || !Array.isArray(analyticsData.application_trend) || analyticsData.application_trend.length === 0) {
       return [{ value: 0, label: '', dataPointText: '' }];
     }
     return analyticsData.application_trend.map((item: any) => ({
@@ -227,6 +251,15 @@ export default function ProviderReportsScreen() {
 
   const handleExport = (format: string) => {
     Alert.alert("Export", `Exporting ${format} report...`);
+  };
+
+  const getInsightIcon = (type: string) => {
+    switch (type) {
+      case 'applications': return { name: "people", color: "#4CAF50", bg: "rgba(76, 175, 80, 0.15)" };
+      case 'pending': return { name: "time", color: "#FF9800", bg: "rgba(255, 152, 0, 0.15)" };
+      case 'funds': return { name: "cash", color: "#2196F3", bg: "rgba(33, 150, 243, 0.15)" };
+      default: return { name: "bulb", color: "#667eea", bg: "rgba(102, 126, 234, 0.15)" };
+    }
   };
 
   return (
@@ -263,7 +296,7 @@ export default function ProviderReportsScreen() {
           </ScrollView>
         </View>
 
-        {/* Scheme Modal */}
+        {/* Scheme Modal & Filter Modal code remains same, skipping for brevity in this replacement block as they are unchanged logic essentially */}
         <Modal
           visible={schemeModalVisible}
           transparent
@@ -367,14 +400,7 @@ export default function ProviderReportsScreen() {
                   <View style={styles.statIconBg}>
                     <Ionicons name={stat.icon} size={20} color="#fff" />
                   </View>
-                  <View style={styles.changeBadge}>
-                    <Ionicons
-                      name={stat.isPositive ? "trending-up" : "trending-down"}
-                      size={10}
-                      color="#fff"
-                    />
-                    <Text style={styles.changeText}>{stat.change}</Text>
-                  </View>
+
                 </View>
                 <Text style={styles.statValue}>{stat.value}</Text>
                 <Text style={styles.statLabel}>{stat.label}</Text>
@@ -392,7 +418,7 @@ export default function ProviderReportsScreen() {
               </View>
               <View>
                 <Text style={[styles.chartTitle, { color: colors.text }]}>Applications Trend</Text>
-                <Text style={[styles.chartSubtitle, { color: colors.textSecondary }]}>Monthly breakdown</Text>
+                <Text style={[styles.chartSubtitle, { color: colors.textSecondary }]}>Volume over time</Text>
               </View>
             </View>
             <TouchableOpacity style={[styles.moreBtn, { backgroundColor: colors.surface }]}>
@@ -415,7 +441,7 @@ export default function ProviderReportsScreen() {
               yAxisTextStyle={{ color: colors.textSecondary, fontSize: 10 }}
               xAxisLabelTextStyle={{ color: colors.textSecondary, fontSize: 10, fontWeight: '600' }}
               noOfSections={4}
-              maxValue={160}
+              maxValue={Math.max(...barData.map((i: any) => i.value), 5)}
               isAnimated
               animationDuration={1000}
               gradientColor="#764ba2"
@@ -424,7 +450,7 @@ export default function ProviderReportsScreen() {
           </View>
         </View>
 
-        {/* Fund Allocation Pie */}
+        {/* Application Status (Pie) */}
         <View style={[styles.fullCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.chartHeader}>
             <View style={styles.chartTitleContainer}>
@@ -432,22 +458,22 @@ export default function ProviderReportsScreen() {
                 <Ionicons name="pie-chart" size={18} color="#667eea" />
               </View>
               <View>
-                <Text style={[styles.chartTitle, { color: colors.text }]}>Fund Split</Text>
-                <Text style={[styles.chartSubtitle, { color: colors.textSecondary }]}>Distribution overview</Text>
+                <Text style={[styles.chartTitle, { color: colors.text }]}>Application Status</Text>
+                <Text style={[styles.chartSubtitle, { color: colors.textSecondary }]}>Outcome distribution</Text>
               </View>
             </View>
           </View>
 
           <View style={styles.pieWrapper}>
             <PieChart
-              data={pieData}
+              data={pieData.length > 0 ? pieData : [{ value: 1, color: colors.border, text: "" }]}
               donut
               radius={80}
               innerRadius={52}
               innerCircleColor={colors.card}
               centerLabelComponent={() => (
                 <View style={styles.pieCenter}>
-                  <Text style={[styles.pieCenterValue, { color: colors.text }]}>100%</Text>
+                  <Text style={[styles.pieCenterValue, { color: colors.text }]}>{analyticsData?.total_applications || 0}</Text>
                   <Text style={[styles.pieCenterLabel, { color: colors.textSecondary }]}>Total</Text>
                 </View>
               )}
@@ -459,18 +485,15 @@ export default function ProviderReportsScreen() {
           </View>
 
           <View style={styles.legendContainer}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#667eea' }]} />
-              <Text style={[styles.legendText, { color: colors.textSecondary }]}>Scholarships (60%)</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#4facfe' }]} />
-              <Text style={[styles.legendText, { color: colors.textSecondary }]}>Operations (30%)</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#f093fb' }]} />
-              <Text style={[styles.legendText, { color: colors.textSecondary }]}>Other (10%)</Text>
-            </View>
+            {pieData.map((item, index) => (
+              <View key={index} style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: item.legendColor }]} />
+                <Text style={[styles.legendText, { color: colors.textSecondary }]}>{item.label} ({item.percentage}%)</Text>
+              </View>
+            ))}
+            {pieData.length === 0 && (
+              <Text style={{ textAlign: 'center', color: colors.textSecondary, fontSize: 12 }}>No data available</Text>
+            )}
           </View>
         </View>
 
@@ -527,97 +550,46 @@ export default function ProviderReportsScreen() {
           </View>
 
           <View style={[styles.rateCard, { backgroundColor: colors.surface }]}>
-            <Text style={styles.rateValue}>73.5%</Text>
+            <Text style={styles.rateValue}>{analyticsData?.success_rate ? analyticsData.success_rate.toFixed(1) : 0}%</Text>
             <Text style={[styles.rateLabel, { color: colors.textSecondary }]}>Average Approval Rate</Text>
           </View>
         </View>
 
         {/* Quick Insights */}
-        <View style={[styles.insightsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.chartHeader}>
-            <View style={styles.chartTitleContainer}>
-              <View style={[styles.chartIconBadge, { backgroundColor: isDark ? "rgba(102, 126, 234, 0.15)" : "#F0F1FF" }]}>
-                <Ionicons name="bulb" size={18} color="#667eea" />
+        {analyticsData?.insights && analyticsData.insights.length > 0 && (
+          <View style={[styles.insightsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.chartHeader}>
+              <View style={styles.chartTitleContainer}>
+                <View style={[styles.chartIconBadge, { backgroundColor: isDark ? "rgba(102, 126, 234, 0.15)" : "#F0F1FF" }]}>
+                  <Ionicons name="bulb" size={18} color="#667eea" />
+                </View>
+                <View>
+                  <Text style={[styles.chartTitle, { color: colors.text }]}>Quick Insights</Text>
+                  <Text style={[styles.chartSubtitle, { color: colors.textSecondary }]}>Key highlights</Text>
+                </View>
               </View>
-              <View>
-                <Text style={[styles.chartTitle, { color: colors.text }]}>Quick Insights</Text>
-                <Text style={[styles.chartSubtitle, { color: colors.textSecondary }]}>Key highlights</Text>
-              </View>
+            </View>
+
+            <View style={styles.insightsList}>
+              {analyticsData.insights.map((insight: any, idx: number) => {
+                const iconInfo = getInsightIcon(insight.type);
+                return (
+                  <View key={idx} style={[styles.insightItem, { backgroundColor: colors.surface }]}>
+                    <View style={[styles.insightIcon, { backgroundColor: isDark ? iconInfo.bg : (iconInfo.bg.replace('0.15', '0.2')) }]}>
+                      <Ionicons name={iconInfo.name as any} size={16} color={iconInfo.color} />
+                    </View>
+                    <View style={styles.insightContent}>
+                      <Text style={[styles.insightTitle, { color: colors.text }]}>{insight.message}</Text>
+                      {/* <Text style={[styles.insightText, { color: colors.textSecondary }]}>{insight.subtitle}</Text> */}
+                    </View>
+                  </View>
+                );
+              })}
             </View>
           </View>
+        )}
 
-          <View style={styles.insightsList}>
-            <View style={[styles.insightItem, { backgroundColor: colors.surface }]}>
-              <View style={[styles.insightIcon, { backgroundColor: isDark ? 'rgba(76, 175, 80, 0.15)' : '#E8F5E9' }]}>
-                <Ionicons name="arrow-up" size={16} color="#4CAF50" />
-              </View>
-              <View style={styles.insightContent}>
-                <Text style={[styles.insightTitle, { color: colors.text }]}>Applications up 24%</Text>
-                <Text style={[styles.insightText, { color: colors.textSecondary }]}>Highest growth this quarter</Text>
-              </View>
-            </View>
 
-            <View style={[styles.insightItem, { backgroundColor: colors.surface }]}>
-              <View style={[styles.insightIcon, { backgroundColor: isDark ? 'rgba(255, 152, 0, 0.15)' : '#FFF3E0' }]}>
-                <Ionicons name="time" size={16} color="#FF9800" />
-              </View>
-              <View style={styles.insightContent}>
-                <Text style={[styles.insightTitle, { color: colors.text }]}>36 pending reviews</Text>
-                <Text style={[styles.insightText, { color: colors.textSecondary }]}>Review applications to improve rate</Text>
-              </View>
-            </View>
-
-            <View style={[styles.insightItem, { backgroundColor: colors.surface }]}>
-              <View style={[styles.insightIcon, { backgroundColor: isDark ? 'rgba(33, 150, 243, 0.15)' : '#E3F2FD' }]}>
-                <Ionicons name="trophy" size={16} color="#2196F3" />
-              </View>
-              <View style={styles.insightContent}>
-                <Text style={[styles.insightTitle, { color: colors.text }]}>Top performing month</Text>
-                <Text style={[styles.insightText, { color: colors.textSecondary }]}>June saw 155 applications</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Export Section */}
-        <View style={[styles.exportCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.exportHeader}>
-            <View>
-              <Text style={[styles.exportTitle, { color: colors.text }]}>Export Reports</Text>
-              <Text style={[styles.exportSubtitle, { color: colors.textSecondary }]}>Download detailed analytics</Text>
-            </View>
-            <Ionicons name="download" size={22} color="#667eea" />
-          </View>
-
-          <View style={styles.exportButtons}>
-            <TouchableOpacity
-              style={[styles.exportBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              activeOpacity={0.8}
-              onPress={() => handleExport('PDF')}
-            >
-              <Ionicons name="document-text" size={20} color="#667eea" />
-              <Text style={[styles.exportBtnText, { color: colors.text }]}>PDF</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.exportBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              activeOpacity={0.8}
-              onPress={() => handleExport('Excel')}
-            >
-              <Ionicons name="grid" size={20} color="#10B981" />
-              <Text style={[styles.exportBtnText, { color: colors.text }]}>Excel</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.exportBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              activeOpacity={0.8}
-              onPress={() => handleExport('CSV')}
-            >
-              <Ionicons name="list" size={20} color="#F59E0B" />
-              <Text style={[styles.exportBtnText, { color: colors.text }]}>CSV</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
       </ScrollView>
     </View>
   );

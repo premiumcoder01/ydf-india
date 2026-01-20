@@ -441,29 +441,42 @@ export default function BookmarkedScholarshipsScreen() {
               <Ionicons name="eye-outline" size={18} color={isDark ? colors.text : "#333"} />
               <Text style={[styles.viewBtnText, { color: colors.text }]}>Details</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() =>
-                router.push({
-                  pathname: "/(dashboard)/student/student-apply-form",
-                  params: { scholarshipId: item.id },
-                })
-              }
-              disabled={isExpired}
-              style={[
-                styles.applyBtn,
-                { backgroundColor: categoryColor },
-                isExpired && { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#eee", opacity: 0.8 }
-              ]}
-            >
-              <Ionicons
-                name={isExpired ? "close-circle-outline" : "paper-plane-outline"}
-                size={18}
-                color={isExpired ? (isDark ? colors.textSecondary : "#999") : "#fff"}
-              />
-              <Text style={[styles.applyBtnText, isExpired && { color: isDark ? colors.textSecondary : "#999" }]}>
-                {isExpired ? "Expired" : "Apply Now"}
-              </Text>
-            </TouchableOpacity>
+
+            {item.has_applied ? (
+              <View
+                style={[
+                  styles.applyBtn,
+                  { backgroundColor: isDark ? "rgba(76, 175, 80, 0.2)" : "#E8F5E9", borderWidth: 1, borderColor: "#4CAF50" }
+                ]}
+              >
+                <Ionicons name="checkmark-circle" size={18} color="#4CAF50" />
+                <Text style={[styles.applyBtnText, { color: "#4CAF50" }]}>Applied</Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={() =>
+                  router.push({
+                    pathname: "/(dashboard)/student/student-apply-form",
+                    params: { scholarshipId: item.id },
+                  })
+                }
+                disabled={isExpired}
+                style={[
+                  styles.applyBtn,
+                  { backgroundColor: categoryColor },
+                  isExpired && { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#eee", opacity: 0.8 }
+                ]}
+              >
+                <Ionicons
+                  name={isExpired ? "close-circle-outline" : "paper-plane-outline"}
+                  size={18}
+                  color={isExpired ? (isDark ? colors.textSecondary : "#999") : "#fff"}
+                />
+                <Text style={[styles.applyBtnText, isExpired && { color: isDark ? colors.textSecondary : "#999" }]}>
+                  {isExpired ? "Expired" : "Apply Now"}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       );
