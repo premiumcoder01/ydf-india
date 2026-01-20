@@ -88,8 +88,6 @@ export default function ProviderApplicantsScreen() {
         } else {
           setAllApplicants(prev => [...prev, ...newApplicants]);
         }
-
-        // Check pagination
         if (response.data.pagination) {
           const { page: currentPage, total_pages } = response.data.pagination;
           setHasMore(currentPage < total_pages);

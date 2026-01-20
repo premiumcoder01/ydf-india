@@ -1,6 +1,6 @@
 import { ReviewerHeader } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { getUserProfile } from "@/utils/api";
+import { getDonorKycStatus, getUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BlurView } from 'expo-blur';
@@ -22,7 +22,7 @@ export default function ProviderProfileScreen() {
     email: "",
     contact: "",
     organization: "Organization",
-    kycStatus: "Under Review" as "Pending" | "Under Review" | "Verified",
+    kycStatus: "New", // Default to "New"
     profilePhoto: null as string | null,
     bankInfo: { account: "**** 4321", ifsc: "HDFC0001234" },
   });
@@ -46,8 +46,8 @@ export default function ProviderProfileScreen() {
           return;
         }
 
+        // Fetch User Profile
         const response = await getUserProfile(token);
-
         if (response.success && response.data?.user) {
           const user = response.data.user;
           setProviderData(prev => ({
@@ -57,16 +57,20 @@ export default function ProviderProfileScreen() {
             contact: user.phone || user.phone1 || prev.contact,
             profilePhoto: user.profileimageurl || null,
           }));
-        } else if (authData?.user) {
-          const user = authData.user;
-          setProviderData(prev => ({
-            ...prev,
-            organization: user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || prev.organization,
-            email: user.email || prev.email,
-            contact: user.phone || user.phone1 || prev.contact,
-            profilePhoto: user.profileimageurl || null,
-          }));
         }
+
+        // Fetch KYC Status
+        try {
+          const kycResponse = await getDonorKycStatus(token);
+          if (kycResponse.success && kycResponse.data) {
+            const kycData = kycResponse.data.data ? kycResponse.data.data : kycResponse.data;
+            const rawStatus = kycData.status || "New";
+            setProviderData(prev => ({ ...prev, kycStatus: rawStatus }));
+          }
+        } catch (kycError) {
+          console.error("Error fetching KYC status:", kycError);
+        }
+
       } catch (error) {
         console.error("Error fetching provider profile:", error);
       } finally {
@@ -96,36 +100,68 @@ export default function ProviderProfileScreen() {
   };
   const cancelLogout = () => setShowLogoutModal(false);
 
-  const kycConfig: Record<
-    "Verified" | "Under Review" | "Pending",
-    {
-      gradient: readonly [string, string];
-      icon: keyof typeof Ionicons.glyphMap;
-      bg: string;
-      border: string;
-    }
-  > = {
-    Verified: {
+  /* 
+   * Updated kycConfig to handle API statuses. 
+   * Maps colloquial statuses to display config.
+   */
+  const kycConfig: Record<string, {
+    gradient: readonly [string, string];
+    icon: keyof typeof Ionicons.glyphMap;
+    bg: string;
+    border: string;
+    label: string;
+  }> = {
+    approved: {
       gradient: ['#10B981', '#059669'],
       icon: 'shield-checkmark',
       bg: '#D1FAE5',
-      border: '#10B981'
+      border: '#10B981',
+      label: 'Verified'
     },
-    "Under Review": {
+    verified: { // Fallback/Legacy
+      gradient: ['#10B981', '#059669'],
+      icon: 'shield-checkmark',
+      bg: '#D1FAE5',
+      border: '#10B981',
+      label: 'Verified'
+    },
+    pending: {
+      gradient: ['#F59E0B', '#D97706'],
+      icon: 'time',
+      bg: '#FEF3C7',
+      border: '#F59E0B',
+      label: 'Under Review'
+    },
+    "under review": { // Legacy
       gradient: ['#3B82F6', '#2563EB'],
       icon: 'time',
       bg: '#DBEAFE',
-      border: '#3B82F6'
+      border: '#3B82F6',
+      label: 'Under Review'
     },
-    Pending: {
-      gradient: ['#F59E0B', '#D97706'],
+    rejected: {
+      gradient: ['#EF4444', '#B91C1C'],
       icon: 'alert-circle',
-      bg: '#FEF3C7',
-      border: '#F59E0B'
+      bg: '#FEE2E2',
+      border: '#EF4444',
+      label: 'Rejected'
     },
+    new: {
+      gradient: ['#6B7280', '#4B5563'],
+      icon: 'ellipse-outline',
+      bg: '#F3F4F6',
+      border: '#9CA3AF',
+      label: 'Not Submitted'
+    }
   };
 
-  const currentKyc = kycConfig[providerData.kycStatus];
+  // Helper to safely get config
+  const getKycConfig = (status: string) => {
+    const normalized = status.toLowerCase();
+    return kycConfig[normalized] || kycConfig['new'];
+  };
+
+  const currentKyc = getKycConfig(providerData.kycStatus);
 
   const headerOpacity = scrollY.interpolate({
     inputRange: [0, 100],
@@ -215,7 +251,7 @@ export default function ProviderProfileScreen() {
             <View style={[styles.premiumBadge, { backgroundColor: currentKyc.bg, borderColor: currentKyc.border }]}>
               <Ionicons name={currentKyc.icon} size={16} color={currentKyc.border} />
               <Text style={[styles.badgeText, { color: currentKyc.border }]}>
-                KYC: {providerData.kycStatus}
+                KYC: {currentKyc.label}
               </Text>
             </View>
           </LinearGradient>

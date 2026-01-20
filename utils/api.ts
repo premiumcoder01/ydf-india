@@ -3340,3 +3340,116 @@ export const getDonorAnalytics = async (
     };
   }
 };
+// Existing export ...
+// ...
+
+/**
+ * Submit / Update Donor KYC API call
+ */
+export const submitDonorKyc = async (
+  token: string,
+  data: {
+    org_name?: string;
+    org_email?: string;
+    org_phone?: string;
+    pan?: string;
+    bank_account?: string;
+    ifsc?: string;
+    signatory_name?: string;
+    documents_json?: string; // JSON array of file objects/ids
+  }
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_submit_kyc");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    // Add optional params
+    Object.keys(data).forEach(key => {
+      // @ts-ignore
+      const val = data[key];
+      if (val !== undefined && val !== null) {
+        urlObj.searchParams.append(key, String(val));
+      }
+    });
+    
+    const finalUrl = urlObj.toString();
+    console.log("Submit Donor KYC URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let resData: any = {};
+    try { resData = JSON.parse(responseText); } catch(e) {}
+
+    if (response.ok) {
+        if (resData.exception) {
+            return {
+                success: false,
+                error: resData.message || resData.exception,
+                message: resData.message || "KYC Submission failed"
+            };
+        }
+      return {
+        success: true,
+        data: resData,
+        message: resData.message || "KYC submitted successfully",
+      };
+    } else {
+      return {
+        success: false,
+        error: resData.error || resData.message || "Something went wrong",
+        message: resData.message || "Failed to submit KYC",
+      };
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Get Donor KYC Status API call
+ */
+export const getDonorKycStatus = async (token: string): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_get_kyc_status");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Donor KYC Status URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    try { data = JSON.parse(responseText); } catch(e) {}
+
+    if (response.ok) {
+         if (data.exception) {
+            return {
+                success: false,
+                error: data.message || data.exception,
+                message: data.message || "Failed to get KYC status"
+            };
+        }
+      return { success: true, data: data, message: "KYC status retrieved successfully" };
+    } else {
+      return { success: false, error: "Failed to retrieve KYC status" };
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};

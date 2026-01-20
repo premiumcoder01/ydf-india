@@ -1,9 +1,12 @@
 import { ReviewerHeader } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
+import { getDonorKycStatus, submitDonorKyc, uploadDocument } from "@/utils/api";
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useMemo, useState } from "react";
+import { router } from "expo-router";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Platform,
@@ -23,18 +26,20 @@ type DocumentType = {
   size?: number;
 };
 
-type KycStatusType = "Pending" | "Under Review" | "Verified" | "Rejected";
+type KycStatusType = "New" | "pending" | "approved" | "rejected";
 
 export default function ProviderKycScreen() {
   const { isDark, colors } = useTheme();
-  const [kycStatus, setKycStatus] = useState<KycStatusType>("Pending");
+  const [kycStatus, setKycStatus] = useState<KycStatusType>("New");
 
   // Form fields
-  const [panOrAadhaar, setPanOrAadhaar] = useState("");
-  const [organizationName, setOrganizationName] = useState("");
-  const [accountNumber, setAccountNumber] = useState("");
+  const [pan, setPan] = useState("");
+  const [orgName, setOrgName] = useState("");
+  const [orgEmail, setOrgEmail] = useState("");
+  const [orgPhone, setOrgPhone] = useState("");
+  const [bankAccount, setBankAccount] = useState("");
   const [ifsc, setIfsc] = useState("");
-  const [accountHolderName, setAccountHolderName] = useState("");
+  const [signatoryName, setSignatoryName] = useState("");
 
   // Documents
   const [docPanCard, setDocPanCard] = useState<DocumentType | null>(null);
@@ -42,20 +47,79 @@ export default function ProviderKycScreen() {
   const [docRegistrationCert, setDocRegistrationCert] = useState<DocumentType | null>(null);
 
   // UI states
-  const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
-  // Validation
-  const validatePAN = (pan: string): boolean => {
-    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-    return panRegex.test(pan.toUpperCase());
+  useEffect(() => {
+    fetchStatus();
+  }, []);
+
+  const fetchStatus = async () => {
+    setLoading(true);
+    try {
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) return;
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
+      if (!token) return;
+
+      const response = await getDonorKycStatus(token);
+      if (response.success && response.data) {
+        // Handle nested data structure: { success: true, data: { status: "...", ... } }
+        const kycData = response.data.data ? response.data.data : response.data;
+
+        const rawStatus = kycData.status || "New";
+        const status = rawStatus.toLowerCase() as KycStatusType;
+        setKycStatus(status);
+
+        if (kycData.org_name) setOrgName(kycData.org_name);
+        if (kycData.org_email) setOrgEmail(kycData.org_email);
+        if (kycData.org_phone) setOrgPhone(kycData.org_phone);
+        if (kycData.pan) setPan(kycData.pan);
+        if (kycData.bank_account) setBankAccount(kycData.bank_account); // Note: might be masked if server masks it
+        if (kycData.ifsc) setIfsc(kycData.ifsc);
+        if (kycData.signatory_name) setSignatoryName(kycData.signatory_name);
+
+        // Parse documents if available
+        if (kycData.documents) {
+          try {
+            const docsData = typeof kycData.documents === 'string'
+              ? JSON.parse(kycData.documents)
+              : kycData.documents;
+
+            if (Array.isArray(docsData)) {
+              docsData.forEach((item: any) => {
+                if (item.data && item.doc_type) {
+                  const docObj: DocumentType = {
+                    uri: item.data.fileurl,
+                    name: item.data.filename,
+                    type: item.data.mimetype,
+                    size: item.data.filesize
+                  };
+                  if (item.doc_type === "PAN") setDocPanCard(docObj);
+                  if (item.doc_type === "BANK") setDocBankStatement(docObj);
+                  if (item.doc_type === "REG") setDocRegistrationCert(docObj);
+                }
+              });
+            }
+          } catch (e) {
+            console.error("Error parsing documents JSON", e);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch KYC status", e);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const validateAadhaar = (aadhaar: string): boolean => {
-    const aadhaarRegex = /^[0-9]{12}$/;
-    return aadhaarRegex.test(aadhaar.replace(/\s/g, ''));
+  // Validation
+  const validatePAN = (val: string): boolean => {
+    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+    return panRegex.test(val.toUpperCase());
   };
 
   const validateIFSC = (code: string): boolean => {
@@ -63,20 +127,26 @@ export default function ProviderKycScreen() {
     return ifscRegex.test(code.toUpperCase());
   };
 
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePhone = (phone: string): boolean => {
+    return /^\d{10}$/.test(phone);
+  };
+
   const validateField = (field: string, value: string) => {
     const newErrors = { ...errors };
 
     switch (field) {
-      case 'panOrAadhaar':
-        const cleanValue = value.replace(/\s/g, '');
-        if (cleanValue.length === 10 && !validatePAN(cleanValue)) {
-          newErrors.panOrAadhaar = "Invalid PAN format (e.g., ABCDE1234F)";
-        } else if (cleanValue.length === 12 && !validateAadhaar(cleanValue)) {
-          newErrors.panOrAadhaar = "Invalid Aadhaar format (12 digits)";
-        } else if (cleanValue.length > 0 && cleanValue.length !== 10 && cleanValue.length !== 12) {
-          newErrors.panOrAadhaar = "Enter valid PAN (10 chars) or Aadhaar (12 digits)";
+      case 'pan':
+        if (value.length === 10 && !validatePAN(value)) {
+          newErrors.pan = "Invalid PAN format (e.g., ABCDE1234F)";
+        } else if (value.length > 0 && value.length !== 10) {
+          newErrors.pan = "PAN must be 10 characters";
         } else {
-          delete newErrors.panOrAadhaar;
+          delete newErrors.pan;
         }
         break;
       case 'ifsc':
@@ -88,25 +158,39 @@ export default function ProviderKycScreen() {
           delete newErrors.ifsc;
         }
         break;
-      case 'accountNumber':
+      case 'bankAccount':
         if (value.length > 0 && (value.length < 9 || value.length > 18)) {
-          newErrors.accountNumber = "Account number should be 9-18 digits";
+          newErrors.bankAccount = "Account number should be 9-18 digits";
         } else {
-          delete newErrors.accountNumber;
+          delete newErrors.bankAccount;
         }
         break;
-      case 'accountHolderName':
+      case 'signatoryName':
         if (value.length > 0 && value.trim().length < 3) {
-          newErrors.accountHolderName = "Account holder name too short";
+          newErrors.signatoryName = "Name too short";
         } else {
-          delete newErrors.accountHolderName;
+          delete newErrors.signatoryName;
         }
         break;
-      case 'organizationName':
+      case 'orgName':
         if (value.length > 0 && value.length < 3) {
-          newErrors.organizationName = "Organization name too short";
+          newErrors.orgName = "Organization name too short";
         } else {
-          delete newErrors.organizationName;
+          delete newErrors.orgName;
+        }
+        break;
+      case 'orgEmail':
+        if (value.length > 0 && !validateEmail(value)) {
+          newErrors.orgEmail = "Invalid email address";
+        } else {
+          delete newErrors.orgEmail;
+        }
+        break;
+      case 'orgPhone':
+        if (value.length > 0 && !validatePhone(value)) {
+          newErrors.orgPhone = "Invalid phone number (10 digits)";
+        } else {
+          delete newErrors.orgPhone;
         }
         break;
     }
@@ -115,25 +199,27 @@ export default function ProviderKycScreen() {
   };
 
   const validateAllFields = () => {
-    const cleanPanAadhaar = panOrAadhaar.replace(/\s/g, '');
     const newErrors: Record<string, string> = {};
 
-    if (!(cleanPanAadhaar.length === 10 && validatePAN(cleanPanAadhaar)) &&
-      !(cleanPanAadhaar.length === 12 && validateAadhaar(cleanPanAadhaar))) {
-      newErrors.panOrAadhaar = "Enter valid PAN (10 chars) or Aadhaar (12 digits)";
+    if (pan.length !== 10 || !validatePAN(pan)) {
+      newErrors.pan = "Enter valid PAN (10 chars)";
+    }
+    if (orgName.trim().length < 3) {
+      newErrors.orgName = "Organization name too short";
+    }
+    if (!validateEmail(orgEmail)) {
+      newErrors.orgEmail = "Invalid email";
+    }
+    if (!validatePhone(orgPhone)) {
+      newErrors.orgPhone = "Invalid phone (10 digits)";
+    }
+    if (signatoryName.trim().length < 3) {
+      newErrors.signatoryName = "Signatory name too short";
     }
 
-    if (organizationName.trim().length < 3) {
-      newErrors.organizationName = "Organization name too short";
-    }
-
-    if (accountHolderName.trim().length < 3) {
-      newErrors.accountHolderName = "Account holder name too short";
-    }
-
-    const accountDigits = accountNumber.trim();
+    const accountDigits = bankAccount.trim();
     if (accountDigits.length < 9 || accountDigits.length > 18) {
-      newErrors.accountNumber = "Account number should be 9-18 digits";
+      newErrors.bankAccount = "Account number should be 9-18 digits";
     }
 
     if (!validateIFSC(ifsc)) {
@@ -147,26 +233,26 @@ export default function ProviderKycScreen() {
   };
 
   const isFormValid = useMemo(() => {
-    const cleanPanAadhaar = panOrAadhaar.replace(/\s/g, '');
-    const isPanValid = cleanPanAadhaar.length === 10 && validatePAN(cleanPanAadhaar);
-    const isAadhaarValid = cleanPanAadhaar.length === 12 && validateAadhaar(cleanPanAadhaar);
-
-    const isIdentityValid = isPanValid || isAadhaarValid;
-    const isOrgValid = organizationName.trim().length >= 3;
-    const isAccountValid = accountNumber.trim().length >= 9 && accountNumber.trim().length <= 18;
-    const isHolderValid = accountHolderName.trim().length >= 3;
+    const isIdentityValid = pan.length === 10 && validatePAN(pan);
+    const isOrgValid = orgName.trim().length >= 3;
+    const isEmailValid = validateEmail(orgEmail);
+    const isPhoneValid = validatePhone(orgPhone);
+    const isAccountValid = bankAccount.trim().length >= 9 && bankAccount.trim().length <= 18;
+    const isHolderValid = signatoryName.trim().length >= 3;
     const isIfscValid = validateIFSC(ifsc);
     const areDocsAttached = !!docPanCard && !!docBankStatement && !!docRegistrationCert;
 
     return (
       isIdentityValid &&
       isOrgValid &&
+      isEmailValid &&
+      isPhoneValid &&
       isAccountValid &&
       isHolderValid &&
       isIfscValid &&
       areDocsAttached
     );
-  }, [panOrAadhaar, organizationName, accountNumber, accountHolderName, ifsc, docPanCard, docBankStatement, docRegistrationCert]);
+  }, [pan, orgName, orgEmail, orgPhone, bankAccount, signatoryName, ifsc, docPanCard, docBankStatement, docRegistrationCert]);
 
   // Request permissions
   const requestPermissions = async () => {
@@ -323,6 +409,18 @@ export default function ProviderKycScreen() {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
+  const uploadFile = async (doc: DocumentType, token: string, type: "PAN" | "BANK" | "REG") => {
+    // using mode 'kyc' to allow backend to categorize uploads
+    const response = await uploadDocument(token, doc, 0, "kyc");
+    if (response.success && response.data) {
+      return {
+        ...response.data,
+        doc_type: type
+      };
+    }
+    throw new Error(response.error || "Upload failed");
+  };
+
   const handleSubmit = async () => {
     setSubmitAttempted(true);
     const ok = validateAllFields();
@@ -333,21 +431,57 @@ export default function ProviderKycScreen() {
 
     setSubmitting(true);
 
-    // Simulate API call
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) throw new Error("No auth token");
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
 
-      // Simulate successful submission
-      setSubmitted(true);
-      setKycStatus("Under Review");
+      const uploadedDocs = [];
 
-      Alert.alert(
-        "Success",
-        "Your KYC has been submitted successfully and is now under review. You will be notified once verified.",
-        [{ text: "OK" }]
-      );
-    } catch (error) {
-      Alert.alert("Error", "Failed to submit KYC. Please try again.");
+      // Upload docs 
+      if (docPanCard && !docPanCard.uri.startsWith('http')) {
+        const res = await uploadFile(docPanCard, token, "PAN");
+        uploadedDocs.push(res);
+      }
+      if (docBankStatement && !docBankStatement.uri.startsWith('http')) {
+        const res = await uploadFile(docBankStatement, token, "BANK");
+        uploadedDocs.push(res);
+      }
+      if (docRegistrationCert && !docRegistrationCert.uri.startsWith('http')) {
+        const res = await uploadFile(docRegistrationCert, token, "REG");
+        uploadedDocs.push(res);
+      }
+
+      const payload = {
+        org_name: orgName,
+        org_email: orgEmail,
+        org_phone: orgPhone,
+        pan: pan,
+        bank_account: bankAccount,
+        ifsc: ifsc,
+        signatory_name: signatoryName,
+        documents_json: JSON.stringify(uploadedDocs)
+      };
+
+      const response = await submitDonorKyc(token, payload);
+
+      if (response.success) {
+        setKycStatus("pending");
+        Alert.alert(
+          "Success",
+          "Your KYC has been submitted successfully and is now under review.",
+          [{
+            text: "Go to Dashboard",
+            onPress: () => router.replace("/scholarship-provider")
+          }]
+        );
+      } else {
+        Alert.alert("Error", response.message || "Failed to submit KYC");
+      }
+
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to submit KYC. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -378,20 +512,22 @@ export default function ProviderKycScreen() {
               <Text style={[styles.docSize, { color: isDark ? "#6EE7B7" : "#059669" }]}>{formatFileSize(doc.size)}</Text>
             </View>
           </View>
-          <View style={styles.docActions}>
-            <TouchableOpacity
-              onPress={() => pickDocument(type)}
-              style={styles.docActionButton}
-            >
-              <Ionicons name="refresh" size={20} color={colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => removeDocument(type)}
-              style={styles.docActionButton}
-            >
-              <Ionicons name="trash-outline" size={20} color="#EF4444" />
-            </TouchableOpacity>
-          </View>
+          {kycStatus !== "pending" && kycStatus !== "approved" && (
+            <View style={styles.docActions}>
+              <TouchableOpacity
+                onPress={() => pickDocument(type)}
+                style={styles.docActionButton}
+              >
+                <Ionicons name="refresh" size={20} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => removeDocument(type)}
+                style={styles.docActionButton}
+              >
+                <Ionicons name="trash-outline" size={20} color="#EF4444" />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       ) : (
         <TouchableOpacity
@@ -408,18 +544,27 @@ export default function ProviderKycScreen() {
 
   const getStatusConfig = (status: KycStatusType) => {
     switch (status) {
-      case "Verified":
+      case "approved":
         return { color: "#10B981", bg: isDark ? "rgba(16, 185, 129, 0.15)" : "#D1FAE5", icon: "checkmark-circle" as const };
-      case "Under Review":
+      case "pending":
         return { color: isDark ? "#60A5FA" : "#3B82F6", bg: isDark ? "rgba(59, 130, 246, 0.15)" : "#DBEAFE", icon: "time-outline" as const };
-      case "Rejected":
+      case "rejected":
         return { color: "#EF4444", bg: isDark ? "rgba(239, 68, 68, 0.15)" : "#FEE2E2", icon: "close-circle" as const };
-      default:
+      default: // "New"
         return { color: "#F59E0B", bg: isDark ? "rgba(245, 158, 11, 0.15)" : "#FEF3C7", icon: "alert-circle" as const };
     }
   };
 
   const statusConfig = getStatusConfig(kycStatus);
+  const isEditable = kycStatus === "New" || kycStatus === "rejected"; // Only editable if new or rejected
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: colors.text }}>Loading...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -436,138 +581,176 @@ export default function ProviderKycScreen() {
               KYC Status: {kycStatus}
             </Text>
             <Text style={[styles.statusText, { color: statusConfig.color }]}>
-              {kycStatus === "Pending" && "Complete the form below to verify your account"}
-              {kycStatus === "Under Review" && "Your documents are being reviewed"}
-              {kycStatus === "Verified" && "Your account is fully verified"}
-              {kycStatus === "Rejected" && "Please resubmit with correct documents"}
+              {kycStatus === "New" && "Complete the form below to verify your account"}
+              {kycStatus === "pending" && "Your documents are being reviewed"}
+              {kycStatus === "approved" && "Your account is fully verified"}
+              {kycStatus === "rejected" && "Please resubmit with correct documents"}
             </Text>
           </View>
         </View>
 
-        {/* Organization Details */}
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Organization Details</Text>
+        {isEditable ? (
+          <>
+            {/* Organization Details */}
+            <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Organization Details</Text>
 
-          <TextInput
-            label="PAN / Aadhaar Number *"
-            placeholder="PAN or Aadhaar"
-            value={panOrAadhaar}
-            onChangeText={(text) => {
-              setPanOrAadhaar(text);
-              validateField('panOrAadhaar', text);
-            }}
-            onBlur={() => validateField('panOrAadhaar', panOrAadhaar)}
-            autoCapitalize="characters"
-            maxLength={14}
-            error={errors.panOrAadhaar}
-          />
+              <TextInput
+                label="PAN Number *"
+                placeholder="ABCDE1234F"
+                value={pan}
+                onChangeText={(text) => {
+                  setPan(text);
+                  validateField('pan', text);
+                }}
+                onBlur={() => validateField('pan', pan)}
+                autoCapitalize="characters"
+                maxLength={10}
+                error={errors.pan}
+              />
 
-          <TextInput
-            label="Organization Name *"
-            placeholder="Enter registered organization name"
-            value={organizationName}
-            onChangeText={(text) => {
-              setOrganizationName(text);
-              validateField('organizationName', text);
-            }}
-            autoCapitalize="words"
-            error={errors.organizationName}
-          />
-        </View>
+              <TextInput
+                label="Organization Name *"
+                placeholder="Enter registered organization name"
+                value={orgName}
+                onChangeText={(text) => {
+                  setOrgName(text);
+                  validateField('orgName', text);
+                }}
+                autoCapitalize="words"
+                error={errors.orgName}
+              />
 
-        {/* Bank Details */}
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Bank Account Details</Text>
+              <TextInput
+                label="Organization Email *"
+                placeholder="email@example.com"
+                value={orgEmail}
+                onChangeText={(text) => {
+                  setOrgEmail(text);
+                  validateField('orgEmail', text);
+                }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                error={errors.orgEmail}
+              />
 
-          <TextInput
-            label="Account Holder Name *"
-            placeholder="Enter account holder name"
-            value={accountHolderName}
-            onChangeText={(text) => {
-              setAccountHolderName(text);
-              validateField('accountHolderName', text);
-            }}
-            autoCapitalize="words"
-            onBlur={() => validateField('accountHolderName', accountHolderName)}
-            error={errors.accountHolderName}
-          />
-
-          <TextInput
-            label="Bank Account Number *"
-            placeholder="Enter account number"
-            value={accountNumber}
-            onChangeText={(text) => {
-              const numeric = text.replace(/\D/g, '');
-              setAccountNumber(numeric);
-              validateField('accountNumber', numeric);
-            }}
-            keyboardType="numeric"
-            maxLength={18}
-            error={errors.accountNumber}
-          />
-
-          <TextInput
-            label="IFSC Code *"
-            placeholder="e.g., SBIN0001234"
-            value={ifsc}
-            onChangeText={(text) => {
-              setIfsc(text.toUpperCase());
-              validateField('ifsc', text);
-            }}
-            onBlur={() => validateField('ifsc', ifsc)}
-            autoCapitalize="characters"
-            maxLength={11}
-            error={errors.ifsc}
-          />
-        </View>
-
-        {/* Documents */}
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Upload Documents *</Text>
-          {submitAttempted && (!docPanCard || !docBankStatement || !docRegistrationCert) && (
-            <Text style={styles.errorText}>Please attach PAN card, bank statement, and registration certificate.</Text>
-          )}
-
-          {renderDocumentCard(
-            "PAN Card",
-            docPanCard,
-            "PAN",
-            "Upload your organization's PAN card"
-          )}
-
-          {renderDocumentCard(
-            "Bank Statement",
-            docBankStatement,
-            "BANK",
-            "Upload recent bank statement (last 3 months)"
-          )}
-
-          {renderDocumentCard(
-            "Registration Certificate",
-            docRegistrationCert,
-            "REG",
-            "Upload company/organization registration certificate"
-          )}
-        </View>
-
-        {/* Submit Button */}
-        <View style={styles.footer}>
-          {kycStatus === "Pending" || kycStatus === "Rejected" ? (
-            <Button
-              title={submitting ? "Submitting..." : "Submit for Verification"}
-              onPress={handleSubmit}
-              loading={submitting}
-              disabled={submitting || !isFormValid}
-            />
-          ) : (
-            <View style={[styles.infoBox, { backgroundColor: isDark ? "rgba(59, 130, 246, 0.1)" : "#EFF6FF", borderColor: isDark ? "rgba(59, 130, 246, 0.3)" : "#3B82F6" }]}>
-              <Ionicons name="information-circle" size={24} color={isDark ? "#60A5FA" : "#3B82F6"} />
-              <Text style={[styles.infoText, { color: isDark ? "#93C5FD" : "#1E40AF" }]}>
-                Your KYC is {kycStatus.toLowerCase()}. No action needed at this time.
-              </Text>
+              <TextInput
+                label="Organization Phone *"
+                placeholder="10 digit mobile number"
+                value={orgPhone}
+                onChangeText={(text) => {
+                  const numeric = text.replace(/\D/g, '');
+                  setOrgPhone(numeric);
+                  validateField('orgPhone', numeric);
+                }}
+                keyboardType="phone-pad"
+                maxLength={10}
+                error={errors.orgPhone}
+              />
             </View>
-          )}
-        </View>
+
+            {/* Bank Details */}
+            <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Bank Account Details</Text>
+
+              <TextInput
+                label="Signatory Name *"
+                placeholder="Authorized signatory name"
+                value={signatoryName}
+                onChangeText={(text) => {
+                  setSignatoryName(text);
+                  validateField('signatoryName', text);
+                }}
+                autoCapitalize="words"
+                onBlur={() => validateField('signatoryName', signatoryName)}
+                error={errors.signatoryName}
+              />
+
+              <TextInput
+                label="Bank Account Number *"
+                placeholder="Enter account number"
+                value={bankAccount}
+                onChangeText={(text) => {
+                  const numeric = text.replace(/\D/g, '');
+                  setBankAccount(numeric);
+                  validateField('bankAccount', numeric);
+                }}
+                keyboardType="numeric"
+                maxLength={18}
+                error={errors.bankAccount}
+              />
+
+              <TextInput
+                label="IFSC Code *"
+                placeholder="e.g., SBIN0001234"
+                value={ifsc}
+                onChangeText={(text) => {
+                  setIfsc(text.toUpperCase());
+                  validateField('ifsc', text);
+                }}
+                onBlur={() => validateField('ifsc', ifsc)}
+                autoCapitalize="characters"
+                maxLength={11}
+                error={errors.ifsc}
+              />
+            </View>
+
+            {/* Documents */}
+            <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Upload Documents *</Text>
+              {submitAttempted && (!docPanCard || !docBankStatement || !docRegistrationCert) && (
+                <Text style={styles.errorText}>Please attach PAN card, bank statement, and registration certificate.</Text>
+              )}
+
+              {renderDocumentCard(
+                "PAN Card",
+                docPanCard,
+                "PAN",
+                "Upload your organization's PAN card"
+              )}
+
+              {renderDocumentCard(
+                "Bank Statement",
+                docBankStatement,
+                "BANK",
+                "Upload recent bank statement (last 3 months)"
+              )}
+
+              {renderDocumentCard(
+                "Registration Certificate",
+                docRegistrationCert,
+                "REG",
+                "Upload company/organization registration certificate"
+              )}
+            </View>
+
+            {/* Submit Button */}
+            <View style={styles.footer}>
+              <Button
+                title={submitting ? "Submitting..." : "Submit for Verification"}
+                onPress={handleSubmit}
+                loading={submitting}
+                disabled={submitting || !isFormValid}
+              />
+            </View>
+          </>
+        ) : (
+          <View style={[styles.section, { backgroundColor: colors.surface, marginTop: 20, alignItems: 'center', paddingVertical: 40 }]}>
+            <Ionicons name="hourglass-outline" size={64} color={statusConfig.color} style={{ marginBottom: 20 }} />
+            <Text style={[styles.statusTitle, { fontSize: 18, textAlign: 'center', color: colors.text }]}>
+              Application Submitted
+            </Text>
+            <Text style={{ textAlign: 'center', color: colors.textSecondary, marginTop: 10, maxWidth: '80%', lineHeight: 22 }}>
+              Your KYC application is currently {kycStatus.toLowerCase()}. You will be able to manage your account once verification is complete.
+            </Text>
+            <TouchableOpacity
+              style={{ marginTop: 30, backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10 }}
+              onPress={() => router.replace("/scholarship-provider")}
+            >
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Go to Dashboard</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Help Text */}
         <View style={[styles.helpBox, { backgroundColor: colors.surface }]}>

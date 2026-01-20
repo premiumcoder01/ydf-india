@@ -421,18 +421,7 @@ export default function ScholarshipProviderDashboard() {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.featureCard, { borderLeftColor: "#9C27B0", backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]} activeOpacity={0.8} onPress={() => router.push("/(dashboard)/provider/reports")}>
-              <View style={styles.featureContent}>
-                <View style={[styles.featureIcon, { backgroundColor: "#9C27B020" }]}>
-                  <Ionicons name="stats-chart-outline" size={24} color="#9C27B0" />
-                </View>
-                <View style={styles.featureInfo}>
-                  <Text style={[styles.featureTitle, { color: colors.text }]}>View Reports</Text>
-                  <Text style={[styles.featureDescription, { color: colors.textSecondary }]}>Analytics and insights</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-              </View>
-            </TouchableOpacity>
+
           </View>
         </View>
       </ScrollView>

@@ -4,8 +4,8 @@ import { getDonorAnalytics, getMyScholarships } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { BarChart, LineChart, PieChart } from "react-native-gifted-charts";
 
@@ -15,6 +15,7 @@ const CHART_WIDTH = SCREEN_WIDTH - (CARD_PADDING * 4);
 
 export default function ProviderReportsScreen() {
   const { isDark, colors } = useTheme();
+  const params = useLocalSearchParams();
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [activeFilter, setActiveFilter] = useState("All");
 
@@ -26,7 +27,21 @@ export default function ProviderReportsScreen() {
   const [loading, setLoading] = useState(true);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
 
+  // Initialize from params
+  useEffect(() => {
+    if (params.scheme_id && params.scheme_name) {
+      const id = Number(params.scheme_id);
+      const name = params.scheme_name as string;
+      setActiveSchemeId(id);
+      setActiveScheme(name);
+      setSchemesList([{ name: "All Schemes", id: 0 }, { name, id }]);
+    }
+  }, [params.scheme_id, params.scheme_name]);
+
   const fetchSchemes = async () => {
+    // If scheme_id was passed via params, skip fetching list to save bandwidth/time as requested
+    if (params.scheme_id) return;
+
     try {
       const authDataString = await AsyncStorage.getItem("authData");
       if (!authDataString) return;
@@ -100,7 +115,7 @@ export default function ProviderReportsScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchSchemes();
-    }, [])
+    }, [params.scheme_id])
   );
 
   useFocusEffect(
