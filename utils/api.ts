@@ -674,6 +674,92 @@ export const updatePassword = async (
   }
 };
 
+
+/**
+ * Get Reviewer Schemes API call (POST with query parameters)
+ * This requires a token from AsyncStorage
+ */
+export const getReviewerSchemes = async (
+  token: string,
+  params?: {
+    search?: string;
+    page?: number;
+    per_page?: number;
+  }
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add required query parameters
+    urlObj.searchParams.append("wstoken", token);
+    // Updated wsfunction for reviewer schemes
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_reviewer_get_my_schemes");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    // Add optional parameters if provided
+    if (params?.search) {
+      urlObj.searchParams.append("search", params.search);
+    }
+    if (params?.page) {
+      urlObj.searchParams.append("page", String(params.page));
+    }
+    if (params?.per_page) {
+      urlObj.searchParams.append("per_page", String(params.per_page));
+    }
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Reviewer Schemes URL:", finalUrl);
+    
+    // Make POST request with query parameters in URL
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    // Get response text first to handle different response types
+    const responseText = await response.text();
+    let data: any = {};
+
+    // Try to parse as JSON
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      // If not JSON, treat as plain text error
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    // Check if request was successful
+    if (response.ok) {
+      return {
+        success: true,
+        data: data,
+        message: data.message || "Schemes retrieved successfully",
+      };
+    } else {
+      // Handle API errors
+      return {
+        success: false,
+        error: data.error || data.message || data.error_message || "Something went wrong",
+        message: data.message || "Failed to retrieve schemes",
+      };
+    }
+  } catch (error: any) {
+    // Handle network errors
+    return {
+      success: false,
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server",
+    };
+  }
+};
+
 /**
  * Get All Scholarships API call (POST with query parameters)
  * This requires a token from AsyncStorage
@@ -2291,7 +2377,6 @@ export const getReviewerApplications = async (
 
     // Check if request was successful
     if (response.ok) {
-      // Check for Moodle exception in 200 OK response
       if (data.exception || data.errorcode) {
         return {
           success: false,

@@ -34,6 +34,7 @@ export default function ApplicationStatusScreen() {
   const [pastApplications, setPastApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
   const fetchApplications = async () => {
     try {
@@ -104,6 +105,7 @@ export default function ApplicationStatusScreen() {
       status: status,
       statusText: status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' '),
       submittedDate: submittedDate,
+      rawDate: app.submitted_at, // Keep raw date for filtering
       updatedDate: updatedDate,
       deadline: app.deadline ? formatDate(app.deadline) : null,
       color: color,
@@ -125,9 +127,13 @@ export default function ApplicationStatusScreen() {
   const years = useMemo(() => {
     const set = new Set<string>();
     allApplications.forEach((a) => {
-      if (a.submittedDate && a.submittedDate !== "N/A") {
+      // Use rawDate for reliable year extraction
+      if (a.rawDate) {
         try {
-          set.add(String(new Date(a.submittedDate).getFullYear()));
+          const year = new Date(a.rawDate).getFullYear();
+          if (!isNaN(year)) {
+            set.add(String(year));
+          }
         } catch (e) { }
       }
     });
@@ -136,39 +142,30 @@ export default function ApplicationStatusScreen() {
 
   const types = useMemo(() => {
     const set = new Set<string>();
-    allApplications.forEach((a) => set.add(a.shortname));
+    allApplications.forEach((a) => {
+      if (a.shortname) set.add(a.shortname);
+    });
     return ["All", ...Array.from(set)];
   }, [allApplications]);
 
-  const filteredActive = useMemo(() => {
-    return activeApplications.filter((a) => {
-      let yearOk = true;
-      if (selectedYear !== "All") {
-        try {
-          yearOk = a.submittedDate && a.submittedDate !== "N/A" && String(new Date(a.submittedDate).getFullYear()) === selectedYear;
-        } catch (e) {
-          yearOk = false;
-        }
+  // Filter Logic
+  const filterApplication = (a: any) => {
+    let yearOk = true;
+    if (selectedYear !== "All") {
+      try {
+        const year = new Date(a.rawDate).getFullYear();
+        yearOk = !isNaN(year) && String(year) === selectedYear;
+      } catch (e) {
+        yearOk = false;
       }
-      const typeOk = selectedType === "All" || a.shortname === selectedType;
-      return yearOk && typeOk;
-    });
-  }, [selectedYear, selectedType, activeApplications]);
+    }
+    const typeOk = selectedType === "All" || a.shortname === selectedType;
+    return yearOk && typeOk;
+  };
 
-  const filteredPast = useMemo(() => {
-    return pastApplications.filter((a) => {
-      let yearOk = true;
-      if (selectedYear !== "All") {
-        try {
-          yearOk = a.submittedDate && a.submittedDate !== "N/A" && String(new Date(a.submittedDate).getFullYear()) === selectedYear;
-        } catch (e) {
-          yearOk = false;
-        }
-      }
-      const typeOk = selectedType === "All" || a.shortname === selectedType;
-      return yearOk && typeOk;
-    });
-  }, [selectedYear, selectedType, pastApplications]);
+  const filteredActive = useMemo(() => activeApplications.filter(filterApplication), [selectedYear, selectedType, activeApplications]);
+  const filteredPast = useMemo(() => pastApplications.filter(filterApplication), [selectedYear, selectedType, pastApplications]);
+
 
   const totalCounts = useMemo(() => {
     const all = [...activeApplications, ...pastApplications];
@@ -184,7 +181,7 @@ export default function ApplicationStatusScreen() {
     <TouchableOpacity
       key={application.id}
       style={[styles.applicationCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-      activeOpacity={0.7}
+      activeOpacity={0.8}
       onPress={() => {
         if (application.scholarshipId) {
           router.push({
@@ -194,94 +191,49 @@ export default function ApplicationStatusScreen() {
         }
       }}
     >
-      {/* Status Indicator Bar */}
-      <View style={[styles.statusBar, { backgroundColor: application.color }]} />
+      <View style={styles.cardInternal}>
+        {/* Left Status Stripe */}
+        <View style={[styles.statusStripe, { backgroundColor: application.color }]} />
 
-      {/* Card Content */}
-      <View style={styles.cardContent}>
-        {/* Header */}
-        <View style={styles.cardHeader}>
-          <View style={[styles.iconCircle, { backgroundColor: application.color + '15' }]}>
-            <Ionicons name={application.icon as any} size={24} color={application.color} />
-          </View>
-          <View style={styles.headerText}>
-            <Text style={[styles.applicationTitle, { color: colors.text }]} numberOfLines={2}>
-              {application.title}
-            </Text>
-            <View style={styles.metaRow}>
-              <Ionicons name="pricetag-outline" size={12} color={colors.textSecondary} />
-              <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+        <View style={styles.cardContent}>
+          <View style={styles.cardTopRow}>
+            <View style={[styles.typeBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f0f0f0', flex: 1, marginRight: 8 }]}>
+              <Text style={[styles.typeBadgeText, { color: colors.textSecondary }]} numberOfLines={1} ellipsizeMode="tail">
                 {application.shortname}
               </Text>
             </View>
-          </View>
-          <View style={[styles.statusBadge, { backgroundColor: application.color + '20', borderColor: application.color + '40' }]}>
-            <Text style={[styles.statusText, { color: application.color }]}>
-              {application.statusText}
-            </Text>
-          </View>
-        </View>
-
-        {/* Details Grid */}
-        <View style={styles.detailsGrid}>
-          <View style={styles.detailItem}>
-            <View style={[styles.detailIconCircle, { backgroundColor: isDark ? 'rgba(33, 150, 243, 0.15)' : '#E3F2FD' }]}>
-              <Ionicons name="calendar-outline" size={14} color="#2196F3" />
-            </View>
-            <View style={styles.detailTextContainer}>
-              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Submitted</Text>
-              <Text style={[styles.detailValue, { color: colors.text }]}>{application.submittedDate}</Text>
+            <View style={[styles.statusPill, { backgroundColor: application.color + '15', borderColor: application.color + '30' }]}>
+              <Text style={[styles.statusPillText, { color: application.color }]}>{application.statusText}</Text>
             </View>
           </View>
 
-          {application.updatedDate && application.updatedDate !== application.submittedDate && (
-            <View style={styles.detailItem}>
-              <View style={[styles.detailIconCircle, { backgroundColor: isDark ? 'rgba(156, 39, 176, 0.15)' : '#F3E5F5' }]}>
-                <Ionicons name="sync-outline" size={14} color="#9C27B0" />
-              </View>
-              <View style={styles.detailTextContainer}>
-                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Updated</Text>
-                <Text style={[styles.detailValue, { color: colors.text }]}>{application.updatedDate}</Text>
-              </View>
-            </View>
-          )}
+          <Text style={[styles.applicationTitle, { color: colors.text }]} numberOfLines={2}>
+            {application.title}
+          </Text>
 
-          {application.deadline && (
-            <View style={styles.detailItem}>
-              <View style={[styles.detailIconCircle, { backgroundColor: isDark ? 'rgba(255, 152, 0, 0.15)' : '#FFF3E0' }]}>
-                <Ionicons name="time-outline" size={14} color="#FF9800" />
-              </View>
-              <View style={styles.detailTextContainer}>
-                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Deadline</Text>
-                <Text style={[styles.detailValue, { color: colors.text }]}>{application.deadline}</Text>
-              </View>
+          <View style={styles.cardMetaRow}>
+            <View style={styles.metaItem}>
+              <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
+              <Text style={[styles.metaText, { color: colors.textSecondary }]}>Applied: {application.submittedDate}</Text>
             </View>
-          )}
-        </View>
+          </View>
 
-        {/* Action Footer */}
-        <View style={styles.cardFooter}>
-          <TouchableOpacity
-            style={[styles.viewButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#F5F5F5' }]}
-            onPress={() => {
-              if (application.scholarshipId) {
-                router.push({
-                  pathname: "/(dashboard)/student/student-scholarship-details",
-                  params: { scholarshipId: application.scholarshipId }
-                });
-              }
-            }}
-          >
-            <Ionicons name="eye-outline" size={16} color={colors.text} />
-            <Text style={[styles.viewButtonText, { color: colors.text }]}>View Details</Text>
-          </TouchableOpacity>
-
-          {isPast && (
-            <View style={[styles.completedBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#F5F5F5' }]}>
-              <Ionicons name="checkmark-done" size={14} color={colors.textSecondary} />
-              <Text style={[styles.completedText, { color: colors.textSecondary }]}>Completed</Text>
-            </View>
-          )}
+          <View style={[styles.cardActionRow, { borderTopColor: isDark ? 'rgba(255,255,255,0.05)' : '#f0f0f0' }]}>
+            <Text style={[styles.viewDetailsText, { color: colors.textSecondary }]}>View Details</Text>
+            <TouchableOpacity
+              style={[styles.chevronBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f5f5f5' }]}
+              onPress={() => {
+                if (application.scholarshipId) {
+                  router.push({
+                    pathname: "/(dashboard)/student/student-scholarship-details",
+                    params: { scholarshipId: application.scholarshipId }
+                  });
+                }
+              }}
+            >
+              <Ionicons name="chevron-forward" size={16} color={colors.text} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -312,115 +264,83 @@ export default function ApplicationStatusScreen() {
           </View>
         ) : (
           <>
-            {/* Stats Cards */}
-            <View style={styles.statsContainer}>
-              <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.statIconCircle, { backgroundColor: isDark ? 'rgba(33, 150, 243, 0.15)' : '#E3F2FD' }]}>
-                  <Ionicons name="documents-outline" size={20} color="#2196F3" />
+            {/* Clean Stats Grid */}
+            <View style={styles.statsGrid}>
+              <View style={[styles.statItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={[styles.statValue, { color: colors.text }]}>{totalCounts.total}</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Applications</Text>
+                <View style={[styles.statIconAbs, { backgroundColor: isDark ? 'rgba(33, 150, 243, 0.1)' : '#E3F2FD' }]}>
+                  <Ionicons name="documents" size={16} color="#2196F3" />
                 </View>
-                <Text style={[styles.statNumber, { color: colors.text }]}>{totalCounts.total}</Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total</Text>
               </View>
-
-              <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.statIconCircle, { backgroundColor: isDark ? 'rgba(76, 175, 80, 0.15)' : '#E8F5E9' }]}>
-                  <Ionicons name="checkmark-circle-outline" size={20} color="#4CAF50" />
-                </View>
-                <Text style={[styles.statNumber, { color: colors.text }]}>{totalCounts.approved}</Text>
+              <View style={[styles.statItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={[styles.statValue, { color: colors.text }]}>{totalCounts.approved}</Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Approved</Text>
-              </View>
-
-              <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.statIconCircle, { backgroundColor: isDark ? 'rgba(255, 152, 0, 0.15)' : '#FFF3E0' }]}>
-                  <Ionicons name="time-outline" size={20} color="#FF9800" />
+                <View style={[styles.statIconAbs, { backgroundColor: isDark ? 'rgba(76, 175, 80, 0.1)' : '#E8F5E9' }]}>
+                  <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
                 </View>
-                <Text style={[styles.statNumber, { color: colors.text }]}>{totalCounts.pending}</Text>
+              </View>
+              <View style={[styles.statItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={[styles.statValue, { color: colors.text }]}>{totalCounts.pending}</Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Pending</Text>
-              </View>
-
-              <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.statIconCircle, { backgroundColor: isDark ? 'rgba(244, 67, 54, 0.15)' : '#FFEBEE' }]}>
-                  <Ionicons name="close-circle-outline" size={20} color="#F44336" />
+                <View style={[styles.statIconAbs, { backgroundColor: isDark ? 'rgba(255, 152, 0, 0.1)' : '#FFF3E0' }]}>
+                  <Ionicons name="time" size={16} color="#FF9800" />
                 </View>
-                <Text style={[styles.statNumber, { color: colors.text }]}>{totalCounts.rejected}</Text>
+              </View>
+              <View style={[styles.statItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={[styles.statValue, { color: colors.text }]}>{totalCounts.rejected}</Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Rejected</Text>
+                <View style={[styles.statIconAbs, { backgroundColor: isDark ? 'rgba(244, 67, 54, 0.1)' : '#FFEBEE' }]}>
+                  <Ionicons name="close-circle" size={16} color="#F44336" />
+                </View>
               </View>
             </View>
 
-            {/* Filters */}
-            {(years.length > 1 || types.length > 1) && (
-              <View style={styles.filtersContainer}>
-                {years.length > 1 && (
-                  <View style={styles.filterRow}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-                      {years.map((y) => (
-                        <TouchableOpacity
-                          key={`year-${y}`}
-                          onPress={() => setSelectedYear(y)}
-                          style={[
-                            styles.chip,
-                            { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#fff", borderColor: colors.border },
-                            selectedYear === y && [styles.chipActive, { backgroundColor: colors.primary, borderColor: colors.primary }]
-                          ]}
-                        >
-                          <Ionicons name="calendar-outline" size={14} color={selectedYear === y ? "#fff" : colors.textSecondary} />
-                          <Text style={[styles.chipText, { color: colors.textSecondary }, selectedYear === y && styles.chipTextActive]}>{y}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  </View>
-                )}
+            {/* Filter Toggle Chip Row */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, marginBottom: 20, gap: 10 }}>
 
-                {types.length > 1 && (
-                  <View style={styles.filterRow}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-                      {types.map((t) => (
-                        <TouchableOpacity
-                          key={`type-${t}`}
-                          onPress={() => setSelectedType(t)}
-                          style={[
-                            styles.chip,
-                            { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#fff", borderColor: colors.border },
-                            selectedType === t && [styles.chipActive, { backgroundColor: colors.primary, borderColor: colors.primary }]
-                          ]}
-                        >
-                          <Ionicons name="pricetag-outline" size={14} color={selectedType === t ? "#fff" : colors.textSecondary} />
-                          <Text style={[styles.chipText, { color: colors.textSecondary }, selectedType === t && styles.chipTextActive]}>{t}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  </View>
-                )}
+              {/* Year Filter Chip */}
+              <TouchableOpacity
+                onPress={() => setShowFilters(true)}
+                style={[styles.filterChip, { backgroundColor: selectedYear !== 'All' ? colors.primary : (isDark ? 'rgba(255,255,255,0.05)' : '#fff'), borderColor: selectedYear !== 'All' ? colors.primary : colors.border }]}
+              >
+                <Ionicons name="calendar" size={16} color={selectedYear !== 'All' ? '#fff' : colors.textSecondary} />
+                <Text style={[styles.filterChipText, { color: selectedYear !== 'All' ? '#fff' : colors.text }]}>
+                  {selectedYear === 'All' ? 'Year' : selectedYear}
+                </Text>
+                <Ionicons name="chevron-down" size={12} color={selectedYear !== 'All' ? '#fff' : colors.textSecondary} />
+              </TouchableOpacity>
 
-                {(selectedYear !== "All" || selectedType !== "All") && (
-                  <TouchableOpacity
-                    onPress={() => { setSelectedYear("All"); setSelectedType("All"); }}
-                    style={[styles.clearFiltersBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-                  >
-                    <Ionicons name="refresh-outline" size={16} color={colors.textSecondary} />
-                    <Text style={[styles.clearFiltersText, { color: colors.textSecondary }]}>Clear filters</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
+              {/* Type Filter Chip */}
+              <TouchableOpacity
+                onPress={() => setShowFilters(true)}
+                style={[styles.filterChip, { backgroundColor: selectedType !== 'All' ? colors.primary : (isDark ? 'rgba(255,255,255,0.05)' : '#fff'), borderColor: selectedType !== 'All' ? colors.primary : colors.border }]}
+              >
+                <Ionicons name="pricetag" size={16} color={selectedType !== 'All' ? '#fff' : colors.textSecondary} />
+                <Text style={[styles.filterChipText, { color: selectedType !== 'All' ? '#fff' : colors.text }]} numberOfLines={1}>
+                  {selectedType === 'All' ? 'Scholarship Type' : (selectedType.length > 15 ? selectedType.substring(0, 12) + '...' : selectedType)}
+                </Text>
+                <Ionicons name="chevron-down" size={12} color={selectedType !== 'All' ? '#fff' : colors.textSecondary} />
+              </TouchableOpacity>
+
+              {(selectedYear !== 'All' || selectedType !== 'All') && (
+                <TouchableOpacity onPress={() => { setSelectedYear('All'); setSelectedType('All'); }} style={styles.clearChip}>
+                  <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+                  <Text style={{ fontSize: 13, color: colors.textSecondary, fontWeight: '600' }}>Clear</Text>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
 
             {/* Active Applications */}
             <View style={styles.sectionContainer}>
               <View style={styles.sectionHeader}>
-                <View style={[styles.sectionIconCircle, { backgroundColor: isDark ? 'rgba(33, 150, 243, 0.15)' : '#E3F2FD' }]}>
-                  <Ionicons name="rocket-outline" size={18} color="#2196F3" />
-                </View>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Active Applications</Text>
-                <View style={[styles.countBadge, { backgroundColor: isDark ? 'rgba(33, 150, 243, 0.15)' : '#E3F2FD' }]}>
-                  <Text style={[styles.countText, { color: "#2196F3" }]}>{filteredActive.length}</Text>
-                </View>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Active ({filteredActive.length})</Text>
               </View>
 
               {filteredActive.length === 0 ? (
                 <View style={[styles.emptyState, { backgroundColor: colors.card, borderColor: colors.border }]}>
                   <Ionicons name="document-text-outline" size={48} color={colors.textSecondary} style={{ opacity: 0.3 }} />
                   <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No active applications</Text>
-                  <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Your pending applications will appear here</Text>
                 </View>
               ) : (
                 filteredActive.map((app) => renderApplicationCard(app, false))
@@ -430,20 +350,12 @@ export default function ApplicationStatusScreen() {
             {/* Past Applications */}
             <View style={styles.sectionContainer}>
               <View style={styles.sectionHeader}>
-                <View style={[styles.sectionIconCircle, { backgroundColor: isDark ? 'rgba(156, 39, 176, 0.15)' : '#F3E5F5' }]}>
-                  <Ionicons name="archive-outline" size={18} color="#9C27B0" />
-                </View>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Past Applications</Text>
-                <View style={[styles.countBadge, { backgroundColor: isDark ? 'rgba(156, 39, 176, 0.15)' : '#F3E5F5' }]}>
-                  <Text style={[styles.countText, { color: "#9C27B0" }]}>{filteredPast.length}</Text>
-                </View>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Past ({filteredPast.length})</Text>
               </View>
 
               {filteredPast.length === 0 ? (
                 <View style={[styles.emptyState, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <Ionicons name="folder-open-outline" size={48} color={colors.textSecondary} style={{ opacity: 0.3 }} />
                   <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No past applications</Text>
-                  <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Completed applications will appear here</Text>
                 </View>
               ) : (
                 filteredPast.map((app) => renderApplicationCard(app, true))
@@ -454,7 +366,63 @@ export default function ApplicationStatusScreen() {
           </>
         )}
       </ScrollView>
-    </View>
+
+      {/* Filter Modal */}
+      {
+        showFilters && (
+          <View style={styles.modalBackdrop}>
+            <TouchableOpacity style={{ flex: 1 }} onPress={() => setShowFilters(false)} />
+            <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>Filter Applications</Text>
+                <TouchableOpacity onPress={() => setShowFilters(false)}>
+                  <Ionicons name="close" size={24} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={{ maxHeight: 400 }}>
+                {/* Year Filter */}
+                <Text style={[styles.filterGroupTitle, { color: colors.textSecondary }]}>Year</Text>
+                <View style={styles.chipsContainer}>
+                  {years.map(y => (
+                    <TouchableOpacity
+                      key={y}
+                      onPress={() => setSelectedYear(y)}
+                      style={[styles.modalChip, selectedYear === y && { backgroundColor: colors.primary }, { borderColor: colors.border }]}
+                    >
+                      <Text style={[styles.modalChipText, selectedYear === y && { color: '#fff' }, { color: colors.text }]}>{y}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Type Filter */}
+                <Text style={[styles.filterGroupTitle, { color: colors.textSecondary, marginTop: 20 }]}>Scholarship Type</Text>
+                <View style={styles.chipsContainer}>
+                  {types.map(t => (
+                    <TouchableOpacity
+                      key={t}
+                      onPress={() => setSelectedType(t)}
+                      style={[styles.modalChip, selectedType === t && { backgroundColor: colors.primary }, { borderColor: colors.border }]}
+                    >
+                      <Text style={[styles.modalChipText, selectedType === t && { color: '#fff' }, { color: colors.text }]}>{t}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+
+              <View style={{ marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.border }}>
+                <TouchableOpacity
+                  onPress={() => setShowFilters(false)}
+                  style={[styles.applyFilterBtn, { backgroundColor: colors.primary }]}
+                >
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Apply Filters</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )
+      }
+    </View >
   );
 }
 
@@ -481,252 +449,227 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 14,
   },
-  statsContainer: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    marginBottom: 8,
-    gap: 10,
+
+  // Stats
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 20,
+    gap: 12,
   },
-  statCard: {
-    flex: 1,
+  statItem: {
+    width: '48%',
+    padding: 16,
     borderRadius: 16,
-    padding: 12,
-    alignItems: "center",
     borderWidth: 1,
-    gap: 6,
+    position: 'relative',
+    overflow: 'hidden',
   },
-  statIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+  statValue: {
+    fontSize: 24,
+    fontWeight: '800',
     marginBottom: 4,
   },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: "800",
-    letterSpacing: -0.5,
-  },
   statLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    textAlign: "center",
+    fontSize: 12,
+    fontWeight: '600',
   },
-  filtersContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  statIconAbs: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  filterRow: {
-    marginBottom: 8,
-  },
-  chipsRow: {
+
+  // Filters
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-  },
-  chip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1.5,
-  },
-  chipActive: {},
-  chipText: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  chipTextActive: {
-    color: "#fff",
-  },
-  clearFiltersBtn: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    borderWidth: 1.5,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  clearFiltersText: {
-    fontWeight: "700",
-    fontSize: 13,
-  },
-  sectionContainer: {
     paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+    borderWidth: 1,
+  },
+  filterChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  clearChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+  },
+
+  // Sections
+  sectionContainer: {
+    paddingHorizontal: 20,
     marginBottom: 24,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    gap: 10,
-  },
-  sectionIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    flex: 1,
-    letterSpacing: -0.5,
-  },
-  countBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    minWidth: 32,
-    alignItems: 'center',
-  },
-  countText: {
-    fontSize: 14,
-    fontWeight: "800",
+    fontSize: 18,
+    fontWeight: '800',
   },
   emptyState: {
+    padding: 30,
     borderRadius: 16,
-    padding: 40,
-    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
     borderStyle: 'dashed',
-    alignItems: "center",
   },
   emptyText: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginTop: 12,
+    fontSize: 15,
+    fontWeight: '500',
+    marginTop: 10,
   },
-  emptySubtext: {
-    fontSize: 13,
-    marginTop: 4,
-    opacity: 0.7,
-  },
+
+  // Cards
   applicationCard: {
-    borderRadius: 20,
+    borderRadius: 16,
     marginBottom: 16,
     borderWidth: 1,
     overflow: 'hidden',
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  statusBar: {
-    height: 4,
+  cardInternal: {
+    flexDirection: 'row',
+  },
+  statusStripe: {
+    width: 6,
+    height: '100%',
   },
   cardContent: {
+    flex: 1,
     padding: 16,
   },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 16,
-    gap: 12,
-  },
-  iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerText: {
-    flex: 1,
-  },
-  applicationTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 6,
-    lineHeight: 22,
-  },
-  metaRow: {
+  cardTopRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 4,
+    marginBottom: 10,
   },
-  metaText: {
-    fontSize: 12,
-    fontWeight: "600",
+  typeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
-  statusBadge: {
+  typeBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  statusPill: {
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
   },
-  statusText: {
+  statusPillText: {
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
-  detailsGrid: {
-    gap: 12,
-    marginBottom: 16,
+  applicationTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 8,
+    lineHeight: 22,
   },
-  detailItem: {
+  cardMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  metaText: {
+    fontSize: 13,
+  },
+
+  // Modal
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  filterGroupTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 10,
+    textTransform: 'uppercase',
+  },
+  chipsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
   },
-  detailIconCircle: {
-    width: 32,
-    height: 32,
+  modalChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  modalChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  applyFilterBtn: {
+    width: '100%',
+    padding: 16,
     borderRadius: 16,
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  detailTextContainer: {
-    flex: 1,
-  },
-  detailLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    marginBottom: 2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  cardActionRow: {
+    marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
-  },
-  viewButton: {
-    flex: 1,
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  viewDetailsText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  chevronBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  viewButtonText: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  completedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  completedText: {
-    fontSize: 12,
-    fontWeight: "600",
   },
 });

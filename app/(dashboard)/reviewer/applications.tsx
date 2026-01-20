@@ -1,5 +1,5 @@
 import { useTheme } from "@/context/ThemeContext";
-import { getAllScholarships, getReviewerApplications } from "@/utils/api";
+import { getReviewerApplications, getReviewerSchemes } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
@@ -93,6 +93,7 @@ export default function ReviewerApplicationsScreen() {
   const [error, setError] = useState<string | null>(null);
 
   // Fetch scholarships
+  // Fetch schemes
   const fetchScholarships = async (isRefresh = false) => {
     try {
       if (isRefresh) {
@@ -110,20 +111,33 @@ export default function ReviewerApplicationsScreen() {
         throw new Error("No authentication token found. Please login again.");
       }
 
-      const response = await getAllScholarships(token);
+      // Updated to use the new reviewer API
+      const response = await getReviewerSchemes(token, {
+        page: 1,
+        per_page: 200
+      });
 
       if (response.success && response.data) {
-        const list = Array.isArray(response.data)
-          ? response.data
-          : response.data.data || response.data.scholarships || [];
-        setScholarships(list);
+        // Handle "schemes" array in response
+        const list = Array.isArray(response.data.schemes)
+          ? response.data.schemes
+          : response.data.data || [];
+
+        // Map to Scholarship type if needed, though structure seems similar
+        // Based on the image, the fields match nicely (id, name, shortname, category, etc.)
+        // We map 'name' to 'title' to match our local state
+        const mappedList = list.map((scheme: any) => ({
+          ...scheme,
+          title: scheme.name || scheme.title,
+        }));
+        setScholarships(mappedList);
       } else {
-        throw new Error(response.error || "Failed to fetch scholarships");
+        throw new Error(response.error || "Failed to fetch schemes");
       }
     } catch (err: any) {
-      console.error("Error fetching scholarships:", err);
-      setError(err.message || "Failed to load scholarships");
-      Alert.alert("Error", err.message || "Failed to load scholarships");
+      console.error("Error fetching schemes:", err);
+      setError(err.message || "Failed to load schemes");
+      Alert.alert("Error", err.message || "Failed to load schemes");
     } finally {
       setLoading(false);
       setRefreshing(false);

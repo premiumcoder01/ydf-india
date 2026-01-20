@@ -1,256 +1,386 @@
+import { ReviewerHeader } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { Ionicons } from "@expo/vector-icons";
-import React, { useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ReviewerHeader } from "../../../components";
-
-type NotificationType = "new" | "completed" | "system";
-type FilterType = "all" | "new" | "completed" | "system";
+import { getNotifications, markAllNotificationsRead, markNotificationRead } from "@/utils/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from "react-native";
+import Button from "../../../components/Button";
 
 interface Notification {
   id: string;
-  title: string;
-  message: string;
-  timeAgo: string;
-  timestamp: string;
-  type: NotificationType;
-  isRead: boolean;
-  applicationId?: string;
-  icon: string;
-  iconColor: string;
+  type: "Application" | "KYC";
+  text: string;
+  ts: string;
+  read: boolean;
+  subject?: string;
+  component?: string;
+  event_type?: string;
 }
 
 export default function ReviewerNotificationsScreen() {
-  const inset = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
-  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
+  const { isDark, colors } = useTheme();
+  const [activeTab, setActiveTab] = useState<"All" | "New" | "KYC" | "Application">("All");
+  const [items, setItems] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: "1",
-      title: "New Application Received",
-      message: "Application #1023 from Ravi Patel for STEM Excellence Scholarship",
-      timeAgo: "2 minutes ago",
-      timestamp: "12 Oct 2024, 2:30 PM",
-      type: "new",
-      isRead: false,
-      applicationId: "1023",
-      icon: "document-text-outline",
-      iconColor: "#2196F3"
-    },
-    {
-      id: "2",
-      title: "Application Approved",
-      message: "Application #1019 from Priya Sharma has been approved",
-      timeAgo: "1 hour ago",
-      timestamp: "12 Oct 2024, 1:30 PM",
-      type: "completed",
-      isRead: false,
-      applicationId: "1019",
-      icon: "checkmark-circle-outline",
-      iconColor: "#4CAF50"
-    },
-    {
-      id: "3",
-      title: "System Maintenance",
-      message: "Scheduled maintenance will occur tonight from 11 PM to 1 AM",
-      timeAgo: "3 hours ago",
-      timestamp: "12 Oct 2024, 11:30 AM",
-      type: "system",
-      isRead: true,
-      icon: "settings-outline",
-      iconColor: "#FF9800"
-    },
-    {
-      id: "4",
-      title: "Document Upload Required",
-      message: "Application #1021 needs additional income certificate",
-      timeAgo: "5 hours ago",
-      timestamp: "12 Oct 2024, 9:30 AM",
-      type: "new",
-      isRead: false,
-      applicationId: "1021",
-      icon: "cloud-upload-outline",
-      iconColor: "#FF5722"
-    },
-    {
-      id: "5",
-      title: "Application Rejected",
-      message: "Application #1018 from Amit Kumar has been rejected",
-      timeAgo: "1 day ago",
-      timestamp: "11 Oct 2024, 4:15 PM",
-      type: "completed",
-      isRead: true,
-      applicationId: "1018",
-      icon: "close-circle-outline",
-      iconColor: "#F44336"
-    },
-    {
-      id: "6",
-      title: "New Comment Added",
-      message: "Team member added a comment on Application #1017",
-      timeAgo: "1 day ago",
-      timestamp: "11 Oct 2024, 2:45 PM",
-      type: "new",
-      isRead: true,
-      applicationId: "1017",
-      icon: "chatbubble-outline",
-      iconColor: "#9C27B0"
-    },
-    {
-      id: "7",
-      title: "System Update",
-      message: "New features added: Bulk approval and enhanced reporting",
-      timeAgo: "2 days ago",
-      timestamp: "10 Oct 2024, 10:00 AM",
-      type: "system",
-      isRead: true,
-      icon: "refresh-outline",
-      iconColor: "#607D8B"
-    },
-    {
-      id: "8",
-      title: "Application Completed",
-      message: "Application #1015 from Suresh Singh has been fully processed",
-      timeAgo: "2 days ago",
-      timestamp: "10 Oct 2024, 3:20 PM",
-      type: "completed",
-      isRead: true,
-      applicationId: "1015",
-      icon: "checkmark-done-outline",
-      iconColor: "#4CAF50"
+  const tabs = useMemo(() => ["All", "New", "KYC", "Application"] as const, []);
+
+  // Helper function to format timestamp
+  const formatTimestamp = (timestamp: string): string => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  };
+
+  // Helper function to determine notification type
+  const getNotificationType = (component: string, eventType: string): "Application" | "KYC" => {
+    // Map component/event types to our notification types
+    if (eventType?.toLowerCase().includes('kyc') || component?.toLowerCase().includes('kyc')) {
+      return "KYC";
     }
-  ]);
-
-  const filteredNotifications = useMemo(() => {
-    if (activeFilter === "all") return notifications;
-    return notifications.filter(n => n.type === activeFilter);
-  }, [notifications, activeFilter]);
-
-  const unreadCount = notifications.filter(n => !n.isRead).length;
-
-  const markAllAsRead = () => {
-    setNotifications(prev =>
-      prev.map(n => ({ ...n, isRead: true }))
-    );
+    return "Application";
   };
 
-  const markAsRead = (id: string) => {
-    setNotifications(prev =>
-      prev.map(n => n.id === id ? { ...n, isRead: true } : n)
-    );
+  // Fetch notifications from API
+  const fetchNotifications = async () => {
+    try {
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) {
+        setError("No authentication data found");
+        setLoading(false);
+        return;
+      }
+
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
+
+      if (!token) {
+        setError("No authentication token found");
+        setLoading(false);
+        return;
+      }
+
+      console.log("Fetching notifications with token:", token.substring(0, 20) + "...");
+
+      const response = await getNotifications(token, {
+        page: 1,
+        per_page: 200,
+      });
+
+      console.log("API Response:", JSON.stringify(response, null, 2));
+      console.log("Response success:", response.success);
+      console.log("Response data type:", typeof response.data);
+      console.log("Response data:", response.data);
+
+      if (response.success && response.data) {
+        // The API wraps the response, so response.data contains the actual API response
+        // which has { success: true, data: [...], pagination: {...} }
+        let notificationsData: any[] = [];
+
+        if (Array.isArray(response.data)) {
+          // If response.data is directly an array
+          notificationsData = response.data;
+        } else if (response.data.data && Array.isArray(response.data.data)) {
+          // If response.data has a nested data property
+          notificationsData = response.data.data;
+        } else if (typeof response.data === 'object' && response.data.success && Array.isArray(response.data.data)) {
+          // If the API response is wrapped again
+          notificationsData = response.data.data;
+        }
+
+        console.log("Notifications data array:", notificationsData);
+        console.log("Number of notifications:", notificationsData.length);
+
+        const notifications: Notification[] = notificationsData.map((item: any) => ({
+          id: String(item.id),
+          type: getNotificationType(item.component, item.event_type),
+          text: item.message || item.subject || "No message",
+          subject: item.subject,
+          ts: formatTimestamp(item.created_at),
+          read: item.is_read === true || item.read_at !== null,
+          component: item.component,
+          event_type: item.event_type,
+        }));
+
+        console.log("Mapped notifications:", notifications);
+        setItems(notifications);
+        setError(null);
+      } else {
+        console.log("API call failed or no data");
+        setError(response.error || "Failed to load notifications");
+      }
+    } catch (err: any) {
+      console.error("Error in fetchNotifications:", err);
+      setError(err.message || "An error occurred");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
-  const filterTabs = [
-    { key: "all" as FilterType, label: "All", count: notifications.length },
-    { key: "new" as FilterType, label: "New", count: notifications.filter(n => n.type === "new").length },
-    { key: "completed" as FilterType, label: "Completed", count: notifications.filter(n => n.type === "completed").length },
-    { key: "system" as FilterType, label: "System", count: notifications.filter(n => n.type === "system").length },
-  ];
+  // Load notifications on mount
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  // Pull to refresh
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchNotifications();
+  };
+
+
+  const filtered = useMemo(() => {
+    switch (activeTab) {
+      case "New":
+        return items.filter((i) => !i.read);
+      case "KYC":
+        return items.filter((i) => i.type === "KYC");
+      case "Application":
+        return items.filter((i) => i.type === "Application");
+      default:
+        return items;
+    }
+  }, [activeTab, items]);
+
+  const unreadCount = useMemo(() => items.filter(i => !i.read).length, [items]);
+
+  const markAllAsRead = async () => {
+    try {
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) {
+        Alert.alert("Error", "No authentication data found");
+        return;
+      }
+
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
+
+      if (!token) {
+        Alert.alert("Error", "No authentication token found");
+        return;
+      }
+
+      const response = await markAllNotificationsRead(token);
+
+      if (response.success) {
+        // Update local state
+        setItems((prev) => prev.map((i) => ({ ...i, read: true })));
+        Alert.alert("Success", "All notifications marked as read");
+      } else {
+        Alert.alert("Error", response.error || "Failed to mark notifications as read");
+      }
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "An error occurred");
+    }
+  };
+
+  const toggleRead = async (id: string) => {
+    try {
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) return;
+
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
+      if (!token) return;
+
+      // Find the notification to check if it's already read
+      const notification = items.find(i => i.id === id);
+      if (!notification || notification.read) {
+        // If already read, do nothing
+        return;
+      }
+
+      // Optimistically update UI
+      setItems((prev) => prev.map((i) => i.id === id ? { ...i, read: true } : i));
+
+      // Call API to mark as read
+      const response = await markNotificationRead(token, id);
+
+      if (!response.success) {
+        // Revert on failure
+        setItems((prev) => prev.map((i) => i.id === id ? { ...i, read: false } : i));
+        console.error("Failed to mark notification as read:", response.error);
+      }
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      // Revert on error
+      setItems((prev) => prev.map((i) => i.id === id ? { ...i, read: false } : i));
+    }
+  };
+
+  const renderItem = ({ item }: { item: (typeof items)[number] }) => (
+    <TouchableOpacity
+      onPress={() => toggleRead(item.id)}
+      activeOpacity={0.7}
+      style={[
+        styles.item,
+        { backgroundColor: colors.card, borderColor: colors.border },
+        !item.read && [styles.itemUnread, { borderColor: isDark ? "#60A5FA" : "#3B82F6" }]
+      ]}
+    >
+      <View style={styles.itemContent}>
+        <View style={styles.itemLeft}>
+          {!item.read && <View style={[styles.unreadDot, { backgroundColor: isDark ? "#60A5FA" : "#3B82F6" }]} />}
+          <View style={styles.itemBody}>
+            <View style={styles.itemHeader}>
+              <View style={[
+                styles.pill,
+                item.type === "KYC"
+                  ? [styles.pillKyc, { backgroundColor: isDark ? "rgba(59, 130, 246, 0.15)" : "#DBEAFE" }]
+                  : [styles.pillApplication, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.15)" : "#D1FAE5" }]
+              ]}>
+                <Text style={[
+                  styles.pillText,
+                  item.type === "KYC"
+                    ? [styles.pillTextKyc, { color: isDark ? "#60A5FA" : "#1E40AF" }]
+                    : [styles.pillTextApp, { color: isDark ? "#34D399" : "#065F46" }]
+                ]}>
+                  {item.type}
+                </Text>
+              </View>
+              <Text style={[styles.time, { color: colors.textSecondary }]}>{item.ts}</Text>
+            </View>
+            <Text style={[
+              styles.itemText,
+              { color: colors.textSecondary },
+              !item.read && [styles.itemTextUnread, { color: colors.text }]
+            ]}>{item.text}</Text>
+          </View>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ReviewerHeader
-        title="Notifications"
-        rightElement={
-          unreadCount > 0 && (
-            <TouchableOpacity
-              style={[styles.markAllBtn, { backgroundColor: isDark ? "rgba(76, 175, 80, 0.1)" : "#E8F5E9" }]}
-              onPress={markAllAsRead}
-            >
-              <Ionicons name="checkmark-done-outline" size={16} color="#4CAF50" />
-              <Text style={styles.markAllText}>Mark All as Read</Text>
-            </TouchableOpacity>
-          )
-        }
-      />
-
-      <View style={[styles.headerContent, { backgroundColor: colors.background, borderColor: colors.border, marginTop: 10 }]}>
-        {/* Filter Tabs */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.tabsContainer}
-          contentContainerStyle={styles.tabsContent}
-        >
-          {filterTabs.map((tab) => (
-            <TouchableOpacity
-              key={tab.key}
-              style={[
-                styles.tab,
-                { backgroundColor: isDark ? colors.card : "#f5f5f5" },
-                activeFilter === tab.key && [styles.activeTab, { backgroundColor: isDark ? colors.primary : "#333" }]
-              ]}
-              onPress={() => setActiveFilter(tab.key)}
-            >
-              <Text style={[
-                styles.tabText,
-                { color: colors.textSecondary },
-                activeFilter === tab.key && styles.activeTabText
-              ]}>
-                {tab.label}
-              </Text>
-              {tab.count > 0 && (
-                <View style={[
-                  styles.tabBadge,
-                  { backgroundColor: isDark ? colors.background : "#fff" },
-                  activeFilter === tab.key && styles.activeTabBadge
-                ]}>
-                  <Text style={[
-                    styles.tabBadgeText,
-                    { color: colors.text },
-                    activeFilter === tab.key && styles.activeTabBadgeText
-                  ]}>
-                    {tab.count}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* Mark All as Read Button */}
-
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={[styles.cardList, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          {filteredNotifications.map((n) => (
-            <TouchableOpacity
-              key={n.id}
-              style={[
-                styles.listItem,
-                { borderBottomColor: colors.border },
-                !n.isRead && [styles.unreadItem, { backgroundColor: isDark ? "rgba(33, 150, 243, 0.1)" : "rgba(33, 150, 243, 0.02)" }]
-              ]}
-              activeOpacity={0.8}
-              onPress={() => markAsRead(n.id)}
-            >
-              <View style={[styles.listItemIcon, { backgroundColor: `${n.iconColor}15` }]}>
-                <Ionicons name={n.icon as any} size={18} color={n.iconColor} />
+      <ReviewerHeader title="Notifications" />
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+            Loading notifications...
+          </Text>
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Text style={[styles.errorText, { color: colors.error || "#EF4444" }]}>
+            {error}
+          </Text>
+          <Button
+            title="Retry"
+            variant="primary"
+            onPress={() => {
+              setLoading(true);
+              setError(null);
+              fetchNotifications();
+            }}
+          />
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={(i) => i.id}
+          renderItem={renderItem}
+          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+          ListHeaderComponent={() => (
+            <View style={styles.listHeaderArea}>
+              <View style={styles.titleRow}>
+                <Text style={[styles.title, { color: colors.text }]}>Notifications</Text>
+                {unreadCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{unreadCount} new</Text>
+                  </View>
+                )}
               </View>
-              <View style={styles.listItemBody}>
-                <View style={styles.listItemHeader}>
-                  <Text style={[styles.listItemTitle, { color: colors.text }, !n.isRead && styles.unreadTitle]}>
-                    {n.title}
-                  </Text>
-                  {!n.isRead && <View style={styles.unreadDot} />}
-                </View>
-                <Text style={[styles.listItemMessage, { color: colors.textSecondary }]}>{n.message}</Text>
-                <Text style={[styles.listItemSub, { color: colors.textSecondary }]}>{n.timestamp}</Text>
+              <View style={styles.tabs}>
+                {tabs.map((t) => {
+                  const count = t === "New" ? unreadCount :
+                    t === "All" ? items.length :
+                      items.filter(i => i.type === t).length;
+                  return (
+                    <TouchableOpacity
+                      key={t}
+                      onPress={() => setActiveTab(t)}
+                      style={[
+                        styles.tab,
+                        { backgroundColor: colors.card, borderColor: colors.border },
+                        activeTab === t && [styles.tabActive, { borderColor: isDark ? colors.primary : "#F59E0B", backgroundColor: isDark ? colors.primary + "15" : "#FFFBEB" }]
+                      ]}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        styles.tabText,
+                        { color: colors.textSecondary },
+                        activeTab === t && [styles.tabTextActive, { color: isDark ? colors.primary : "#92400E" }]
+                      ]}>
+                        {t}
+                      </Text>
+                      {count > 0 && (
+                        <View style={[
+                          styles.tabBadge,
+                          { backgroundColor: isDark ? colors.surface : "#F3F4F6" },
+                          activeTab === t && [styles.tabBadgeActive, { backgroundColor: isDark ? colors.primary + "33" : "#FCD34D" }]
+                        ]}>
+                          <Text style={[
+                            styles.tabBadgeText,
+                            { color: colors.textSecondary },
+                            activeTab === t && [styles.tabBadgeTextActive, { color: isDark ? colors.primary : "#78350F" }]
+                          ]}>
+                            {count}
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-            </TouchableOpacity>
-          ))}
-          {filteredNotifications.length === 0 && (
-            <View style={styles.emptyState}>
-              <Ionicons name="notifications-off-outline" size={48} color={isDark ? colors.border : "#ccc"} />
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No {activeFilter} notifications</Text>
             </View>
           )}
-        </View>
-      </ScrollView>
+          ListFooterComponent={() => (
+            unreadCount > 0 ? (
+              <View style={styles.footer}>
+                <Button title="Mark All as Read" variant="secondary" onPress={markAllAsRead} />
+              </View>
+            ) : null
+          )}
+          ListEmptyComponent={() => (
+            <View style={styles.empty}>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                No notifications to display
+              </Text>
+            </View>
+          )}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </View>
   );
 }
@@ -258,170 +388,186 @@ export default function ReviewerNotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    paddingTop: 12,
   },
-  headerContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderColor: "#f0f0f0",
-  },
-  badge: {
-    backgroundColor: "#F44336",
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    minWidth: 24,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
+    padding: 20,
   },
-  badgeText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "700",
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    fontWeight: "500",
   },
-  tabsContainer: {
-    marginBottom: 12,
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    gap: 16,
   },
-  tabsContent: {
-    paddingRight: 20,
+  errorText: {
+    fontSize: 16,
+    fontWeight: "500",
+    textAlign: "center",
   },
-  tab: {
+  listContent: {
+    padding: 20,
+    paddingBottom: 24,
+  },
+  listHeaderArea: {
+    marginBottom: 20,
+  },
+  titleRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: 8,
-    borderRadius: 20,
-    backgroundColor: "#f5f5f5",
+    marginBottom: 16,
+    gap: 12,
   },
-  activeTab: {
-    backgroundColor: "#333",
+  title: {
+    fontSize: 24,
+    fontWeight: "700",
+    letterSpacing: -0.5,
   },
-  tabText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#666",
+  badge: {
+    backgroundColor: "#EF4444",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
   },
-  activeTabText: {
+  badgeText: {
+    fontSize: 12,
+    fontWeight: "700",
     color: "#fff",
   },
+  tabs: {
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  tab: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  tabActive: {
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  tabText: {
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  tabTextActive: {
+    fontWeight: "700",
+  },
   tabBadge: {
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    paddingHorizontal: 6,
+    paddingHorizontal: 7,
     paddingVertical: 2,
-    marginLeft: 6,
+    borderRadius: 999,
     minWidth: 20,
     alignItems: "center",
   },
-  activeTabBadge: {
-    backgroundColor: "rgba(255,255,255,0.2)",
+  tabBadgeActive: {
   },
   tabBadgeText: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#333",
   },
-  activeTabBadgeText: {
-    color: "#fff",
+  tabBadgeTextActive: {
   },
-  markAllBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: "#E8F5E9",
+  item: {
     borderRadius: 16,
-  },
-  markAllText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#4CAF50",
-    marginLeft: 4,
-  },
-  content: {
-    padding: 20,
-  },
-  cardList: {
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "rgba(51, 51, 51, 0.1)",
-    shadowColor: "#333",
+    borderWidth: 1.5,
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  itemUnread: {
+    borderWidth: 2,
+    shadowColor: "#3B82F6",
+    shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 3,
   },
-  listItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
+  itemContent: {
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(51, 51, 51, 0.06)",
   },
-  unreadItem: {
-    backgroundColor: "rgba(33, 150, 243, 0.02)",
-    borderLeftWidth: 3,
-    borderLeftColor: "#2196F3",
-  },
-  listItemIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-    marginTop: 2,
-  },
-  listItemBody: {
-    flex: 1,
-  },
-  listItemHeader: {
+  itemLeft: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 4,
-  },
-  listItemTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#333",
-    flex: 1,
-  },
-  unreadTitle: {
-    fontWeight: "700",
+    gap: 12,
+    alignItems: "flex-start",
   },
   unreadDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
-    backgroundColor: "#2196F3",
-    marginLeft: 8,
+    borderRadius: 999,
+    marginTop: 6,
   },
-  listItemMessage: {
-    fontSize: 13,
-    color: "#666",
-    lineHeight: 18,
-    marginBottom: 4,
+  itemBody: {
+    flex: 1,
   },
-  listItemSub: {
+  itemHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  pill: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+  },
+  pillKyc: {
+  },
+  pillApplication: {
+  },
+  pillText: {
+    fontWeight: "700",
     fontSize: 11,
-    color: "#999",
-    fontWeight: "500",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
-  emptyState: {
-    padding: 40,
+  pillTextKyc: {
+  },
+  pillTextApp: {
+  },
+  time: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  itemText: {
+    fontSize: 15,
+    fontWeight: "500",
+    lineHeight: 22,
+  },
+  itemTextUnread: {
+    fontWeight: "600",
+  },
+  footer: {
+    marginTop: 20,
+  },
+  empty: {
+    paddingVertical: 60,
     alignItems: "center",
   },
   emptyText: {
-    fontSize: 14,
-    color: "#999",
-    marginTop: 12,
+    fontSize: 15,
     fontWeight: "500",
   },
 });
-
-
