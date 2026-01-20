@@ -1,15 +1,13 @@
 import { useTheme } from "@/context/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React from "react";
 import {
-  Alert,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ReviewerHeader } from "../../../components";
@@ -18,26 +16,7 @@ export default function ReviewerSettingsScreen() {
   const inset = useSafeAreaInsets();
   const { theme, toggleTheme, isDark, colors } = useTheme();
 
-  // Settings state
-  const [settings, setSettings] = useState({
-    language: "english", // "english" | "hindi"
-    notifications: true,
-    autoSync: false,
-  });
 
-  const handleLanguageChange = () => {
-    const newLanguage = settings.language === "english" ? "hindi" : "english";
-    setSettings(prev => ({ ...prev, language: newLanguage }));
-    Alert.alert("Language Changed", `Switched to ${newLanguage}`);
-  };
-
-  const handleNotificationToggle = (value: boolean) => {
-    setSettings(prev => ({ ...prev, notifications: value }));
-  };
-
-  const handleAutoSyncToggle = (value: boolean) => {
-    setSettings(prev => ({ ...prev, autoSync: value }));
-  };
 
   const handleHelpSupport = () => {
     router.push("/(dashboard)/reviewer/help-support");
@@ -90,66 +69,6 @@ export default function ReviewerSettingsScreen() {
                   <View style={[styles.themeToggleThumb, isDark && styles.themeToggleThumbActive]} />
                 </View>
               </TouchableOpacity>
-            </View>
-
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-            {/* Language Selection */}
-            <TouchableOpacity style={styles.settingItem} onPress={handleLanguageChange} activeOpacity={0.7}>
-              <View style={styles.settingLeft}>
-                <View style={[styles.settingIcon, { backgroundColor: isDark ? "rgba(33, 150, 243, 0.2)" : "#f5f5f5" }]}>
-                  <Ionicons name="language-outline" size={20} color="#2196F3" />
-                </View>
-                <View style={styles.settingContent}>
-                  <Text style={[styles.settingTitle, { color: colors.text }]}>Language</Text>
-                  <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>
-                    {settings.language === "english" ? "English" : "हिंदी"}
-                  </Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-            </TouchableOpacity>
-
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-            {/* Notifications */}
-            <View style={styles.settingItem}>
-              <View style={styles.settingLeft}>
-                <View style={[styles.settingIcon, { backgroundColor: isDark ? "rgba(255, 152, 0, 0.2)" : "#f5f5f5" }]}>
-                  <Ionicons name="notifications-outline" size={20} color="#FF9800" />
-                </View>
-                <View style={styles.settingContent}>
-                  <Text style={[styles.settingTitle, { color: colors.text }]}>Notifications</Text>
-                  <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Push notifications and alerts</Text>
-                </View>
-              </View>
-              <Switch
-                value={settings.notifications}
-                onValueChange={handleNotificationToggle}
-                trackColor={{ false: isDark ? "#374151" : "#e0e0e0", true: "#FF9800" }}
-                thumbColor={settings.notifications ? "#fff" : "#f4f3f4"}
-              />
-            </View>
-
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-            {/* Auto Sync */}
-            <View style={styles.settingItem}>
-              <View style={styles.settingLeft}>
-                <View style={[styles.settingIcon, { backgroundColor: isDark ? "rgba(76, 175, 80, 0.2)" : "#f5f5f5" }]}>
-                  <Ionicons name="sync-outline" size={20} color="#4CAF50" />
-                </View>
-                <View style={styles.settingContent}>
-                  <Text style={[styles.settingTitle, { color: colors.text }]}>Auto Sync</Text>
-                  <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Automatically sync data (future)</Text>
-                </View>
-              </View>
-              <Switch
-                value={settings.autoSync}
-                onValueChange={handleAutoSyncToggle}
-                trackColor={{ false: isDark ? "#374151" : "#e0e0e0", true: "#4CAF50" }}
-                thumbColor={settings.autoSync ? "#fff" : "#f4f3f4"}
-              />
             </View>
           </View>
         </View>

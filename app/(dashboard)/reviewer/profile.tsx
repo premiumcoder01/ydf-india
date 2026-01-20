@@ -26,13 +26,11 @@ export default function ReviewerProfileScreen() {
   const [reviewerData, setReviewerData] = useState({
     name: "Reviewer",
     email: "",
-    role: "Senior Reviewer",
-    organization: "University of Technology",
-    department: "Admissions Department",
+    role: "Reviewer",
+    phone: "",
+    gender: "",
+    state: "",
     profilePhoto: null as string | null,
-    joinDate: "2023",
-    totalReviews: 156,
-    averageRating: 4.8,
   });
 
   // Fetch reviewer profile
@@ -58,11 +56,29 @@ export default function ReviewerProfileScreen() {
 
         if (response.success && response.data?.user) {
           const user = response.data.user;
+          // Parse custom map
+          let customMap: any = {};
+          try {
+            if (user.customfields_map && typeof user.customfields_map === 'string') {
+              customMap = JSON.parse(user.customfields_map);
+            } else if (user.customfields && Array.isArray(user.customfields)) {
+              user.customfields.forEach((field: any) => {
+                customMap[field.shortname] = field.value;
+              });
+            }
+          } catch (e) {
+            console.log("Error parsing custom fields", e);
+          }
+
           setReviewerData(prev => ({
             ...prev,
             name: user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || "Reviewer",
             email: user.email || prev.email,
             profilePhoto: user.profileimageurl || null,
+            role: (user.roles && user.roles.length > 0) ? user.roles.join(", ") : "Reviewer",
+            phone: customMap.phone_number || user.phone1 || "N/A",
+            gender: customMap.Gender || "N/A",
+            state: customMap.State || "N/A",
           }));
         } else if (authData?.user) {
           const user = authData.user;
@@ -143,31 +159,15 @@ export default function ReviewerProfileScreen() {
                 <Ionicons name="person" size={40} color={isDark ? colors.textSecondary : "#666"} />
               </View>
             )}
-            <TouchableOpacity style={[styles.editPhotoBtn, { borderColor: isDark ? colors.card : "#fff" }]} activeOpacity={0.8}>
-              <Ionicons name="camera" size={16} color="#fff" />
-            </TouchableOpacity>
+
           </View>
 
           <Text style={[styles.name, { color: colors.text }]}>{reviewerData.name}</Text>
           <Text style={styles.role}>{reviewerData.role}</Text>
-          <Text style={[styles.organization, { color: colors.textSecondary }]}>{reviewerData.organization}</Text>
+          <Text style={[styles.organization, { color: colors.textSecondary }]}>{reviewerData.state}</Text>
         </View>
 
-        {/* Profile Stats */}
-        <View style={styles.statsContainer}>
-          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{reviewerData.totalReviews}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Reviews</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{reviewerData.averageRating}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Avg Rating</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{reviewerData.joinDate}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Joined</Text>
-          </View>
-        </View>
+
 
         {/* Personal Information */}
         <View style={styles.section}>
@@ -186,31 +186,31 @@ export default function ReviewerProfileScreen() {
 
             <View style={styles.infoRow}>
               <View style={[styles.infoIcon, { backgroundColor: isDark ? colors.background : "#f5f5f5" }]}>
-                <Ionicons name="briefcase-outline" size={20} color="#4CAF50" />
+                <Ionicons name="call-outline" size={20} color="#4CAF50" />
               </View>
               <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Role</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>{reviewerData.role}</Text>
+                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Phone</Text>
+                <Text style={[styles.infoValue, { color: colors.text }]}>{reviewerData.phone}</Text>
               </View>
             </View>
 
             <View style={styles.infoRow}>
               <View style={[styles.infoIcon, { backgroundColor: isDark ? colors.background : "#f5f5f5" }]}>
-                <Ionicons name="business-outline" size={20} color="#FF9800" />
+                <Ionicons name="person-outline" size={20} color="#FF9800" />
               </View>
               <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Organization</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>{reviewerData.organization}</Text>
+                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Gender</Text>
+                <Text style={[styles.infoValue, { color: colors.text }]}>{reviewerData.gender}</Text>
               </View>
             </View>
 
             <View style={styles.infoRow}>
               <View style={[styles.infoIcon, { backgroundColor: isDark ? colors.background : "#f5f5f5" }]}>
-                <Ionicons name="library-outline" size={20} color="#9C27B0" />
+                <Ionicons name="location-outline" size={20} color="#9C27B0" />
               </View>
               <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Department</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>{reviewerData.department}</Text>
+                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>State</Text>
+                <Text style={[styles.infoValue, { color: colors.text }]}>{reviewerData.state}</Text>
               </View>
             </View>
           </View>
@@ -372,35 +372,7 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
   },
-  statsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 20,
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 16,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#333",
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: "#666",
-    textAlign: "center",
-  },
+
   section: {
     marginBottom: 20,
   },

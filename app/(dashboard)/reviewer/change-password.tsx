@@ -1,5 +1,7 @@
 import { AppHeader, Button, CustomTextInput } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
+import { updatePassword } from "@/utils/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
@@ -24,12 +26,33 @@ export default function ReviewerChangePasswordScreen() {
         }
 
         setLoading(true);
-        // Simulate API call
-        setTimeout(() => {
+        try {
+            const authDataStr = await AsyncStorage.getItem("authData");
+            if (!authDataStr) {
+                Alert.alert("Error", "Session expired. Please login again.");
+                return;
+            }
+
+            const authData = JSON.parse(authDataStr);
+            if (!authData.token) {
+                Alert.alert("Error", "Session invalid. Please login again.");
+                return;
+            }
+
+            const response = await updatePassword(authData.token, currentPassword, newPassword);
+
+            if (response.success) {
+                Alert.alert("Success", "Password changed successfully");
+                router.back();
+            } else {
+                Alert.alert("Error", response.message || response.error || "Failed to update password");
+            }
+        } catch (error) {
+            console.error(error);
+            Alert.alert("Error", "An unexpected error occurred");
+        } finally {
             setLoading(false);
-            Alert.alert("Success", "Password changed successfully");
-            router.back();
-        }, 1500);
+        }
     };
 
     return (

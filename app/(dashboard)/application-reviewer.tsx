@@ -257,7 +257,14 @@ export default function ApplicationReviewerDashboard() {
           <View style={[styles.progressBar, { backgroundColor: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(51, 51, 51, 0.08)" }]}>
             <View style={[styles.progressFill, { width: `${progress.progress_percentage}%` }]} />
           </View>
-          <Text style={[styles.progressLabel, { color: colors.text }]}>{progress.progress_percentage}% reviewed</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+            <Text style={[styles.progressLabel, { color: colors.text, marginTop: 0 }]}>
+              {progress.progress_percentage}% reviewed
+            </Text>
+            <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: '500' }}>
+              {progress.current_stage || "Status Unknown"}
+            </Text>
+          </View>
         </View>
 
         {/* Recent Applications */}
@@ -324,18 +331,7 @@ export default function ApplicationReviewerDashboard() {
               </View>
             </TouchableOpacity>
 
-            {/* <TouchableOpacity style={[styles.featureCard, { borderLeftColor: "#4CAF50" }]} activeOpacity={0.8} onPress={() => router.push("/(dashboard)/reviewer/reports") }>
-              <View style={styles.featureContent}>
-                <View style={[styles.featureIcon, { backgroundColor: "#4CAF5020" }]}>
-                  <Ionicons name="stats-chart-outline" size={24} color="#4CAF50" />
-                </View>
-                <View style={styles.featureInfo}>
-                  <Text style={styles.featureTitle}>View Reports</Text>
-                  <Text style={styles.featureDescription}>Insights on approvals and trends</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color="#666" />
-              </View>
-            </TouchableOpacity> */}
+
           </View>
         </View>
       </ScrollView>

@@ -1,229 +1,185 @@
+import { ReviewerHeader } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
+import { getAboutPage } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React from "react";
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ReviewerHeader } from "../../../components";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import RenderHtml from "react-native-render-html";
 
-export default function AboutScreen() {
-  const inset = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
+export default function ReviewerAboutScreen() {
+  const { isDark, colors } = useTheme();
+  const { width } = useWindowDimensions();
+  const [content, setContent] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  const handlePrivacyPolicy = () => {
-    // Navigate to privacy policy
-    alert("Privacy Policy will open in a new window");
-  };
+  useEffect(() => {
+    const fetchAbout = async () => {
+      try {
+        const authDataStr = await AsyncStorage.getItem("authData");
+        if (authDataStr) {
+          const authData = JSON.parse(authDataStr);
+          if (authData.token) {
+            const res = await getAboutPage(authData.token);
+            if (res.success && res.data) {
+              setContent(res.data.content || "<p>No content available.</p>");
+            } else {
+              setContent("<p>Failed to load about page.</p>");
+            }
+          }
+        } else {
+          setContent("<p>Please login to view about page.</p>");
+        }
+      } catch (e) {
+        setContent("<p>Failed to load about page.</p>");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAbout();
+  }, []);
 
-  const handleTermsConditions = () => {
-    router.push("/(dashboard)/reviewer/terms-conditions");
+  const tagsStyles = {
+    body: {
+      color: colors.text,
+      fontSize: 15,
+      lineHeight: 24,
+    },
+    p: {
+      color: colors.textSecondary,
+      marginBottom: 10,
+    },
+    h1: { color: colors.text, marginTop: 20, marginBottom: 10 },
+    h2: { color: colors.text, marginTop: 20, marginBottom: 10 },
+    h3: { color: colors.text, marginTop: 20, marginBottom: 10 },
+    a: { color: colors.primary, textDecorationLine: 'none' },
+    li: { color: colors.textSecondary },
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ReviewerHeader
-        title="About"
-        subtitle="App information and team"
+    <View style={styles.container}>
+      <LinearGradient
+        colors={isDark ? ["#121212", "#1e1e1e"] : ["#fff", "#f8f9fa"]}
+        style={styles.background}
       />
 
-      <ScrollView
-        style={styles.content}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: inset.bottom + 20 }}
-      >
-        {/* App Logo and Info */}
-        <View style={[styles.appInfoCard, { backgroundColor: colors.card }]}>
-          <View style={styles.logoContainer}>
-            <View style={[styles.logoPlaceholder, { backgroundColor: isDark ? colors.surface : "#E3F2FD" }]}>
-              <Ionicons name="school-outline" size={48} color={isDark ? colors.primary : "#2196F3"} />
+      <ReviewerHeader title="About & Support" />
+
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* About Content Card */}
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.appIconContainer}>
+              <LinearGradient
+                colors={["#667eea", "#764ba2"]}
+                style={styles.appIcon}
+              >
+                <Ionicons name="business" size={32} color="#fff" />
+              </LinearGradient>
             </View>
+            <Text style={[styles.appName, { color: colors.text }]}>Reviewer Portal</Text>
+            <Text style={[styles.appVersion, { color: colors.textSecondary }]}>Version 1.0.0</Text>
+
+            <RenderHtml
+              contentWidth={width - 80}
+              source={{ html: content }}
+              tagsStyles={tagsStyles as any}
+              systemFonts={["System", "sans-serif"]}
+            />
           </View>
 
-          <Text style={[styles.appName, { color: colors.text }]}>Scholarship Review App</Text>
-          <Text style={[styles.appVersion, { color: colors.textSecondary }]}>Version 1.0.0</Text>
-          <Text style={[styles.appDescription, { color: colors.textSecondary }]}>
-            A comprehensive platform for reviewing and managing scholarship applications with advanced document verification and decision management tools.
+          {/* Information & Support Section */}
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Information & Support
           </Text>
-        </View>
-
-        {/* About Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>About This App</Text>
-
-          <View style={[styles.aboutCard, { backgroundColor: colors.card }]}>
-            <Text style={[styles.aboutText, { color: colors.textSecondary }]}>
-              The Scholarship Review App is designed to streamline the scholarship application review process. Our platform provides reviewers with powerful tools to efficiently evaluate applications, verify documents, and make informed decisions.
-            </Text>
-
-            <Text style={[styles.aboutText, { color: colors.textSecondary }]}>
-              Built with modern technology and user experience in mind, this app ensures secure, fair, and transparent scholarship review processes while maintaining the highest standards of data protection and privacy.
-            </Text>
-          </View>
-        </View>
-
-        {/* Features Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Key Features</Text>
-
-          <View style={[styles.featuresCard, { backgroundColor: colors.card }]}>
-            <View style={styles.featureItem}>
-              <View style={[styles.featureIcon, { backgroundColor: isDark ? colors.border : "#f5f5f5" }]}>
-                <Ionicons name="document-text-outline" size={20} color={isDark ? colors.primary : "#2196F3"} />
+          <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <TouchableOpacity
+              style={[styles.settingItem, { borderBottomColor: colors.border }]}
+              activeOpacity={0.7}
+              onPress={() => router.push("/(dashboard)/reviewer/terms-conditions")}
+            >
+              <View style={styles.settingInfo}>
+                <View style={[styles.settingIconContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f8f8" }]}>
+                  <Ionicons
+                    name="document-text-outline"
+                    size={20}
+                    color="#2196F3"
+                  />
+                </View>
+                <View style={styles.settingText}>
+                  <Text style={[styles.settingTitle, { color: colors.text }]}>Terms of Service</Text>
+                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                    Read our terms and conditions
+                  </Text>
+                </View>
               </View>
-              <Text style={[styles.featureText, { color: colors.text }]}>Document Verification</Text>
-            </View>
-
-            <View style={styles.featureItem}>
-              <View style={[styles.featureIcon, { backgroundColor: isDark ? colors.border : "#f5f5f5" }]}>
-                <Ionicons name="checkmark-circle-outline" size={20} color={colors.success} />
-              </View>
-              <Text style={[styles.featureText, { color: colors.text }]}>Application Review Tools</Text>
-            </View>
-
-            <View style={styles.featureItem}>
-              <View style={[styles.featureIcon, { backgroundColor: isDark ? colors.border : "#f5f5f5" }]}>
-                <Ionicons name="notifications-outline" size={20} color="#FF9800" />
-              </View>
-              <Text style={[styles.featureText, { color: colors.text }]}>Real-time Notifications</Text>
-            </View>
-
-            <View style={styles.featureItem}>
-              <View style={[styles.featureIcon, { backgroundColor: isDark ? colors.border : "#f5f5f5" }]}>
-                <Ionicons name="stats-chart-outline" size={20} color="#9C27B0" />
-              </View>
-              <Text style={[styles.featureText, { color: colors.text }]}>Analytics & Reports</Text>
-            </View>
-
-            <View style={styles.featureItem}>
-              <View style={[styles.featureIcon, { backgroundColor: isDark ? colors.border : "#f5f5f5" }]}>
-                <Ionicons name="shield-checkmark-outline" size={20} color={colors.error} />
-              </View>
-              <Text style={[styles.featureText, { color: colors.text }]}>Secure Data Handling</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Development Team */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Development Team</Text>
-
-          <View style={[styles.teamCard, { backgroundColor: colors.card }]}>
-            <View style={styles.teamMember}>
-              <View style={[styles.memberAvatar, { backgroundColor: isDark ? colors.border : "#f5f5f5" }]}>
-                <Ionicons name="person" size={24} color={colors.textSecondary} />
-              </View>
-              <View style={styles.memberInfo}>
-                <Text style={[styles.memberName, { color: colors.text }]}>Tech Solutions Inc.</Text>
-                <Text style={[styles.memberRole, { color: colors.textSecondary }]}>Development Team</Text>
-              </View>
-            </View>
-
-            <View style={styles.teamMember}>
-              <View style={[styles.memberAvatar, { backgroundColor: isDark ? colors.border : "#f5f5f5" }]}>
-                <Ionicons name="people" size={24} color={colors.textSecondary} />
-              </View>
-              <View style={styles.memberInfo}>
-                <Text style={[styles.memberName, { color: colors.text }]}>Design Studio</Text>
-                <Text style={[styles.memberRole, { color: colors.textSecondary }]}>UI/UX Design</Text>
-              </View>
-            </View>
-
-            <View style={styles.teamMember}>
-              <View style={[styles.memberAvatar, { backgroundColor: isDark ? colors.border : "#f5f5f5" }]}>
-                <Ionicons name="shield-checkmark" size={24} color={colors.textSecondary} />
-              </View>
-              <View style={styles.memberInfo}>
-                <Text style={[styles.memberName, { color: colors.text }]}>Security Team</Text>
-                <Text style={[styles.memberRole, { color: colors.textSecondary }]}>Data Protection</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Contact Information */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Contact Information</Text>
-
-          <View style={[styles.contactCard, { backgroundColor: colors.card }]}>
-            <View style={styles.contactItem}>
-              <View style={[styles.contactIcon, { backgroundColor: isDark ? colors.border : "#f5f5f5" }]}>
-                <Ionicons name="mail-outline" size={20} color={isDark ? colors.primary : "#2196F3"} />
-              </View>
-              <View style={styles.contactInfo}>
-                <Text style={[styles.contactLabel, { color: colors.textSecondary }]}>Email</Text>
-                <Text style={[styles.contactValue, { color: colors.text }]}>support@scholarshipapp.com</Text>
-              </View>
-            </View>
-
-            <View style={styles.contactItem}>
-              <View style={[styles.contactIcon, { backgroundColor: isDark ? colors.border : "#f5f5f5" }]}>
-                <Ionicons name="call-outline" size={20} color={colors.success} />
-              </View>
-              <View style={styles.contactInfo}>
-                <Text style={[styles.contactLabel, { color: colors.textSecondary }]}>Phone</Text>
-                <Text style={[styles.contactValue, { color: colors.text }]}>+1 (555) 123-4567</Text>
-              </View>
-            </View>
-
-            <View style={styles.contactItem}>
-              <View style={[styles.contactIcon, { backgroundColor: isDark ? colors.border : "#f5f5f5" }]}>
-                <Ionicons name="globe-outline" size={20} color="#FF9800" />
-              </View>
-              <View style={styles.contactInfo}>
-                <Text style={[styles.contactLabel, { color: colors.textSecondary }]}>Website</Text>
-                <Text style={[styles.contactValue, { color: colors.text }]}>www.scholarshipapp.com</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Legal Links */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Legal</Text>
-
-          <View style={[styles.legalCard, { backgroundColor: colors.card }]}>
-            <TouchableOpacity style={styles.legalItem} onPress={handlePrivacyPolicy} activeOpacity={0.7}>
-              <View style={[styles.legalIcon, { backgroundColor: isDark ? colors.border : "#f5f5f5" }]}>
-                <Ionicons name="shield-outline" size={20} color="#9C27B0" />
-              </View>
-              <View style={styles.legalContent}>
-                <Text style={[styles.legalTitle, { color: colors.text }]}>Privacy Policy</Text>
-                <Text style={[styles.legalSubtitle, { color: colors.textSecondary }]}>How we protect your data</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+              <Ionicons name="chevron-forward" size={18} color={isDark ? colors.textSecondary : "#999"} />
             </TouchableOpacity>
 
-            <View style={[styles.divider, { backgroundColor: colors.divider }]} />
+            <TouchableOpacity
+              style={[styles.settingItem, { borderBottomColor: colors.border }]}
+              activeOpacity={0.7}
+              onPress={() => router.push("/(dashboard)/reviewer/help-support")}
+            >
+              <View style={styles.settingInfo}>
+                <View style={[styles.settingIconContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f8f8" }]}>
+                  <Ionicons
+                    name="help-circle-outline"
+                    size={20}
+                    color="#FF9800"
+                  />
+                </View>
+                <View style={styles.settingText}>
+                  <Text style={[styles.settingTitle, { color: colors.text }]}>Help Center</Text>
+                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                    Find answers to common questions
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={isDark ? colors.textSecondary : "#999"} />
+            </TouchableOpacity>
 
-            <TouchableOpacity style={styles.legalItem} onPress={handleTermsConditions} activeOpacity={0.7}>
-              <View style={[styles.legalIcon, { backgroundColor: isDark ? colors.border : "#f5f5f5" }]}>
-                <Ionicons name="document-text-outline" size={20} color={colors.error} />
+            <TouchableOpacity
+              style={[styles.settingItem, { borderBottomWidth: 0 }]}
+              activeOpacity={0.7}
+              onPress={() => router.push("/(dashboard)/reviewer/contact-support")}
+            >
+              <View style={styles.settingInfo}>
+                <View style={[styles.settingIconContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f8f8" }]}>
+                  <Ionicons
+                    name="chatbubble-ellipses-outline"
+                    size={20}
+                    color="#9C27B0"
+                  />
+                </View>
+                <View style={styles.settingText}>
+                  <Text style={[styles.settingTitle, { color: colors.text }]}>Contact Support</Text>
+                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                    Get help from our team
+                  </Text>
+                </View>
               </View>
-              <View style={styles.legalContent}>
-                <Text style={[styles.legalTitle, { color: colors.text }]}>Terms & Conditions</Text>
-                <Text style={[styles.legalSubtitle, { color: colors.textSecondary }]}>Terms of service and usage</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+              <Ionicons name="chevron-forward" size={18} color={isDark ? colors.textSecondary : "#999"} />
             </TouchableOpacity>
           </View>
-        </View>
 
-        {/* Copyright */}
-        <View style={[styles.copyrightCard, { backgroundColor: colors.card }]}>
           <Text style={[styles.copyrightText, { color: colors.textSecondary }]}>
-            © 2024 Scholarship Review App. All rights reserved.
+            © 2025 YDF India. All rights reserved.
           </Text>
-          <Text style={[styles.copyrightSubtext, { color: colors.textSecondary }]}>
-            Built with ❤️ for education
-          </Text>
-        </View>
-      </ScrollView>
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -231,241 +187,107 @@ export default function AboutScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
   },
-  content: {
+  background: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  loadingContainer: {
     flex: 1,
-    padding: 20,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
-  appInfoCard: {
-    backgroundColor: "#fff",
+  scrollView: {
+    flex: 1,
+  },
+  contentContainer: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  card: {
     borderRadius: 20,
     padding: 24,
-    alignItems: "center",
-    marginBottom: 20,
+    borderWidth: 1,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    alignItems: "center",
+    marginBottom: 24,
   },
-  logoContainer: {
+  appIconContainer: {
     marginBottom: 16,
   },
-  logoPlaceholder: {
+  appIcon: {
     width: 80,
     height: 80,
-    borderRadius: 40,
-    backgroundColor: "#E3F2FD",
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: "#667eea",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   appName: {
     fontSize: 24,
     fontWeight: "700",
-    color: "#333",
     marginBottom: 4,
   },
   appVersion: {
-    fontSize: 16,
-    color: "#666",
-    marginBottom: 12,
-  },
-  appDescription: {
-    fontSize: 14,
-    color: "#666",
-    textAlign: "center",
-    lineHeight: 20,
-  },
-  section: {
-    marginBottom: 20,
+    fontSize: 13,
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#333",
     marginBottom: 12,
   },
-  aboutCard: {
-    backgroundColor: "#fff",
+  settingsCard: {
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
+    borderWidth: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.05,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 2,
+    marginBottom: 24,
   },
-  aboutText: {
-    fontSize: 14,
-    color: "#666",
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  featuresCard: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  featureItem: {
+  settingItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
+    justifyContent: "space-between",
+    paddingVertical: 14,
+    borderBottomWidth: 1,
   },
-  featureIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#f5f5f5",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  featureText: {
-    fontSize: 14,
-    color: "#333",
-    fontWeight: "500",
-  },
-  teamCard: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  teamMember: {
+  settingInfo: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
+    flex: 1,
+    gap: 12,
   },
-  memberAvatar: {
+  settingIconContainer: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: "#f5f5f5",
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 16,
   },
-  memberInfo: {
+  settingText: {
     flex: 1,
   },
-  memberName: {
-    fontSize: 16,
+  settingTitle: {
+    fontSize: 15,
     fontWeight: "600",
-    color: "#333",
     marginBottom: 2,
   },
-  memberRole: {
-    fontSize: 14,
-    color: "#666",
-  },
-  contactCard: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  contactItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-  },
-  contactIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#f5f5f5",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 16,
-  },
-  contactInfo: {
-    flex: 1,
-  },
-  contactLabel: {
-    fontSize: 12,
-    color: "#666",
-    marginBottom: 2,
-  },
-  contactValue: {
-    fontSize: 16,
-    color: "#333",
-    fontWeight: "600",
-  },
-  legalCard: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  legalItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 20,
-  },
-  legalIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#f5f5f5",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 16,
-  },
-  legalContent: {
-    flex: 1,
-  },
-  legalTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 2,
-  },
-  legalSubtitle: {
-    fontSize: 14,
-    color: "#666",
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#f0f0f0",
-    marginLeft: 76,
-  },
-  copyrightCard: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 20,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+  settingDescription: {
+    fontSize: 13,
   },
   copyrightText: {
-    fontSize: 14,
-    color: "#666",
-    textAlign: "center",
-    marginBottom: 4,
-  },
-  copyrightSubtext: {
     fontSize: 12,
-    color: "#999",
     textAlign: "center",
   },
 });
