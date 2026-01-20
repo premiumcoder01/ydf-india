@@ -3,7 +3,6 @@ import { useTheme } from "@/context/ThemeContext";
 import { createScholarship } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import { AnimatePresence, MotiView } from "moti";
@@ -23,6 +22,7 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get("window");
@@ -272,10 +272,11 @@ export default function ProviderAddScholarshipScreen() {
       }
 
       // Prepare API Payload
+      // Prepare API Payload (Explicitly stringifying JSON fields as required)
       const payload = {
         fullname: formData.schemeName,
-        shortname: formData.schemeName.substring(0, 100).replace(/\s+/g, '-').toLowerCase() + '-' + Date.now(),
-        categoryid: 1, // TODO: Get actual category ID
+        shortname: formData.schemeName.substring(0, 50).replace(/\s+/g, '-').toLowerCase() + '-' + Date.now(),
+        categoryid: 2,
         provider_name: formData.providerName,
         summary: formData.description,
         startdate: formData.startDate ? Math.floor(formData.startDate.getTime() / 1000) : null,
@@ -284,27 +285,29 @@ export default function ProviderAddScholarshipScreen() {
         total_seats: formData.totalSeats,
         scholarship_cycle: formData.paymentCycle,
         scholarship_amount: formData.amountType === "fixed" ? formData.fixedAmount : formData.actualAmountLimit,
-        fund_amount: formData.amountType === "fixed"
-          ? (Number(formData.fixedAmount) * Number(formData.totalSeats))
-          : (Number(formData.actualAmountLimit) * Number(formData.totalSeats)),
+        fund_amount: formData.totalSeats
+          ? (formData.amountType === "fixed"
+            ? (Number(formData.fixedAmount || 0) * Number(formData.totalSeats))
+            : (Number(formData.actualAmountLimit || 0) * Number(formData.totalSeats)))
+          : null,
         student_pct: formData.distributionStudent,
         institute_pct: formData.distributionInstitute,
-        selection_stages_json: formData.stages.map(stage => stage.name), // API expects simple array of names based on example? "JSON array of selection stages (example: ["Application review"...])"
-        geo_eligibility_json: {
+        selection_stages_json: JSON.stringify(formData.stages.map(stage => stage.name)),
+        geo_eligibility_json: JSON.stringify({
           states: formData.states,
           districts: formData.districts,
           blocks: formData.blocks,
           villages: formData.villages
-        },
-        personal_eligibility_json: {
+        }),
+        personal_eligibility_json: JSON.stringify({
           gender: formData.gender,
           caste: formData.casteCategory,
           special_category: formData.specialCategory,
           income_limit: formData.incomeLimit
-        },
-        academic_eligibility_json: {
+        }),
+        academic_eligibility_json: JSON.stringify({
           education_level: formData.educationLevel,
-          streams: formData.streams,
+          streams: formData.streams.map(s => s.includes(':') ? s.split(':')[1] : s),
           min_class_score: formData.lastClassPercent,
           min_10th_score: formData.tenthClassPercent,
           min_12th_score: formData.twelfthClassPercent,
@@ -313,12 +316,12 @@ export default function ProviderAddScholarshipScreen() {
             rank: formData.minRank,
             score: formData.minScore
           }
-        },
-        document_requirements_json: formData.requiredDocuments,
-        // Optional Draft IDs for images - would need separate upload API
-        // logo_draftitemid: ... 
-        // banner_draftitemid: ...
-        eligibility_criteria: `Income Limit: ${formData.incomeLimit}, ${formData.gender.join(', ')}`
+        }),
+        document_requirements_json: JSON.stringify(formData.requiredDocuments),
+        eligibility_criteria: [
+          formData.incomeLimit ? `Income Limit: ${formData.incomeLimit}` : "",
+          formData.gender.length > 0 ? formData.gender.join(', ') : ""
+        ].filter(Boolean).join(', ')
       };
 
       console.log("Submitting Payload:", JSON.stringify(payload, null, 2));
@@ -1246,29 +1249,41 @@ export default function ProviderAddScholarshipScreen() {
           style={styles.nextBtn}
         />
       </View>
+      <View style={{ width: '100%', alignItems: 'center' }}>
 
-      {datePicker.show && (
-        <DateTimePicker
-          value={new Date()}
+        <DateTimePickerModal
+          isVisible={datePicker.show}
           mode="date"
-          display="default"
-          onChange={(event, date) => {
+          date={(() => {
+            if (datePicker.field === "stages" && datePicker.stageId) {
+              const stage = formData.stages.find((s) => s.id === datePicker.stageId);
+              const val = datePicker.type === "start" ? stage?.startDate : stage?.endDate;
+              return val || new Date();
+            }
+            if (datePicker.field === "startDate" || datePicker.field === "endDate") {
+              return formData[datePicker.field] || new Date();
+            }
+            return new Date();
+          })()}
+          onConfirm={(date) => {
             setDatePicker({ ...datePicker, show: false });
-            if (date) {
-              if (datePicker.field === "stages" && datePicker.stageId) {
-                const updatedStages = formData.stages.map(s =>
-                  s.id === datePicker.stageId
-                    ? { ...s, [datePicker.type === "start" ? "startDate" : "endDate"]: date }
-                    : s
-                );
-                updateField("stages", updatedStages);
-              } else {
-                updateField(datePicker.field as any, date);
-              }
+            if (datePicker.field === "stages" && datePicker.stageId) {
+              const updatedStages = formData.stages.map((s) =>
+                s.id === datePicker.stageId
+                  ? {
+                    ...s,
+                    [datePicker.type === "start" ? "startDate" : "endDate"]: date,
+                  }
+                  : s
+              );
+              updateField("stages", updatedStages);
+            } else {
+              updateField(datePicker.field as any, date);
             }
           }}
+          onCancel={() => setDatePicker({ ...datePicker, show: false })}
         />
-      )}
+      </View>
 
       {/* Selection Modal */}
       <Modal

@@ -2980,12 +2980,15 @@ export const createScholarship = async (
     urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_create_scholarship");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     
-    // Add scholarship data parameters
+    // Prepare request parameters
     Object.keys(scholarshipData).forEach(key => {
-        if (typeof scholarshipData[key] === 'object') {
-            urlObj.searchParams.append(key, JSON.stringify(scholarshipData[key]));
+        const val = scholarshipData[key];
+        if (typeof val === 'object' && val !== null) {
+            urlObj.searchParams.append(key, JSON.stringify(val));
+        } else if (val === null || val === undefined) {
+             urlObj.searchParams.append(key, "");
         } else {
-             urlObj.searchParams.append(key, String(scholarshipData[key]));
+             urlObj.searchParams.append(key, String(val));
         }
     });
 

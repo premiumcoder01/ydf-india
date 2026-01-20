@@ -10,26 +10,41 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function MySchemeDetailsScreen() {
     const { isDark, colors } = useTheme();
-    const { id } = useLocalSearchParams();
+    const params = useLocalSearchParams();
     const insets = useSafeAreaInsets();
 
-    // Mock data - in real app fetch by id
-    const scholarship = {
-        id: id || "s1",
-        title: "Merit Excellence Scholarship",
-        status: "Active" as "Active" | "Draft" | "Closed",
-        description:
-            "This scholarship supports top-performing students who have demonstrated consistent academic excellence and leadership.",
-        amount: 5000,
-        deadline: "2025-12-31",
-        applicants: { total: 126, approved: 68, rejected: 22, pending: 36 },
-    };
+    const scholarship = useMemo(() => {
+        const total = parseInt((params.applications_count as string) || "0", 10);
+        let rawStatus = (params.status as string) || "Draft";
+        // Capitalize first letter
+        const status = (rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1).toLowerCase()) as "Active" | "Draft" | "Closed";
+
+        return {
+            id: (params.id as string) || "",
+            title: (params.title as string) || "Untitled Scheme",
+            status: status,
+            description: (params.description as string) || "No description available.",
+            amount: parseFloat((params.fund_amount as string) || "0"),
+            deadline: (params.end_date as string) || "",
+            applicants: {
+                total: total,
+                approved: 0,
+                rejected: 0,
+                pending: total
+            },
+        };
+    }, [params]);
 
     const formatCurrency = (amount: number) =>
         new Intl.NumberFormat("en-US", { style: "currency", currency: "INR", minimumFractionDigits: 0 }).format(amount);
 
     const formattedDeadline = useMemo(() => {
+        if (!scholarship.deadline) return "No Deadline";
         try {
+            // Check if unix timestamp
+            if (!isNaN(Number(scholarship.deadline)) && scholarship.deadline.length < 13) {
+                return new Date(Number(scholarship.deadline) * 1000).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+            }
             const d = new Date(scholarship.deadline);
             return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
         } catch {
@@ -203,60 +218,35 @@ export default function MySchemeDetailsScreen() {
                     </View>
                 </View>
 
-                {/* Action Buttons */}
-                <View style={styles.actionsGrid}>
-                    <TouchableOpacity
-                        style={styles.primaryActionBtn}
-                        activeOpacity={0.8}
-                        onPress={() => router.push("/(dashboard)/provider/applicants")}
-                    >
-                        <LinearGradient
-                            colors={['#667eea', '#764ba2']}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.actionGradient}
-                        >
-                            <Ionicons name="people" size={22} color="#fff" />
-                            <Text style={styles.primaryActionText}>Review Applicants</Text>
-                            <Ionicons name="arrow-forward" size={18} color="#fff" />
-                        </LinearGradient>
-                    </TouchableOpacity>
-
-                    <View style={styles.secondaryActionsRow}>
+                {/* View Applicants Action */}
+                {scholarship.applicants.total > 0 && (
+                    <View style={styles.actionsGrid}>
                         <TouchableOpacity
-                            style={[styles.secondaryActionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                            style={styles.primaryActionBtn}
                             activeOpacity={0.8}
-                            onPress={() => router.push({ pathname: "/(dashboard)/provider/add-scholarship", params: { id: scholarship.id } })}
+                            onPress={() => router.push({
+                                pathname: "/(dashboard)/provider/applicants",
+                                params: {
+                                    scholarship_id: scholarship.id,
+                                    scheme_title: scholarship.title
+                                }
+                            })}
                         >
-                            <View style={[styles.secondaryActionIcon, { backgroundColor: isDark ? "rgba(102, 126, 234, 0.15)" : "#E8EAF6" }]}>
-                                <Ionicons name="create" size={20} color="#667eea" />
-                            </View>
-                            <Text style={[styles.secondaryActionText, { color: colors.text }]}>Edit</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[styles.secondaryActionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-                            activeOpacity={0.8}
-                            onPress={() => console.log("Share")}
-                        >
-                            <View style={[styles.secondaryActionIcon, { backgroundColor: isDark ? "rgba(0, 137, 123, 0.15)" : "#E0F2F1" }]}>
-                                <Ionicons name="share-social" size={20} color="#00897B" />
-                            </View>
-                            <Text style={[styles.secondaryActionText, { color: colors.text }]}>Share</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[styles.secondaryActionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-                            activeOpacity={0.8}
-                            onPress={() => console.log("Close Applications")}
-                        >
-                            <View style={[styles.secondaryActionIcon, { backgroundColor: isDark ? "rgba(244, 67, 54, 0.15)" : "#FFEBEE" }]}>
-                                <Ionicons name="lock-closed" size={20} color="#F44336" />
-                            </View>
-                            <Text style={[styles.secondaryActionText, { color: colors.text }]}>Close</Text>
+                            <LinearGradient
+                                colors={['#667eea', '#764ba2']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.actionGradient}
+                            >
+                                <Ionicons name="people" size={22} color="#fff" />
+                                <Text style={styles.primaryActionText}>View Applicants</Text>
+                                <Ionicons name="arrow-forward" size={18} color="#fff" />
+                            </LinearGradient>
                         </TouchableOpacity>
                     </View>
-                </View>
+                )}
+
+
             </ScrollView>
         </View>
     );

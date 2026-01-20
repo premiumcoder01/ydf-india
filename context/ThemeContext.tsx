@@ -25,6 +25,7 @@ export const LightColors = {
     card: '#FFFFFF',
     inputBg: '#FFFFFF',
     divider: '#F3F4F6',
+    shadow: '#000000',
 };
 
 export const DarkColors = {
@@ -41,6 +42,7 @@ export const DarkColors = {
     card: '#1E293B',
     inputBg: '#334155',
     divider: '#334155',
+    shadow: '#000000', // Shadows are usually black even in dark mode, or use transparent
 };
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);

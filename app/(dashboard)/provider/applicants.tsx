@@ -1,5 +1,5 @@
 import { useTheme } from "@/context/ThemeContext";
-import { getMyScholarships, getScholarshipApplicants } from "@/utils/api";
+import { getScholarshipApplicants } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -44,38 +44,19 @@ export default function ProviderApplicantsScreen() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const isMultiSelect = selectedIds.length > 0;
 
-  const [scholarshipId, setScholarshipId] = useState<string | null>((params.scholarship_id as string) || null);
+  // Now strictly dependent on params
+  const scholarshipId = (params.scholarship_id as string) || null;
+  const schemeTitle = (params.scheme_title as string) || undefined;
+
   const [allApplicants, setAllApplicants] = useState<Applicant[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
 
-  // Fetch scholarships if no ID provided
-  const fetchScholarshipsAndSelectOne = async () => {
-    try {
-      const authDataString = await AsyncStorage.getItem("authData");
-      if (!authDataString) return;
-      const authData = JSON.parse(authDataString);
-      const token = authData?.token;
-      if (!token) return;
-
-      const response = await getMyScholarships(token, { per_page: 10, status: 'active' }); // Default to active?
-      if (response.success && response.data?.data && response.data.data.length > 0) {
-        setScholarshipId(String(response.data.data[0].id));
-      } else {
-        // Try fetching any status if no active ones
-        const responseAll = await getMyScholarships(token, { per_page: 10 });
-        if (responseAll.success && responseAll.data?.data && responseAll.data.data.length > 0) {
-          setScholarshipId(String(responseAll.data.data[0].id));
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching scholarships:", error);
-    }
-  };
+  // Removed fetchScholarshipsAndSelectOne as requested
 
   const fetchApplicants = async (reset = false) => {
-    // if (!scholarshipId) return;
+    if (!scholarshipId) return;
 
     try {
       if (reset) setLoading(true);
@@ -97,8 +78,8 @@ export default function ProviderApplicantsScreen() {
         const newApplicants = response.data.applicants.map((app: any) => ({
           id: String(app.id),
           name: app.user?.fullname || `${app.user?.firstname} ${app.user?.lastname}`,
-          course: app.application_text || "N/A", // Using application_text as placeholder for course/details
-          income: 0, // API doesn't seem to return income in list, maybe in details
+          course: app.application_text || "N/A",
+          income: 0,
           status: app.status ? (app.status.charAt(0).toUpperCase() + app.status.slice(1)) : "Pending"
         }));
 
@@ -126,23 +107,10 @@ export default function ProviderApplicantsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!scholarshipId && !params.scholarship_id) {
-        fetchScholarshipsAndSelectOne();
-      } else if (params.scholarship_id && scholarshipId !== params.scholarship_id) {
-        setScholarshipId(params.scholarship_id as string);
+      if (scholarshipId) {
+        fetchApplicants(true);
       }
-    }, [params.scholarship_id])
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-
-      fetchApplicants(true);
-
-    }, [scholarshipId, activeTab]) // Refetch when tab changes too? Or handle client side filtering? 
-    // API supports status filtering. Using API filtering might be better for pagination.
-    // The current UI kept "All" and filtered client side. But if we paginating, client side filtering on partial data is wrong.
-    // Let's rely on API filtering if activeTab changes.
+    }, [scholarshipId, activeTab])
   );
 
   const toggleSelection = (id: string) => {
@@ -152,15 +120,10 @@ export default function ProviderApplicantsScreen() {
   };
 
   const handleBulkAction = (action: "Approved" | "Rejected") => {
-    // In a real app, you would make an API call here
     console.log(`Bulk ${action} for:`, selectedIds);
-    // Optimistically update local state for demo purposes
-    // setAllApplicants(prev => prev.map(a => selectedIds.includes(a.id) ? {...a, status: action} : a));
     setSelectedIds([]);
   };
 
-  // We are now fetching filtered data from API, so 'filtered' is just allApplicants locally, 
-  // optionally filtered by query
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return allApplicants
@@ -174,7 +137,6 @@ export default function ProviderApplicantsScreen() {
     [filtered, page]
   );
 
-  // Calculate counts for tabs
   const tabCounts = useMemo(() => {
     return {
       All: allApplicants.length,
@@ -299,9 +261,32 @@ export default function ProviderApplicantsScreen() {
     );
   };
 
+  if (!scholarshipId) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+        <Ionicons name="people-circle-outline" size={80} color={colors.textSecondary} />
+        <Text style={{ marginTop: 20, fontSize: 18, fontWeight: '600', color: colors.textSecondary, textAlign: 'center' }}>
+          No Scheme Selected
+        </Text>
+        <Text style={{ marginTop: 10, fontSize: 14, color: colors.textSecondary, textAlign: 'center' }}>
+          Please select a scheme from your dashboard to view its applicants.
+        </Text>
+        <TouchableOpacity
+          style={{ marginTop: 30, backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12 }}
+          onPress={() => router.back()}
+        >
+          <Text style={{ color: '#fff', fontWeight: '700' }}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ReviewerHeader title="Applicants" />
+      <ReviewerHeader
+        title="Review Applicants"
+        subtitle={schemeTitle ? `For: ${schemeTitle}` : "Reviewing applicants"}
+      />
 
       {/* Search */}
       <View style={styles.searchRow}>
@@ -410,13 +395,6 @@ export default function ProviderApplicantsScreen() {
         }}
       />
 
-      {/* Results Count */}
-      {/* <View style={styles.resultsRow}>
-        <Text style={[styles.resultsText, { color: colors.textSecondary }]}>
-          Showing {paginated.length} of {filtered.length} applicants
-        </Text>
-      </View> */}
-
       {/* List */}
       <FlatList
         data={paginated}
@@ -427,25 +405,28 @@ export default function ProviderApplicantsScreen() {
         onEndReachedThreshold={0.5}
         onEndReached={() => {
           if (paginated.length < filtered.length) setPage((p) => p + 1);
+          else if (hasMore && !loadingMore) fetchApplicants(false);
         }}
         ListFooterComponent={
-          paginated.length < filtered.length ? (
+          (loading || loadingMore) ? (
             <View style={styles.footerLoader}>
               <View style={styles.loaderDot} />
-              <Text style={styles.footerText}>Loading more applicants...</Text>
+              <Text style={styles.footerText}>Loading applicants...</Text>
             </View>
           ) : null
         }
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <View style={styles.emptyIcon}>
-              <Ionicons name="folder-open-outline" size={64} color={isDark ? colors.border : "#d1d5db"} />
+          !loading ? (
+            <View style={styles.empty}>
+              <View style={[styles.emptyIcon, { backgroundColor: isDark ? colors.surface : "#f3f4f6" }]}>
+                <Ionicons name="people-outline" size={40} color={colors.textSecondary} />
+              </View>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>No Applicants Yet</Text>
+              <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                Candidates who apply to your scheme will appear here.
+              </Text>
             </View>
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>No applicants found</Text>
-            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-              Try adjusting your search or filter criteria
-            </Text>
-          </View>
+          ) : null
         }
       />
 

@@ -54,7 +54,7 @@ export default function ProviderProfileScreen() {
             ...prev,
             organization: user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || prev.organization,
             email: user.email || prev.email,
-            contact: user.phone || prev.contact,
+            contact: user.phone || user.phone1 || prev.contact,
             profilePhoto: user.profileimageurl || null,
           }));
         } else if (authData?.user) {
@@ -63,7 +63,7 @@ export default function ProviderProfileScreen() {
             ...prev,
             organization: user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || prev.organization,
             email: user.email || prev.email,
-            contact: user.phone || prev.contact,
+            contact: user.phone || user.phone1 || prev.contact,
             profilePhoto: user.profileimageurl || null,
           }));
         }
@@ -237,7 +237,7 @@ export default function ProviderProfileScreen() {
         </View>
 
         {/* Bank Information - Secure Card */}
-        <View style={styles.modernSection}>
+        {/* <View style={styles.modernSection}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Bank Information</Text>
             <View style={[styles.secureLabel, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#D1FAE5' }]}>
@@ -250,7 +250,7 @@ export default function ProviderProfileScreen() {
             <InfoRow icon="card-outline" label="Account Number" value={providerData.bankInfo.account} color="#9C27B0" />
             <InfoRow icon="key-outline" label="IFSC Code" value={providerData.bankInfo.ifsc} color="#00BFA5" isLast />
           </View>
-        </View>
+        </View> */}
 
         {/* Quick Actions - Modern Grid */}
         <View style={styles.modernSection}>

@@ -395,7 +395,7 @@ export default function ScholarshipProviderDashboard() {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.featureCard, { borderLeftColor: "#2196F3", backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]} activeOpacity={0.8} onPress={() => router.push("/(dashboard)/provider/applicants")}>
+            {/* <TouchableOpacity style={[styles.featureCard, { borderLeftColor: "#2196F3", backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]} activeOpacity={0.8} onPress={() => router.push("/(dashboard)/provider/applicants")}>
               <View style={styles.featureContent}>
                 <View style={[styles.featureIcon, { backgroundColor: "#2196F320" }]}>
                   <Ionicons name="people-outline" size={24} color="#2196F3" />
@@ -406,7 +406,7 @@ export default function ScholarshipProviderDashboard() {
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
               </View>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
 
             <TouchableOpacity style={[styles.featureCard, { borderLeftColor: "#FF9800", backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]} activeOpacity={0.8} onPress={() => router.push("/(dashboard)/provider/kyc")}>
               <View style={styles.featureContent}>
