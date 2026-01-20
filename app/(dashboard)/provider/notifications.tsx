@@ -82,7 +82,7 @@ export default function ProviderNotificationsScreen() {
 
       const response = await getNotifications(token, {
         page: 1,
-        per_page: 20,
+        per_page: 200,
       });
 
       console.log("API Response:", JSON.stringify(response, null, 2));

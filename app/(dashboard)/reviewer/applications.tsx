@@ -78,7 +78,7 @@ export default function ReviewerApplicationsScreen() {
   const [activeTab, setActiveTab] =
     useState<(typeof STATUS_TABS)[number]>("All");
   const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const pageSize = 200;
 
   // View state
   const [viewMode, setViewMode] = useState<"scholarships" | "applications">("scholarships");

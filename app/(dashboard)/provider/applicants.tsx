@@ -50,7 +50,7 @@ const TABS: Array<{ key: "All" | ApplicantStatus; label: string }> = [
   { key: "Rejected", label: "Rejected" },
 ];
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 100;
 
 export default function ProviderApplicantsScreen() {
   const params = useLocalSearchParams();

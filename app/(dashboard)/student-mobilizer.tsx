@@ -123,7 +123,7 @@ export default function StudentMobilizerDashboard() {
       }
 
       // 2. Scholarships (For count and deadlines)
-      const scholarRes = await getAllScholarships(token, { per_page: 50 });
+      const scholarRes = await getAllScholarships(token, { per_page: 100 });
       if (scholarRes.success) {
         const list = scholarRes.data?.data?.data || scholarRes.data?.data || [];
         setStats(prev => ({ ...prev, scholarships: list.length }));

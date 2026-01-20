@@ -70,7 +70,7 @@ export default function DocumentUploadScreen() {
         return;
       }
 
-      const url = `${API_CONFIG.BASE_URL}webservice/rest/server.php?wsfunction=local_mobileapi_get_my_documents&moodlewsrestformat=json&wstoken=${token}&page=1&per_page=10`;
+      const url = `${API_CONFIG.BASE_URL}webservice/rest/server.php?wsfunction=local_mobileapi_get_my_documents&moodlewsrestformat=json&wstoken=${token}&page=1&per_page=100`;
 
       console.log("Fetching documents from:", url);
       const response = await fetch(url);

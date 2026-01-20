@@ -120,13 +120,13 @@ export default function MobilizerScholarshipListingScreen() {
                 if (isBookmarkedMode) {
                     response = await getBookmarkedScholarships(token, {
                         page: page,
-                        per_page: 10,
+                        per_page: 100,
                     });
                 } else {
                     response = await getAllScholarships(token, {
                         search: searchQuery || undefined,
                         page: page,
-                        per_page: 10,
+                        per_page: 100,
                     });
                 }
 

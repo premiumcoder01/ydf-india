@@ -368,6 +368,44 @@ export default function ScholarshipDetailsScreen() {
 
 
 
+
+        {/* Application Progress Bar */}
+        {(scholarship.progress_percent !== undefined) && (
+          <View style={styles.section}>
+            <View style={[styles.progressSectionCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12, alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: `${categoryColor}20`, justifyContent: 'center', alignItems: 'center' }}>
+                    <Ionicons name="pie-chart" size={18} color={categoryColor} />
+                  </View>
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>Application Progress</Text>
+                </View>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: (scholarship.progress_percent || 0) === 100 ? "#4CAF50" : categoryColor }}>
+                  {scholarship.progress_percent || 0}%
+                </Text>
+              </View>
+
+              <View style={{ height: 10, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f0f0f0', borderRadius: 5, overflow: 'hidden', marginBottom: 10 }}>
+                <View
+                  style={{
+                    height: '100%',
+                    width: `${scholarship.progress_percent || 0}%`,
+                    backgroundColor: (scholarship.progress_percent || 0) === 100 ? '#4CAF50' : categoryColor,
+                    borderRadius: 5
+                  }}
+                />
+              </View>
+              <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 18 }}>
+                {(scholarship.progress_percent || 0) === 100
+                  ? "Congratulations! Your application is complete."
+                  : (scholarship.progress_percent || 0) > 0
+                    ? "You've started your application. Complete the remaining steps to submit."
+                    : "Not started yet. Begin your application today!"}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Key Information Cards */}
         <View style={styles.infoCardsContainer}>
           {/* Deadline Card */}
@@ -1472,6 +1510,15 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     borderBottomWidth: 0,
     paddingBottom: 0,
+  },
+  progressSectionCard: {
+    padding: 20,
+    borderRadius: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
 });
 

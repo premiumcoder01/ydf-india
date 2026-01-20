@@ -115,7 +115,7 @@ export default function ScholarshipListingScreen() {
         const response = await getAllScholarships(token, {
           search: searchQuery || undefined,
           page: page,
-          per_page: 10,
+          per_page: 100,
         });
         if (response.success && response.data) {
           const apiData = response.data.data || response.data;
@@ -551,6 +551,29 @@ export default function ScholarshipListingScreen() {
               </View>
             )}
           </View>
+
+
+          {/* NEW: Application Progress Bar */}
+          {(item.progress_percent !== undefined) && (
+            <View style={{ marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6, alignItems: 'center' }}>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.textSecondary }}>Application Progress</Text>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: item.progress_percent === 100 ? "#4CAF50" : categoryColor }}>
+                  {item.progress_percent}%
+                </Text>
+              </View>
+              <View style={{ height: 6, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f0f0f0', borderRadius: 3, overflow: 'hidden' }}>
+                <View
+                  style={{
+                    height: '100%',
+                    width: `${item.progress_percent}%`,
+                    backgroundColor: item.progress_percent === 100 ? '#4CAF50' : categoryColor,
+                    borderRadius: 3
+                  }}
+                />
+              </View>
+            </View>
+          )}
 
           <View style={styles.cardActionsRow}>
             <TouchableOpacity

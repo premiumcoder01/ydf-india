@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   BackHandler,
@@ -151,6 +151,7 @@ export default function StudentDashboardScreen() {
       expired: boolean;
       has_applied: boolean;
       description: string;
+      progress_percent: number;
     }>
   >([]);
 
@@ -260,7 +261,8 @@ export default function StudentDashboardScreen() {
           bookmarked: item.bookmarked || false,
           expired: item.expired || false,
           has_applied: item.has_applied || false,
-          description: item.description || ""
+          description: item.description || "",
+          progress_percent: item.progress_percent || 0
         }));
         setRecommendedScholarships(recs);
         const bMap: Record<number, boolean> = {};
@@ -296,26 +298,7 @@ export default function StudentDashboardScreen() {
     setRefreshing(false);
   }, [fetchUserProfile, fetchDashboardData]);
 
-  const progress = useMemo(() => {
-    const { approved, total } = applicationProgress;
-    // Fallback if API hasn't loaded yet or returns 0
-    if (total === 0 && statusCounts.applied > 0) {
-      // Fallback to legacy statusCounts if new API empty but legacy has data
-      const legacyTotal = statusCounts.applied + statusCounts.pending + statusCounts.rejected + statusCounts.approved;
-      const legacyApproved = statusCounts.approved;
-      if (legacyTotal > 0) {
-        const ratio = Math.round((legacyApproved / legacyTotal) * 100);
-        return { ratio, label: `${legacyApproved} of ${legacyTotal} applications approved (${ratio}%)` };
-      }
-    }
 
-    if (total === 0) return { ratio: 0, label: "0 of 0 approved (0%)" };
-    const ratio = Math.round((approved / total) * 100);
-    return {
-      ratio,
-      label: `${approved} of ${total} applications approved (${ratio}%)`,
-    };
-  }, [applicationProgress, statusCounts]);
 
   return (
     <View style={styles.container}>
@@ -560,6 +543,24 @@ export default function StudentDashboardScreen() {
                             • {daysInfo.text}
                           </Text>
                         )}
+                      </View>
+
+                      {/* Application Progress Bar */}
+                      <View style={{ marginTop: 8 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <Text style={{ fontSize: 10, color: colors.textSecondary }}>Application Progress</Text>
+                          <Text style={{ fontSize: 10, fontWeight: '700', color: colors.text }}>{s.progress_percent}%</Text>
+                        </View>
+                        <View style={{ height: 4, backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : '#e0e0e0', borderRadius: 2, overflow: 'hidden' }}>
+                          <View
+                            style={{
+                              height: '100%',
+                              width: `${s.progress_percent}%`,
+                              backgroundColor: s.progress_percent === 100 ? '#4CAF50' : categoryColor,
+                              borderRadius: 2
+                            }}
+                          />
+                        </View>
                       </View>
                     </View>
                     <TouchableOpacity
