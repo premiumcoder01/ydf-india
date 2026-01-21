@@ -23,13 +23,18 @@ import { ReviewerHeader } from "../../../components";
 
 export default function DocumentViewScreen() {
     const params = useLocalSearchParams();
-    const { id, title, fileName, filesize, mimetype, url } = params;
+    const { id, title, fileName, filesize, mimetype, url, verified, rejectionReason } = params;
     const { colors, isDark } = useTheme();
     const inset = useSafeAreaInsets();
 
+    // Check if document is already verified or rejected
+    const isVerified = verified === "true";
+    const isRejected = rejectionReason && rejectionReason.toString().trim() !== "";
+    const isProcessed = isVerified || isRejected;
+
     const [loading, setLoading] = useState(true);
     const [showRejectModal, setShowRejectModal] = useState(false);
-    const [rejectionReason, setRejectionReason] = useState("");
+    const [newRejectionReason, setNewRejectionReason] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
     const formatFileSize = (bytes: number) => {
@@ -92,7 +97,7 @@ export default function DocumentViewScreen() {
     };
 
     const handleReject = async () => {
-        if (!rejectionReason.trim()) {
+        if (!newRejectionReason.trim()) {
             Alert.alert("Error", "Please provide a reason for rejection");
             return;
         }
@@ -118,11 +123,11 @@ export default function DocumentViewScreen() {
             }
 
             // Call API to reject document with reason
-            const response = await verifyDocument(token, Number(id), "reject", rejectionReason);
+            const response = await verifyDocument(token, Number(id), "reject", newRejectionReason);
 
             setSubmitting(false);
             setShowRejectModal(false);
-            setRejectionReason("");
+            setNewRejectionReason("");
 
             if (response.success) {
                 Alert.alert("Success", response.message || "Document rejected successfully", [
@@ -176,9 +181,23 @@ export default function DocumentViewScreen() {
                             />
                         </View>
                         <View style={{ flex: 1 }}>
-                            <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={2}>
-                                {fileName?.toString() || "Unknown File"}
-                            </Text>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                                <Text style={[styles.fileName, { color: colors.text, flex: 1 }]} numberOfLines={2}>
+                                    {fileName?.toString() || "Unknown File"}
+                                </Text>
+                                {isVerified && (
+                                    <View style={styles.verifiedBadge}>
+                                        <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                                        <Text style={styles.verifiedText}>Verified</Text>
+                                    </View>
+                                )}
+                                {isRejected && (
+                                    <View style={styles.rejectedBadge}>
+                                        <Ionicons name="close-circle" size={16} color="#F44336" />
+                                        <Text style={styles.rejectedText}>Rejected</Text>
+                                    </View>
+                                )}
+                            </View>
                             <View style={styles.fileMetaRow}>
                                 <View style={[styles.typeBadge, { backgroundColor: isDark ? colors.surface : "#E3F2FD" }]}>
                                     <Text style={[styles.typeBadgeText, { color: colors.primary }]}>
@@ -211,6 +230,19 @@ export default function DocumentViewScreen() {
                                 </Text>
                             </View>
                         </View>
+
+                        {/* Show rejection reason if document is rejected */}
+                        {isRejected && (
+                            <View style={styles.detailRow}>
+                                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Rejection Reason</Text>
+                                <View style={[styles.rejectionReasonBox, { backgroundColor: isDark ? "#3D1E1E" : "#FFEBEE", borderColor: "#F44336" }]}>
+                                    <Ionicons name="alert-circle-outline" size={16} color="#F44336" />
+                                    <Text style={[styles.rejectionReasonText, { color: isDark ? "#FF8A80" : "#C62828" }]}>
+                                        {rejectionReason?.toString()}
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
                     </View>
                 </View>
 
@@ -268,28 +300,30 @@ export default function DocumentViewScreen() {
                 </View>
             </ScrollView>
 
-            {/* Bottom Actions */}
-            <View style={[styles.footer, { paddingBottom: inset.bottom + 8, backgroundColor: colors.card, borderTopColor: colors.border }]}>
-                <TouchableOpacity
-                    style={[styles.actionBtn, styles.rejectBtn, submitting && { opacity: 0.7 }]}
-                    disabled={submitting}
-                    onPress={() => setShowRejectModal(true)}
-                >
-                    <Ionicons name="close-circle-outline" size={20} color="#fff" />
-                    <Text style={styles.actionBtnText}>Reject</Text>
-                </TouchableOpacity>
+            {/* Bottom Actions - Only show if document is not verified or rejected */}
+            {!isProcessed && (
+                <View style={[styles.footer, { paddingBottom: inset.bottom + 8, backgroundColor: colors.card, borderTopColor: colors.border }]}>
+                    <TouchableOpacity
+                        style={[styles.actionBtn, styles.rejectBtn, submitting && { opacity: 0.7 }]}
+                        disabled={submitting}
+                        onPress={() => setShowRejectModal(true)}
+                    >
+                        <Ionicons name="close-circle-outline" size={20} color="#fff" />
+                        <Text style={styles.actionBtnText}>Reject</Text>
+                    </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={[styles.actionBtn, styles.approveBtn, submitting && { opacity: 0.7 }]}
-                    disabled={submitting}
-                    onPress={handleApprove}
-                >
-                    <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-                    <Text style={styles.actionBtnText}>
-                        {submitting ? "Processing..." : "Approve"}
-                    </Text>
-                </TouchableOpacity>
-            </View>
+                    <TouchableOpacity
+                        style={[styles.actionBtn, styles.approveBtn, submitting && { opacity: 0.7 }]}
+                        disabled={submitting}
+                        onPress={handleApprove}
+                    >
+                        <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+                        <Text style={styles.actionBtnText}>
+                            {submitting ? "Processing..." : "Approve"}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            )}
 
             {/* Reject Modal */}
             <Modal
@@ -316,8 +350,8 @@ export default function DocumentViewScreen() {
                             numberOfLines={4}
                             placeholder="Enter rejection reason..."
                             placeholderTextColor={colors.textSecondary}
-                            value={rejectionReason}
-                            onChangeText={setRejectionReason}
+                            value={newRejectionReason}
+                            onChangeText={setNewRejectionReason}
                         />
 
                         <View style={styles.modalActions}>
@@ -325,7 +359,7 @@ export default function DocumentViewScreen() {
                                 style={[styles.modalBtn, styles.modalCancel, { backgroundColor: isDark ? colors.border : "#F3F4F6" }]}
                                 onPress={() => {
                                     setShowRejectModal(false);
-                                    setRejectionReason("");
+                                    setNewRejectionReason("");
                                 }}
                             >
                                 <Text style={[styles.modalCancelText, { color: colors.text }]}>Cancel</Text>
@@ -401,6 +435,50 @@ const styles = StyleSheet.create({
         fontSize: 11,
         fontWeight: "700",
         letterSpacing: 0.5,
+    },
+    verifiedBadge: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        backgroundColor: "#E8F5E9",
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    verifiedText: {
+        fontSize: 11,
+        fontWeight: "700",
+        color: "#4CAF50",
+        letterSpacing: 0.3,
+    },
+    rejectedBadge: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        backgroundColor: "#FFEBEE",
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    rejectedText: {
+        fontSize: 11,
+        fontWeight: "700",
+        color: "#F44336",
+        letterSpacing: 0.3,
+    },
+    rejectionReasonBox: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        padding: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+    },
+    rejectionReasonText: {
+        fontSize: 13,
+        fontWeight: "600",
+        flex: 1,
+        lineHeight: 18,
     },
     divider: {
         height: 1,

@@ -318,7 +318,7 @@ export default function ApplicationReviewerDashboard() {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.featureCard, { borderLeftColor: "#FF9800", backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]} activeOpacity={0.8} onPress={() => router.push("/(dashboard)/reviewer/documents")}>
+            {/* <TouchableOpacity style={[styles.featureCard, { borderLeftColor: "#FF9800", backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]} activeOpacity={0.8} onPress={() => router.push("/(dashboard)/reviewer/documents")}>
               <View style={styles.featureContent}>
                 <View style={[styles.featureIcon, { backgroundColor: "#FF980020" }]}>
                   <Ionicons name="document-attach-outline" size={24} color="#FF9800" />
@@ -329,7 +329,7 @@ export default function ApplicationReviewerDashboard() {
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
               </View>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
 
 
           </View>

@@ -2,8 +2,8 @@ import { useTheme } from "@/context/ThemeContext";
 import { getReviewerApplicationDetails } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -73,9 +73,11 @@ export default function ReviewerApplicationDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchApplicationDetails();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchApplicationDetails();
+    }, [])
+  );
 
   const fetchApplicationDetails = async () => {
     try {
@@ -308,7 +310,9 @@ export default function ReviewerApplicationDetailsScreen() {
                           fileName: file.filename,
                           filesize: file.filesize,
                           mimetype: file.mimetype,
-                          url: file.fileurl
+                          url: file.fileurl,
+                          verified: file.verified ? "true" : "false",
+                          rejectionReason: file.rejection_reason || ""
                         }
                       })}
                     >
@@ -339,6 +343,13 @@ export default function ReviewerApplicationDetailsScreen() {
                               <View style={[styles.metaDot, { backgroundColor: colors.textSecondary }]} />
                               <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
                               <Text style={[styles.fileMeta, { color: "#4CAF50" }]}>Verified</Text>
+                            </>
+                          )}
+                          {file.rejection_reason && file.rejection_reason.trim() !== "" && (
+                            <>
+                              <View style={[styles.metaDot, { backgroundColor: colors.textSecondary }]} />
+                              <Ionicons name="close-circle" size={14} color="#F44336" />
+                              <Text style={[styles.fileMeta, { color: "#F44336" }]}>Rejected</Text>
                             </>
                           )}
                         </View>
