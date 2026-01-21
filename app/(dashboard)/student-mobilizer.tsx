@@ -51,8 +51,7 @@ const mobilizerFeatures = [
     description: "View saved scholarships",
     icon: "bookmark",
     color: "#FFB400",
-    route: "/(dashboard)/mobilizer/mobilizer-scholarship-listing",
-    params: { bookmarkedOnly: "true" }
+    route: "/(dashboard)/mobilizer/mobilizer-bookmarked-scholarships"
   },
   {
     id: 5,
@@ -668,11 +667,7 @@ export default function StudentMobilizerDashboard() {
                 ]}
                 activeOpacity={0.8}
                 onPress={() => {
-                  if (feature.params) {
-                    router.push({ pathname: feature.route as any, params: feature.params });
-                  } else {
-                    router.push(feature.route as any);
-                  }
+                  router.push(feature.route as any);
                 }}
               >
                 <View style={styles.featureContent}>

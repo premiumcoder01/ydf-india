@@ -4119,6 +4119,312 @@ export const getMobilizerStudents = async (
 };
 
 /**
+ * Get Mobilizer Student Profile API call
+ * Fetch detailed profile of a student managed by the mobilizer.
+ */
+export const getMobilizerStudentProfile = async (
+  token: string,
+  studentId: number
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_get_student_profile");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("student_id", studentId.toString());
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Mobilizer Student Profile URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    if (response.ok) {
+      if (data.exception) {
+        return {
+          success: false,
+          error: data.message || data.exception,
+          message: data.message || "Failed to get student profile"
+        };
+      }
+      return { 
+        success: true, 
+        data: data, 
+        message: "Student profile retrieved successfully" 
+      };
+    } else {
+      return { 
+        success: false, 
+        error: data.error || data.message || "Failed to retrieve student profile",
+        message: data.message || "Failed to retrieve student profile"
+      };
+    }
+  } catch (error: any) {
+    return { 
+      success: false, 
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server"
+    };
+  }
+};
+
+
+/**
+ * Get Mobilizer Applications API call
+ * Fetch applications created by the mobilizer with optional filters.
+ */
+export const getMobilizerApplications = async (
+  token: string,
+  params?: {
+    page?: number;
+    per_page?: number;
+    student_id?: number;
+    scholarship_id?: number;
+    status?: string;
+    start_date?: number; // unix timestamp
+    end_date?: number; // unix timestamp
+  }
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_get_my_applications");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    // Add optional parameters if provided
+    if (params?.page) {
+      urlObj.searchParams.append("page", String(params.page));
+    }
+    if (params?.per_page) {
+      urlObj.searchParams.append("per_page", String(params.per_page));
+    }
+    if (params?.student_id) {
+      urlObj.searchParams.append("student_id", String(params.student_id));
+    }
+    if (params?.scholarship_id) {
+      urlObj.searchParams.append("scholarship_id", String(params.scholarship_id));
+    }
+    if (params?.status) {
+      urlObj.searchParams.append("status", params.status);
+    }
+    if (params?.start_date) {
+      urlObj.searchParams.append("start_date", String(params.start_date));
+    }
+    if (params?.end_date) {
+      urlObj.searchParams.append("end_date", String(params.end_date));
+    }
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Mobilizer Applications URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    if (response.ok) {
+      if (data.exception) {
+        return {
+          success: false,
+          error: data.message || data.exception,
+          message: data.message || "Failed to get applications"
+        };
+      }
+      return { 
+        success: true, 
+        data: data, 
+        message: "Applications retrieved successfully" 
+      };
+    } else {
+      return { 
+        success: false, 
+        error: data.error || data.message || "Failed to retrieve applications",
+        message: data.message || "Failed to retrieve applications"
+      };
+    }
+  } catch (error: any) {
+    return { 
+      success: false, 
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server"
+    };
+  }
+};
+
+
+/**
+ * Mobilizer Apply for Student API call
+ * Submit a scholarship application on behalf of a student.
+ */
+export const mobilizerApplyForStudent = async (
+  token: string,
+  data: {
+    student_id: number;
+    scholarship_id: number;
+    application_text?: string;
+    fullname?: string;
+    email?: string;
+    phone?: string;
+    student_id_number?: string;
+    institution?: string;
+    major?: string;
+    graduation_date?: string;
+    current_year?: string;
+    gpa?: string;
+    activities?: string;
+    financial_info?: string;
+    assessment_q1?: string;
+    assessment_q2?: string;
+    interview_mode?: string;
+    verification_time?: string;
+    documents?: any[];
+  }
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_apply_for_student");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("student_id", String(data.student_id));
+    urlObj.searchParams.append("scholarship_id", String(data.scholarship_id));
+    
+    // Add all optional parameters if provided
+    if (data.application_text) {
+      urlObj.searchParams.append("application_text", data.application_text);
+    }
+    if (data.fullname) {
+      urlObj.searchParams.append("fullname", data.fullname);
+    }
+    if (data.email) {
+      urlObj.searchParams.append("email", data.email);
+    }
+    if (data.phone) {
+      urlObj.searchParams.append("phone", data.phone);
+    }
+    if (data.student_id_number) {
+      urlObj.searchParams.append("student_id_number", data.student_id_number);
+    }
+    if (data.institution) {
+      urlObj.searchParams.append("institution", data.institution);
+    }
+    if (data.major) {
+      urlObj.searchParams.append("major", data.major);
+    }
+    if (data.graduation_date) {
+      urlObj.searchParams.append("graduation_date", data.graduation_date);
+    }
+    if (data.current_year) {
+      urlObj.searchParams.append("current_year", data.current_year);
+    }
+    if (data.gpa) {
+      urlObj.searchParams.append("gpa", data.gpa);
+    }
+    if (data.activities) {
+      urlObj.searchParams.append("activities", data.activities);
+    }
+    if (data.financial_info) {
+      urlObj.searchParams.append("financial_info", data.financial_info);
+    }
+    if (data.assessment_q1) {
+      urlObj.searchParams.append("assessment_q1", data.assessment_q1);
+    }
+    if (data.assessment_q2) {
+      urlObj.searchParams.append("assessment_q2", data.assessment_q2);
+    }
+    if (data.interview_mode) {
+      urlObj.searchParams.append("interview_mode", data.interview_mode);
+    }
+    if (data.verification_time) {
+      urlObj.searchParams.append("verification_time", data.verification_time);
+    }
+    // Note: documents handling may need special processing depending on API requirements
+    
+    const finalUrl = urlObj.toString();
+    console.log("Mobilizer Apply for Student URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let responseData: any = {};
+    
+    try {
+      responseData = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    if (response.ok) {
+      if (responseData.exception) {
+        return {
+          success: false,
+          error: responseData.message || responseData.exception,
+          message: responseData.message || "Failed to submit application"
+        };
+      }
+      return { 
+        success: true, 
+        data: responseData, 
+        message: responseData.message || "Application submitted successfully" 
+      };
+    } else {
+      return { 
+        success: false, 
+        error: responseData.error || responseData.message || "Failed to submit application",
+        message: responseData.message || "Failed to submit application"
+      };
+    }
+  } catch (error: any) {
+    return { 
+      success: false, 
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server"
+    };
+  }
+};
+
+
+/**
  * Add Mobilizer Student API call
  * Add a new student managed by the mobilizer.
  */

@@ -11,7 +11,7 @@ interface CustomTextInputProps {
   onFocus?: () => void;
   onBlur?: () => void;
   secureTextEntry?: boolean;
-  keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad';
+  keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad' | 'decimal-pad' | 'number-pad' | 'url' | 'ascii-capable' | 'numbers-and-punctuation' | 'name-phone-pad' | 'twitter' | 'web-search';
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   error?: string;
   focused?: boolean;
@@ -25,6 +25,7 @@ interface CustomTextInputProps {
   multiline?: boolean;
   forceLight?: boolean;
   required?: boolean;
+  icon?: keyof typeof Ionicons.glyphMap;
 }
 
 export default function CustomTextInput({
@@ -49,6 +50,7 @@ export default function CustomTextInput({
   multiline = false,
   forceLight = false,
   required = false,
+  icon,
 }: CustomTextInputProps) {
   const { isDark: globalIsDark, colors: themeColors } = useTheme();
 
@@ -123,6 +125,14 @@ export default function CustomTextInput({
         </Text>
       )}
       <View style={getContainerStyle()}>
+        {icon && (
+          <Ionicons
+            name={icon}
+            size={20}
+            color={colors.textSecondary}
+            style={{ marginRight: 8 }}
+          />
+        )}
         {showPasswordToggle && togglePosition === 'left' && renderToggle()}
         <RNTextInput
           value={value}

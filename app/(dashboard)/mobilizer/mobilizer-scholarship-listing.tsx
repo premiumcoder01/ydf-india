@@ -7,7 +7,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
     Animated,
@@ -80,8 +80,6 @@ export default function MobilizerScholarshipListingScreen() {
     const [toastMessage, setToastMessage] = useState("");
     const [toastType, setToastType] = useState<"success" | "error" | "info">("success");
     const inset = useSafeAreaInsets();
-    const params = useLocalSearchParams();
-    const isBookmarkedMode = params.bookmarkedOnly === "true";
 
     // Debounced search effect
     useEffect(() => {
@@ -122,8 +120,7 @@ export default function MobilizerScholarshipListingScreen() {
                     search: searchQuery || undefined,
                     page: page,
                     per_page: 20,
-                    deadline_before: deadlineTimestamp,
-                    bookmarked: isBookmarkedMode ? 1 : undefined
+                    deadline_before: deadlineTimestamp
                 });
 
                 if (response.success && response.data) {
@@ -175,8 +172,7 @@ export default function MobilizerScholarshipListingScreen() {
         };
 
         fetchScholarships();
-        // Depend on isBookmarkedMode too, so if it changes, we refetch
-    }, [searchQuery, page, isBookmarkedMode, deadlineBefore]);
+    }, [searchQuery, page, deadlineBefore]);
 
 
     // Extract unique categories from API data
@@ -273,23 +269,13 @@ export default function MobilizerScholarshipListingScreen() {
 
         const newBookmarkState = !currentBookmarkState;
 
-        // Optimistic UI update - update immediately
-        // If in bookmarked mode and we are unbookmarking, remove the item from the list
-        if (isBookmarkedMode && !newBookmarkState) {
-            setApiScholarships((prev) => prev.filter((item) => item.id !== id));
-            setBookmarks((b) => {
-                const newB = { ...b };
-                delete newB[id];
-                return newB;
-            });
-        } else {
-            setBookmarks((b) => ({ ...b, [id]: newBookmarkState }));
-            setApiScholarships((prev) =>
-                prev.map((item) =>
-                    item.id === id ? { ...item, bookmarked: newBookmarkState } : item
-                )
-            );
-        }
+        // Optimistic UI update
+        setBookmarks((b) => ({ ...b, [id]: newBookmarkState }));
+        setApiScholarships((prev) =>
+            prev.map((item) =>
+                item.id === id ? { ...item, bookmarked: newBookmarkState } : item
+            )
+        );
 
         // Haptic feedback
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -361,7 +347,7 @@ export default function MobilizerScholarshipListingScreen() {
         } finally {
             setBookmarking((prev) => ({ ...prev, [id]: false }));
         }
-    }, [bookmarking, showToast, isBookmarkedMode]);
+    }, [bookmarking, showToast]);
 
     const openFilters = useCallback(() => {
         setShowFilters(true);
@@ -431,29 +417,25 @@ export default function MobilizerScholarshipListingScreen() {
     const Header = (
         <View style={{ marginBottom: 20 }}>
             <AppHeader
-                title={isBookmarkedMode ? "Bookmarked Scholarships" : "Scholarships"}
+                title="Scholarships"
                 onBack={() => router.back()}
                 rightIcon={
-                    !isBookmarkedMode ? (
-                        <TouchableOpacity onPress={openFilters} style={[styles.filterIconBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" }]}>
-                            <Ionicons name="options-outline" size={22} color={colors.text} />
-                            {activeFiltersCount > 0 && (
-                                <View style={styles.filterBadge}>
-                                    <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
-                                </View>
-                            )}
-                        </TouchableOpacity>
-                    ) : undefined
+                    <TouchableOpacity onPress={openFilters} style={[styles.filterIconBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" }]}>
+                        <Ionicons name="options-outline" size={22} color={colors.text} />
+                        {activeFiltersCount > 0 && (
+                            <View style={styles.filterBadge}>
+                                <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
                 }
             />
-            {!isBookmarkedMode && (
-                <SearchBar
-                    value={query}
-                    onChangeText={setQuery}
-                    onClear={() => setQuery("")}
-                    placeholder="Search scholarships..."
-                />
-            )}
+            <SearchBar
+                value={query}
+                onChangeText={setQuery}
+                onClear={() => setQuery("")}
+                placeholder="Search scholarships..."
+            />
         </View>
     );
 
@@ -679,20 +661,12 @@ export default function MobilizerScholarshipListingScreen() {
                 }}
                 ListEmptyComponent={
                     <View style={styles.emptyState}>
-                        <Ionicons name={isBookmarkedMode ? "bookmark-outline" : "school-outline"} size={64} color="#ccc" />
+                        <Ionicons name="school-outline" size={64} color="#ccc" />
                         <Text style={styles.emptyStateText}>
-                            {loading
-                                ? "Loading scholarships..."
-                                : isBookmarkedMode
-                                    ? "No bookmarked scholarships"
-                                    : "No scholarships found"}
+                            {loading ? "Loading scholarships..." : "No scholarships found"}
                         </Text>
                         <Text style={styles.emptyStateSubtext}>
-                            {loading
-                                ? "Please wait..."
-                                : isBookmarkedMode
-                                    ? "Scholarships you bookmark will appear here"
-                                    : "Try adjusting your filters or search"}
+                            {loading ? "Please wait..." : "Try adjusting your filters or search"}
                         </Text>
                     </View>
                 }

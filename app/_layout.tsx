@@ -62,6 +62,7 @@ export default function RootLayout() {
 
         {/* Mobilizer Module Screens */}
         <Stack.Screen name="(dashboard)/mobilizer/mobilizer-scholarship-listing" options={{ title: "Scholarships" }} />
+        <Stack.Screen name="(dashboard)/mobilizer/mobilizer-bookmarked-scholarships" options={{ title: "Bookmarked Scholarships" }} />
         <Stack.Screen name="(dashboard)/mobilizer/mobilizer-scholarship-details" options={{ title: "Scholarship Details" }} />
         <Stack.Screen name="(dashboard)/mobilizer/mobilizer-apply-form" options={{ title: "Apply for Scholarship" }} />
         <Stack.Screen name="(dashboard)/mobilizer/mobilizer-applications" options={{ title: "My Applications" }} />
