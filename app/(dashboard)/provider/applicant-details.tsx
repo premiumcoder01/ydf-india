@@ -1,16 +1,23 @@
 import { useTheme } from "@/context/ThemeContext";
+import { donorReviewApplication, getDonorApplicantDetails } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import ReviewerHeader from "../../../components/ReviewerHeader";
 
@@ -29,90 +36,260 @@ export default function ProviderApplicantDetailsScreen() {
     return null;
   }, [params.applicant]);
 
-  // Fallback or loading state could be better, but for now we map to the structure used by the view
-  const applicant = applicantData ? {
-    id: applicantData.id,
-    name: applicantData.name,
-    age: "N/A", // Not available in data
-    course: applicantData.major,
-    college: applicantData.institution,
-    income: 0, // Not available in data
-    category: applicantData.assessment_q2 || "N/A",
-    essay: applicantData.assessment_q1 || "No details provided.",
-    motivation: applicantData.activities || "No activities listing provided.",
-    progress: applicantData.status === "Approved" ? 100 : (applicantData.status === "Rejected" ? 100 : 50),
-    appliedDate: applicantData.submittedAt,
-    gpa: applicantData.gpa,
-    documents: applicantData.documents || [],
-    email: applicantData.email,
-    phone: applicantData.phone,
-    avatarUrl: applicantData.avatarUrl,
-    student_id: applicantData.student_id,
-    current_year: applicantData.current_year,
-    financial_info: applicantData.financial_info,
-    interview_mode: applicantData.interview_mode,
-    verification_time: applicantData.verification_time,
-    graduation_date: applicantData.graduation_date,
-    institution: applicantData.institution
-  } : {
-    // Fallback if accessed directly without params (dev only mostly)
-    id: "app-1",
-    name: "Loading...",
-    age: 0,
-    course: "Loading...",
-    college: "Loading...",
-    income: 0,
-    category: "Loading...",
-    essay: "",
-    motivation: "",
-    progress: 0,
-    appliedDate: "",
-    gpa: "",
-    documents: [],
-    email: "",
-    phone: "",
-    avatarUrl: null,
-    student_id: "",
-    current_year: "",
-    financial_info: "",
-    interview_mode: "",
-    verification_time: "",
-    graduation_date: "",
-    institution: ""
-  };
-
-  const [notes, setNotes] = useState("");
+  // State for API data
+  const [loading, setLoading] = useState(true);
+  const [apiData, setApiData] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "overview" | "documents" | "notes"
+    "overview" | "academic" | "financial"
   >("overview");
 
-  // Removed formattedIncome as we are using financial_info string now or fallback
+  // State for approve/reject
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionNotes, setRejectionNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const getProgressColor = (progress: number): readonly [string, string] => {
-    if (progress >= 70) return ["#10b981", "#059669"] as const;
-    if (progress >= 40) return ["#f59e0b", "#d97706"] as const;
-    return ["#ef4444", "#dc2626"] as const;
+  // Handlers for approve/reject
+  const handleApprove = async () => {
+    Alert.alert(
+      "Approve Application",
+      "Are you sure you want to approve this application?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Approve",
+          style: "default",
+          onPress: async () => {
+            try {
+              setSubmitting(true);
+              const authDataString = await AsyncStorage.getItem("authData");
+              if (!authDataString) {
+                Alert.alert("Error", "Authentication required");
+                return;
+              }
+
+              const authData = JSON.parse(authDataString);
+              const token = authData?.token;
+              if (!token) {
+                Alert.alert("Error", "No authentication token found");
+                return;
+              }
+
+              const response = await donorReviewApplication(
+                token,
+                Number(apiData?.id || applicantData?.id),
+                "approve"
+              );
+
+              if (response.success) {
+                Alert.alert(
+                  "Success",
+                  "Application approved successfully!",
+                  [
+                    {
+                      text: "OK",
+                      onPress: () => router.back()
+                    }
+                  ]
+                );
+              } else {
+                Alert.alert("Error", response.error || "Failed to approve application");
+              }
+            } catch (err: any) {
+              Alert.alert("Error", err.message || "An error occurred");
+            } finally {
+              setSubmitting(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
-  if (!applicantData) {
-    // Optional: Handle error or loading state
+  const handleReject = () => {
+    setShowRejectModal(true);
+  };
+
+  const submitRejection = async () => {
+    if (!rejectionNotes.trim()) {
+      Alert.alert("Required", "Please provide a reason for rejection");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) {
+        Alert.alert("Error", "Authentication required");
+        return;
+      }
+
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
+      if (!token) {
+        Alert.alert("Error", "No authentication token found");
+        return;
+      }
+
+      const response = await donorReviewApplication(
+        token,
+        Number(apiData?.id || applicantData?.id),
+        "reject",
+        rejectionNotes
+      );
+
+      if (response.success) {
+        setShowRejectModal(false);
+        setRejectionNotes("");
+        Alert.alert(
+          "Success",
+          "Application rejected successfully!",
+          [
+            {
+              text: "OK",
+              onPress: () => router.back()
+            }
+          ]
+        );
+      } else {
+        Alert.alert("Error", response.error || "Failed to reject application");
+      }
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "An error occurred");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Fetch applicant details from API
+  useEffect(() => {
+    const fetchApplicantDetails = async () => {
+      if (!applicantData?.id) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        const authDataString = await AsyncStorage.getItem("authData");
+        if (!authDataString) {
+          setError("Authentication required");
+          setLoading(false);
+          return;
+        }
+
+        const authData = JSON.parse(authDataString);
+        const token = authData?.token;
+        if (!token) {
+          setError("No authentication token found");
+          setLoading(false);
+          return;
+        }
+
+        console.log("Fetching applicant details for ID:", applicantData.id);
+        const response = await getDonorApplicantDetails(token, Number(applicantData.id));
+
+        if (response.success && response.data) {
+          setApiData(response.data.application || response.data);
+          console.log("Applicant details fetched successfully:", response.data);
+        } else {
+          setError(response.error || "Failed to fetch applicant details");
+          console.error("Failed to fetch applicant details:", response.error);
+        }
+      } catch (err: any) {
+        setError(err.message || "An error occurred");
+        console.error("Error fetching applicant details:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchApplicantDetails();
+  }, [applicantData?.id]);
+
+  // Parse application text
+  const parsedAppText = useMemo(() => {
+    if (!apiData?.application_text) return {};
+    try {
+      return typeof apiData.application_text === 'string'
+        ? JSON.parse(apiData.application_text)
+        : apiData.application_text;
+    } catch (e) {
+      console.error("Error parsing application_text:", e);
+      return {};
+    }
+  }, [apiData]);
+
+  // Show loading state
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <ReviewerHeader title="Applicant Details" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+            Loading applicant details...
+          </Text>
+        </View>
+      </View>
+    );
   }
+
+  // Show error state
+  if (error) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <ReviewerHeader title="Applicant Details" />
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={64} color={colors.textSecondary} />
+          <Text style={[styles.errorTitle, { color: colors.text }]}>Error Loading Details</Text>
+          <Text style={[styles.errorText, { color: colors.textSecondary }]}>{error}</Text>
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: colors.primary }]}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.retryButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  const user = apiData?.user || {};
+  const scholarship = apiData?.scholarship || {};
+  const academicDetails = apiData?.academic_details || [];
+  const financialInfo = apiData?.financial_info || {};
+
+
+  const getStatusColor = (status: string) => {
+    const s = status?.toLowerCase();
+    if (s === 'approved') return { bg: '#10b981', light: 'rgba(16, 185, 129, 0.15)' };
+    if (s === 'rejected') return { bg: '#ef4444', light: 'rgba(239, 68, 68, 0.15)' };
+    return { bg: '#f59e0b', light: 'rgba(245, 158, 11, 0.15)' };
+  };
+
+  const statusColors = getStatusColor(apiData?.status || 'new');
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ReviewerHeader title="Applicant Details" />
 
-      {/* Hero Section */}
+      {/* Modern Hero Section */}
       <LinearGradient
-        colors={isDark ? ["#4f46e5", "#7c3aed"] : ["#6366f1", "#8b5cf6"]}
+        colors={isDark ? ["#1e293b", "#334155"] : ["#6366f1", "#8b5cf6"]}
         style={styles.heroSection}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
       >
         <View style={styles.heroContent}>
-          <View style={styles.avatarContainer}>
-            {applicant.avatarUrl ? (
+          {/* Avatar and Status */}
+          <View style={styles.avatarSection}>
+            {user.picture ? (
               <Image
-                source={{ uri: applicant.avatarUrl }}
-                style={[styles.avatar, { borderWidth: 3, borderColor: "rgba(255,255,255,0.3)" }]}
+                source={{ uri: user.picture }}
+                style={styles.avatar}
                 resizeMode="cover"
               />
             ) : (
@@ -121,119 +298,89 @@ export default function ProviderApplicantDetailsScreen() {
                 style={styles.avatar}
               >
                 <Text style={styles.avatarText}>
-                  {applicant.name && applicant.name.length > 0 ? applicant.name.charAt(0) : "U"}
+                  {user.fullname?.charAt(0) || user.firstname?.charAt(0) || "U"}
                 </Text>
               </LinearGradient>
             )}
-            <View style={[styles.statusBadge, { backgroundColor: "rgba(255,255,255,0.2)" }]}>
-              <View style={[styles.statusDot, { backgroundColor: applicantData?.status === "Approved" ? "#10b981" : applicantData?.status === "Rejected" ? "#ef4444" : "#f59e0b" }]} />
-              <Text style={styles.statusText}>{applicantData?.status || "Pending"}</Text>
-            </View>
-          </View>
-          <View style={styles.heroInfo}>
-            <Text style={styles.heroName}>{applicant.name}</Text>
-            <Text style={styles.heroSubtitle}>{applicant.course}</Text>
-
-            <View style={styles.heroMetaRow}>
-              <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '600' }}>
-                ID: {applicant.student_id || "N/A"}
+            <View style={[styles.statusBadge, { backgroundColor: statusColors.light }]}>
+              <View style={[styles.statusDot, { backgroundColor: statusColors.bg }]} />
+              <Text style={[styles.statusText, { color: statusColors.bg }]}>
+                {apiData?.status === 'new' ? 'Pending' :
+                  apiData?.status?.charAt(0).toUpperCase() + apiData?.status?.slice(1)}
               </Text>
             </View>
+          </View>
 
-            <View style={styles.heroMetaRow}>
-              <View style={styles.heroMetaItem}>
-                <Ionicons
-                  name="call-outline"
-                  size={14}
-                  color="rgba(255,255,255,0.9)"
-                />
-                <Text style={styles.heroMetaText}>{applicant.phone}</Text>
+          {/* User Info */}
+          <View style={styles.heroInfo}>
+            <Text style={styles.heroName}>{user.fullname || `${user.firstname} ${user.lastname} `}</Text>
+            <Text style={styles.heroSubtitle}>{parsedAppText.major || "N/A"}</Text>
+
+            <View style={styles.infoChips}>
+              <View style={styles.infoChip}>
+                <Ionicons name="school-outline" size={14} color="rgba(255,255,255,0.9)" />
+                <Text style={styles.infoChipText}>{parsedAppText.institution || "N/A"}</Text>
               </View>
-              <View style={styles.heroMetaDivider} />
-              <View style={styles.heroMetaItem}>
-                <Ionicons
-                  name="school-outline"
-                  size={14}
-                  color="rgba(255,255,255,0.9)"
-                />
-                <Text style={styles.heroMetaText}>GPA {applicant.gpa}</Text>
+              <View style={styles.infoChip}>
+                <Ionicons name="trophy-outline" size={14} color="rgba(255,255,255,0.9)" />
+                <Text style={styles.infoChipText}>GPA {parsedAppText.gpa || "N/A"}</Text>
               </View>
             </View>
-            <View style={styles.heroMetaItem}>
-              <Ionicons
-                name="time-outline"
-                size={14}
-                color="rgba(255,255,255,0.9)"
-              />
-              <Text style={styles.heroMetaText}>Applied: {applicant.appliedDate}</Text>
+
+            <View style={styles.contactRow}>
+              <Ionicons name="mail-outline" size={12} color="rgba(255,255,255,0.8)" />
+              <Text style={styles.contactText}>{user.email || parsedAppText.email}</Text>
             </View>
-            <View style={styles.heroMetaItem}>
-              <Ionicons name="mail-outline" size={14} color="rgba(255,255,255,0.9)" />
-              <Text style={styles.heroMetaText}>{applicant.email}</Text>
+            <View style={styles.contactRow}>
+              <Ionicons name="call-outline" size={12} color="rgba(255,255,255,0.8)" />
+              <Text style={styles.contactText}>{parsedAppText.phone || "N/A"}</Text>
             </View>
           </View>
+        </View>
+
+        {/* Scholarship Info */}
+        <View style={styles.scholarshipCard}>
+          <View style={styles.scholarshipHeader}>
+            <Ionicons name="ribbon-outline" size={20} color={isDark ? "#fbbf24" : "#fff"} />
+            <Text style={styles.scholarshipTitle}>Applied For</Text>
+          </View>
+          <Text style={styles.scholarshipName}>{scholarship.name || "N/A"}</Text>
+          <Text style={styles.scholarshipDate}>
+            Applied on {apiData?.timecreated ? new Date(apiData.timecreated).toLocaleDateString('en-US', {
+              month: 'short', day: 'numeric', year: 'numeric'
+            }) : "N/A"}
+          </Text>
         </View>
       </LinearGradient>
 
       {/* Tab Navigation */}
       <View style={[styles.tabContainer, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === "overview" && { borderBottomColor: colors.primary }]}
-          onPress={() => setActiveTab("overview")}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name="person-outline"
-            size={18}
-            color={activeTab === "overview" ? colors.primary : colors.textSecondary}
-          />
-          <Text
-            style={[
-              styles.tabText,
-              { color: activeTab === "overview" ? colors.primary : colors.textSecondary },
-            ]}
+        {[
+          { key: "overview", label: "Overview", icon: "person-outline" },
+          { key: "academic", label: "Academic", icon: "school-outline" },
+          { key: "financial", label: "Financial", icon: "card-outline" },
+        ].map((tab) => (
+          <TouchableOpacity
+            key={tab.key}
+            style={[styles.tab, activeTab === tab.key && { borderBottomColor: colors.primary }]}
+            onPress={() => setActiveTab(tab.key as any)}
+            activeOpacity={0.7}
           >
-            Overview
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === "documents" && { borderBottomColor: colors.primary }]}
-          onPress={() => setActiveTab("documents")}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name="document-text-outline"
-            size={18}
-            color={activeTab === "documents" ? colors.primary : colors.textSecondary}
-          />
-          <Text
-            style={[
-              styles.tabText,
-              { color: activeTab === "documents" ? colors.primary : colors.textSecondary },
-            ]}
-          >
-            Documents
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === "notes" && { borderBottomColor: colors.primary }]}
-          onPress={() => setActiveTab("notes")}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name="create-outline"
-            size={18}
-            color={activeTab === "notes" ? colors.primary : colors.textSecondary}
-          />
-          <Text
-            style={[
-              styles.tabText,
-              { color: activeTab === "notes" ? colors.primary : colors.textSecondary },
-            ]}
-          >
-            Notes
-          </Text>
-        </TouchableOpacity>
+            <Ionicons
+              name={tab.icon as any}
+              size={18}
+              color={activeTab === tab.key ? colors.primary : colors.textSecondary}
+            />
+            <Text
+              style={[
+                styles.tabText,
+                { color: activeTab === tab.key ? colors.primary : colors.textSecondary },
+              ]}
+            >
+              {tab.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <ScrollView
@@ -241,398 +388,603 @@ export default function ProviderApplicantDetailsScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        {/* Overview Tab */}
         {activeTab === "overview" && (
           <>
-            {/* Quick Stats */}
+            {/* Quick Stats Grid */}
             <View style={styles.statsGrid}>
-              <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View
-                  style={[
-                    styles.statIconContainer,
-                    { backgroundColor: isDark ? "rgba(37, 99, 235, 0.15)" : "#dbeafe" },
-                  ]}
-                >
-                  <Ionicons name="business-outline" size={20} color={isDark ? "#60a5fa" : "#2563eb"} />
-                </View>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Institution</Text>
-                <Text style={[styles.statValue, { color: colors.text }]} numberOfLines={2}>
-                  {applicant.college}
-                </Text>
-              </View>
-              <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View
-                  style={[
-                    styles.statIconContainer,
-                    { backgroundColor: isDark ? "rgba(22, 163, 74, 0.15)" : "#dcfce7" },
-                  ]}
-                >
-                  <Ionicons name="cash-outline" size={20} color={isDark ? "#4ade80" : "#16a34a"} />
-                </View>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Financial Info</Text>
-                <Text style={[styles.statValue, { color: colors.text }]} numberOfLines={1}>
-                  {applicant.financial_info || "N/A"}
-                </Text>
-              </View>
-              <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View
-                  style={[
-                    styles.statIconContainer,
-                    { backgroundColor: isDark ? "rgba(202, 138, 4, 0.15)" : "#fef3c7" },
-                  ]}
-                >
-                  <Ionicons
-                    name="pricetags-outline"
-                    size={20}
-                    color={isDark ? "#fbbf24" : "#ca8a04"}
-                  />
-                </View>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Category</Text>
-                <Text style={[styles.statValue, { color: colors.text }]}>{applicant.category}</Text>
-              </View>
-            </View>
-
-            {/* Extra Details Card */}
-            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 16 }]}>Interview Details</Text>
-              <View style={{ gap: 12 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ color: colors.textSecondary }}>Mode</Text>
-                  <Text style={{ fontWeight: '600', color: colors.text }}>{applicant.interview_mode || "Not Scheduled"}</Text>
-                </View>
-                <View style={[styles.divider, { marginVertical: 4, backgroundColor: colors.border }]} />
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ color: colors.textSecondary }}>Verified At</Text>
-                  <Text style={{ fontWeight: '600', color: colors.text }}>{applicant.verification_time ? new Date(applicant.verification_time).toLocaleDateString() : "Pending"}</Text>
-                </View>
-                <View style={[styles.divider, { marginVertical: 4, backgroundColor: colors.border }]} />
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ color: colors.textSecondary }}>Current Year</Text>
-                  <Text style={{ fontWeight: '600', color: colors.text }}>{applicant.current_year || "N/A"}</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Progress Card */}
-            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.cardHeader}>
-                <View>
-                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Application Progress</Text>
-                  <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-                    Review completion status
-                  </Text>
-                </View>
-                <View style={[styles.progressPercentBadge, { backgroundColor: isDark ? "rgba(22, 163, 74, 0.2)" : "#f0fdf4" }]}>
-                  <Text style={[styles.progressPercentText, { color: isDark ? "#4ade80" : "#16a34a" }]}>
-                    {applicant.progress}%
-                  </Text>
-                </View>
-              </View>
-              <View style={[styles.progressBarContainer, { backgroundColor: colors.surface }]}>
-                <LinearGradient
-                  colors={getProgressColor(applicant.progress)}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={[
-                    styles.progressFill,
-                    { width: `${applicant.progress}%` },
-                  ]}
-                />
-              </View>
-              <View style={styles.progressMilestones}>
-                <ProgressMilestone
-                  completed={applicant.progress >= 25}
-                  label="Started"
-                />
-                <ProgressMilestone
-                  completed={applicant.progress >= 50}
-                  label="In Review"
-                />
-                <ProgressMilestone
-                  completed={applicant.progress >= 75}
-                  label="Verification"
-                />
-                <ProgressMilestone
-                  completed={applicant.progress >= 100}
-                  label="Completed"
-                />
-              </View>
+              <StatCard
+                icon="person-outline"
+                label="Student ID"
+                value={parsedAppText.student_id || "N/A"}
+                color="#6366f1"
+                isDark={isDark}
+              />
+              <StatCard
+                icon="calendar-outline"
+                label="Current Year"
+                value={parsedAppText.current_year || "N/A"}
+                color="#10b981"
+                isDark={isDark}
+              />
+              <StatCard
+                icon="school-outline"
+                label="Graduation"
+                value={parsedAppText.graduation_date || "N/A"}
+                color="#f59e0b"
+                isDark={isDark}
+              />
             </View>
 
             {/* Application Details */}
             <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.cardHeader}>
-                <View>
-                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Application Statement</Text>
-                  <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-                    Candidate's submission
-                  </Text>
+                <View style={styles.cardTitleRow}>
+                  <Ionicons name="document-text" size={24} color={colors.primary} />
+                  <Text style={[styles.cardTitle, { color: colors.text }]}>Application Information</Text>
                 </View>
               </View>
 
-              <View style={styles.essaySection}>
-                <View style={styles.essayHeader}>
-                  <Ionicons name="bulb-outline" size={18} color={isDark ? colors.primary : "#6366f1"} />
-                  <Text style={[styles.essayLabel, { color: colors.text }]}>Career Goals & Vision</Text>
+              <InfoRow label="Full Name" value={parsedAppText.fullname || user.fullname} colors={colors} />
+              <InfoRow label="Email" value={parsedAppText.email || user.email} colors={colors} />
+              <InfoRow label="Phone" value={parsedAppText.phone} colors={colors} />
+              <InfoRow label="Institution" value={parsedAppText.institution} colors={colors} />
+              <InfoRow label="Major" value={parsedAppText.major} colors={colors} />
+              <InfoRow label="GPA" value={parsedAppText.gpa} colors={colors} />
+              <InfoRow label="Current Year" value={parsedAppText.current_year} colors={colors} />
+              <InfoRow label="Graduation Date" value={parsedAppText.graduation_date} colors={colors} />
+            </View>
+
+            {/* Assessment Details */}
+            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={styles.cardHeader}>
+                <View style={styles.cardTitleRow}>
+                  <Ionicons name="clipboard" size={24} color={colors.primary} />
+                  <Text style={[styles.cardTitle, { color: colors.text }]}>Assessment Responses</Text>
                 </View>
-                <Text style={[styles.paragraph, { color: colors.textSecondary }]}>{applicant.essay}</Text>
+              </View>
+
+              <View style={styles.assessmentItem}>
+                <Text style={[styles.assessmentLabel, { color: colors.textSecondary }]}>
+                  Question 1 Response
+                </Text>
+                <Text style={[styles.assessmentValue, { color: colors.text }]}>
+                  {parsedAppText.assessment_q1 || "No response"}
+                </Text>
               </View>
 
               <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-              <View style={styles.essaySection}>
-                <View style={styles.essayHeader}>
-                  <Ionicons name="heart-outline" size={18} color="#ec4899" />
-                  <Text style={[styles.essayLabel, { color: colors.text }]}>Motivation & Impact</Text>
-                </View>
-                <Text style={[styles.paragraph, { color: colors.textSecondary }]}>{applicant.motivation}</Text>
+              <View style={styles.assessmentItem}>
+                <Text style={[styles.assessmentLabel, { color: colors.textSecondary }]}>
+                  Housing Type
+                </Text>
+                <Text style={[styles.assessmentValue, { color: colors.text }]}>
+                  {parsedAppText.assessment_q2 || "No response"}
+                </Text>
               </View>
+
+              {parsedAppText.activities && (
+                <>
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                  <View style={styles.assessmentItem}>
+                    <Text style={[styles.assessmentLabel, { color: colors.textSecondary }]}>
+                      Activities
+                    </Text>
+                    <Text style={[styles.assessmentValue, { color: colors.text }]}>
+                      {parsedAppText.activities}
+                    </Text>
+                  </View>
+                </>
+              )}
             </View>
+
+            {/* Interview Details */}
+            {parsedAppText.interview_mode && (
+              <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardTitleRow}>
+                    <Ionicons name="videocam" size={24} color={colors.primary} />
+                    <Text style={[styles.cardTitle, { color: colors.text }]}>Interview Details</Text>
+                  </View>
+                </View>
+
+                <InfoRow label="Interview Mode" value={parsedAppText.interview_mode} colors={colors} />
+                {parsedAppText.verification_time && (
+                  <InfoRow
+                    label="Verification Time"
+                    value={new Date(parsedAppText.verification_time).toLocaleString()}
+                    colors={colors}
+                  />
+                )}
+              </View>
+            )}
           </>
         )}
 
-        {activeTab === "documents" && (
+        {/* Academic Tab */}
+        {activeTab === "academic" && (
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.cardHeader}>
-              <View>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Uploaded Documents</Text>
-                <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-                  {applicant.documents.length} files attached
+              <View style={styles.cardTitleRow}>
+                <Ionicons name="school" size={24} color={colors.primary} />
+                <Text style={[styles.cardTitle, { color: colors.text }]}>Academic History</Text>
+              </View>
+              <View style={[styles.badge, { backgroundColor: isDark ? "rgba(99, 102, 241, 0.2)" : "#eef2ff" }]}>
+                <Text style={[styles.badgeText, { color: colors.primary }]}>
+                  {academicDetails.length} {academicDetails.length === 1 ? 'Record' : 'Records'}
                 </Text>
               </View>
             </View>
-            <View style={styles.docsList}>
-              {applicant.documents.length > 0 ? (
-                applicant.documents.map((doc: any, index: number) => (
-                  <DocCard
-                    key={index}
-                    title={doc.name}
-                    size={doc.size ? `${(doc.size / 1024 / 1024).toFixed(2)} MB` : "N/A"}
-                    date={applicant.appliedDate || "N/A"}
-                    type={doc.mimeType?.includes("image") ? "image" : doc.mimeType?.includes("pdf") ? "pdf" : "zip"}
-                    uri={doc.uri}
-                  />
-                ))
-              ) : (
-                <Text style={{ color: colors.textSecondary, fontStyle: 'italic' }}>No documents uploaded.</Text>
+
+            {academicDetails.length > 0 ? (
+              academicDetails.map((academic: any, index: number) => (
+                <View key={academic.id || index}>
+                  {index > 0 && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
+                  <View style={styles.academicCard}>
+                    <View style={styles.academicHeader}>
+                      <View style={[styles.academicBadge, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.2)" : "#d1fae5" }]}>
+                        <Ionicons name="trophy" size={16} color="#10b981" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.academicCourse, { color: colors.text }]}>
+                          {academic.course_name}
+                        </Text>
+                        <Text style={[styles.academicMajor, { color: colors.textSecondary }]}>
+                          {academic.major}
+                        </Text>
+                      </View>
+                      <View style={[styles.cgpaChip, { backgroundColor: isDark ? "rgba(245, 158, 11, 0.2)" : "#fef3c7" }]}>
+                        <Text style={[styles.cgpaText, { color: "#f59e0b" }]}>
+                          {academic.cgpa} CGPA
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.academicDetails}>
+                      <View style={styles.academicRow}>
+                        <Ionicons name="business-outline" size={14} color={colors.textSecondary} />
+                        <Text style={[styles.academicText, { color: colors.textSecondary }]}>
+                          {academic.institution}
+                        </Text>
+                      </View>
+                      <View style={styles.academicRow}>
+                        <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
+                        <Text style={[styles.academicText, { color: colors.textSecondary }]}>
+                          {academic.academic_year} • Graduated {academic.graduation_year}
+                        </Text>
+                      </View>
+                      <View style={styles.academicRow}>
+                        <Ionicons name="pricetag-outline" size={14} color={colors.textSecondary} />
+                        <Text style={[styles.academicText, { color: colors.textSecondary }]}>
+                          {academic.category}
+                        </Text>
+                      </View>
+                      <View style={styles.academicRow}>
+                        <Ionicons name="stats-chart-outline" size={14} color={colors.textSecondary} />
+                        <Text style={[styles.academicText, { color: colors.textSecondary }]}>
+                          {academic.percentage}% Percentage
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <View style={styles.emptyState}>
+                <Ionicons name="school-outline" size={48} color={colors.textSecondary} />
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                  No academic records available
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Financial Tab */}
+        {activeTab === "financial" && (
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardTitleRow}>
+                <Ionicons name="card" size={24} color={colors.primary} />
+                <Text style={[styles.cardTitle, { color: colors.text }]}>Financial Information</Text>
+              </View>
+              {financialInfo.id && (
+                <View style={[styles.verifiedBadge, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.2)" : "#d1fae5" }]}>
+                  <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                  <Text style={[styles.verifiedText, { color: "#10b981" }]}>Verified</Text>
+                </View>
               )}
             </View>
-          </View>
-        )}
 
-        {activeTab === "notes" && (
-          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.cardHeader}>
-              <View>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Internal Notes</Text>
-                <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-                  Private reviewer comments
+            {financialInfo.id ? (
+              <>
+                <View style={[styles.bankCard, { backgroundColor: isDark ? "rgba(99, 102, 241, 0.1)" : "#f8f9ff" }]}>
+                  <LinearGradient
+                    colors={isDark ? ["#4f46e5", "#6366f1"] : ["#6366f1", "#8b5cf6"]}
+                    style={styles.bankCardGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <View style={styles.bankCardHeader}>
+                      <Ionicons name="card-outline" size={32} color="rgba(255,255,255,0.9)" />
+                      <Text style={styles.bankCardType}>Bank Account</Text>
+                    </View>
+                    <View style={styles.bankCardBody}>
+                      <Text style={styles.bankCardNumber}>•••• •••• •••• {financialInfo.account_last4}</Text>
+                      <Text style={styles.bankCardHolder}>
+                        {financialInfo.account_holder_name || "Account Holder"}
+                      </Text>
+                    </View>
+                    <View style={styles.bankCardFooter}>
+                      <View>
+                        <Text style={styles.bankCardLabel}>Bank</Text>
+                        <Text style={styles.bankCardValue}>{financialInfo.bank_name || "N/A"}</Text>
+                      </View>
+                      {financialInfo.ifsc_code && (
+                        <View>
+                          <Text style={styles.bankCardLabel}>IFSC</Text>
+                          <Text style={styles.bankCardValue}>{financialInfo.ifsc_code}</Text>
+                        </View>
+                      )}
+                    </View>
+                  </LinearGradient>
+                </View>
+
+                <View style={styles.financialMeta}>
+                  <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
+                  <Text style={[styles.financialMetaText, { color: colors.textSecondary }]}>
+                    Last updated: {new Date(financialInfo.updated_at).toLocaleDateString('en-US', {
+                      month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                    })}
+                  </Text>
+                </View>
+
+                {parsedAppText.financial_info && (
+                  <>
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                    <View style={styles.assessmentItem}>
+                      <Text style={[styles.assessmentLabel, { color: colors.textSecondary }]}>
+                        Additional Financial Information
+                      </Text>
+                      <Text style={[styles.assessmentValue, { color: colors.text }]}>
+                        {parsedAppText.financial_info}
+                      </Text>
+                    </View>
+                  </>
+                )}
+              </>
+            ) : (
+              <View style={styles.emptyState}>
+                <Ionicons name="card-outline" size={48} color={colors.textSecondary} />
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                  No financial information available
                 </Text>
               </View>
-            </View>
-            <TextInput
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Add your review notes, observations, or recommendations here..."
-              placeholderTextColor={colors.textSecondary}
-              multiline
-              style={[styles.notesInput, {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-                color: colors.text
-              }]}
-            />
-            <TouchableOpacity style={[styles.saveNotesBtn, { backgroundColor: colors.primary }]} activeOpacity={0.85}>
-              <Ionicons name="save-outline" size={18} color="#fff" />
-              <Text style={styles.saveNotesText}>Save Notes</Text>
-            </TouchableOpacity>
+            )}
           </View>
         )}
 
-        {/* Action Buttons */}
-        <View style={[styles.actionsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.actionsTitle, { color: colors.text }]}>Review Decision</Text>
-          <View style={styles.actionsRow}>
-            <TouchableOpacity
-              style={styles.approveBtn}
-              activeOpacity={0.85}
-              onPress={() => console.log("Approve", applicant.id)}
-            >
-              <LinearGradient
-                colors={["#10b981", "#059669"]}
-                style={styles.actionBtnGradient}
+        {/* Action Buttons - Only show for pending applications */}
+        {apiData?.status === "new" && (
+          <View style={[styles.actionsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.actionsTitle, { color: colors.text }]}>Review Actions</Text>
+            <View style={styles.actionsRow}>
+              <TouchableOpacity
+                style={[styles.approveBtn, submitting && styles.disabledBtn]}
+                activeOpacity={0.85}
+                onPress={handleApprove}
+                disabled={submitting}
               >
-                <Ionicons name="checkmark-circle" size={22} color="#fff" />
-                <Text style={styles.actionBtnText}>Approve</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.rejectBtn}
-              activeOpacity={0.85}
-              onPress={() => console.log("Reject", applicant.id)}
-            >
-              <LinearGradient
-                colors={["#ef4444", "#dc2626"]}
-                style={styles.actionBtnGradient}
+                <LinearGradient
+                  colors={submitting ? ["#9ca3af", "#6b7280"] : ["#10b981", "#059669"]}
+                  style={styles.actionBtnGradient}
+                >
+                  {submitting ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark-circle" size={22} color="#fff" />
+                      <Text style={styles.actionBtnText}>Approve</Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.rejectBtn, submitting && styles.disabledBtn]}
+                activeOpacity={0.85}
+                onPress={handleReject}
+                disabled={submitting}
               >
-                <Ionicons name="close-circle" size={22} color="#fff" />
-                <Text style={styles.actionBtnText}>Reject</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+                <LinearGradient
+                  colors={submitting ? ["#9ca3af", "#6b7280"] : ["#ef4444", "#dc2626"]}
+                  style={styles.actionBtnGradient}
+                >
+                  {submitting ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="close-circle" size={22} color="#fff" />
+                      <Text style={styles.actionBtnText}>Reject</Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
           </View>
-          <TouchableOpacity
-            style={[styles.backBtn, { backgroundColor: isDark ? colors.surface : "#f8fafc", borderColor: colors.border }]}
-            activeOpacity={0.85}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={18} color={colors.primary} />
-            <Text style={[styles.backBtnText, { color: colors.primary }]}>Back to Applications</Text>
-          </TouchableOpacity>
-        </View>
+        )}
       </ScrollView>
-    </View>
-  );
-}
 
-function ProgressMilestone({
-  completed,
-  label,
-}: {
-  completed: boolean;
-  label: string;
-}) {
-  const { isDark, colors } = useTheme();
-  return (
-    <View style={styles.milestone}>
-      <View
-        style={[
-          styles.milestoneCircle,
-          { backgroundColor: isDark ? colors.surface : "#e5e7eb" },
-          completed && styles.milestoneCircleComplete,
-        ]}
+      {/* Rejection Modal */}
+      <Modal
+        visible={showRejectModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowRejectModal(false)}
       >
-        {completed && <Ionicons name="checkmark" size={10} color="#fff" />}
-      </View>
-      <Text
-        style={[
-          styles.milestoneLabel,
-          { color: colors.textSecondary },
-          completed && styles.milestoneLabelComplete,
-        ]}
-      >
-        {label}
-      </Text>
-    </View>
-  );
-}
-
-function DocCard({
-  title,
-  size,
-  date,
-  type,
-  uri,
-}: {
-  title: string;
-  size: string;
-  date: string;
-  type: "pdf" | "image" | "zip";
-  uri?: string;
-}) {
-  const { isDark, colors } = useTheme();
-  const iconMap = {
-    pdf: { name: "document-text", color: "#ef4444", bg: isDark ? "rgba(239, 68, 68, 0.2)" : "#fee2e2" },
-    image: { name: "image", color: "#8b5cf6", bg: isDark ? "rgba(139, 92, 246, 0.2)" : "#f3e8ff" },
-    zip: { name: "archive", color: "#f59e0b", bg: isDark ? "rgba(245, 158, 11, 0.2)" : "#fef3c7" },
-  };
-  const config = iconMap[type];
-
-  return (
-    <TouchableOpacity style={[styles.docCard, { backgroundColor: colors.surface }]} activeOpacity={0.7}>
-      <View style={[styles.docIcon, { backgroundColor: config.bg }]}>
-        <Ionicons name={config.name as any} size={24} color={config.color} />
-      </View>
-      <View style={styles.docInfo}>
-        <Text style={[styles.docTitle, { color: colors.text }]}>{title}</Text>
-        <View style={styles.docMeta}>
-          <Text style={[styles.docMetaText, { color: colors.textSecondary }]}>{size}</Text>
-          <View style={[styles.docMetaDot, { backgroundColor: colors.textSecondary }]} />
-          <Text style={[styles.docMetaText, { color: colors.textSecondary }]}>{date}</Text>
-        </View>
-      </View>
-      <View style={{ flexDirection: 'row' }}>
-        <TouchableOpacity
-          style={[styles.docActionBtn, { backgroundColor: isDark ? "rgba(99, 102, 241, 0.2)" : "#eef2ff", marginRight: 8 }]}
-          activeOpacity={0.7}
-          onPress={() => router.push({ pathname: "/(dashboard)/provider/view-document", params: { title, type, uri } })}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalOverlay}
         >
-          <Ionicons name="eye-outline" size={20} color={colors.primary} />
-        </TouchableOpacity>
-        {/* <TouchableOpacity style={[styles.docActionBtn, { backgroundColor: isDark ? "rgba(99, 102, 241, 0.2)" : "#eef2ff" }]} activeOpacity={0.7}>
-          <Ionicons name="download-outline" size={20} color={colors.primary} />
-        </TouchableOpacity> */}
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Reject Application</Text>
+              <TouchableOpacity
+                onPress={() => setShowRejectModal(false)}
+                style={styles.modalClose}
+              >
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>
+              Please provide a reason for rejecting this application:
+            </Text>
+
+            <TextInput
+              style={[styles.modalInput, {
+                backgroundColor: isDark ? colors.surface : "#f3f4f6",
+                color: colors.text,
+                borderColor: colors.border
+              }]}
+              placeholder="Enter rejection reason..."
+              placeholderTextColor={colors.textSecondary}
+              value={rejectionNotes}
+              onChangeText={setRejectionNotes}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalCancelButton, { borderColor: colors.border }]}
+                onPress={() => {
+                  setShowRejectModal(false);
+                  setRejectionNotes("");
+                }}
+                disabled={submitting}
+              >
+                <Text style={[styles.modalCancelText, { color: colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalSubmitButton, submitting && styles.disabledBtn]}
+                onPress={submitRejection}
+                disabled={submitting}
+              >
+                <LinearGradient
+                  colors={submitting ? ["#9ca3af", "#6b7280"] : ["#ef4444", "#dc2626"]}
+                  style={styles.modalButtonGradient}
+                >
+                  {submitting ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.modalSubmitText}>Submit Rejection</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </View>
+  );
+}
+
+// Stat Card Component
+function StatCard({ icon, label, value, color, isDark }: any) {
+  const { colors } = useTheme();
+  return (
+    <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={[styles.statIcon, { backgroundColor: isDark ? `${color} 20` : `${color} 15` }]}>
+        <Ionicons name={icon} size={20} color={color} />
       </View>
-    </TouchableOpacity>
+      <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
+      <Text style={[styles.statValue, { color: colors.text }]} numberOfLines={1}>{value}</Text>
+    </View>
+  );
+}
+
+// Info Row Component
+function InfoRow({ label, value, colors }: any) {
+  if (!value || value === "N/A") return null;
+  return (
+    <View style={styles.infoRow}>
+      <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{label}</Text>
+      <Text style={[styles.infoValue, { color: colors.text }]}>{value}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc" },
+  container: { flex: 1 },
   scroll: { flex: 1 },
   content: { paddingBottom: 32 },
 
+  // Loading and Error states
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  errorText: {
+    fontSize: 14,
+    fontWeight: "500",
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  retryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  retryButtonText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
   // Hero Section
-  heroSection: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24 },
-  heroContent: { flexDirection: "row", gap: 16 },
-  avatarContainer: { alignItems: "center", gap: 8 },
+  heroSection: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 24,
+  },
+  heroContent: {
+    flexDirection: "row",
+    gap: 16,
+    marginBottom: 20,
+  },
+  avatarSection: {
+    alignItems: "center",
+    gap: 10,
+  },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 80,
+    height: 80,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 3,
     borderColor: "rgba(255,255,255,0.3)",
   },
-  avatarText: { fontSize: 24, fontWeight: "800", color: "#fff" },
+  avatarText: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#fff",
+  },
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 12,
   },
   statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#10b981",
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  statusText: { fontSize: 11, fontWeight: "700", color: "#fff" },
-  heroInfo: { flex: 1, justifyContent: "center", gap: 4 },
-  heroName: { fontSize: 24, fontWeight: "800", color: "#fff" },
+  statusText: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  heroInfo: {
+    flex: 1,
+    justifyContent: "center",
+    gap: 6,
+  },
+  heroName: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#fff",
+  },
   heroSubtitle: {
     fontSize: 15,
     fontWeight: "600",
     color: "rgba(255,255,255,0.85)",
   },
-  heroMetaRow: {
+  infoChips: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 8,
+  },
+  infoChip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    marginTop: 6,
+    gap: 4,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
-  heroMetaItem: { flexDirection: "row", alignItems: "center", gap: 4 },
-  heroMetaText: {
-    fontSize: 13,
+  infoChipText: {
+    fontSize: 12,
     fontWeight: "600",
-    color: "rgba(255,255,255,0.9)",
+    color: "rgba(255,255,255,0.95)",
   },
-  heroMetaDivider: {
-    width: 1,
-    height: 12,
-    backgroundColor: "rgba(255,255,255,0.3)",
+  contactRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 2,
+  },
+  contactText: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "rgba(255,255,255,0.8)",
+  },
+
+  // Scholarship Card
+  scholarshipCard: {
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+  },
+  scholarshipHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  scholarshipTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.8)",
+    textTransform: "uppercase",
+  },
+  scholarshipName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#fff",
+    marginBottom: 4,
+  },
+  scholarshipDate: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "rgba(255,255,255,0.7)",
   },
 
   // Tabs
@@ -652,7 +1004,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: "transparent",
   },
-  tabText: { fontSize: 14, fontWeight: "600" },
+  tabText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
 
   // Stats Grid
   statsGrid: {
@@ -666,14 +1021,14 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     alignItems: "center",
+    borderWidth: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
-    borderWidth: 1,
   },
-  statIconContainer: {
+  statIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
@@ -686,6 +1041,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
     marginBottom: 6,
+    textTransform: "uppercase",
   },
   statValue: {
     fontSize: 14,
@@ -699,131 +1055,213 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 16,
     padding: 20,
+    borderWidth: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 12,
     elevation: 3,
-    borderWidth: 1,
   },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 16,
+    alignItems: "center",
+    marginBottom: 20,
   },
-  sectionTitle: { fontSize: 18, fontWeight: "800" },
-  sectionSubtitle: {
-    fontSize: 13,
-    fontWeight: "500",
-    marginTop: 2,
+  cardTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
-
-  // Progress
-  progressPercentBadge: {
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  badge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
   },
-  progressPercentText: { fontSize: 16, fontWeight: "800" },
-  progressBarContainer: {
-    width: "100%",
-    height: 12,
-    borderRadius: 6,
-    overflow: "hidden",
+  badgeText: {
+    fontSize: 12,
+    fontWeight: "700",
   },
-  progressFill: { height: "100%", borderRadius: 6 },
-  progressMilestones: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 16,
-  },
-  milestone: { alignItems: "center", gap: 6 },
-  milestoneCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  milestoneCircleComplete: { backgroundColor: "#10b981" },
-  milestoneLabel: { fontSize: 11, fontWeight: "600" },
-  milestoneLabelComplete: { color: "#10b981" },
-
-  // Essay
-  essaySection: { gap: 10 },
-  essayHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
-  essayLabel: { fontSize: 14, fontWeight: "700" },
-  paragraph: {
-    fontSize: 15,
-    lineHeight: 24,
-    letterSpacing: 0.2,
-  },
-  divider: { height: 1, marginVertical: 20 },
-
-  // Documents
-  downloadAllBtn: {
+  verifiedBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 12,
   },
-  downloadAllText: { fontSize: 13, fontWeight: "700" },
-  docsList: { gap: 12 },
-  docCard: {
+  verifiedText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  // Info Rows
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.05)",
+  },
+  infoLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  infoValue: {
+    fontSize: 14,
+    fontWeight: "500",
+    flex: 1,
+    textAlign: "right",
+    marginLeft: 16,
+  },
+
+  // Assessment
+  assessmentItem: {
+    marginBottom: 16,
+  },
+  assessmentLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 8,
+    textTransform: "uppercase",
+  },
+  assessmentValue: {
+    fontSize: 15,
+    fontWeight: "500",
+    lineHeight: 22,
+  },
+  divider: {
+    height: 1,
+    marginVertical: 16,
+  },
+
+  // Academic Cards
+  academicCard: {
+    paddingVertical: 16,
+  },
+  academicHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    borderRadius: 14,
-    padding: 14,
+    marginBottom: 12,
   },
-  docIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  docInfo: { flex: 1, gap: 4 },
-  docTitle: { fontSize: 14, fontWeight: "700" },
-  docMeta: { flexDirection: "row", alignItems: "center", gap: 8 },
-  docMetaText: { fontSize: 12, fontWeight: "500" },
-  docMetaDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-  },
-  docActionBtn: {
+  academicBadge: {
     width: 40,
     height: 40,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
-
-  // Notes
-  notesInput: {
-    minHeight: 180,
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 16,
-    fontSize: 15,
-    textAlignVertical: "top",
-    lineHeight: 24,
+  academicCourse: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 2,
   },
-  saveNotesBtn: {
+  academicMajor: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  cgpaChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  cgpaText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  academicDetails: {
+    gap: 8,
+    marginLeft: 52,
+  },
+  academicRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
     gap: 8,
-    backgroundColor: "#6366f1",
-    paddingVertical: 14,
-    borderRadius: 12,
+  },
+  academicText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+
+  // Bank Card
+  bankCard: {
+    borderRadius: 16,
+    overflow: "hidden",
+    marginBottom: 16,
+  },
+  bankCardGradient: {
+    padding: 20,
+  },
+  bankCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 24,
+  },
+  bankCardType: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.9)",
+    textTransform: "uppercase",
+  },
+  bankCardBody: {
+    marginBottom: 20,
+  },
+  bankCardNumber: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#fff",
+    letterSpacing: 2,
+    marginBottom: 8,
+  },
+  bankCardHolder: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.8)",
+    textTransform: "uppercase",
+  },
+  bankCardFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  bankCardLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.7)",
+    marginBottom: 4,
+    textTransform: "uppercase",
+  },
+  bankCardValue: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  financialMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  financialMetaText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+
+  // Empty State
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 14,
+    fontWeight: "600",
     marginTop: 12,
   },
-  saveNotesText: { fontSize: 15, fontWeight: "800", color: "#fff" },
 
   // Actions
   actionsCard: {
@@ -831,19 +1269,22 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 16,
     padding: 20,
+    borderWidth: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 16,
     elevation: 4,
-    borderWidth: 1,
   },
   actionsTitle: {
     fontSize: 16,
     fontWeight: "800",
     marginBottom: 16,
   },
-  actionsRow: { flexDirection: "row", gap: 12, marginBottom: 12 },
+  actionsRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
   approveBtn: {
     flex: 1,
     borderRadius: 14,
@@ -871,15 +1312,88 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 16,
   },
-  actionBtnText: { fontSize: 16, fontWeight: "800", color: "#fff" },
-  backBtn: {
+  actionBtnText: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#fff",
+  },
+  disabledBtn: {
+    opacity: 0.6,
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    maxHeight: "80%",
+  },
+  modalHeader: {
     flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+  },
+  modalClose: {
+    padding: 4,
+  },
+  modalLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
+  modalInput: {
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 15,
+    fontWeight: "500",
+    minHeight: 120,
+    borderWidth: 1,
+    marginBottom: 24,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  modalCancelButton: {
+    borderWidth: 1.5,
+    paddingVertical: 14,
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1,
   },
-  backBtnText: { fontSize: 15, fontWeight: "700" },
+  modalCancelText: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  modalSubmitButton: {
+    shadowColor: "#ef4444",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  modalButtonGradient: {
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalSubmitText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "800",
+  },
 });

@@ -2680,6 +2680,101 @@ export const reviewApplication = async (
 };
 
 /**
+ * Review Application (Donor - Approve/Reject)
+ * This API is for Donors to approve/reject applications.
+ * Endpoint: /webservice/rest/server.php
+ * Method: POST
+ * Token Required: YES
+ */
+export const donorReviewApplication = async (
+  token: string,
+  applicationId: number,
+  action: "approve" | "reject",
+  notes?: string
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add required query parameters
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_review_application");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("application_id", String(applicationId));
+    urlObj.searchParams.append("action", action);
+    
+    if (notes) {
+      urlObj.searchParams.append("notes", notes);
+    }
+    
+    const finalUrl = urlObj.toString();
+    console.log(`Donor Review Application (${action}) URL:`, finalUrl);
+    
+    // Make POST request
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    // Get response text first
+    const responseText = await response.text();
+    let data: any = {};
+
+    // Try to parse as JSON
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+      
+      // Check for Moodle exception format
+      if (data.exception || data.errorcode) {
+        return {
+          success: false,
+          error: data.message || "Permission denied",
+          message: data.message || "Action failed"
+        };
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    // Check if request was successful
+    if (response.ok) {
+        if (data.success === false) {
+             return {
+                success: false,
+                error: data.message || "Action failed",
+                message: data.message || "Action failed"
+            };
+        }
+
+      return {
+        success: true,
+        data: data,
+        message: data.message || `Application ${action}d successfully`,
+      };
+    } else {
+      return {
+        success: false,
+        error: data.error || data.message || "Something went wrong",
+        message: data.message || "Failed to submit review",
+      };
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || "Network error",
+      message: "Failed to connect to server",
+    };
+  }
+};
+
+
+/**
  * Get Dashboard Statistics for Reviewer
  * Endpoint: /webservice/rest/server.php
  * Method: POST
@@ -3429,6 +3524,104 @@ export const getScholarshipApplicants = async (
         success: false,
         error: data.error || data.message || data.error_message || "Something went wrong",
         message: data.message || "Failed to retrieve applicants",
+      };
+    }
+  } catch (error: any) {
+    // Handle network errors
+    return {
+      success: false,
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server",
+    };
+  }
+};
+
+/**
+ * Get Applicant Details for Donor (POST with query parameters)
+ * Endpoint: /webservice/rest/server.php
+ * Method: POST
+ * Token Required: YES
+ * 
+ * Fetch complete application details for a specific applicant (like reviewer get_application_details),
+ * with donor permission checks.
+ * 
+ * Response includes:
+ * - Application info + status + application text
+ * - Attachments submitted with application (if any)
+ * - All assignment-based scheme documents + files + verification status
+ * - Academic details (from local_mobileapi_academic_details)
+ * - Financial info summary (masked account number)
+ */
+export const getDonorApplicantDetails = async (
+  token: string,
+  applicationId: number
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add required query parameters
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_get_applicant_details");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("application_id", String(applicationId));
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Donor Applicant Details URL:", finalUrl);
+    
+    // Make POST request with query parameters in URL
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    // Get response text first to handle different response types
+    const responseText = await response.text();
+    let data: any = {};
+
+    // Try to parse as JSON
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+      
+      // Check for Moodle-style exceptions
+      if (data.exception || data.errorcode) {
+        return {
+          success: false,
+          error: data.message || "Permission denied",
+          message: data.message || "Failed to fetch applicant details"
+        };
+      }
+    } catch (e) {
+      // If not JSON, treat as plain text error
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    // Check if request was successful
+    if (response.ok) {
+      if (data.success === false) {
+        return {
+          success: false,
+          error: data.message || "Failed to fetch applicant details",
+          message: data.message || "Failed to fetch applicant details"
+        };
+      }
+      return {
+        success: true,
+        data: data,
+        message: "Applicant details retrieved successfully",
+      };
+    } else {
+      // Handle API errors
+      return {
+        success: false,
+        error: data.error || data.message || data.error_message || "Something went wrong",
+        message: data.message || "Failed to retrieve applicant details",
       };
     }
   } catch (error: any) {
