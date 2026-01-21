@@ -545,38 +545,33 @@ export default function MobilizerScholarshipDetailsScreen() {
                                     ? "Saving..."
                                     : saved || scholarship?.bookmarked
                                         ? "Saved"
-                                        : "Save"}
+                                        : "Saved"}
                             </Text>
                         </TouchableOpacity>
-                        <TouchableOpacity
-                            onPress={() =>
-                                router.push({
-                                    pathname: "/(dashboard)/mobilizer/mobilizer-apply-form",
-                                    params: { scholarshipId: scholarship.id },
-                                })
-                            }
-                            disabled={isApplicationClosed || scholarship.has_applied}
-                            style={[
-                                styles.applyButton,
-                                { backgroundColor: categoryColor },
-                                (isApplicationClosed || scholarship.has_applied) && styles.applyButtonDisabled,
-                            ]}
-                        >
-                            <Ionicons
-                                name={scholarship.has_applied ? "checkmark-circle" : "paper-plane"}
-                                size={20}
-                                color="#fff"
-                            />
-                            <Text style={styles.applyButtonText}>
-                                {scholarship.has_applied
-                                    ? "Already Applied"
-                                    : scholarship.expired
-                                        ? "Scholarship Expired"
-                                        : isApplicationClosed
-                                            ? "Applications Closed"
-                                            : "Apply Now"}
-                            </Text>
-                        </TouchableOpacity>
+
+                        {(!scholarship.expired && !scholarship.has_applied && !isApplicationClosed) && (
+                            <TouchableOpacity
+                                onPress={() =>
+                                    router.push({
+                                        pathname: "/(dashboard)/mobilizer/mobilizer-apply-form",
+                                        params: { scholarshipId: scholarship.id },
+                                    })
+                                }
+                                style={[
+                                    styles.applyButton,
+                                    { backgroundColor: categoryColor },
+                                ]}
+                            >
+                                <Ionicons
+                                    name="paper-plane"
+                                    size={20}
+                                    color="#fff"
+                                />
+                                <Text style={styles.applyButtonText}>
+                                    Apply Now
+                                </Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </View>
 

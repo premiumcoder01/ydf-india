@@ -3837,3 +3837,477 @@ export const getDonorKycStatus = async (token: string): Promise<ApiResponse> => 
     return { success: false, error: error.message };
   }
 };
+
+/**
+ * Get Mobilizer Dashboard Statistics API call
+ * Returns stats about students added, applications created, approved, rejected, etc.
+ */
+export const getMobilizerDashboardStats = async (token: string): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_get_dashboard_stats");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Mobilizer Dashboard Stats URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    if (response.ok) {
+      if (data.exception) {
+        return {
+          success: false,
+          error: data.message || data.exception,
+          message: data.message || "Failed to get mobilizer dashboard stats"
+        };
+      }
+      return { 
+        success: true, 
+        data: data, 
+        message: data.message || "Dashboard stats retrieved successfully" 
+      };
+    } else {
+      return { 
+        success: false, 
+        error: data.error || data.message || "Failed to retrieve dashboard stats",
+        message: data.message || "Failed to retrieve dashboard stats"
+      };
+    }
+  } catch (error: any) {
+    return { 
+      success: false, 
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server"
+    };
+  }
+};
+
+/**
+ * Get Mobilizer Upcoming Deadlines API call
+ * Shows upcoming scholarship deadlines.
+ */
+export const getMobilizerUpcomingDeadlines = async (
+  token: string,
+  limit: number = 10,
+  studentId?: number
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_get_upcoming_deadlines");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("limit", limit.toString());
+    
+    if (studentId) {
+      urlObj.searchParams.append("student_id", studentId.toString());
+    }
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Mobilizer Upcoming Deadlines URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    if (response.ok) {
+      if (data.exception) {
+        return {
+          success: false,
+          error: data.message || data.exception,
+          message: data.message || "Failed to get upcoming deadlines"
+        };
+      }
+      return { 
+        success: true, 
+        data: data, 
+        message: "Upcoming deadlines retrieved successfully" 
+      };
+    } else {
+      return { 
+        success: false, 
+        error: data.error || data.message || "Failed to retrieve upcoming deadlines",
+        message: data.message || "Failed to retrieve upcoming deadlines"
+      };
+    }
+  } catch (error: any) {
+    return { 
+      success: false, 
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server"
+    };
+  }
+};
+
+/**
+ * Get Mobilizer Recommended Scholarships API call
+ * Returns visible scholarships not yet applied by the selected student.
+ */
+export const getMobilizerRecommendedScholarships = async (
+  token: string,
+  studentId: number,
+  page: number = 1,
+  perPage: number = 20
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_get_recommended_scholarships");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("student_id", studentId.toString());
+    urlObj.searchParams.append("page", page.toString());
+    urlObj.searchParams.append("per_page", perPage.toString());
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Mobilizer Recommended Scholarships URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    if (response.ok) {
+      if (data.exception) {
+        return {
+          success: false,
+          error: data.message || data.exception,
+          message: data.message || "Failed to get recommended scholarships"
+        };
+      }
+      return { 
+        success: true, 
+        data: data, 
+        message: "Recommended scholarships retrieved successfully" 
+      };
+    } else {
+      return { 
+        success: false, 
+        error: data.error || data.message || "Failed to retrieve recommended scholarships",
+        message: data.message || "Failed to retrieve recommended scholarships"
+      };
+    }
+  } catch (error: any) {
+    return { 
+      success: false, 
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server"
+    };
+  }
+};
+
+/**
+ * Get Mobilizer Students API call
+ * Get list of students managed by the current mobilizer.
+ */
+export const getMobilizerStudents = async (
+  token: string,
+  page: number = 1,
+  perPage: number = 20,
+  search?: string
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_get_my_students");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("page", page.toString());
+    urlObj.searchParams.append("per_page", perPage.toString());
+    
+    if (search) {
+      urlObj.searchParams.append("search", search);
+    }
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Mobilizer Students URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    if (response.ok) {
+      if (data.exception) {
+        return {
+          success: false,
+          error: data.message || data.exception,
+          message: data.message || "Failed to get students"
+        };
+      }
+      return { 
+        success: true, 
+        data: data, 
+        message: "Students retrieved successfully" 
+      };
+    } else {
+      return { 
+        success: false, 
+        error: data.error || data.message || "Failed to retrieve students",
+        message: data.message || "Failed to retrieve students"
+      };
+    }
+  } catch (error: any) {
+    return { 
+      success: false, 
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server"
+    };
+  }
+};
+
+/**
+ * Add Mobilizer Student API call
+ * Add a new student managed by the mobilizer.
+ */
+export const addMobilizerStudent = async (
+  token: string,
+  studentData: {
+    username: string;
+    password: string;
+    firstname: string;
+    lastname: string;
+    email: string;
+    phone1?: string;
+    city?: string;
+    country?: string;
+    institution?: string;
+    customfields?: Array<{ shortname: string; value: string; }>;
+  }
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_add_student");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    // Add basic fields to URL params (POST body handled below)
+    urlObj.searchParams.append("username", studentData.username);
+    urlObj.searchParams.append("password", studentData.password);
+    urlObj.searchParams.append("firstname", studentData.firstname);
+    urlObj.searchParams.append("lastname", studentData.lastname);
+    urlObj.searchParams.append("email", studentData.email);
+    
+    if (studentData.phone1) urlObj.searchParams.append("phone1", studentData.phone1);
+    if (studentData.city) urlObj.searchParams.append("city", studentData.city);
+    if (studentData.country) urlObj.searchParams.append("country", studentData.country);
+    if (studentData.institution) urlObj.searchParams.append("institution", studentData.institution);
+    
+    // Handle custom fields array for URL params
+    if (studentData.customfields && studentData.customfields.length > 0) {
+      studentData.customfields.forEach((field, index) => {
+        urlObj.searchParams.append(`customfields[${index}][shortname]`, field.shortname);
+        urlObj.searchParams.append(`customfields[${index}][value]`, field.value);
+      });
+    }
+    
+    const finalUrl = urlObj.toString();
+    console.log("Add Mobilizer Student URL:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    if (response.ok) {
+      if (data.exception) {
+        return {
+          success: false,
+          error: data.message || data.exception,
+          message: data.message || "Failed to add student"
+        };
+      }
+      return { 
+        success: true, 
+        data: data, 
+        message: data.message || "Student added successfully" 
+      };
+    } else {
+      return { 
+        success: false, 
+        error: data.error || data.message || "Failed to add student",
+        message: data.message || "Failed to add student"
+      };
+    }
+  } catch (error: any) {
+    return { 
+      success: false, 
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server"
+    };
+  }
+};
+
+/**
+ * Get Mobilizer Scholarships API call (POST with query parameters)
+ * This requires a token from AsyncStorage
+ */
+export const getMobilizerScholarships = async (
+  token: string,
+  params?: {
+    search?: string;
+    page?: number;
+    per_page?: number;
+    categoryid?: number;
+    deadline_before?: number;
+    bookmarked?: number; // 1 or 0
+  }
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add required query parameters
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_get_scholarships");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    
+    // Add optional parameters if provided
+    if (params?.search) {
+      urlObj.searchParams.append("search", params.search);
+    }
+    if (params?.page) {
+      urlObj.searchParams.append("page", String(params.page));
+    }
+    if (params?.per_page) {
+      urlObj.searchParams.append("per_page", String(params.per_page));
+    }
+    if (params?.categoryid) {
+        urlObj.searchParams.append("categoryid", String(params.categoryid));
+    }
+    if (params?.deadline_before) {
+        urlObj.searchParams.append("deadline_before", String(params.deadline_before));
+    }
+    if (params?.bookmarked !== undefined) {
+        urlObj.searchParams.append("bookmarked", String(params.bookmarked));
+    }
+    
+    const finalUrl = urlObj.toString();
+    console.log("Get Mobilizer Scholarships URL:", finalUrl);
+    
+    // Make POST request with query parameters in URL
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    // Get response text first to handle different response types
+    const responseText = await response.text();
+    let data: any = {};
+
+    // Try to parse as JSON
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      // If not JSON, treat as plain text error
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    // Check if request was successful
+    if (response.ok) {
+      return {
+        success: true,
+        data: data,
+        message: data.message || "Scholarships retrieved successfully",
+      };
+    } else {
+      // Handle API errors
+      return {
+        success: false,
+        error: data.error || data.message || data.error_message || "Something went wrong",
+        message: data.message || "Failed to retrieve scholarships",
+      };
+    }
+  } catch (error: any) {
+    // Handle network errors
+    return {
+      success: false,
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server",
+    };
+  }
+};
+

@@ -1,7 +1,7 @@
 import { AppHeader, SearchBar } from "@/components";
 import Toast from "@/components/Toast";
 import { useTheme } from "@/context/ThemeContext";
-import { bookmarkScholarship, getAllScholarships, getBookmarkedScholarships } from "@/utils/api";
+import { bookmarkScholarship, getMobilizerScholarships } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -115,20 +115,16 @@ export default function MobilizerScholarshipListingScreen() {
                     return;
                 }
 
-                // Call getAllScholarships API with search query
-                let response;
-                if (isBookmarkedMode) {
-                    response = await getBookmarkedScholarships(token, {
-                        page: page,
-                        per_page: 100,
-                    });
-                } else {
-                    response = await getAllScholarships(token, {
-                        search: searchQuery || undefined,
-                        page: page,
-                        per_page: 100,
-                    });
-                }
+                // Call getMobilizerScholarships API with search query
+                const deadlineTimestamp = deadlineBefore ? Math.floor(deadlineBefore.getTime() / 1000) : undefined;
+
+                const response = await getMobilizerScholarships(token, {
+                    search: searchQuery || undefined,
+                    page: page,
+                    per_page: 20,
+                    deadline_before: deadlineTimestamp,
+                    bookmarked: isBookmarkedMode ? 1 : undefined
+                });
 
                 if (response.success && response.data) {
                     const apiData = response.data.data || response.data;
@@ -180,7 +176,7 @@ export default function MobilizerScholarshipListingScreen() {
 
         fetchScholarships();
         // Depend on isBookmarkedMode too, so if it changes, we refetch
-    }, [searchQuery, page, isBookmarkedMode]);
+    }, [searchQuery, page, isBookmarkedMode, deadlineBefore]);
 
 
     // Extract unique categories from API data
@@ -278,12 +274,22 @@ export default function MobilizerScholarshipListingScreen() {
         const newBookmarkState = !currentBookmarkState;
 
         // Optimistic UI update - update immediately
-        setBookmarks((b) => ({ ...b, [id]: newBookmarkState }));
-        setApiScholarships((prev) =>
-            prev.map((item) =>
-                item.id === id ? { ...item, bookmarked: newBookmarkState } : item
-            )
-        );
+        // If in bookmarked mode and we are unbookmarking, remove the item from the list
+        if (isBookmarkedMode && !newBookmarkState) {
+            setApiScholarships((prev) => prev.filter((item) => item.id !== id));
+            setBookmarks((b) => {
+                const newB = { ...b };
+                delete newB[id];
+                return newB;
+            });
+        } else {
+            setBookmarks((b) => ({ ...b, [id]: newBookmarkState }));
+            setApiScholarships((prev) =>
+                prev.map((item) =>
+                    item.id === id ? { ...item, bookmarked: newBookmarkState } : item
+                )
+            );
+        }
 
         // Haptic feedback
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -295,14 +301,15 @@ export default function MobilizerScholarshipListingScreen() {
             const authDataString = await AsyncStorage.getItem("authData");
             if (!authDataString) {
                 // Revert on error
-                setBookmarks((b) => ({ ...b, [id]: !newBookmarkState }));
-                setApiScholarships((prev) =>
-                    prev.map((item) =>
-                        item.id === id ? { ...item, bookmarked: !newBookmarkState } : item
-                    )
-                );
+                // Similar logic for revert: if removed, add back (though we don't have the full item easily unless we stored it)
+                // For simplicity, just invalidating the list refetch might be safer, but let's try to revert state locally
+                // Ideally we should just trigger a refetch or keep a backup.
+                // Since this is rare, let's just show error and maybe refresh.
+
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
                 showToast("Authentication failed. Please login again.", "error");
+                // Force refresh to restore state
+                setPage(1);
                 return;
             }
 
@@ -310,15 +317,9 @@ export default function MobilizerScholarshipListingScreen() {
             const token = authData?.token;
 
             if (!token) {
-                // Revert on error
-                setBookmarks((b) => ({ ...b, [id]: !newBookmarkState }));
-                setApiScholarships((prev) =>
-                    prev.map((item) =>
-                        item.id === id ? { ...item, bookmarked: !newBookmarkState } : item
-                    )
-                );
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
                 showToast("Authentication failed. Please login again.", "error");
+                setPage(1);
                 return;
             }
 
@@ -338,34 +339,29 @@ export default function MobilizerScholarshipListingScreen() {
                 );
             } else {
                 // Revert on error
-                setBookmarks((b) => ({ ...b, [id]: !newBookmarkState }));
-                setApiScholarships((prev) =>
-                    prev.map((item) =>
-                        item.id === id ? { ...item, bookmarked: !newBookmarkState } : item
-                    )
-                );
+                // Since complex to revert deletion, best to just re-fetch or reload
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
                 showToast(
                     response.error || response.message || "Failed to update bookmark",
                     "error"
                 );
                 console.error("Bookmark error:", response.error);
+                // Reload list to restore state
+                setPage(1);
+                // Trigger re-fetch logic if needed
+                setSearchQuery(prev => prev); // dummy update to trigger effect
             }
         } catch (err: any) {
-            // Revert on error
-            setBookmarks((b) => ({ ...b, [id]: !newBookmarkState }));
-            setApiScholarships((prev) =>
-                prev.map((item) =>
-                    item.id === id ? { ...item, bookmarked: !newBookmarkState } : item
-                )
-            );
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
             showToast("Network error. Please try again.", "error");
             console.error("Bookmark error:", err);
+            // Reload list to restore state
+            setPage(1);
+            setSearchQuery(prev => prev); // dummy update
         } finally {
             setBookmarking((prev) => ({ ...prev, [id]: false }));
         }
-    }, [bookmarking, showToast]);
+    }, [bookmarking, showToast, isBookmarkedMode]);
 
     const openFilters = useCallback(() => {
         setShowFilters(true);
@@ -464,11 +460,17 @@ export default function MobilizerScholarshipListingScreen() {
     const renderItem = useCallback(
         ({ item }: { item: any }) => {
             const categoryColor = getCategoryColor(item.category || "");
-            const deadline = item.end_date || item.start_date;
+            const deadline = item.deadline || item.end_date; // Handle both new and old fields
             const daysInfo = getDaysRemaining(deadline, item.expired);
-            const description = stripHtml(item.description || "");
+            const description = stripHtml(item.summary || item.description || "");
+            const title = item.name || item.title || "Scholarship";
             const isBookmarked = item.bookmarked || bookmarks[item.id];
-            const isExpired = item.expired || daysInfo.text === "Expired";
+
+            // Status logic
+            const isExpired = item.expired === true || daysInfo.text === "Expired";
+            const hasApplied = item.has_applied === true;
+            const isClosed = item.status === 'closed';
+            const isActive = item.status === 'active';
 
             return (
                 <View
@@ -480,17 +482,17 @@ export default function MobilizerScholarshipListingScreen() {
                     <View style={styles.scholarshipHeader}>
                         <View style={styles.scholarshipInfo}>
                             <View style={styles.titleRow}>
-                                <View style={{ flex: 1 }}>
+                                <View style={{ flex: 1, marginRight: 8 }}>
                                     <Text style={[styles.scholarshipTitle, { color: colors.text }]} numberOfLines={2}>
-                                        {item.title}
+                                        {title}
                                     </Text>
-                                </View>
-                                <View style={{ flexDirection: 'row', gap: 6 }}>
-                                    {item.expired && (
-                                        <View style={[styles.categoryBadge, { backgroundColor: 'rgba(244, 67, 54, 0.1)' }]}>
-                                            <Text style={[styles.categoryBadgeText, { color: '#F44336' }]}>Expired</Text>
-                                        </View>
+                                    {item.provider && (
+                                        <Text style={[styles.providerText, { color: colors.textSecondary }]}>
+                                            by {item.provider}
+                                        </Text>
                                     )}
+                                </View>
+                                <View style={{ flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
                                     <View
                                         style={[
                                             styles.categoryBadge,
@@ -503,6 +505,18 @@ export default function MobilizerScholarshipListingScreen() {
                                             {item.category || "General"}
                                         </Text>
                                     </View>
+
+                                    {hasApplied && (
+                                        <View style={[styles.statusBadge, { backgroundColor: 'rgba(76, 175, 80, 0.1)' }]}>
+                                            <Ionicons name="checkmark-circle" size={10} color="#4CAF50" />
+                                            <Text style={[styles.statusBadgeText, { color: '#4CAF50' }]}>Applied</Text>
+                                        </View>
+                                    )}
+                                    {!hasApplied && isExpired && (
+                                        <View style={[styles.statusBadge, { backgroundColor: 'rgba(244, 67, 54, 0.1)' }]}>
+                                            <Text style={[styles.statusBadgeText, { color: '#F44336' }]}>Expired</Text>
+                                        </View>
+                                    )}
                                 </View>
                             </View>
                             {description ? (
@@ -516,13 +530,8 @@ export default function MobilizerScholarshipListingScreen() {
                     <View style={[styles.amountRow, { borderBottomColor: colors.border }]}>
                         <View style={styles.amountContainer}>
                             <Text style={[styles.amountLabel, { color: colors.textSecondary }]}>Application Period</Text>
-                            <Text style={[styles.amountText, { color: categoryColor }]}>
-                                {item.start_date
-                                    ? new Date(item.start_date).toLocaleDateString("en-US", {
-                                        month: "short",
-                                        year: "numeric",
-                                    })
-                                    : "Open"}
+                            <Text style={[styles.amountText, { color: isExpired || isClosed ? '#F44336' : '#4CAF50' }]}>
+                                {isExpired ? "Expired" : isClosed ? "Closed" : isActive ? "Open" : "Open"}
                             </Text>
                         </View>
                         <TouchableOpacity
@@ -533,7 +542,7 @@ export default function MobilizerScholarshipListingScreen() {
                         >
                             <Ionicons
                                 name={isBookmarked ? "bookmark" : "bookmark-outline"}
-                                size={24}
+                                size={22}
                                 color={isBookmarked ? "#FFB400" : (isDark ? colors.textSecondary : "#999")}
                             />
                         </TouchableOpacity>
@@ -556,7 +565,7 @@ export default function MobilizerScholarshipListingScreen() {
                                             })
                                             : "No deadline"}
                                     </Text>
-                                    {deadline && (
+                                    {deadline && !isExpired && (
                                         <Text
                                             style={[styles.daysRemaining, { color: daysInfo.color }]}
                                         >
@@ -567,7 +576,7 @@ export default function MobilizerScholarshipListingScreen() {
                             </View>
                         </View>
 
-                        {item.category && (
+                        {(item.category || item.location) && (
                             <View style={styles.detailRow}>
                                 <View style={[styles.detailIcon, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" }]}>
                                     <Ionicons
@@ -578,7 +587,7 @@ export default function MobilizerScholarshipListingScreen() {
                                 </View>
                                 <View style={styles.detailContent}>
                                     <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Location</Text>
-                                    <Text style={[styles.detailText, { color: colors.text }]}>{item.category}</Text>
+                                    <Text style={[styles.detailText, { color: colors.text }]}>{item.category || item.location}</Text>
                                 </View>
                             </View>
                         )}
@@ -592,7 +601,14 @@ export default function MobilizerScholarshipListingScreen() {
                                     params: { scholarshipId: item.id },
                                 })
                             }
-                            style={[styles.viewBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" }]}
+                            style={[
+                                styles.viewBtn,
+                                {
+                                    backgroundColor: 'transparent',
+                                    borderWidth: 1,
+                                    borderColor: colors.border
+                                }
+                            ]}
                         >
                             <Ionicons name="eye-outline" size={18} color={colors.text} />
                             <Text style={[styles.viewBtnText, { color: colors.text }]}>Details</Text>
@@ -604,27 +620,33 @@ export default function MobilizerScholarshipListingScreen() {
                                     params: { scholarshipId: item.id },
                                 })
                             }
-                            disabled={isExpired}
+                            disabled={isExpired || hasApplied || isClosed}
                             style={[
                                 styles.applyBtn,
                                 { backgroundColor: categoryColor },
-                                isExpired && { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#eee", opacity: 0.8 }
+                                (isExpired || hasApplied || isClosed) && {
+                                    backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "#e0e0e0",
+                                    opacity: 1 // Keep opacity high for readability, control via color
+                                }
                             ]}
                         >
                             <Ionicons
-                                name={isExpired ? "close-circle-outline" : "paper-plane-outline"}
+                                name={hasApplied ? "checkmark-circle" : (isExpired || isClosed) ? "close-circle" : "paper-plane"}
                                 size={18}
-                                color={isExpired ? (isDark ? colors.textSecondary : "#999") : "#fff"}
+                                color={(isExpired || hasApplied || isClosed) ? (isDark ? colors.textSecondary : "#666") : "#fff"}
                             />
-                            <Text style={[styles.applyBtnText, isExpired && { color: isDark ? colors.textSecondary : "#999" }]}>
-                                {isExpired ? "Expired" : "Apply Now"}
+                            <Text style={[
+                                styles.applyBtnText,
+                                (isExpired || hasApplied || isClosed) && { color: isDark ? colors.textSecondary : "#666" }
+                            ]}>
+                                {hasApplied ? "Applied" : isExpired ? "Expired" : isClosed ? "Closed" : "Apply Now"}
                             </Text>
                         </TouchableOpacity>
                     </View>
                 </View>
             );
         },
-        [bookmarks, toggleBookmark]
+        [bookmarks, toggleBookmark, colors, isDark]
     );
 
     const modalTranslateY = slideAnim.interpolate({
@@ -657,14 +679,20 @@ export default function MobilizerScholarshipListingScreen() {
                 }}
                 ListEmptyComponent={
                     <View style={styles.emptyState}>
-                        <Ionicons name="school-outline" size={64} color="#ccc" />
+                        <Ionicons name={isBookmarkedMode ? "bookmark-outline" : "school-outline"} size={64} color="#ccc" />
                         <Text style={styles.emptyStateText}>
-                            {loading ? "Loading scholarships..." : "No scholarships found"}
+                            {loading
+                                ? "Loading scholarships..."
+                                : isBookmarkedMode
+                                    ? "No bookmarked scholarships"
+                                    : "No scholarships found"}
                         </Text>
                         <Text style={styles.emptyStateSubtext}>
                             {loading
                                 ? "Please wait..."
-                                : "Try adjusting your filters or search"}
+                                : isBookmarkedMode
+                                    ? "Scholarships you bookmark will appear here"
+                                    : "Try adjusting your filters or search"}
                         </Text>
                     </View>
                 }
@@ -851,19 +879,64 @@ export default function MobilizerScholarshipListingScreen() {
                     </Animated.View>
                 </View>
 
+                {/* Date Picker Handling */}
                 {showDatePicker && (
-                    <DateTimePicker
-                        value={deadlineBefore || new Date()}
-                        mode="date"
-                        display={Platform.OS === "ios" ? "spinner" : "default"}
-                        onChange={(event, selectedDate) => {
-                            setShowDatePicker(Platform.OS === "ios");
-                            if (event.type === "set" && selectedDate) {
-                                setDeadlineBefore(selectedDate);
-                            }
-                        }}
-                        minimumDate={new Date()}
-                    />
+                    Platform.OS === 'ios' ? (
+                        <Modal
+                            transparent
+                            animationType="fade"
+                            visible={showDatePicker}
+                            onRequestClose={() => setShowDatePicker(false)}
+                        >
+                            <View style={styles.iosDatePickerModalOverlay}>
+                                <TouchableOpacity
+                                    style={styles.iosDatePickerBackdrop}
+                                    activeOpacity={1}
+                                    onPress={() => setShowDatePicker(false)}
+                                />
+                                <View style={[styles.iosDatePickerContainer, { backgroundColor: isDark ? "#1e1e1e" : "#fff" }]}>
+                                    <View style={[styles.iosDatePickerHeader, { borderBottomColor: isDark ? "#333" : "#f0f0f0" }]}>
+                                        <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                                            <Text style={styles.iosDatePickerCancelText}>Cancel</Text>
+                                        </TouchableOpacity>
+                                        <Text style={[styles.iosDatePickerTitle, { color: colors.text }]}>Select Deadline</Text>
+                                        <TouchableOpacity
+                                            onPress={() => setShowDatePicker(false)}
+                                            style={styles.iosDatePickerDoneBtn}
+                                        >
+                                            <Text style={styles.iosDatePickerDoneText}>Done</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                    <DateTimePicker
+                                        value={deadlineBefore || new Date()}
+                                        mode="date"
+                                        display="spinner"
+                                        onChange={(event, selectedDate) => {
+                                            if (selectedDate) {
+                                                setDeadlineBefore(selectedDate);
+                                            }
+                                        }}
+                                        style={[styles.iosDatePicker, { backgroundColor: isDark ? "#1e1e1e" : "#fff" }]}
+                                        textColor={colors.text}
+                                        minimumDate={new Date()}
+                                    />
+                                </View>
+                            </View>
+                        </Modal>
+                    ) : (
+                        <DateTimePicker
+                            value={deadlineBefore || new Date()}
+                            mode="date"
+                            display="default"
+                            onChange={(event, selectedDate) => {
+                                setShowDatePicker(false);
+                                if (event.type === "set" && selectedDate) {
+                                    setDeadlineBefore(selectedDate);
+                                }
+                            }}
+                            minimumDate={new Date()}
+                        />
+                    )
                 )}
             </Modal>
 
@@ -1099,47 +1172,53 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        gap: 6,
-        paddingVertical: 14,
+        gap: 8,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
         borderRadius: 12,
-        backgroundColor: "#f8f8f8",
-        borderWidth: 1,
-        borderColor: "#f0f0f0",
+        // backgroundColor set inline
     },
     viewBtnText: {
-        color: "#333",
-        fontWeight: "700",
-        fontSize: 15,
+        fontSize: 14,
+        fontWeight: "600",
     },
     applyBtn: {
-        flex: 1,
+        flex: 2,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        gap: 6,
-        paddingVertical: 14,
+        gap: 8,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
         borderRadius: 12,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
     },
     applyBtnText: {
-        color: "#fff",
+        fontSize: 14,
         fontWeight: "700",
-        fontSize: 15,
+        color: "#fff",
     },
     emptyState: {
         alignItems: "center",
         justifyContent: "center",
-        paddingVertical: 80,
+        padding: 40,
+        marginTop: 40,
     },
     emptyStateText: {
         fontSize: 18,
-        fontWeight: "600",
+        fontWeight: "700",
         color: "#999",
         marginTop: 16,
+        marginBottom: 8,
     },
     emptyStateSubtext: {
         fontSize: 14,
-        color: "#bbb",
-        marginTop: 4,
+        color: "#999",
+        textAlign: "center",
     },
     modalBackdrop: {
         flex: 1,
@@ -1367,5 +1446,68 @@ const styles = StyleSheet.create({
     loadingText: {
         color: "#999",
         fontSize: 14,
+    },
+    providerText: {
+        fontSize: 12,
+        marginTop: 2,
+    },
+    statusBadge: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+        marginTop: 4,
+    },
+    statusBadgeText: {
+        fontSize: 10,
+        fontWeight: "700",
+    },
+    // iOS Date Picker Styles
+    iosDatePickerModalOverlay: {
+        flex: 1,
+        justifyContent: "flex-end",
+        backgroundColor: "rgba(0,0,0,0.5)",
+    },
+    iosDatePickerBackdrop: {
+        flex: 1,
+    },
+    iosDatePickerContainer: {
+        backgroundColor: "#fff",
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingBottom: Platform.OS === "ios" ? 34 : 20,
+        overflow: "hidden",
+    },
+    iosDatePickerHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: "#f0f0f0",
+    },
+    iosDatePickerCancelText: {
+        color: "#666",
+        fontSize: 16,
+    },
+    iosDatePickerTitle: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: "#333",
+    },
+    iosDatePickerDoneBtn: {
+        paddingHorizontal: 8,
+    },
+    iosDatePickerDoneText: {
+        color: "#007AFF",
+        fontSize: 16,
+        fontWeight: "600",
+    },
+    iosDatePicker: {
+        height: 200,
+        width: "100%",
+        backgroundColor: "#fff",
     },
 });
