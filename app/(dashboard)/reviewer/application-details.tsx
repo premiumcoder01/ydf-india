@@ -1,5 +1,5 @@
 import { useTheme } from "@/context/ThemeContext";
-import { getReviewerApplicationDetails } from "@/utils/api";
+import { donorReviewApplication, getReviewerApplicationDetails } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -7,9 +7,11 @@ import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View
 } from "react-native";
@@ -73,6 +75,11 @@ export default function ReviewerApplicationDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Review Modal State
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
   useFocusEffect(
     useCallback(() => {
       fetchApplicationDetails();
@@ -111,6 +118,97 @@ export default function ReviewerApplicationDetailsScreen() {
       Alert.alert("Error", err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleApprove = () => {
+    Alert.alert(
+      "Approve Application",
+      "Are you sure you want to approve this application?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Approve",
+          style: "default",
+          onPress: () => submitReview("approve")
+        }
+      ]
+    );
+  };
+
+  const handleWaitlist = () => {
+    Alert.alert(
+      "Waitlist Application",
+      "Are you sure you want to waitlist this application?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Waitlist",
+          style: "default",
+          onPress: () => submitReview("waitlist")
+        }
+      ]
+    );
+  };
+
+  const handleReject = () => {
+    setShowRejectModal(true);
+  };
+
+  const submitReject = () => {
+    if (!rejectionReason.trim()) {
+      Alert.alert("Required", "Please provide a reason for rejection");
+      return;
+    }
+    setShowRejectModal(false);
+    submitReview("reject", rejectionReason);
+  };
+
+  const submitReview = async (action: "approve" | "reject" | "waitlist", notes?: string) => {
+    if (!application) return;
+
+    try {
+      setSubmitting(true);
+
+      const authDataStr = await AsyncStorage.getItem("authData");
+      const authData = authDataStr ? JSON.parse(authDataStr) : null;
+      const token = authData?.token;
+
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
+
+      const response = await donorReviewApplication(
+        token,
+        application.id,
+        action,
+        notes
+      );
+
+      if (response.success) {
+        Alert.alert(
+          "Success",
+          `Application ${action === "approve" ? "approved" : action === "waitlist" ? "waitlisted" : "rejected"} successfully`,
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                // Refresh the application details
+                fetchApplicationDetails();
+                // Optionally navigate back
+                // router.back();
+              }
+            }
+          ]
+        );
+        setRejectionReason("");
+      } else {
+        Alert.alert("Error", response.error || "Failed to submit review");
+      }
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to submit review");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -415,6 +513,117 @@ export default function ReviewerApplicationDetailsScreen() {
         )}
 
       </ScrollView>
+
+      {/* Action Buttons - Sticky Footer */}
+      {application && (
+        <View style={[styles.actionFooter, {
+          backgroundColor: colors.card,
+          borderTopColor: colors.border,
+          paddingBottom: inset.bottom + 16
+        }]}>
+          <View style={styles.actionButtonsContainer}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.approveButton, submitting && styles.disabledButton]}
+              onPress={handleApprove}
+              disabled={submitting}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="checkmark-circle" size={20} color="#fff" />
+              <Text style={styles.actionButtonText}>Approve</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionButton, styles.waitlistButton, submitting && styles.disabledButton]}
+              onPress={handleWaitlist}
+              disabled={submitting}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="time" size={20} color="#fff" />
+              <Text style={styles.actionButtonText}>Waitlist</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionButton, styles.rejectButton, submitting && styles.disabledButton]}
+              onPress={handleReject}
+              disabled={submitting}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="close-circle" size={20} color="#fff" />
+              <Text style={styles.actionButtonText}>Reject</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Rejection Reason Modal */}
+      <Modal
+        visible={showRejectModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowRejectModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowRejectModal(false)}
+          />
+          <View style={[styles.modalContent, {
+            backgroundColor: colors.card,
+            paddingBottom: inset.bottom + 20
+          }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <View style={styles.modalTitleContainer}>
+                <Ionicons name="close-circle" size={24} color="#F44336" />
+                <Text style={[styles.modalTitle, { color: colors.text }]}>Reject Application</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowRejectModal(false)}>
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <Text style={[styles.modalLabel, { color: colors.text }]}>
+                Reason for Rejection *
+              </Text>
+              <TextInput
+                style={[styles.modalTextInput, {
+                  backgroundColor: isDark ? colors.surface : "#F5F5F5",
+                  color: colors.text,
+                  borderColor: colors.border
+                }]}
+                placeholder="Please provide a detailed reason for rejection..."
+                placeholderTextColor={colors.textSecondary}
+                value={rejectionReason}
+                onChangeText={setRejectionReason}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalCancelButton, { borderColor: colors.border }]}
+                  onPress={() => {
+                    setShowRejectModal(false);
+                    setRejectionReason("");
+                  }}
+                >
+                  <Text style={[styles.modalCancelText, { color: colors.text }]}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalSubmitButton, !rejectionReason.trim() && styles.disabledButton]}
+                  onPress={submitReject}
+                  disabled={!rejectionReason.trim()}
+                >
+                  <Text style={styles.modalSubmitText}>Submit Rejection</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -715,6 +924,131 @@ const styles = StyleSheet.create({
   },
   metadataValue: {
     fontSize: 18,
+    fontWeight: "700",
+  },
+  // Action Footer Styles
+  actionFooter: {
+    borderTopWidth: 1,
+    paddingTop: 16,
+    paddingHorizontal: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  actionButtonsContainer: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  approveButton: {
+    backgroundColor: "#4CAF50",
+  },
+  waitlistButton: {
+    backgroundColor: "#FF9800",
+  },
+  rejectButton: {
+    backgroundColor: "#F44336",
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  actionButtonText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalBackdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "70%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 20,
+    borderBottomWidth: 1,
+  },
+  modalTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  modalBody: {
+    padding: 20,
+    gap: 16,
+  },
+  modalLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  modalTextInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 15,
+    minHeight: 120,
+    fontWeight: "400",
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 8,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalCancelButton: {
+    backgroundColor: "transparent",
+    borderWidth: 1.5,
+  },
+  modalCancelText: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  modalSubmitButton: {
+    backgroundColor: "#F44336",
+  },
+  modalSubmitText: {
+    color: "#fff",
+    fontSize: 15,
     fontWeight: "700",
   },
 });

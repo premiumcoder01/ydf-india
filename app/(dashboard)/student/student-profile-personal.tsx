@@ -4,7 +4,6 @@ import { getUserProfile, updateUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
-
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -27,7 +26,7 @@ interface ValidationErrors {
   [key: string]: string;
 }
 
-type LanguageCode = "en" | "fr" | "ar";
+
 
 const RELIGION_OPTIONS = [
   "Hinduism",
@@ -51,55 +50,54 @@ const CASTE_OPTIONS = [
 
 const GENDER_OPTIONS = ["Male", "Female", "Other"];
 
-const DOMICILE_STATE_OPTIONS = [
-  "Bihar",
-  "Punjab",
-  "Rajasthan",
-  "Maharashtra",
-  "Delhi",
-  "Gujarat",
-  "Haryana",
-  "Other"
+const ANNUAL_INCOME_OPTIONS = [
+  "Below ₹50,000",
+  "₹50,000 - ₹1,00,000",
+  "₹1,00,000 - ₹2,50,000",
+  "₹2,50,000 - ₹5,00,000",
+  "Above ₹5,00,000"
 ];
 
-const DISTRICT_OPTIONS = [
-  "East Champaran",
-  "Gaya",
-  "Gopalganj",
-  "Jamui",
-  "Jehanabad",
-  "Kaimur",
-  "Katihar",
-  "Khagaria",
-  "Kishanganj",
-  "Lakhisarai",
-  "Madhepura",
-  "Madhubani",
-  "Munger",
-  "Muzaffarpur",
-  "Nalanda",
-  "Nawada",
-  "Patna",
-  "Purnia",
-  "Rohtas",
-  "Saharsa",
-  "Samastipur",
-  "Sheikhpura",
-  "Sheohar",
-  "Sitamarhi",
-  "Siwan",
-  "Supaul",
-  "Vaishali",
-  "West Champaran",
-  "Nashik",
-  "Raigad",
-  "Kotputli-behror",
-  "Alwar",
-  "Sikar",
-  "Sasnagar-Mohali",
-  "Banaskantha(deesa)",
-  "Other"
+const SCHEME_OPTIONS = [
+  "PRIF Nashik Scholarship",
+  "PRIF Behror Scholarship",
+  "PRIF Derabassi Scholarship",
+  "Godrej Girls Scholarship",
+  "Shree Bipin Bhai Gandhi Girls Scholarship",
+  "Sanskrit Scholarship Program",
+  "Siddhi Girls Scholarship",
+  "Veena Upendra Scholarship",
+  "Prerana Prakash Jyoti Scholarship",
+  "Pehchaan Scholarship Program",
+  "IFFCO TOKIO Scholarship",
+  "other"
 ];
+
+const REGISTERING_AS_OPTIONS = ["New Applicant", "Renew Applicant"];
+
+const YEAR_OF_COURSE_OPTIONS = ["23-24", "24-25", "25-26"];
+
+const BOARD_12TH_OPTIONS = [
+  "BSEB(BR)",
+  "MSB(MH)",
+  "RBSE(RJ)",
+  "PSEB",
+  "CBSE",
+  "ICSE",
+  "Other",
+  "Not applicable"
+];
+
+const STREAM_12TH_OPTIONS = [
+  "Science with Maths",
+  "Science with Biology",
+  "Biology with Maths",
+  "Commerce",
+  "Arts",
+  "Not applicable"
+];
+
+const PASSING_YEAR_12TH_OPTIONS = ["2024", "2025", "Not Applicable"];
 
 export default function StudentProfilePersonalScreen() {
   const { isDark, colors } = useTheme();
@@ -111,16 +109,12 @@ export default function StudentProfilePersonalScreen() {
     firstName: "",
     lastName: "",
     email: "",
-
     dob: "",
     gender: "",
     religion: "",
     caste: "",
-
     city: "",
-
     profileImageUrl: "",
-
     // Family
     fatherName: "",
     motherName: "",
@@ -136,12 +130,6 @@ export default function StudentProfilePersonalScreen() {
     schemeName: "",
     passingYear12th: "",
     address: "",
-  });
-
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-
-  const [settings, setSettings] = useState({
-    language: "en" as LanguageCode,
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -161,17 +149,13 @@ export default function StudentProfilePersonalScreen() {
   const [showIncomePicker, setShowIncomePicker] = useState(false);
   const [showSchemePicker, setShowSchemePicker] = useState(false);
   const [showRegisteringAsPicker, setShowRegisteringAsPicker] = useState(false);
+  const [showYearOfCoursePicker, setShowYearOfCoursePicker] = useState(false);
+  const [showBoard12thPicker, setShowBoard12thPicker] = useState(false);
+  const [showStream12thPicker, setShowStream12thPicker] = useState(false);
+  const [showPassingYear12thPicker, setShowPassingYear12thPicker] = useState(false);
 
-  const ANNUAL_INCOME_OPTIONS = [
-    "Below ₹50,000",
-    "₹50,000 - ₹1,00,000",
-    "₹1,00,000 - ₹2,50,000",
-    "₹2,50,000 - ₹5,00,000",
-    "Above ₹5,00,000"
-  ];
 
-  const SCHEME_OPTIONS = ["Select any one", "Post Metric", "Pre Metric"];
-  const REGISTERING_AS_OPTIONS = ["New Applicant", "Renew Applicant"];
+
 
   // Validation Functions
   const validateEmail = (email: string): boolean => {
@@ -234,8 +218,6 @@ export default function StudentProfilePersonalScreen() {
         }
       } catch (error) {
         console.error("Failed to fetch user profile:", error);
-      } finally {
-        setIsLoadingProfile(false);
       }
     };
 
@@ -378,22 +360,29 @@ export default function StudentProfilePersonalScreen() {
   };
 
   const SelectionModal = ({ visible, onClose, title, options, selected, onSelect }: any) => (
-    <Modal visible={visible} transparent animationType="slide">
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
-        <TouchableOpacity style={styles.modalBackdrop} onPress={onClose} activeOpacity={1} />
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          onPress={onClose}
+          activeOpacity={1}
+        />
         <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20, backgroundColor: colors.surface }]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
-            <TouchableOpacity onPress={onClose}>
+            <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <Ionicons name="close" size={24} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
-          <ScrollView style={{ maxHeight: 350 }}>
+          <ScrollView style={{ maxHeight: 350 }} showsVerticalScrollIndicator={false}>
             {options.map((opt: string) => (
               <TouchableOpacity
                 key={opt}
                 style={[styles.optionRow, selected === opt && styles.optionSelected, { borderBottomColor: colors.border }]}
-                onPress={() => onSelect(opt)}
+                onPress={() => {
+                  onSelect(opt);
+                }}
+                activeOpacity={0.7}
               >
                 <Text
                   style={[styles.optionText, { color: colors.text }, selected === opt && styles.optionTextSelected]}
@@ -472,7 +461,6 @@ export default function StudentProfilePersonalScreen() {
                 value={personalInfo.username}
                 onChangeText={(val) => handlePersonalInfoChange("username", val)}
                 style={styles.input}
-                editable={false}
               />
               <CustomTextInput
                 label="Full Name *"
@@ -597,6 +585,45 @@ export default function StudentProfilePersonalScreen() {
                 </View>
               </View>
 
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Year of Course</Text>
+                <TouchableOpacity
+                  style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
+                  onPress={() => setShowYearOfCoursePicker(true)}
+                >
+                  <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.yearOfCourse && styles.placeholderText]}>
+                    {personalInfo.yearOfCourse || "Select Year"}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>12th Board</Text>
+                <TouchableOpacity
+                  style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
+                  onPress={() => setShowBoard12thPicker(true)}
+                >
+                  <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.board12th && styles.placeholderText]}>
+                    {personalInfo.board12th || "Select Board"}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Stream in 12th</Text>
+                <TouchableOpacity
+                  style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
+                  onPress={() => setShowStream12thPicker(true)}
+                >
+                  <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.stream12th && styles.placeholderText]}>
+                    {personalInfo.stream12th || "Select Stream"}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <View style={{ flex: 1 }}>
                   <CustomTextInput
@@ -608,37 +635,21 @@ export default function StudentProfilePersonalScreen() {
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <CustomTextInput
-                    label="12th Passing Year"
-                    value={personalInfo.passingYear12th}
-                    onChangeText={(val) => handlePersonalInfoChange("passingYear12th", val)}
-                    style={styles.input}
-                    keyboardType="numeric"
-                  />
+                  <View style={styles.inputGroup}>
+                    <Text style={[styles.label, { color: colors.textSecondary }]}>12th Passing Year</Text>
+                    <TouchableOpacity
+                      style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
+                      onPress={() => setShowPassingYear12thPicker(true)}
+                    >
+                      <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.passingYear12th && styles.placeholderText]}>
+                        {personalInfo.passingYear12th || "Select Year"}
+                      </Text>
+                      <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
 
-              <CustomTextInput
-                label="12th Board"
-                value={personalInfo.board12th}
-                onChangeText={(val) => handlePersonalInfoChange("board12th", val)}
-                style={styles.input}
-              />
-
-              <CustomTextInput
-                label="Stream in 12th"
-                value={personalInfo.stream12th}
-                onChangeText={(val) => handlePersonalInfoChange("stream12th", val)}
-                style={styles.input}
-              />
-
-              <CustomTextInput
-                label="Year of Course"
-                value={personalInfo.yearOfCourse}
-                onChangeText={(val) => handlePersonalInfoChange("yearOfCourse", val)}
-                style={styles.input}
-                placeholder="e.g. 1st Year or 23-24"
-              />
 
             </View>
           </View>
@@ -853,6 +864,54 @@ export default function StudentProfilePersonalScreen() {
         onSelect={(val: string) => {
           handlePersonalInfoChange("gender", val);
           setShowGenderPicker(false);
+        }}
+      />
+
+      <SelectionModal
+        visible={showYearOfCoursePicker}
+        onClose={() => setShowYearOfCoursePicker(false)}
+        title="Select Year of Course"
+        options={YEAR_OF_COURSE_OPTIONS}
+        selected={personalInfo.yearOfCourse}
+        onSelect={(val: string) => {
+          handlePersonalInfoChange("yearOfCourse", val);
+          setShowYearOfCoursePicker(false);
+        }}
+      />
+
+      <SelectionModal
+        visible={showBoard12thPicker}
+        onClose={() => setShowBoard12thPicker(false)}
+        title="Select 12th Board"
+        options={BOARD_12TH_OPTIONS}
+        selected={personalInfo.board12th}
+        onSelect={(val: string) => {
+          handlePersonalInfoChange("board12th", val);
+          setShowBoard12thPicker(false);
+        }}
+      />
+
+      <SelectionModal
+        visible={showStream12thPicker}
+        onClose={() => setShowStream12thPicker(false)}
+        title="Select Stream in 12th"
+        options={STREAM_12TH_OPTIONS}
+        selected={personalInfo.stream12th}
+        onSelect={(val: string) => {
+          handlePersonalInfoChange("stream12th", val);
+          setShowStream12thPicker(false);
+        }}
+      />
+
+      <SelectionModal
+        visible={showPassingYear12thPicker}
+        onClose={() => setShowPassingYear12thPicker(false)}
+        title="Select 12th Passing Year"
+        options={PASSING_YEAR_12TH_OPTIONS}
+        selected={personalInfo.passingYear12th}
+        onSelect={(val: string) => {
+          handlePersonalInfoChange("passingYear12th", val);
+          setShowPassingYear12thPicker(false);
         }}
       />
     </View >

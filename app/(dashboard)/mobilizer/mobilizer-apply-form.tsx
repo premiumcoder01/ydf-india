@@ -887,11 +887,20 @@ export default function MobilizerApplyFormScreen() {
                     <View style={[styles.modalContent, { backgroundColor: isDark ? colors.card : '#fff' }]}>
                         <View style={styles.modalHeader}>
                             <Text style={[styles.modalTitle, { color: colors.text }]}>Select Student</Text>
-                            {selectedStudent && (
-                                <TouchableOpacity onPress={() => setShowStudentPicker(false)}>
-                                    <Ionicons name="close" size={26} color={colors.text} />
-                                </TouchableOpacity>
-                            )}
+                            <TouchableOpacity
+                                onPress={() => {
+                                    if (selectedStudent) {
+                                        // If student is already selected, just close the modal
+                                        setShowStudentPicker(false);
+                                    } else {
+                                        // If no student selected, go back to previous screen
+                                        router.back();
+                                    }
+                                }}
+                                style={{ padding: 4 }}
+                            >
+                                <Ionicons name="close" size={26} color={colors.text} />
+                            </TouchableOpacity>
                         </View>
                         {students.length === 0 ? (
                             <View style={styles.emptyState}>

@@ -147,7 +147,6 @@ export default function ReviewerApplicationsScreen() {
   // Fetch applications from API
   const fetchApplications = async (isRefresh = false) => {
     if (!selectedScholarship) return;
-
     try {
       if (isRefresh) {
         setRefreshing(true);
@@ -155,19 +154,13 @@ export default function ReviewerApplicationsScreen() {
         setLoading(true);
       }
       setError(null);
-
-      // Get token from AsyncStorage
       const authDataStr = await AsyncStorage.getItem("authData");
       const authData = authDataStr ? JSON.parse(authDataStr) : null;
       const token = authData?.token;
-
       if (!token) {
         throw new Error("No authentication token found. Please login again.");
       }
-
       const scholarshipId = selectedScholarship.id;
-
-      // Prepare API parameters
       const apiParams: {
         status: "new" | "approved" | "waitlisted" | "rejected" | "";
         page: number;
@@ -177,13 +170,8 @@ export default function ReviewerApplicationsScreen() {
         per_page: pageSize,
         status: activeTab === "All" ? "" : activeTab,
       };
-
-      // Call API
       const response = await getReviewerApplications(token, scholarshipId, apiParams);
-      console.log("getReviewerApplications response:", JSON.stringify(response, null, 2));
-
       if (response.success && response.data) {
-        // Handle case where applications might be nested or direct
         const apps = response.data.applications || [];
         setApplications(apps);
         setPagination(response.data.pagination || null);

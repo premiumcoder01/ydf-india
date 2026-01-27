@@ -90,11 +90,31 @@ export default function StudentProfileFinancialScreen() {
     const validateFinancialInfo = (): boolean => {
         const errors: ValidationErrors = {};
 
-        if (!financialInfo.bankAccountNo.trim()) errors.bankAccountNo = "Bank account number is required";
-        if (!financialInfo.ifscCode.trim()) errors.ifscCode = "IFSC code is required";
-        if (!financialInfo.bankName.trim()) errors.bankName = "Bank name is required";
+        if (!financialInfo.bankAccountNo.trim()) {
+            errors.bankAccountNo = "Bank account number is required";
+        }
 
-        if (!financialInfo.accountHolderName.trim()) errors.accountHolderName = "Account holder name is required";
+        if (!financialInfo.ifscCode.trim()) {
+            errors.ifscCode = "IFSC code is required";
+        } else {
+            // IFSC Code format: 4 letters + 0 + 6 alphanumeric characters (11 chars total)
+            const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+            const trimmedIfsc = financialInfo.ifscCode.trim().toUpperCase();
+
+            if (trimmedIfsc.length !== 11) {
+                errors.ifscCode = "IFSC code must be 11 characters";
+            } else if (!ifscRegex.test(trimmedIfsc)) {
+                errors.ifscCode = "Invalid IFSC code format (e.g., SBIN0001234)";
+            }
+        }
+
+        if (!financialInfo.bankName.trim()) {
+            errors.bankName = "Bank name is required";
+        }
+
+        if (!financialInfo.accountHolderName.trim()) {
+            errors.accountHolderName = "Account holder name is required";
+        }
 
         setValidationErrors(errors);
         return Object.keys(errors).length === 0;
@@ -197,10 +217,16 @@ export default function StudentProfileFinancialScreen() {
                             <CustomTextInput
                                 label="IFSC Code *"
                                 value={financialInfo.ifscCode}
-                                onChangeText={(val: string) => handleFinancialInfoChange("ifscCode", val)}
+                                onChangeText={(val: string) => {
+                                    // Auto-convert to uppercase and limit to 11 characters
+                                    const formatted = val.toUpperCase().slice(0, 11);
+                                    handleFinancialInfoChange("ifscCode", formatted);
+                                }}
                                 autoCapitalize="characters"
                                 style={styles.input}
                                 error={validationErrors.ifscCode}
+                                placeholder="e.g., SBIN0001234"
+                                maxLength={11}
                             />
                             <CustomTextInput
                                 label="Bank Name *"

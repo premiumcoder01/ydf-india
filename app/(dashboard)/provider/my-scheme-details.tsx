@@ -11,7 +11,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export default function MySchemeDetailsScreen() {
     const { isDark, colors } = useTheme();
     const params = useLocalSearchParams();
+    console.log(params)
     const insets = useSafeAreaInsets();
+
+    // Function to strip HTML tags
+    const stripHtmlTags = (html: string): string => {
+        return html.replace(/<[^>]*>/g, '').trim();
+    };
 
     const scholarship = useMemo(() => {
         const total = parseInt((params.applications_count as string) || "0", 10);
@@ -23,7 +29,7 @@ export default function MySchemeDetailsScreen() {
             id: (params.id as string) || "",
             title: (params.title as string) || "Untitled Scheme",
             status: status,
-            description: (params.description as string) || "No description available.",
+            description: stripHtmlTags((params.description as string) || "No description available."),
             amount: parseFloat((params.fund_amount as string) || "0"),
             deadline: (params.end_date as string) || "",
             applicants: {
@@ -161,7 +167,7 @@ export default function MySchemeDetailsScreen() {
                     </View>
                 </View>
 
-                {/* Applications Overview */}
+                {/* Applications Overview - Redesigned */}
                 <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
                     <View style={styles.cardHeader}>
                         <View style={[styles.iconBox, { backgroundColor: isDark ? 'rgba(102, 126, 234, 0.1)' : '#EFF6FF' }]}>
@@ -170,36 +176,69 @@ export default function MySchemeDetailsScreen() {
                         <Text style={[styles.cardTitle, { color: colors.text }]}>Applications Overview</Text>
                     </View>
 
-                    <View style={styles.summaryGrid}>
-                        <View style={[styles.summaryItem, { backgroundColor: isDark ? colors.surface : '#F8FAFC', borderColor: colors.border }]}>
-                            <Text style={[styles.summaryCount, { color: colors.text }]}>{scholarship.applicants.total}</Text>
-                            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Total Apps</Text>
-                            <View style={[styles.summaryBar, { backgroundColor: '#E2E8F0' }]}>
-                                <View style={[styles.summaryBarFill, { backgroundColor: colors.primary, width: '100%' }]} />
+                    <View style={styles.statsGrid}>
+                        {/* Total Apps Card */}
+                        <View style={[styles.statCard, { backgroundColor: isDark ? 'rgba(102, 126, 234, 0.1)' : '#EFF6FF' }]}>
+                            <View style={styles.statHeader}>
+                                <View style={[styles.statIconBox, { backgroundColor: colors.primary }]}>
+                                    <Ionicons name="documents" size={18} color="#fff" />
+                                </View>
+                                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Apps</Text>
+                            </View>
+                            <Text style={[styles.statValue, { color: colors.primary }]}>{scholarship.applicants.total}</Text>
+                            <View style={[styles.statBar, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
+                                <View style={[styles.statBarFill, { backgroundColor: colors.primary, width: '100%' }]} />
                             </View>
                         </View>
 
-                        <View style={[styles.summaryItem, { backgroundColor: isDark ? colors.surface : '#F8FAFC', borderColor: colors.border }]}>
-                            <Text style={[styles.summaryCount, { color: '#4CAF50' }]}>{scholarship.applicants.approved}</Text>
-                            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Approved</Text>
-                            <View style={[styles.summaryBar, { backgroundColor: '#E2E8F0' }]}>
-                                <View style={[styles.summaryBarFill, { backgroundColor: '#4CAF50', width: `${scholarship.applicants.total ? (scholarship.applicants.approved / scholarship.applicants.total) * 100 : 0}%` }]} />
+                        {/* Approved Card */}
+                        <View style={[styles.statCard, { backgroundColor: isDark ? 'rgba(76, 175, 80, 0.1)' : '#E8F5E9' }]}>
+                            <View style={styles.statHeader}>
+                                <View style={[styles.statIconBox, { backgroundColor: '#4CAF50' }]}>
+                                    <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                                </View>
+                                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Approved</Text>
+                            </View>
+                            <Text style={[styles.statValue, { color: '#4CAF50' }]}>{scholarship.applicants.approved}</Text>
+                            <View style={[styles.statBar, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
+                                <View style={[styles.statBarFill, {
+                                    backgroundColor: '#4CAF50',
+                                    width: `${scholarship.applicants.total ? (scholarship.applicants.approved / scholarship.applicants.total) * 100 : 0}%`
+                                }]} />
                             </View>
                         </View>
 
-                        <View style={[styles.summaryItem, { backgroundColor: isDark ? colors.surface : '#F8FAFC', borderColor: colors.border }]}>
-                            <Text style={[styles.summaryCount, { color: '#FF9800' }]}>{scholarship.applicants.pending}</Text>
-                            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Pending</Text>
-                            <View style={[styles.summaryBar, { backgroundColor: '#E2E8F0' }]}>
-                                <View style={[styles.summaryBarFill, { backgroundColor: '#FF9800', width: `${scholarship.applicants.total ? (scholarship.applicants.pending / scholarship.applicants.total) * 100 : 0}%` }]} />
+                        {/* Pending Card */}
+                        <View style={[styles.statCard, { backgroundColor: isDark ? 'rgba(255, 152, 0, 0.1)' : '#FFF3E0' }]}>
+                            <View style={styles.statHeader}>
+                                <View style={[styles.statIconBox, { backgroundColor: '#FF9800' }]}>
+                                    <Ionicons name="time" size={18} color="#fff" />
+                                </View>
+                                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Pending</Text>
+                            </View>
+                            <Text style={[styles.statValue, { color: '#FF9800' }]}>{scholarship.applicants.pending}</Text>
+                            <View style={[styles.statBar, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
+                                <View style={[styles.statBarFill, {
+                                    backgroundColor: '#FF9800',
+                                    width: `${scholarship.applicants.total ? (scholarship.applicants.pending / scholarship.applicants.total) * 100 : 0}%`
+                                }]} />
                             </View>
                         </View>
 
-                        <View style={[styles.summaryItem, { backgroundColor: isDark ? colors.surface : '#F8FAFC', borderColor: colors.border }]}>
-                            <Text style={[styles.summaryCount, { color: '#F44336' }]}>{scholarship.applicants.rejected}</Text>
-                            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Rejected</Text>
-                            <View style={[styles.summaryBar, { backgroundColor: '#E2E8F0' }]}>
-                                <View style={[styles.summaryBarFill, { backgroundColor: '#F44336', width: `${scholarship.applicants.total ? (scholarship.applicants.rejected / scholarship.applicants.total) * 100 : 0}%` }]} />
+                        {/* Rejected Card */}
+                        <View style={[styles.statCard, { backgroundColor: isDark ? 'rgba(244, 67, 54, 0.1)' : '#FFEBEE' }]}>
+                            <View style={styles.statHeader}>
+                                <View style={[styles.statIconBox, { backgroundColor: '#F44336' }]}>
+                                    <Ionicons name="close-circle" size={18} color="#fff" />
+                                </View>
+                                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Rejected</Text>
+                            </View>
+                            <Text style={[styles.statValue, { color: '#F44336' }]}>{scholarship.applicants.rejected}</Text>
+                            <View style={[styles.statBar, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
+                                <View style={[styles.statBarFill, {
+                                    backgroundColor: '#F44336',
+                                    width: `${scholarship.applicants.total ? (scholarship.applicants.rejected / scholarship.applicants.total) * 100 : 0}%`
+                                }]} />
                             </View>
                         </View>
                     </View>
@@ -373,36 +412,44 @@ const styles = StyleSheet.create({
         fontSize: 15,
         lineHeight: 24,
     },
-    summaryGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
+    statsGrid: {
         gap: 12,
     },
-    summaryItem: {
-        width: '48%',
+    statCard: {
         padding: 16,
         borderRadius: 16,
-        borderWidth: 1,
-        gap: 4,
+        gap: 12,
     },
-    summaryCount: {
-        fontSize: 24,
-        fontWeight: "800",
-        letterSpacing: -0.5,
+    statHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
     },
-    summaryLabel: {
+    statIconBox: {
+        width: 32,
+        height: 32,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    statLabel: {
         fontSize: 13,
-        fontWeight: "500",
+        fontWeight: '600',
+        flex: 1,
     },
-    summaryBar: {
-        height: 4,
-        borderRadius: 2,
-        marginTop: 8,
+    statValue: {
+        fontSize: 32,
+        fontWeight: '800',
+        letterSpacing: -1,
+    },
+    statBar: {
+        height: 6,
+        borderRadius: 3,
         overflow: 'hidden',
     },
-    summaryBarFill: {
+    statBarFill: {
         height: '100%',
-        borderRadius: 2,
+        borderRadius: 3,
     },
     actionsGrid: {
         marginTop: 8,

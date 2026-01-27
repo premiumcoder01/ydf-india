@@ -1256,12 +1256,14 @@ export const updateUserProfile = async (
     };
 
     // Core fields
+    if (profileData.username) payload.username = profileData.username;
     if (profileData.firstName) payload.firstname = profileData.firstName;
     if (profileData.lastName) payload.lastname = profileData.lastName;
     if (profileData.email) payload.email = profileData.email;
     if (profileData.phone) payload.phone1 = profileData.phone;
     if (profileData.address) payload.address = profileData.address;
     if (profileData.city) payload.city = profileData.city;
+    // if (profileData.profileImageUrl) payload.profileimageurl = profileData.profileImageUrl;
     payload.country = "IN";
 
     // Date of birth (YYYY-MM-DD)
@@ -1283,10 +1285,13 @@ export const updateUserProfile = async (
       }
     };
 
-    addCustomField('gender', profileData.gender);
-    addCustomField('religion', profileData.religion);
-    addCustomField('caste', profileData.caste);
-    addCustomField('domicilestate', profileData.domicileState);
+    addCustomField('Gender', profileData.gender);
+    addCustomField('Religion', profileData.religion);
+    addCustomField('Caste', profileData.caste);
+    
+    
+    
+    addCustomField('State', profileData.domicileState);
     addCustomField('domiciledistrict', profileData.district);
     // addCustomField('village', profileData.village); // Removed as requested
     addCustomField('fathername', profileData.fatherName);
@@ -2689,7 +2694,7 @@ export const reviewApplication = async (
 export const donorReviewApplication = async (
   token: string,
   applicationId: number,
-  action: "approve" | "reject",
+  action: "approve" | "reject" | "waitlist",
   notes?: string
 ): Promise<ApiResponse> => {
   try {
@@ -4430,48 +4435,27 @@ export const mobilizerApplyForStudent = async (
  */
 export const addMobilizerStudent = async (
   token: string,
-  studentData: {
-    username: string;
-    password: string;
-    firstname: string;
-    lastname: string;
-    email: string;
-    phone1?: string;
-    city?: string;
-    country?: string;
-    institution?: string;
-    customfields?: Array<{ shortname: string; value: string; }>;
-  }
+  studentData: any // Changed to any to accept indexed customfields format
 ): Promise<ApiResponse> => {
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
-    const urlObj = new URL(baseUrl);
     
-    urlObj.searchParams.append("wstoken", token);
-    urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_add_student");
-    urlObj.searchParams.append("moodlewsrestformat", "json");
+    // Build query string manually to avoid encoding brackets
+    const params: string[] = [];
+    params.push(`wsfunction=local_mobileapi_mobilizer_add_student`);
+    params.push(`moodlewsrestformat=json`);
+    params.push(`wstoken=${token}`);
     
-    // Add basic fields to URL params (POST body handled below)
-    urlObj.searchParams.append("username", studentData.username);
-    urlObj.searchParams.append("password", studentData.password);
-    urlObj.searchParams.append("firstname", studentData.firstname);
-    urlObj.searchParams.append("lastname", studentData.lastname);
-    urlObj.searchParams.append("email", studentData.email);
+    // Add all fields from studentData
+    Object.keys(studentData).forEach(key => {
+      if (studentData[key] !== undefined && studentData[key] !== null && studentData[key] !== '') {
+        // Only encode the value, keep brackets in key as-is
+        const encodedValue = encodeURIComponent(String(studentData[key]));
+        params.push(`${key}=${encodedValue}`);
+      }
+    });
     
-    if (studentData.phone1) urlObj.searchParams.append("phone1", studentData.phone1);
-    if (studentData.city) urlObj.searchParams.append("city", studentData.city);
-    if (studentData.country) urlObj.searchParams.append("country", studentData.country);
-    if (studentData.institution) urlObj.searchParams.append("institution", studentData.institution);
-    
-    // Handle custom fields array for URL params
-    if (studentData.customfields && studentData.customfields.length > 0) {
-      studentData.customfields.forEach((field, index) => {
-        urlObj.searchParams.append(`customfields[${index}][shortname]`, field.shortname);
-        urlObj.searchParams.append(`customfields[${index}][value]`, field.value);
-      });
-    }
-    
-    const finalUrl = urlObj.toString();
+    const finalUrl = `${baseUrl}?${params.join('&')}`;
     console.log("Add Mobilizer Student URL:", finalUrl);
     
     const response = await fetch(finalUrl, {

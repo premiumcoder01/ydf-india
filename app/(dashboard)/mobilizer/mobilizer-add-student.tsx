@@ -105,18 +105,26 @@ export default function MobilizerAddStudentScreen() {
             if (data.religion) customfields.push({ shortname: "religion", value: data.religion });
             if (data.caste) customfields.push({ shortname: "caste", value: data.caste });
 
-            const payload = {
+            // Build payload with indexed customfields format
+            const payload: any = {
                 username: data.username,
                 password: data.password,
                 firstname: data.firstname,
                 lastname: data.lastname,
                 email: data.email,
-                phone1: data.phone1,
-                city: data.city,
-                country: data.country,
-                institution: data.institution,
-                customfields,
             };
+
+            // Add optional fields
+            if (data.phone1) payload.phone1 = data.phone1;
+            if (data.city) payload.city = data.city;
+            if (data.country) payload.country = data.country;
+            if (data.institution) payload.institution = data.institution;
+
+            // Add customfields as indexed array (matching Postman format)
+            customfields.forEach((field, index) => {
+                payload[`customfields[${index}][shortname]`] = field.shortname;
+                payload[`customfields[${index}][value]`] = field.value.toLowerCase();
+            });
 
             const response = await addMobilizerStudent(token, payload);
 
