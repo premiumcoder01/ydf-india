@@ -1153,6 +1153,87 @@ export const getMyApplications = async (
 
 
 /**
+ * Upload Profile Image API call (POST form-data)
+ * Uploads an image to user's private area and returns a file ID
+ * This file ID can then be used with updateUserProfile
+ */
+export const uploadProfileImage = async (
+  token: string,
+  imageFile: any
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("local/mobileapi/upload_document.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add token query parameter
+    urlObj.searchParams.append("wstoken", token);
+    
+    const finalUrl = urlObj.toString();
+    console.log("Upload Profile Image URL:", finalUrl);
+    
+    // Create FormData
+    const formData = new FormData();
+    
+    // Append image file
+    formData.append("file", {
+      uri: imageFile.uri,
+      name: imageFile.name || "profile.jpg",
+      type: imageFile.mimeType || imageFile.type || "image/jpeg",
+    } as any);
+    
+    // Use mode='private' for profile images (uploads to user context)
+    formData.append("mode", "private");
+    
+    console.log("Uploading profile image with mode=private");
+    
+    // Make POST request with FormData
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      body: formData,
+      headers: {
+        "Accept": "application/json",
+      },
+    });
+
+    const responseText = await response.text();
+    console.log("Upload Profile Image Response:", responseText);
+    
+    let data: any = {};
+
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    if (response.ok && data.success) {
+      return {
+        success: true,
+        data: data.data, // Return the nested data object which contains id, filename, etc.
+        message: data.message || "Profile image uploaded successfully",
+      };
+    } else {
+      return {
+        success: false,
+        error: data.error || data.message || "Failed to upload image",
+        message: data.message || "Failed to upload profile image",
+      };
+    }
+  } catch (error: any) {
+    console.error("Upload profile image error:", error);
+    return {
+      success: false,
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server",
+    };
+  }
+};
+
+/**
  * Upload Document API call (POST form-data)
  * This requires a token, file object, mode, and cmid
  */
@@ -1255,16 +1336,19 @@ export const updateUserProfile = async (
       moodlewsrestformat: "json",
     };
 
-    // Core fields
-    if (profileData.username) payload.username = profileData.username;
+    // Core fields (username and profileimageurl are now read-only, don't send them)
     if (profileData.firstName) payload.firstname = profileData.firstName;
     if (profileData.lastName) payload.lastname = profileData.lastName;
     if (profileData.email) payload.email = profileData.email;
     if (profileData.phone) payload.phone1 = profileData.phone;
     if (profileData.address) payload.address = profileData.address;
     if (profileData.city) payload.city = profileData.city;
-    // if (profileData.profileImageUrl) payload.profileimageurl = profileData.profileImageUrl;
     payload.country = "IN";
+
+    // Profile image file ID (new parameter for image upload)
+    if (profileData.profileImageFileId) {
+      payload.profileimage_file_id = profileData.profileImageFileId;
+    }
 
     // Date of birth (YYYY-MM-DD)
     if (profileData.dob) {

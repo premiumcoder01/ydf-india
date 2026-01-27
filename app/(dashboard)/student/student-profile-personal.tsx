@@ -1,6 +1,6 @@
 import { AppHeader, Button, CustomTextInput, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { getUserProfile, updateUserProfile } from "@/utils/api";
+import { getUserProfile, updateUserProfile, uploadProfileImage } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -135,6 +135,8 @@ export default function StudentProfilePersonalScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [selectedImageFile, setSelectedImageFile] = useState<any>(null); // Track the selected image file
+  const [originalProfileImageUrl, setOriginalProfileImageUrl] = useState(""); // Track original image URL
 
   // Toast State
   const [showToast, setShowToast] = useState(false);
@@ -290,7 +292,16 @@ export default function StudentProfilePersonalScreen() {
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      setPersonalInfo(prev => ({ ...prev, profileImageUrl: result.assets[0].uri }));
+      const asset = result.assets[0];
+      // Store the complete file object for upload
+      setSelectedImageFile({
+        uri: asset.uri,
+        name: asset.fileName || 'profile.jpg',
+        type: asset.type || 'image/jpeg',
+        mimeType: asset.type || 'image/jpeg',
+      });
+      // Update UI with the new image
+      setPersonalInfo(prev => ({ ...prev, profileImageUrl: asset.uri }));
       setHasUnsavedChanges(true);
     }
   };
@@ -304,6 +315,7 @@ export default function StudentProfilePersonalScreen() {
       setShowToast(true);
       return;
     }
+
     setIsSaving(true);
     try {
       const authDataStr = await AsyncStorage.getItem("authData");
@@ -312,11 +324,33 @@ export default function StudentProfilePersonalScreen() {
       const authData = JSON.parse(authDataStr);
       if (!authData.token) throw new Error("Invalid session token");
 
-      const payload = { ...personalInfo, phone: "" };
+      let profileImageFileId = null;
+
+      // Step 1: Upload profile image if a new one was selected
+      if (selectedImageFile) {
+        console.log("Uploading new profile image...");
+        const uploadResponse = await uploadProfileImage(authData.token, selectedImageFile);
+
+        if (uploadResponse.success && uploadResponse.data?.id) {
+          profileImageFileId = uploadResponse.data.id; // Use 'id' not 'file_id'
+          console.log("Profile image uploaded successfully. File ID:", profileImageFileId);
+        } else {
+          throw new Error(uploadResponse.error || uploadResponse.message || "Failed to upload profile image");
+        }
+      }
+
+      // Step 2: Update profile with the file ID (if image was uploaded)
+      const payload = {
+        ...personalInfo,
+        phone: "",
+        profileImageFileId: profileImageFileId // Add file ID to payload
+      };
+
       const response = await updateUserProfile(authData.token, payload);
 
       if (response.success) {
         setHasUnsavedChanges(false);
+        setSelectedImageFile(null); // Clear selected file after successful save
         setToastMessage("Personal information updated successfully");
         setToastType("success");
         setShowToast(true);
@@ -331,6 +365,7 @@ export default function StudentProfilePersonalScreen() {
         setShowToast(true);
       }
     } catch (error: any) {
+      console.error("Save error:", error);
       setToastMessage(error.message || "Something went wrong");
       setToastType("error");
       setShowToast(true);
