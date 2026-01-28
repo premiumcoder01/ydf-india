@@ -10,6 +10,7 @@ import {
   Alert,
   BackHandler,
   Image,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -34,6 +35,7 @@ export default function ScholarshipProviderDashboard() {
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const [unreadCount] = useState<number>(2);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [stats, setStats] = useState({
     activeScholarships: 0,
@@ -41,6 +43,11 @@ export default function ScholarshipProviderDashboard() {
     approvedStudents: 0,
     fundsUtilized: 0,
     totalScholarshipsCreated: 0,
+    expiredScholarships: 0,
+    pendingApplications: 0,
+    approvedApplications: 0,
+    rejectedApplications: 0,
+    totalFundAllocated: 0,
   });
 
   const [recentScholarships, setRecentScholarships] = useState<ScholarshipItem[]>([]);
@@ -73,110 +80,130 @@ export default function ScholarshipProviderDashboard() {
     }, [])
   );
 
-  // Fetch user profile on component mount
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        setLoading(true);
-        const authDataString = await AsyncStorage.getItem("authData");
-        if (!authDataString) {
-          setLoading(false);
-          return;
+  // Fetch functions
+  const fetchUserProfile = async () => {
+    try {
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) {
+        return;
+      }
+
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
+
+      if (!token) {
+        return;
+      }
+
+      const response = await getUserProfile(token);
+
+      if (response.success && response.data?.user) {
+        const user = response.data.user;
+        const name = user.fullname ||
+          `${user.firstname || ""} ${user.lastname || ""}`.trim() ||
+          "Provider";
+        setProviderName(name);
+
+        if (user.profileimageurl) {
+          setProfilePhotoUrl(user.profileimageurl);
         }
-
-        const authData = JSON.parse(authDataString);
-        const token = authData?.token;
-
-        if (!token) {
-          setLoading(false);
-          return;
-        }
-
-        const response = await getUserProfile(token);
-
-        if (response.success && response.data?.user) {
-          const user = response.data.user;
-          const name = user.fullname ||
-            `${user.firstname || ""} ${user.lastname || ""}`.trim() ||
-            "Provider";
+      } else {
+        if (authData?.user) {
+          const user = authData.user;
+          const name = user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || "Provider";
           setProviderName(name);
-
           if (user.profileimageurl) {
             setProfilePhotoUrl(user.profileimageurl);
           }
-        } else {
-          if (authData?.user) {
-            const user = authData.user;
-            const name = user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || "Provider";
-            setProviderName(name);
-            if (user.profileimageurl) {
-              setProfilePhotoUrl(user.profileimageurl);
-            }
-          }
         }
-      } catch (error) {
-        console.error("Error fetching user profile:", error);
-      } finally {
-        setLoading(false);
       }
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) return;
+
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
+
+      if (!token) return;
+
+      const response = await getDonorDashboardStats(token);
+
+      if (response.success && response.data?.stats) {
+        const apiStats = response.data.stats;
+        setStats({
+          activeScholarships: apiStats.total_active_scholarships || 0,
+          totalApplicants: apiStats.total_applications_received || 0,
+          approvedStudents: apiStats.total_students_selected || 0,
+          fundsUtilized: apiStats.total_fund_disbursed || 0,
+          totalScholarshipsCreated: apiStats.total_scholarships_created || 0,
+          expiredScholarships: apiStats.total_expired_scholarships || 0,
+          pendingApplications: apiStats.applications_by_status?.pending || 0,
+          approvedApplications: apiStats.applications_by_status?.approved || 0,
+          rejectedApplications: apiStats.applications_by_status?.rejected || 0,
+          totalFundAllocated: apiStats.total_fund_allocated || 0,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
+    }
+  };
+
+  const fetchRecentScholarships = async () => {
+    try {
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) return;
+
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
+
+      if (!token) return;
+
+      const response = await getDonorRecentScholarships(token, 5);
+
+      if (response.success && response.data?.scholarships) {
+        const mappedScholarships: ScholarshipItem[] = response.data.scholarships.map((s: any) => ({
+          id: String(s.id),
+          title: s.name || "Untitled Scholarship",
+          applicants: s.applications_count || 0,
+          status: s.status === 1 ? "Active" : s.status === 0 ? "Draft" : "Closed",
+        }));
+        setRecentScholarships(mappedScholarships);
+      }
+    } catch (error) {
+      console.error("Error fetching recent scholarships:", error);
+    }
+  };
+
+  // Initial data fetch on component mount
+  useEffect(() => {
+    const loadInitialData = async () => {
+      setLoading(true);
+      await Promise.all([
+        fetchUserProfile(),
+        fetchStats(),
+        fetchRecentScholarships()
+      ]);
+      setLoading(false);
     };
 
-    const fetchStats = async () => {
-      try {
-        const authDataString = await AsyncStorage.getItem("authData");
-        if (!authDataString) return;
+    loadInitialData();
+  }, []);
 
-        const authData = JSON.parse(authDataString);
-        const token = authData?.token;
-
-        if (!token) return;
-
-        const response = await getDonorDashboardStats(token);
-
-        if (response.success && response.data?.stats) {
-          const apiStats = response.data.stats;
-          setStats({
-            activeScholarships: apiStats.total_active_scholarships || 0,
-            totalApplicants: apiStats.total_applications_received || 0,
-            approvedStudents: apiStats.total_students_selected || 0,
-            fundsUtilized: apiStats.total_fund_disbursed || 0,
-            totalScholarshipsCreated: apiStats.total_scholarships_created || 0,
-          });
-        }
-      } catch (error) {
-        console.error("Error fetching dashboard stats:", error);
-      }
-    };
-
-    const fetchRecentScholarships = async () => {
-      try {
-        const authDataString = await AsyncStorage.getItem("authData");
-        if (!authDataString) return;
-
-        const authData = JSON.parse(authDataString);
-        const token = authData?.token;
-
-        if (!token) return;
-
-        const response = await getDonorRecentScholarships(token, 5);
-
-        if (response.success && response.data?.scholarships) {
-          const mappedScholarships: ScholarshipItem[] = response.data.scholarships.map((s: any) => ({
-            id: String(s.id),
-            title: s.name || "Untitled Scholarship",
-            applicants: s.applications_count || 0,
-            status: s.status === 1 ? "Active" : s.status === 0 ? "Draft" : "Closed", // Assuming status 1 is active, 0 is draft. Adjust as needed.
-          }));
-          setRecentScholarships(mappedScholarships);
-        }
-      } catch (error) {
-        console.error("Error fetching recent scholarships:", error);
-      }
-    };
-
-    fetchUserProfile();
-    fetchStats();
-    fetchRecentScholarships();
+  // Pull to refresh handler
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      fetchUserProfile(),
+      fetchStats(),
+      fetchRecentScholarships()
+    ]);
+    setRefreshing(false);
   }, []);
 
   const fetchScholarshipProgress = async (scholarshipId: string) => {
@@ -303,25 +330,184 @@ export default function ScholarshipProviderDashboard() {
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: inset.bottom + 30 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+            progressBackgroundColor={colors.card}
+          />
+        }
       >
 
-        {/* Overview Cards */}
+        {/* Dashboard Overview */}
         <View style={styles.statsContainer}>
-          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.activeScholarships}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Active Scholarships</Text>
+
+          {/* Primary Metrics - Unified Group */}
+          <View style={[styles.primaryMetricsGroup, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
+            {/* Total Scholarships */}
+            <View style={styles.metricItem}>
+              <View style={[styles.metricIconBox, { backgroundColor: "#4CAF5015" }]}>
+                <Ionicons name="school-outline" size={24} color="#4CAF50" />
+              </View>
+              <View style={styles.metricContent}>
+                <Text style={[styles.metricNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                  {stats.totalScholarshipsCreated.toLocaleString()}
+                </Text>
+                <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Total Scholarships</Text>
+                <View style={styles.metricBadgeRow}>
+                  <View style={[styles.metricBadge, { backgroundColor: "#4CAF5020" }]}>
+                    <Text style={[styles.metricBadgeText, { color: "#4CAF50" }]} numberOfLines={1}>
+                      {stats.activeScholarships.toLocaleString()} Active
+                    </Text>
+                  </View>
+                  {stats.expiredScholarships > 0 && (
+                    <View style={[styles.metricBadge, { backgroundColor: "#FF980020" }]}>
+                      <Text style={[styles.metricBadgeText, { color: "#FF9800" }]} numberOfLines={1}>
+                        {stats.expiredScholarships.toLocaleString()} Expired
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </View>
+
+            {/* Divider */}
+            <View style={[styles.metricDivider, { backgroundColor: colors.border }]} />
+
+            {/* Total Applications */}
+            <View style={styles.metricItem}>
+              <View style={[styles.metricIconBox, { backgroundColor: "#2196F315" }]}>
+                <Ionicons name="people-outline" size={24} color="#2196F3" />
+              </View>
+              <View style={styles.metricContent}>
+                <Text style={[styles.metricNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                  {stats.totalApplicants.toLocaleString()}
+                </Text>
+                <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Total Applications</Text>
+                <View style={styles.metricBadgeRow}>
+                  <View style={[styles.metricBadge, { backgroundColor: "#2196F320" }]}>
+                    <Text style={[styles.metricBadgeText, { color: "#2196F3" }]} numberOfLines={1}>
+                      {stats.approvedStudents.toLocaleString()} Selected
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
           </View>
-          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.totalApplicants.toLocaleString()}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Applicants</Text>
+
+          {/* Application Status Breakdown */}
+          <View style={[styles.applicationStatusCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBox, { backgroundColor: "#673AB715" }]}>
+                <Ionicons name="analytics-outline" size={20} color="#673AB7" />
+              </View>
+              <Text style={[styles.cardHeaderTitle, { color: colors.text }]}>Application Status</Text>
+            </View>
+
+
+            <View style={styles.statusGrid}>
+              {/* First Row */}
+              <View style={styles.statusRow}>
+                {/* Pending */}
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIconBox, { backgroundColor: "#FF980015" }]}>
+                    <Ionicons name="time-outline" size={20} color="#FF9800" />
+                  </View>
+                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                    {stats.pendingApplications.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Pending</Text>
+                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#FF980030" : "#FF980020" }]}>
+                    <View style={[styles.statusBarFill, {
+                      width: `${stats.totalApplicants > 0 ? (stats.pendingApplications / stats.totalApplicants * 100) : 0}%`,
+                      backgroundColor: "#FF9800"
+                    }]} />
+                  </View>
+                </View>
+
+                {/* Approved */}
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIconBox, { backgroundColor: "#4CAF5015" }]}>
+                    <Ionicons name="checkmark-circle-outline" size={20} color="#4CAF50" />
+                  </View>
+                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                    {stats.approvedApplications.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Approved</Text>
+                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#4CAF5030" : "#4CAF5020" }]}>
+                    <View style={[styles.statusBarFill, {
+                      width: `${stats.totalApplicants > 0 ? (stats.approvedApplications / stats.totalApplicants * 100) : 0}%`,
+                      backgroundColor: "#4CAF50"
+                    }]} />
+                  </View>
+                </View>
+              </View>
+
+
+              {/* Second Row */}
+              <View style={[styles.statusRow, { justifyContent: "center" }]}>
+                {/* Rejected */}
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIconBox, { backgroundColor: "#F4433615" }]}>
+                    <Ionicons name="close-circle-outline" size={20} color="#F44336" />
+                  </View>
+                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                    {stats.rejectedApplications.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Rejected</Text>
+                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#F4433630" : "#F4433620" }]}>
+                    <View style={[styles.statusBarFill, {
+                      width: `${stats.totalApplicants > 0 ? (stats.rejectedApplications / stats.totalApplicants * 100) : 0}%`,
+                      backgroundColor: "#F44336"
+                    }]} />
+                  </View>
+                </View>
+              </View>
+            </View>
           </View>
-          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.approvedStudents}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Approved Students</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{formatCurrency(stats.fundsUtilized)}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Funds Utilized</Text>
+
+          {/* Financial Overview */}
+          <View style={[styles.financialCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBox, { backgroundColor: "#10B98115" }]}>
+                <Ionicons name="wallet-outline" size={20} color="#10B981" />
+              </View>
+              <Text style={[styles.cardHeaderTitle, { color: colors.text }]}>Financial Overview</Text>
+            </View>
+
+            <View style={styles.financialRow}>
+              <View style={styles.financialItem}>
+                <Text style={[styles.financialLabel, { color: colors.textSecondary }]}>Total Allocated</Text>
+                <Text style={[styles.financialAmount, { color: colors.text }]}>{formatCurrency(stats.totalFundAllocated)}</Text>
+              </View>
+              <View style={[styles.financialDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.financialItem}>
+                <Text style={[styles.financialLabel, { color: colors.textSecondary }]}>Disbursed</Text>
+                <Text style={[styles.financialAmount, { color: "#10B981" }]}>{formatCurrency(stats.fundsUtilized)}</Text>
+              </View>
+            </View>
+
+            <View style={styles.progressSection}>
+              <View style={styles.progressHeader}>
+                <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>Utilization</Text>
+                <Text style={[styles.progressPercentage, { color: colors.text }]}>
+                  {stats.totalFundAllocated > 0
+                    ? `${Math.round((stats.fundsUtilized / stats.totalFundAllocated) * 100)}%`
+                    : '0%'}
+                </Text>
+              </View>
+              <View style={[styles.progressBarLarge, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.1)" : "#ECFDF5" }]}>
+                <View style={[styles.progressBarLargeFill, {
+                  width: `${stats.totalFundAllocated > 0 ? (stats.fundsUtilized / stats.totalFundAllocated * 100) : 0}%`,
+                  backgroundColor: "#10B981"
+                }]} />
+              </View>
+              <Text style={[styles.remainingText, { color: colors.textSecondary }]}>
+                Remaining: {formatCurrency(stats.totalFundAllocated - stats.fundsUtilized)}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -520,13 +706,273 @@ const styles = StyleSheet.create({
     borderColor: "rgba(51, 51, 51, 0.1)",
   },
   statsContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
     paddingHorizontal: 20,
     marginBottom: 24,
+  },
+  dashboardTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 16,
+  },
+  // Unified Primary Metrics Group
+  primaryMetricsGroup: {
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(51, 51, 51, 0.1)",
+    shadowColor: "#333",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  metricItem: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    minWidth: 0, // Allow flex items to shrink below content size
+  },
+  metricIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0, // Prevent icon from shrinking
+  },
+  metricContent: {
+    flex: 1,
+    gap: 3,
+    minWidth: 0, // Allow content to shrink
+  },
+  metricNumber: {
+    fontSize: 28,
+    fontWeight: "800",
+    lineHeight: 32,
+  },
+  metricLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+    marginBottom: 4,
+  },
+  metricBadgeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+  },
+  metricBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    flexShrink: 1, // Allow badges to shrink if needed
+  },
+  metricBadgeText: {
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  metricDivider: {
+    width: 1,
+    height: 70,
+    marginHorizontal: 12,
+    flexShrink: 0, // Keep divider size consistent
+  },
+  // New Primary Stats Styles (kept for compatibility)
+  primaryStatsRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 16,
+  },
+  primaryStatCard: {
+    flex: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(51, 51, 51, 0.1)",
+    shadowColor: "#333",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  statIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  statContent: {
+    gap: 4,
+  },
+  primaryStatNumber: {
+    fontSize: 28,
+    fontWeight: "800",
+    marginBottom: 2,
+  },
+  primaryStatLabel: {
+    fontSize: 13,
+    fontWeight: "500",
+    marginBottom: 8,
+  },
+  statBadgeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  miniStatBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  miniStatText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  // Application Status Card
+  applicationStatusCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(51, 51, 51, 0.1)",
+    shadowColor: "#333",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    marginBottom: 16,
+  },
+  cardHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  cardIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  cardHeaderTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  statusGrid: {
+    flexDirection: "column",
     gap: 12,
   },
+  statusRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  statusItem: {
+    flex: 1,
+    alignItems: "center",
+    gap: 5,
+    minWidth: 0, // Allow items to shrink
+  },
+  statusIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  statusNumber: {
+    fontSize: 22,
+    fontWeight: "800",
+    lineHeight: 26,
+  },
+  statusLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  statusBar: {
+    width: "100%",
+    height: 4,
+    borderRadius: 2,
+    overflow: "hidden",
+    marginTop: 4,
+  },
+  statusBarFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  // Financial Card
+  financialCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(51, 51, 51, 0.1)",
+    shadowColor: "#333",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  financialRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  financialItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  financialLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+    marginBottom: 6,
+  },
+  financialAmount: {
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  financialDivider: {
+    width: 1,
+    height: 40,
+    marginHorizontal: 12,
+  },
+  progressSection: {
+    gap: 8,
+  },
+  progressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  progressPercentage: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  progressBarLarge: {
+    width: "100%",
+    height: 8,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  progressBarLargeFill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  remainingText: {
+    fontSize: 11,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  // Old stat card styles (kept for compatibility)
   statCard: {
     width: "48%",
     backgroundColor: "rgba(255, 255, 255, 0.95)",

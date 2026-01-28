@@ -231,62 +231,160 @@ export default function ApplicationReviewerDashboard() {
         contentContainerStyle={{ paddingBottom: inset.bottom + 30 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {/* Overview Cards */}
+        {/* Dashboard Stats */}
         <View style={styles.statsContainer}>
-          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
-            <View style={[styles.statIconContainer, { backgroundColor: "#E3F2FD" }]}>
-              <Ionicons name="albums-outline" size={24} color="#2196F3" />
+          {/* Application Status Card */}
+          <View style={[styles.applicationStatusCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBox, { backgroundColor: "#673AB715" }]}>
+                <Ionicons name="analytics-outline" size={20} color="#673AB7" />
+              </View>
+              <Text style={[styles.cardHeaderTitle, { color: colors.text }]}>Application Status</Text>
             </View>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.total_applications_assigned}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Applications</Text>
+
+            <View style={styles.statusGrid}>
+              {/* First Row */}
+              <View style={styles.statusRow}>
+                {/* Total Applications */}
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIconBox, { backgroundColor: "#2196F315" }]}>
+                    <Ionicons name="albums-outline" size={20} color="#2196F3" />
+                  </View>
+                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                    {stats.total_applications_assigned.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Total Assigned</Text>
+                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#2196F330" : "#2196F320" }]}>
+                    <View style={[styles.statusBarFill, {
+                      width: stats.total_applications_assigned > 0 ? "100%" : "0%",
+                      backgroundColor: "#2196F3"
+                    }]} />
+                  </View>
+                </View>
+
+                {/* Pending Review */}
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIconBox, { backgroundColor: "#FF980015" }]}>
+                    <Ionicons name="time-outline" size={20} color="#FF9800" />
+                  </View>
+                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                    {stats.pending_review.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Pending</Text>
+                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#FF980030" : "#FF980020" }]}>
+                    <View style={[styles.statusBarFill, {
+                      width: stats.total_applications_assigned > 0 ? `${(stats.pending_review / stats.total_applications_assigned * 100)}%` : "0%",
+                      backgroundColor: "#FF9800"
+                    }]} />
+                  </View>
+                </View>
+              </View>
+
+              {/* Second Row */}
+              <View style={styles.statusRow}>
+                {/* Approved */}
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIconBox, { backgroundColor: "#4CAF5015" }]}>
+                    <Ionicons name="checkmark-circle-outline" size={20} color="#4CAF50" />
+                  </View>
+                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                    {stats.approved.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Approved</Text>
+                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#4CAF5030" : "#4CAF5020" }]}>
+                    <View style={[styles.statusBarFill, {
+                      width: stats.total_applications_assigned > 0 ? `${(stats.approved / stats.total_applications_assigned * 100)}%` : "0%",
+                      backgroundColor: "#4CAF50"
+                    }]} />
+                  </View>
+                </View>
+
+                {/* Rejected */}
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIconBox, { backgroundColor: "#F4433615" }]}>
+                    <Ionicons name="close-circle-outline" size={20} color="#F44336" />
+                  </View>
+                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                    {stats.rejected.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Rejected</Text>
+                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#F4433630" : "#F4433620" }]}>
+                    <View style={[styles.statusBarFill, {
+                      width: stats.total_applications_assigned > 0 ? `${(stats.rejected / stats.total_applications_assigned * 100)}%` : "0%",
+                      backgroundColor: "#F44336"
+                    }]} />
+                  </View>
+                </View>
+              </View>
+            </View>
           </View>
 
-          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
-            <View style={[styles.statIconContainer, { backgroundColor: "#FFF3E0" }]}>
-              <Ionicons name="time-outline" size={24} color="#FF9800" />
+          {/* Activity Tracking Card */}
+          <View style={[styles.applicationStatusCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBox, { backgroundColor: "#00BCD415" }]}>
+                <Ionicons name="trending-up-outline" size={20} color="#00BCD4" />
+              </View>
+              <Text style={[styles.cardHeaderTitle, { color: colors.text }]}>Activity Tracking</Text>
             </View>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.pending_review}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Pending Reviews</Text>
-          </View>
 
-          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
-            <View style={[styles.statIconContainer, { backgroundColor: "#E8F5E9" }]}>
-              <Ionicons name="checkmark-circle-outline" size={24} color="#4CAF50" />
-            </View>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.approved}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Approved</Text>
-          </View>
+            <View style={styles.statusGrid}>
+              <View style={styles.statusRow}>
+                {/* Verified Today */}
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIconBox, { backgroundColor: "#00BCD415" }]}>
+                    <Ionicons name="document-text-outline" size={20} color="#00BCD4" />
+                  </View>
+                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                    {stats.verified_today.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Verified Today</Text>
+                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#00BCD430" : "#00BCD420" }]}>
+                    <View style={[styles.statusBarFill, {
+                      width: stats.verified_this_week > 0 ? `${(stats.verified_today / stats.verified_this_week * 100)}%` : "0%",
+                      backgroundColor: "#00BCD4"
+                    }]} />
+                  </View>
+                </View>
 
-          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
-            <View style={[styles.statIconContainer, { backgroundColor: "#FFEBEE" }]}>
-              <Ionicons name="close-circle-outline" size={24} color="#F44336" />
-            </View>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.rejected}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Rejected</Text>
-          </View>
+                {/* Verified This Week */}
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIconBox, { backgroundColor: "#673AB715" }]}>
+                    <Ionicons name="calendar-outline" size={20} color="#673AB7" />
+                  </View>
+                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                    {stats.verified_this_week.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>This Week</Text>
+                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#673AB730" : "#673AB720" }]}>
+                    <View style={[styles.statusBarFill, {
+                      width: "100%",
+                      backgroundColor: "#673AB7"
+                    }]} />
+                  </View>
+                </View>
+              </View>
 
-          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
-            <View style={[styles.statIconContainer, { backgroundColor: "#F3E5F5" }]}>
-              <Ionicons name="bookmark-outline" size={24} color="#9C27B0" />
+              {/* Second Row with Bookmarked centered */}
+              <View style={[styles.statusRow, { justifyContent: "center" }]}>
+                {/* Bookmarked */}
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIconBox, { backgroundColor: "#9C27B015" }]}>
+                    <Ionicons name="bookmark-outline" size={20} color="#9C27B0" />
+                  </View>
+                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                    {stats.bookmarked.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Bookmarked</Text>
+                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#9C27B030" : "#9C27B020" }]}>
+                    <View style={[styles.statusBarFill, {
+                      width: stats.total_applications_assigned > 0 ? `${(stats.bookmarked / stats.total_applications_assigned * 100)}%` : "0%",
+                      backgroundColor: "#9C27B0"
+                    }]} />
+                  </View>
+                </View>
+              </View>
             </View>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.bookmarked}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Bookmarked</Text>
-          </View>
-
-          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
-            <View style={[styles.statIconContainer, { backgroundColor: "#E0F7FA" }]}>
-              <Ionicons name="document-text-outline" size={24} color="#00BCD4" />
-            </View>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.verified_today}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Verified Today</Text>
-          </View>
-
-          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
-            <View style={[styles.statIconContainer, { backgroundColor: "#EDE7F6" }]}>
-              <Ionicons name="calendar-outline" size={24} color="#673AB7" />
-            </View>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.verified_this_week}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Verified This Week</Text>
           </View>
         </View>
 
@@ -470,13 +568,84 @@ const styles = StyleSheet.create({
     borderColor: "rgba(51, 51, 51, 0.1)",
   },
   statsContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
     paddingHorizontal: 20,
     marginBottom: 20,
+    gap: 16,
+  },
+  // Application Status Card
+  applicationStatusCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(51, 51, 51, 0.1)",
+    shadowColor: "#333",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  cardIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  cardHeaderTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  statusGrid: {
+    flexDirection: "column",
+    gap: 12,
+  },
+  statusRow: {
+    flexDirection: "row",
     gap: 10,
   },
+  statusItem: {
+    flex: 1,
+    alignItems: "center",
+    gap: 5,
+    minWidth: 0, // Allow items to shrink
+  },
+  statusIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  statusNumber: {
+    fontSize: 22,
+    fontWeight: "800",
+    lineHeight: 26,
+  },
+  statusLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  statusBar: {
+    width: "100%",
+    height: 4,
+    borderRadius: 2,
+    overflow: "hidden",
+    marginTop: 4,
+  },
+  statusBarFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  // Old stat card styles (kept for compatibility)
   statCard: {
     width: "48%",
     backgroundColor: "#fff",

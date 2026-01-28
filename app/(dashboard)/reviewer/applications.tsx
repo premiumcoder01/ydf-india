@@ -7,12 +7,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ReviewerHeader } from "../../../components";
@@ -79,7 +80,7 @@ export default function ReviewerApplicationsScreen() {
   const [activeTab, setActiveTab] =
     useState<(typeof STATUS_TABS)[number]>("All");
   const [page, setPage] = useState(1);
-  const pageSize = 70;
+  const pageSize = 10;
 
   // View state
   const [viewMode, setViewMode] = useState<"scholarships" | "applications">("scholarships");
@@ -201,6 +202,8 @@ export default function ReviewerApplicationsScreen() {
     }
   }, [viewMode, selectedScholarship, activeTab]);
 
+  const [showFilterModal, setShowFilterModal] = useState(false);
+
   // Toggle bookmark
   const toggleBookmark = (applicationId: number) => {
     setApplications((prev) =>
@@ -289,7 +292,7 @@ export default function ReviewerApplicationsScreen() {
         {/* Content - Only show when not loading */}
         {!loading && (
           <>
-            {/* Enhanced Search Bar */}
+            {/* Enhanced Search Bar with Filter Button */}
             <View style={styles.searchContainer}>
               <View style={[
                 styles.searchRow,
@@ -312,79 +315,109 @@ export default function ReviewerApplicationsScreen() {
                   </TouchableOpacity>
                 )}
               </View>
+
+              {/* Filter Button - Only for Applications */}
+              {viewMode === "applications" && (
+                <TouchableOpacity
+                  style={[
+                    styles.filterIconBtn,
+                    {
+                      backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#fff",
+                      borderColor: isDark ? "rgba(255,255,255,0.1)" : "#e0e0e0",
+                      borderWidth: 1
+                    },
+                    activeTab !== "All" && { backgroundColor: colors.primary, borderColor: colors.primary }
+                  ]}
+                  onPress={() => setShowFilterModal(true)}
+                >
+                  <Ionicons
+                    name="filter"
+                    size={20}
+                    color={activeTab !== "All" ? "#fff" : colors.text}
+                  />
+                  {activeTab !== "All" && (
+                    <View style={styles.filterActiveDot} />
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
 
-            {/* Enhanced Filter Tabs - Only for Applications */}
-            {viewMode === "applications" && (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.tabsRow}
-              >
-                {STATUS_TABS.map((tab) => {
-                  const count =
-                    tab === "All"
-                      ? stats.total
-                      : tab === "new"
-                        ? stats.new
-                        : tab === "approved"
-                          ? stats.approved
-                          : tab === "waitlisted"
-                            ? stats.waitlisted
-                            : tab === "rejected"
-                              ? stats.rejected
-                              : stats.not_applied;
-
-                  const isActive = activeTab === tab;
-
-                  return (
+            {/* Filter Modal */}
+            <Modal
+              visible={showFilterModal}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setShowFilterModal(false)}
+            >
+              <View style={styles.modalBackdrop}>
+                <View style={[styles.filterModal, { backgroundColor: colors.card }]}>
+                  <View style={styles.modalHeader}>
+                    <Text style={[styles.modalTitle, { color: colors.text }]}>Filter Applications</Text>
                     <TouchableOpacity
-                      key={tab}
-                      style={[
-                        styles.tabBtn,
-                        { backgroundColor: colors.card, borderColor: colors.border },
-                        isActive && { backgroundColor: colors.primary, borderColor: colors.primary },
-                      ]}
-                      onPress={() => {
-                        setActiveTab(tab);
-                        setPage(1);
-                      }}
+                      onPress={() => setShowFilterModal(false)}
+                      style={[styles.modalCloseBtn, { backgroundColor: isDark ? colors.surface : "#F5F5F5" }]}
                     >
-                      <Text
-                        style={[
-                          styles.tabText,
-                          { color: colors.textSecondary },
-                          isActive && { color: "#fff" },
-                        ]}
-                      >
-                        {tab === "All"
-                          ? tab
-                          : tab === "not_applied"
-                            ? "Not Applied"
-                            : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                      </Text>
-                      <View
-                        style={[
-                          styles.tabBadge,
-                          { backgroundColor: isDark ? colors.surface : "#f5f5f5" },
-                          isActive && styles.tabBadgeActive,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.tabBadgeText,
-                            { color: colors.textSecondary },
-                            isActive && styles.tabBadgeTextActive,
-                          ]}
-                        >
-                          {count}
-                        </Text>
-                      </View>
+                      <Ionicons name="close" size={20} color={colors.text} />
                     </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            )}
+                  </View>
+
+                  <ScrollView style={styles.filterOptions}>
+                    {STATUS_TABS.map((tab) => {
+                      const isActive = activeTab === tab;
+                      return (
+                        <TouchableOpacity
+                          key={tab}
+                          style={[
+                            styles.filterOption,
+                            { borderColor: colors.border },
+                            isActive && { backgroundColor: isDark ? "rgba(33, 150, 243, 0.15)" : "#E3F2FD", borderColor: colors.primary }
+                          ]}
+                          onPress={() => {
+                            setActiveTab(tab);
+                            setPage(1);
+                            setShowFilterModal(false);
+                          }}
+                        >
+                          <View style={styles.filterOptionLeft}>
+                            <View style={[
+                              styles.filterOptionIcon,
+                              { backgroundColor: isActive ? colors.primary : (isDark ? colors.surface : "#F5F5F5") }
+                            ]}>
+                              <Ionicons
+                                name={
+                                  tab === "All" ? "apps" :
+                                    tab === "new" ? "document-text" :
+                                      tab === "approved" ? "checkmark-circle" :
+                                        tab === "waitlisted" ? "time" :
+                                          tab === "rejected" ? "close-circle" :
+                                            "document"
+                                }
+                                size={20}
+                                color={isActive ? "#fff" : colors.textSecondary}
+                              />
+                            </View>
+                            <Text style={[
+                              styles.filterOptionText,
+                              { color: colors.text },
+                              isActive && { fontWeight: "700", color: colors.primary }
+                            ]}>
+                              {tab === "All"
+                                ? "All Applications"
+                                : tab === "not_applied"
+                                  ? "Not Applied"
+                                  : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                            </Text>
+                          </View>
+                          {isActive && (
+                            <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              </View>
+            </Modal>
 
             {/* List */}
             <View style={styles.cardList}>
@@ -797,17 +830,87 @@ const styles = StyleSheet.create({
   filterIconBtn: {
     width: 48,
     height: 48,
-    borderRadius: 16,
-    backgroundColor: "#fff",
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: "#e0e0e0",
+    position: "relative",
+  },
+  filterActiveDot: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#fff",
+  },
+  // Filter Modal Styles
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  filterModal: {
+    width: "100%",
+    maxWidth: 400,
+    borderRadius: 20,
+    maxHeight: "70%",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.05)",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterOptions: {
+    padding: 16,
+  },
+  filterOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 1.5,
+  },
+  filterOptionLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+  },
+  filterOptionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterOptionText: {
+    fontSize: 16,
+    fontWeight: "600",
   },
   tabsRow: {
     flexDirection: "row",

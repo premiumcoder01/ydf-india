@@ -258,46 +258,99 @@ export default function DocumentViewScreen() {
 
                     <View style={[styles.previewContainer, { backgroundColor: isDark ? "#1a1a1a" : "#F3F4F6" }]}>
                         {url ? (
-                            <WebView
-                                source={{ uri: url.toString() }}
-                                style={styles.webview}
-                                onLoadStart={() => setLoading(true)}
-                                onLoadEnd={() => setLoading(false)}
-                                onError={(syntheticEvent) => {
-                                    const { nativeEvent } = syntheticEvent;
-                                    console.log('WebView error: ', nativeEvent);
-                                    setLoading(false);
-                                    Alert.alert(
-                                        "Load Error",
-                                        "Failed to load document. Please try downloading it instead.",
-                                        [{ text: "OK" }]
-                                    );
-                                }}
-                                onHttpError={(syntheticEvent) => {
-                                    const { nativeEvent } = syntheticEvent;
-                                    console.log('WebView HTTP error: ', nativeEvent);
-                                }}
-                                startInLoadingState={true}
-                                scalesPageToFit={true}
-                                javaScriptEnabled={true}
-                                domStorageEnabled={true}
-                                // Android-specific fixes
-                                mixedContentMode="always"
-                                androidLayerType="hardware"
-                                androidHardwareAccelerationDisabled={false}
-                                cacheEnabled={false}
-                                incognito={true}
-                                allowFileAccess={true}
-                                allowUniversalAccessFromFileURLs={true}
-                                // Additional props for better compatibility
-                                originWhitelist={['*']}
-                                renderLoading={() => (
-                                    <View style={[styles.loader, { backgroundColor: isDark ? "rgba(0,0,0,0.8)" : "rgba(255,255,255,0.9)" }]}>
-                                        <ActivityIndicator size="large" color={colors.primary} />
-                                        <Text style={[styles.loadingText, { color: colors.text }]}>Loading Document...</Text>
+                            Platform.OS === 'android' ? (
+                                // Android: Show download-focused UI since WebView doesn't work with authenticated URLs
+                                <View style={styles.placeholder}>
+                                    <View style={[styles.documentIconLarge, { backgroundColor: isDark ? colors.surface : "#E3F2FD" }]}>
+                                        <Ionicons
+                                            name={
+                                                mimetype?.toString().includes("pdf") ? "document-text" :
+                                                    mimetype?.toString().includes("image") ? "image" :
+                                                        mimetype?.toString().includes("word") ? "document-text" :
+                                                            mimetype?.toString().includes("excel") ? "grid" :
+                                                                "document"
+                                            }
+                                            size={64}
+                                            color={colors.primary}
+                                        />
                                     </View>
-                                )}
-                            />
+                                    <Text style={[styles.placeholderText, { color: colors.text }]}>
+                                        {fileName?.toString() || "Document"}
+                                    </Text>
+                                    <View style={[styles.previewInfoBox, { backgroundColor: isDark ? colors.surface : "#FFF3E0" }]}>
+                                        <Ionicons name="information-circle" size={20} color="#FF9800" />
+                                        <Text style={[styles.previewInfoText, { color: isDark ? colors.textSecondary : "#E65100" }]}>
+                                            Preview not available for this document type
+                                        </Text>
+                                    </View>
+                                    <TouchableOpacity
+                                        style={[styles.downloadPreviewBtn, { backgroundColor: colors.primary }]}
+                                        onPress={handleDownload}
+                                    >
+                                        <Ionicons name="download-outline" size={20} color="#fff" />
+                                        <Text style={styles.downloadPreviewText}>Download to View</Text>
+                                    </TouchableOpacity>
+                                    <Text style={[styles.downloadHint, { color: colors.textSecondary }]}>
+                                        Tap to download and open in your device's viewer
+                                    </Text>
+                                </View>
+                            ) : (
+                                // iOS: Use WebView as it works fine
+                                <>
+                                    <WebView
+                                        source={{ uri: url.toString() }}
+                                        style={styles.webview}
+                                        onLoadStart={() => setLoading(true)}
+                                        onLoadEnd={() => setLoading(false)}
+                                        onError={(syntheticEvent) => {
+                                            const { nativeEvent } = syntheticEvent;
+                                            console.log('WebView error: ', nativeEvent);
+                                            setLoading(false);
+                                            Alert.alert(
+                                                "Preview Error",
+                                                "Unable to preview this document. Please download it to view.",
+                                                [
+                                                    { text: "Cancel", style: "cancel" },
+                                                    { text: "Download", onPress: handleDownload }
+                                                ]
+                                            );
+                                        }}
+                                        onHttpError={(syntheticEvent) => {
+                                            const { nativeEvent } = syntheticEvent;
+                                            console.log('WebView HTTP error: ', nativeEvent);
+                                            if (nativeEvent.statusCode === 404) {
+                                                setLoading(false);
+                                                Alert.alert(
+                                                    "Document Not Found",
+                                                    "The document could not be loaded. Please try downloading it instead.",
+                                                    [
+                                                        { text: "Cancel", style: "cancel" },
+                                                        { text: "Download", onPress: handleDownload }
+                                                    ]
+                                                );
+                                            }
+                                        }}
+                                        startInLoadingState={true}
+                                        scalesPageToFit={true}
+                                        javaScriptEnabled={true}
+                                        domStorageEnabled={true}
+                                        mixedContentMode="always"
+                                        originWhitelist={['*']}
+                                        renderLoading={() => (
+                                            <View style={[styles.loader, { backgroundColor: isDark ? "rgba(0,0,0,0.8)" : "rgba(255,255,255,0.9)" }]}>
+                                                <ActivityIndicator size="large" color={colors.primary} />
+                                                <Text style={[styles.loadingText, { color: colors.text }]}>Loading Document...</Text>
+                                            </View>
+                                        )}
+                                    />
+                                    {loading && (
+                                        <View style={[styles.loader, { backgroundColor: isDark ? "rgba(0,0,0,0.8)" : "rgba(255,255,255,0.9)" }]}>
+                                            <ActivityIndicator size="large" color={colors.primary} />
+                                            <Text style={[styles.loadingText, { color: colors.text }]}>Loading Document...</Text>
+                                        </View>
+                                    )}
+                                </>
+                            )
                         ) : (
                             <View style={styles.placeholder}>
                                 <Ionicons name="document-text-outline" size={64} color={colors.textSecondary} />
@@ -317,7 +370,7 @@ export default function DocumentViewScreen() {
                             </View>
                         )}
 
-                        {loading && url && (
+                        {loading && url && Platform.OS !== 'android' && (
                             <View style={[styles.loader, { backgroundColor: isDark ? "rgba(0,0,0,0.8)" : "rgba(255,255,255,0.9)" }]}>
                                 <ActivityIndicator size="large" color={colors.primary} />
                                 <Text style={[styles.loadingText, { color: colors.text }]}>Loading Document...</Text>
@@ -584,27 +637,57 @@ const styles = StyleSheet.create({
         gap: 16,
         padding: 40,
     },
+    documentIconLarge: {
+        width: 120,
+        height: 120,
+        borderRadius: 20,
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: 8,
+    },
     placeholderText: {
         fontSize: 18,
         fontWeight: "700",
+        textAlign: "center",
     },
     placeholderSub: {
         fontSize: 14,
         textAlign: "center",
     },
+    previewInfoBox: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        padding: 12,
+        borderRadius: 10,
+        marginVertical: 8,
+    },
+    previewInfoText: {
+        fontSize: 13,
+        fontWeight: "600",
+        flex: 1,
+        textAlign: "center",
+        lineHeight: 18,
+    },
     downloadPreviewBtn: {
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
-        paddingVertical: 12,
-        paddingHorizontal: 24,
+        paddingVertical: 14,
+        paddingHorizontal: 32,
         borderRadius: 12,
         marginTop: 8,
     },
     downloadPreviewText: {
         color: "#fff",
-        fontSize: 15,
-        fontWeight: "600",
+        fontSize: 16,
+        fontWeight: "700",
+    },
+    downloadHint: {
+        fontSize: 12,
+        textAlign: "center",
+        marginTop: 8,
+        fontStyle: "italic",
     },
     webview: {
         flex: 1,

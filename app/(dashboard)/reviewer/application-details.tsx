@@ -90,11 +90,7 @@ export default function ReviewerApplicationDetailsScreen() {
     try {
       setLoading(true);
       setError(null);
-
       const appId = params.id ? Number(params.id) : 12212;
-
-      console.log("Fetching details for App ID:", appId);
-
       const authDataStr = await AsyncStorage.getItem("authData");
       const authData = authDataStr ? JSON.parse(authDataStr) : null;
       const token = authData?.token;
@@ -106,7 +102,6 @@ export default function ReviewerApplicationDetailsScreen() {
       const response = await getReviewerApplicationDetails(token, appId);
 
       if (response.success && response.data && response.data.application) {
-        console.log("Details fetched:", response.data.application);
         setApplication(response.data.application);
       } else {
         throw new Error(response.error || "Failed to load application details");

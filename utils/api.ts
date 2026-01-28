@@ -1,3 +1,5 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
 import { getApiUrl } from "./apiConfig";
 
 // API Response types
@@ -60,6 +62,17 @@ export const apiRequest = async (
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
     } catch (e) {
       // If not JSON, treat as plain text error
       return {
@@ -150,6 +163,17 @@ export const loginUser = async (email: string, password: string): Promise<ApiRes
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
     } catch (e) {
       // If not JSON, treat as plain text error
       return {
@@ -217,6 +241,17 @@ export const sendOtp = async (email: string): Promise<ApiResponse> => {
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
     } catch (e) {
       // If not JSON, treat as plain text error
       return {
@@ -284,6 +319,17 @@ export const verifyOtp = async (otp: string, email: string): Promise<ApiResponse
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
     } catch (e) {
       // If not JSON, treat as plain text error
       return {
@@ -349,6 +395,17 @@ export const forgotPassword = async (email: string): Promise<ApiResponse> => {
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
     } catch (e) {
       // If not JSON, treat as plain text error
       return {
@@ -430,6 +487,17 @@ export const resetPassword = async (
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
     } catch (e) {
       // If not JSON, treat as plain text error
       return {
@@ -497,6 +565,17 @@ export const getUserProfile = async (token: string): Promise<ApiResponse> => {
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
     } catch (e) {
       // If not JSON, treat as plain text error
       return {
@@ -640,6 +719,17 @@ export const updatePassword = async (
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
     } catch (e) {
       // If not JSON, treat as plain text error
       return {
@@ -726,6 +816,17 @@ export const getReviewerSchemes = async (
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
     } catch (e) {
       // If not JSON, treat as plain text error
       return {
@@ -810,6 +911,17 @@ export const getAllScholarships = async (
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
     } catch (e) {
       // If not JSON, treat as plain text error
       return {
@@ -880,6 +992,17 @@ export const getScholarshipDetails = async (
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
     } catch (e) {
       // If not JSON, treat as plain text error
       return {
@@ -952,6 +1075,17 @@ export const bookmarkScholarship = async (
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
     } catch (e) {
       // If not JSON, treat as plain text error
       return {
@@ -1032,6 +1166,17 @@ export const getBookmarkedScholarships = async (
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
     } catch (e) {
       // If not JSON, treat as plain text error
       return {
@@ -1116,6 +1261,17 @@ export const getMyApplications = async (
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
     } catch (e) {
       // If not JSON, treat as plain text error
       return {
@@ -1284,6 +1440,17 @@ export const uploadDocument = async (
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
     } catch (e) {
       // If not JSON, treat as plain text error
       return {
@@ -1516,6 +1683,17 @@ export const getNotifications = async (
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
     } catch (e) {
       // If not JSON, treat as plain text error
       return {
@@ -2457,6 +2635,17 @@ export const getReviewerApplications = async (
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
     } catch (e) {
       // If not JSON, treat as plain text error
       return {
@@ -3386,6 +3575,17 @@ export const createScholarship = async (
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
     } catch (e) {
       // If not JSON, treat as plain text error
       return {
@@ -3492,6 +3692,17 @@ export const getMyScholarships = async (
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
     } catch (e) {
       // If not JSON, treat as plain text error
       return {
@@ -3585,6 +3796,17 @@ export const getScholarshipApplicants = async (
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
     } catch (e) {
       // If not JSON, treat as plain text error
       return {
@@ -3774,6 +3996,17 @@ export const getDonorAnalytics = async (
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
     } catch (e) {
       // If not JSON, treat as plain text error
       return {
@@ -4652,6 +4885,17 @@ export const getMobilizerScholarships = async (
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
     } catch (e) {
       // If not JSON, treat as plain text error
       return {

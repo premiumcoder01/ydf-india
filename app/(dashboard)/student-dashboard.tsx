@@ -388,40 +388,94 @@ export default function StudentDashboardScreen() {
         }
       >
 
-        {/* Scholarship Overview Cards */}
+
+        {/* Application Status Overview */}
         <View style={styles.statsContainer}>
-          <TouchableOpacity
-            style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-            activeOpacity={0.8}
+          <View style={[styles.applicationStatusCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBox, { backgroundColor: "#673AB715" }]}>
+                <Ionicons name="analytics-outline" size={20} color="#673AB7" />
+              </View>
+              <Text style={[styles.cardHeaderTitle, { color: colors.text }]}>Application Status</Text>
+            </View>
 
-          >
-            <Text style={[styles.statNumber, { color: colors.text }]}>{statusCounts.applied}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Applied</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-            activeOpacity={0.8}
 
-          >
-            <Text style={[styles.statNumber, { color: colors.text }]}>{statusCounts.approved}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Approved</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-            activeOpacity={0.8}
+            <View style={styles.statusGrid}>
+              {/* First Row */}
+              <View style={styles.statusRow}>
+                {/* Total Applications */}
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIconBox, { backgroundColor: "#2196F315" }]}>
+                    <Ionicons name="document-text-outline" size={20} color="#2196F3" />
+                  </View>
+                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                    {statusCounts.applied.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Applied</Text>
+                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#2196F330" : "#2196F320" }]}>
+                    <View style={[styles.statusBarFill, {
+                      width: statusCounts.applied > 0 ? "100%" : "0%",
+                      backgroundColor: "#2196F3"
+                    }]} />
+                  </View>
+                </View>
 
-          >
-            <Text style={[styles.statNumber, { color: colors.text }]}>{statusCounts.pending}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Pending</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-            activeOpacity={0.8}
+                {/* Approved */}
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIconBox, { backgroundColor: "#4CAF5015" }]}>
+                    <Ionicons name="checkmark-circle-outline" size={20} color="#4CAF50" />
+                  </View>
+                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                    {statusCounts.approved.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Approved</Text>
+                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#4CAF5030" : "#4CAF5020" }]}>
+                    <View style={[styles.statusBarFill, {
+                      width: statusCounts.applied > 0 ? `${(statusCounts.approved / statusCounts.applied * 100)}%` : "0%",
+                      backgroundColor: "#4CAF50"
+                    }]} />
+                  </View>
+                </View>
+              </View>
 
-          >
-            <Text style={[styles.statNumber, { color: colors.text }]}>{statusCounts.rejected}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Rejected</Text>
-          </TouchableOpacity>
+              {/* Second Row */}
+              <View style={styles.statusRow}>
+                {/* Pending */}
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIconBox, { backgroundColor: "#FF980015" }]}>
+                    <Ionicons name="time-outline" size={20} color="#FF9800" />
+                  </View>
+                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                    {statusCounts.pending.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Pending</Text>
+                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#FF980030" : "#FF980020" }]}>
+                    <View style={[styles.statusBarFill, {
+                      width: statusCounts.applied > 0 ? `${(statusCounts.pending / statusCounts.applied * 100)}%` : "0%",
+                      backgroundColor: "#FF9800"
+                    }]} />
+                  </View>
+                </View>
+
+                {/* Rejected */}
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIconBox, { backgroundColor: "#F4433615" }]}>
+                    <Ionicons name="close-circle-outline" size={20} color="#F44336" />
+                  </View>
+                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                    {statusCounts.rejected.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Rejected</Text>
+                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#F4433630" : "#F4433620" }]}>
+                    <View style={[styles.statusBarFill, {
+                      width: statusCounts.applied > 0 ? `${(statusCounts.rejected / statusCounts.applied * 100)}%` : "0%",
+                      backgroundColor: "#F44336"
+                    }]} />
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
         </View>
 
         {/* Upcoming Deadlines */}
@@ -816,13 +870,84 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
     paddingHorizontal: 20,
     marginTop: 10,
     marginBottom: 24,
+  },
+  // Application Status Card
+  applicationStatusCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(51, 51, 51, 0.1)",
+    shadowColor: "#333",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  cardIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  cardHeaderTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  statusGrid: {
+    flexDirection: "column",
+    gap: 12,
+  },
+  statusRow: {
+    flexDirection: "row",
     gap: 10,
   },
+  statusItem: {
+    flex: 1,
+    alignItems: "center",
+    gap: 5,
+    minWidth: 0, // Allow items to shrink
+  },
+  statusIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  statusNumber: {
+    fontSize: 22,
+    fontWeight: "800",
+    lineHeight: 26,
+  },
+  statusLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  statusBar: {
+    width: "100%",
+    height: 4,
+    borderRadius: 2,
+    overflow: "hidden",
+    marginTop: 4,
+  },
+  statusBarFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  // Old stat card styles (kept for compatibility)
   statCard: {
     flex: 1,
     padding: 12,
