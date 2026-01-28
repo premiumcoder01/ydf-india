@@ -151,6 +151,8 @@ export default function DocumentViewScreen() {
         }
     };
 
+    console.log(url)
+
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             <ReviewerHeader
@@ -265,11 +267,36 @@ export default function DocumentViewScreen() {
                                     const { nativeEvent } = syntheticEvent;
                                     console.log('WebView error: ', nativeEvent);
                                     setLoading(false);
+                                    Alert.alert(
+                                        "Load Error",
+                                        "Failed to load document. Please try downloading it instead.",
+                                        [{ text: "OK" }]
+                                    );
+                                }}
+                                onHttpError={(syntheticEvent) => {
+                                    const { nativeEvent } = syntheticEvent;
+                                    console.log('WebView HTTP error: ', nativeEvent);
                                 }}
                                 startInLoadingState={true}
                                 scalesPageToFit={true}
                                 javaScriptEnabled={true}
                                 domStorageEnabled={true}
+                                // Android-specific fixes
+                                mixedContentMode="always"
+                                androidLayerType="hardware"
+                                androidHardwareAccelerationDisabled={false}
+                                cacheEnabled={false}
+                                incognito={true}
+                                allowFileAccess={true}
+                                allowUniversalAccessFromFileURLs={true}
+                                // Additional props for better compatibility
+                                originWhitelist={['*']}
+                                renderLoading={() => (
+                                    <View style={[styles.loader, { backgroundColor: isDark ? "rgba(0,0,0,0.8)" : "rgba(255,255,255,0.9)" }]}>
+                                        <ActivityIndicator size="large" color={colors.primary} />
+                                        <Text style={[styles.loadingText, { color: colors.text }]}>Loading Document...</Text>
+                                    </View>
+                                )}
                             />
                         ) : (
                             <View style={styles.placeholder}>

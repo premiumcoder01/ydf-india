@@ -2,8 +2,9 @@ import { useTheme } from "@/context/ThemeContext";
 import { getUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   Image,
   Modal,
@@ -33,71 +34,73 @@ export default function ReviewerProfileScreen() {
     profilePhoto: null as string | null,
   });
 
-  // Fetch reviewer profile
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        setLoading(true);
-        const authDataString = await AsyncStorage.getItem("authData");
-        if (!authDataString) {
-          setLoading(false);
-          return;
-        }
-
-        const authData = JSON.parse(authDataString);
-        const token = authData?.token;
-
-        if (!token) {
-          setLoading(false);
-          return;
-        }
-
-        const response = await getUserProfile(token);
-
-        if (response.success && response.data?.user) {
-          const user = response.data.user;
-          // Parse custom map
-          let customMap: any = {};
-          try {
-            if (user.customfields_map && typeof user.customfields_map === 'string') {
-              customMap = JSON.parse(user.customfields_map);
-            } else if (user.customfields && Array.isArray(user.customfields)) {
-              user.customfields.forEach((field: any) => {
-                customMap[field.shortname] = field.value;
-              });
-            }
-          } catch (e) {
-            console.log("Error parsing custom fields", e);
+  // Fetch reviewer profile whenever screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      const fetchProfile = async () => {
+        try {
+          setLoading(true);
+          const authDataString = await AsyncStorage.getItem("authData");
+          if (!authDataString) {
+            setLoading(false);
+            return;
           }
 
-          setReviewerData(prev => ({
-            ...prev,
-            name: user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || "Reviewer",
-            email: user.email || prev.email,
-            profilePhoto: user.profileimageurl || null,
-            role: (user.roles && user.roles.length > 0) ? user.roles.join(", ") : "Reviewer",
-            phone: customMap.phone_number || user.phone1 || "N/A",
-            gender: customMap.Gender || "N/A",
-            state: customMap.State || "N/A",
-          }));
-        } else if (authData?.user) {
-          const user = authData.user;
-          setReviewerData(prev => ({
-            ...prev,
-            name: user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || "Reviewer",
-            email: user.email || prev.email,
-            profilePhoto: user.profileimageurl || null,
-          }));
-        }
-      } catch (error) {
-        console.error("Error fetching reviewer profile:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+          const authData = JSON.parse(authDataString);
+          const token = authData?.token;
 
-    fetchProfile();
-  }, []);
+          if (!token) {
+            setLoading(false);
+            return;
+          }
+
+          const response = await getUserProfile(token);
+
+          if (response.success && response.data?.user) {
+            const user = response.data.user;
+            // Parse custom map
+            let customMap: any = {};
+            try {
+              if (user.customfields_map && typeof user.customfields_map === 'string') {
+                customMap = JSON.parse(user.customfields_map);
+              } else if (user.customfields && Array.isArray(user.customfields)) {
+                user.customfields.forEach((field: any) => {
+                  customMap[field.shortname] = field.value;
+                });
+              }
+            } catch (e) {
+              console.log("Error parsing custom fields", e);
+            }
+
+            setReviewerData(prev => ({
+              ...prev,
+              name: user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || "Reviewer",
+              email: user.email || prev.email,
+              profilePhoto: user.profileimageurl || null,
+              role: (user.roles && user.roles.length > 0) ? user.roles.join(", ") : "Reviewer",
+              phone: customMap.phone_number || user.phone1 || "N/A",
+              gender: customMap.Gender || "N/A",
+              state: customMap.State || "N/A",
+            }));
+          } else if (authData?.user) {
+            const user = authData.user;
+            setReviewerData(prev => ({
+              ...prev,
+              name: user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || "Reviewer",
+              email: user.email || prev.email,
+              profilePhoto: user.profileimageurl || null,
+            }));
+          }
+        } catch (error) {
+          console.error("Error fetching reviewer profile:", error);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchProfile();
+    }, [])
+  );
 
   const handleEditProfile = () => {
     router.push("/(dashboard)/reviewer/edit-profile");

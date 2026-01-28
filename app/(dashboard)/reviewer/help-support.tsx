@@ -104,7 +104,7 @@ export default function ReviewerHelpSupportScreen() {
               style={[styles.contactButton, { backgroundColor: isDark ? colors.primary : "#333" }]}
               onPress={() => router.push("/(dashboard)/reviewer/contact-support")}
             >
-              <Text style={[styles.contactButtonText, { color: isDark ? "#000" : "#fff" }]}>Contact Support</Text>
+              <Text style={[styles.contactButtonText, { color: isDark ? "#fff" : "#fff" }]}>Contact Support</Text>
             </TouchableOpacity>
           </View>
 

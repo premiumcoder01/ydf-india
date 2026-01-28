@@ -47,7 +47,7 @@ type AppItem = {
   id: number;
   user: ApplicationUser;
   application_text: string | null;
-  status: "new" | "approved" | "waitlisted" | "rejected" | null;
+  status: "new" | "approved" | "waitlisted" | "rejected" | "not_applied" | null;
   priority: number;
   assigned_reviewer_id: number | null;
   is_bookmarked: boolean;
@@ -63,12 +63,13 @@ type PaginationData = {
   total_pages: number;
 };
 
-const STATUS_TABS: Array<"All" | "new" | "approved" | "waitlisted" | "rejected"> = [
+const STATUS_TABS: Array<"All" | "new" | "approved" | "waitlisted" | "rejected" | "not_applied"> = [
   "All",
   "new",
   "approved",
   "waitlisted",
   "rejected",
+  "not_applied",
 ];
 
 export default function ReviewerApplicationsScreen() {
@@ -162,7 +163,7 @@ export default function ReviewerApplicationsScreen() {
       }
       const scholarshipId = selectedScholarship.id;
       const apiParams: {
-        status: "new" | "approved" | "waitlisted" | "rejected" | "";
+        status: "new" | "approved" | "waitlisted" | "rejected" | "not_applied" | "";
         page: number;
         per_page: number;
       } = {
@@ -246,6 +247,7 @@ export default function ReviewerApplicationsScreen() {
       approved: applications.filter((a) => a.status === "approved").length,
       waitlisted: applications.filter((a) => a.status === "waitlisted").length,
       rejected: applications.filter((a) => a.status === "rejected").length,
+      not_applied: applications.filter((a) => a.status === "not_applied").length,
     };
   }, [applications, scholarships, viewMode]);
 
@@ -329,7 +331,9 @@ export default function ReviewerApplicationsScreen() {
                           ? stats.approved
                           : tab === "waitlisted"
                             ? stats.waitlisted
-                            : stats.rejected;
+                            : tab === "rejected"
+                              ? stats.rejected
+                              : stats.not_applied;
 
                   const isActive = activeTab === tab;
 
@@ -353,7 +357,11 @@ export default function ReviewerApplicationsScreen() {
                           isActive && { color: "#fff" },
                         ]}
                       >
-                        {tab === "All" ? tab : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                        {tab === "All"
+                          ? tab
+                          : tab === "not_applied"
+                            ? "Not Applied"
+                            : tab.charAt(0).toUpperCase() + tab.slice(1)}
                       </Text>
                       <View
                         style={[
@@ -614,6 +622,8 @@ function getStatusColor(status: AppItem["status"]) {
       return "#F44336";
     case "waitlisted":
       return "#FF9800";
+    case "not_applied":
+      return "#9E9E9E";
     default:
       return "#2196F3";
   }
@@ -644,6 +654,8 @@ function getStatusBadgeStyle(status: AppItem["status"], isDark: boolean) {
       return { backgroundColor: isDark ? `rgba(244, 67, 54, ${opacity})` : "#FFEBEE" };
     case "waitlisted":
       return { backgroundColor: isDark ? `rgba(255, 152, 0, ${opacity})` : "#FFF3E0" };
+    case "not_applied":
+      return { backgroundColor: isDark ? `rgba(158, 158, 158, ${opacity})` : "#F5F5F5" };
     default:
       return { backgroundColor: isDark ? `rgba(33, 150, 243, ${opacity})` : "#E3F2FD" };
   }

@@ -1,11 +1,14 @@
 import { ReviewerHeader } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
 import { getNotifications, markAllNotificationsRead, markNotificationRead } from "@/utils/api";
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  Dimensions,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -13,7 +16,8 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import Button from "../../../components/Button";
+
+const { width } = Dimensions.get("window");
 
 interface Notification {
   id: string;
@@ -26,6 +30,27 @@ interface Notification {
   event_type?: string;
 }
 
+// Notification Icon Component
+const NotificationIcon = ({ type, isDark }: { type: "Application" | "KYC"; isDark: boolean }) => {
+  const iconName = type === "KYC" ? "shield-checkmark" : "document-text";
+  const iconColor = type === "KYC"
+    ? (isDark ? "#60A5FA" : "#3B82F6")
+    : (isDark ? "#34D399" : "#10B981");
+
+  return (
+    <View style={[
+      styles.iconContainer,
+      {
+        backgroundColor: type === "KYC"
+          ? (isDark ? "rgba(59, 130, 246, 0.2)" : "#DBEAFE")
+          : (isDark ? "rgba(16, 185, 129, 0.2)" : "#D1FAE5")
+      }
+    ]}>
+      <Ionicons name={iconName as any} size={20} color={iconColor} />
+    </View>
+  );
+};
+
 export default function ReviewerNotificationsScreen() {
   const { isDark, colors } = useTheme();
   const [activeTab, setActiveTab] = useState<"All" | "New" | "KYC" | "Application">("All");
@@ -33,6 +58,7 @@ export default function ReviewerNotificationsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [markingAll, setMarkingAll] = useState(false);
 
   const tabs = useMemo(() => ["All", "New", "KYC", "Application"] as const, []);
 
@@ -45,14 +71,17 @@ export default function ReviewerNotificationsScreen() {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
+    if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
-    return `${diffDays}d ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+
+    // Format as date for older notifications
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
   // Helper function to determine notification type
   const getNotificationType = (component: string, eventType: string): "Application" | "KYC" => {
-    // Map component/event types to our notification types
     if (eventType?.toLowerCase().includes('kyc') || component?.toLowerCase().includes('kyc')) {
       return "KYC";
     }
@@ -78,36 +107,21 @@ export default function ReviewerNotificationsScreen() {
         return;
       }
 
-      console.log("Fetching notifications with token:", token.substring(0, 20) + "...");
-
       const response = await getNotifications(token, {
         page: 1,
         per_page: 200,
       });
 
-      console.log("API Response:", JSON.stringify(response, null, 2));
-      console.log("Response success:", response.success);
-      console.log("Response data type:", typeof response.data);
-      console.log("Response data:", response.data);
-
       if (response.success && response.data) {
-        // The API wraps the response, so response.data contains the actual API response
-        // which has { success: true, data: [...], pagination: {...} }
         let notificationsData: any[] = [];
 
         if (Array.isArray(response.data)) {
-          // If response.data is directly an array
           notificationsData = response.data;
         } else if (response.data.data && Array.isArray(response.data.data)) {
-          // If response.data has a nested data property
           notificationsData = response.data.data;
         } else if (typeof response.data === 'object' && response.data.success && Array.isArray(response.data.data)) {
-          // If the API response is wrapped again
           notificationsData = response.data.data;
         }
-
-        console.log("Notifications data array:", notificationsData);
-        console.log("Number of notifications:", notificationsData.length);
 
         const notifications: Notification[] = notificationsData.map((item: any) => ({
           id: String(item.id),
@@ -120,11 +134,9 @@ export default function ReviewerNotificationsScreen() {
           event_type: item.event_type,
         }));
 
-        console.log("Mapped notifications:", notifications);
         setItems(notifications);
         setError(null);
       } else {
-        console.log("API call failed or no data");
         setError(response.error || "Failed to load notifications");
       }
     } catch (err: any) {
@@ -136,17 +148,14 @@ export default function ReviewerNotificationsScreen() {
     }
   };
 
-  // Load notifications on mount
   useEffect(() => {
     fetchNotifications();
   }, []);
 
-  // Pull to refresh
   const onRefresh = () => {
     setRefreshing(true);
     fetchNotifications();
   };
-
 
   const filtered = useMemo(() => {
     switch (activeTab) {
@@ -164,10 +173,14 @@ export default function ReviewerNotificationsScreen() {
   const unreadCount = useMemo(() => items.filter(i => !i.read).length, [items]);
 
   const markAllAsRead = async () => {
+    if (markingAll) return;
+
+    setMarkingAll(true);
     try {
       const authDataString = await AsyncStorage.getItem("authData");
       if (!authDataString) {
         Alert.alert("Error", "No authentication data found");
+        setMarkingAll(false);
         return;
       }
 
@@ -176,20 +189,22 @@ export default function ReviewerNotificationsScreen() {
 
       if (!token) {
         Alert.alert("Error", "No authentication token found");
+        setMarkingAll(false);
         return;
       }
 
       const response = await markAllNotificationsRead(token);
 
       if (response.success) {
-        // Update local state
         setItems((prev) => prev.map((i) => ({ ...i, read: true })));
-        Alert.alert("Success", "All notifications marked as read");
+        // Success feedback without alert
       } else {
         Alert.alert("Error", response.error || "Failed to mark notifications as read");
       }
     } catch (err: any) {
       Alert.alert("Error", err.message || "An error occurred");
+    } finally {
+      setMarkingAll(false);
     }
   };
 
@@ -202,184 +217,301 @@ export default function ReviewerNotificationsScreen() {
       const token = authData?.token;
       if (!token) return;
 
-      // Find the notification to check if it's already read
       const notification = items.find(i => i.id === id);
       if (!notification || notification.read) {
-        // If already read, do nothing
         return;
       }
 
-      // Optimistically update UI
       setItems((prev) => prev.map((i) => i.id === id ? { ...i, read: true } : i));
 
-      // Call API to mark as read
       const response = await markNotificationRead(token, id);
 
       if (!response.success) {
-        // Revert on failure
         setItems((prev) => prev.map((i) => i.id === id ? { ...i, read: false } : i));
         console.error("Failed to mark notification as read:", response.error);
       }
     } catch (error) {
       console.error("Error marking notification as read:", error);
-      // Revert on error
       setItems((prev) => prev.map((i) => i.id === id ? { ...i, read: false } : i));
     }
   };
 
-  const renderItem = ({ item }: { item: (typeof items)[number] }) => (
-    <TouchableOpacity
-      onPress={() => toggleRead(item.id)}
-      activeOpacity={0.7}
-      style={[
-        styles.item,
-        { backgroundColor: colors.card, borderColor: colors.border },
-        !item.read && [styles.itemUnread, { borderColor: isDark ? "#60A5FA" : "#3B82F6" }]
-      ]}
-    >
-      <View style={styles.itemContent}>
-        <View style={styles.itemLeft}>
-          {!item.read && <View style={[styles.unreadDot, { backgroundColor: isDark ? "#60A5FA" : "#3B82F6" }]} />}
+  const renderItem = ({ item, index }: { item: Notification; index: number }) => (
+    <Animated.View style={{ opacity: 1 }}>
+      <TouchableOpacity
+        onPress={() => toggleRead(item.id)}
+        activeOpacity={0.7}
+        style={[
+          styles.item,
+          {
+            backgroundColor: isDark ? colors.card : "#FFFFFF",
+            borderColor: !item.read
+              ? (isDark ? "#60A5FA" : "#3B82F6")
+              : (isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)")
+          },
+          !item.read && styles.itemUnread,
+        ]}
+      >
+        <View style={styles.itemContent}>
+          <NotificationIcon type={item.type} isDark={isDark} />
+
           <View style={styles.itemBody}>
             <View style={styles.itemHeader}>
-              <View style={[
-                styles.pill,
-                item.type === "KYC"
-                  ? [styles.pillKyc, { backgroundColor: isDark ? "rgba(59, 130, 246, 0.15)" : "#DBEAFE" }]
-                  : [styles.pillApplication, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.15)" : "#D1FAE5" }]
-              ]}>
-                <Text style={[
-                  styles.pillText,
-                  item.type === "KYC"
-                    ? [styles.pillTextKyc, { color: isDark ? "#60A5FA" : "#1E40AF" }]
-                    : [styles.pillTextApp, { color: isDark ? "#34D399" : "#065F46" }]
+              <View style={styles.itemHeaderLeft}>
+                <View style={[
+                  styles.pill,
+                  {
+                    backgroundColor: item.type === "KYC"
+                      ? (isDark ? "rgba(59, 130, 246, 0.15)" : "#EFF6FF")
+                      : (isDark ? "rgba(16, 185, 129, 0.15)" : "#ECFDF5")
+                  }
                 ]}>
-                  {item.type}
-                </Text>
+                  <Text style={[
+                    styles.pillText,
+                    {
+                      color: item.type === "KYC"
+                        ? (isDark ? "#60A5FA" : "#1E40AF")
+                        : (isDark ? "#34D399" : "#065F46")
+                    }
+                  ]}>
+                    {item.type}
+                  </Text>
+                </View>
+                {!item.read && (
+                  <View style={[styles.newBadge, { backgroundColor: isDark ? "#60A5FA" : "#3B82F6" }]}>
+                    <Text style={styles.newBadgeText}>NEW</Text>
+                  </View>
+                )}
               </View>
               <Text style={[styles.time, { color: colors.textSecondary }]}>{item.ts}</Text>
             </View>
-            <Text style={[
-              styles.itemText,
-              { color: colors.textSecondary },
-              !item.read && [styles.itemTextUnread, { color: colors.text }]
-            ]}>{item.text}</Text>
+
+            <Text
+              style={[
+                styles.itemText,
+                { color: !item.read ? colors.text : colors.textSecondary },
+                !item.read && styles.itemTextUnread
+              ]}
+              numberOfLines={3}
+            >
+              {item.text}
+            </Text>
           </View>
         </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+
+  const renderHeader = () => (
+    <View style={styles.listHeaderArea}>
+      {/* Stats Section */}
+      <View style={[
+        styles.statsContainer,
+        {
+          backgroundColor: isDark ? "rgba(59, 130, 246, 0.1)" : "#EFF6FF",
+          borderColor: isDark ? "rgba(59, 130, 246, 0.2)" : "#DBEAFE"
+        }
+      ]}>
+        <View style={styles.statItem}>
+          <Text style={[styles.statNumber, { color: isDark ? "#60A5FA" : "#3B82F6" }]}>
+            {items.length}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total</Text>
+        </View>
+        <View style={[styles.statDivider, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)" }]} />
+        <View style={styles.statItem}>
+          <Text style={[styles.statNumber, { color: isDark ? "#34D399" : "#10B981" }]}>
+            {unreadCount}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Unread</Text>
+        </View>
+        <View style={[styles.statDivider, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)" }]} />
+        <View style={styles.statItem}>
+          <Text style={[styles.statNumber, { color: isDark ? "#F59E0B" : "#D97706" }]}>
+            {items.filter(i => i.type === "KYC").length}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>KYC</Text>
+        </View>
       </View>
-    </TouchableOpacity>
+
+      {/* Tabs */}
+      <View style={styles.tabs}>
+        {tabs.map((t) => {
+          const count = t === "New" ? unreadCount :
+            t === "All" ? items.length :
+              items.filter(i => i.type === t).length;
+          const isActive = activeTab === t;
+
+          return (
+            <TouchableOpacity
+              key={t}
+              onPress={() => setActiveTab(t)}
+              style={[
+                styles.tab,
+                {
+                  backgroundColor: isActive
+                    ? (isDark ? colors.primary : "#3B82F6")
+                    : (isDark ? "rgba(255,255,255,0.05)" : "#F3F4F6"),
+                  borderColor: isActive
+                    ? (isDark ? colors.primary : "#3B82F6")
+                    : "transparent"
+                }
+              ]}
+              activeOpacity={0.7}
+            >
+              <Text style={[
+                styles.tabText,
+                { color: isActive ? "#FFFFFF" : colors.textSecondary }
+              ]}>
+                {t}
+              </Text>
+              {count > 0 && (
+                <View style={[
+                  styles.tabBadge,
+                  {
+                    backgroundColor: isActive
+                      ? "rgba(255,255,255,0.25)"
+                      : (isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB")
+                  }
+                ]}>
+                  <Text style={[
+                    styles.tabBadgeText,
+                    { color: isActive ? "#FFFFFF" : colors.textSecondary }
+                  ]}>
+                    {count}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
   );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ReviewerHeader title="Notifications" />
+
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Loading notifications...
-          </Text>
+          <View style={[
+            styles.loadingCard,
+            { backgroundColor: isDark ? colors.card : "#FFFFFF" }
+          ]}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.text }]}>
+              Loading notifications...
+            </Text>
+            <Text style={[styles.loadingSubtext, { color: colors.textSecondary }]}>
+              Please wait a moment
+            </Text>
+          </View>
         </View>
       ) : error ? (
         <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, { color: colors.error || "#EF4444" }]}>
-            {error}
-          </Text>
-          <Button
-            title="Retry"
-            variant="primary"
-            onPress={() => {
-              setLoading(true);
-              setError(null);
-              fetchNotifications();
-            }}
-          />
+          <View style={[
+            styles.errorCard,
+            { backgroundColor: isDark ? colors.card : "#FFFFFF" }
+          ]}>
+            <View style={[styles.errorIconContainer, { backgroundColor: isDark ? "rgba(239, 68, 68, 0.15)" : "#FEE2E2" }]}>
+              <Ionicons name="alert-circle" size={48} color="#EF4444" />
+            </View>
+            <Text style={[styles.errorTitle, { color: colors.text }]}>
+              Oops! Something went wrong
+            </Text>
+            <Text style={[styles.errorText, { color: colors.textSecondary }]}>
+              {error}
+            </Text>
+            <TouchableOpacity
+              style={[styles.retryButton, { backgroundColor: colors.primary }]}
+              onPress={() => {
+                setLoading(true);
+                setError(null);
+                fetchNotifications();
+              }}
+            >
+              <Ionicons name="refresh" size={20} color="#FFFFFF" />
+              <Text style={styles.retryButtonText}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={(i) => i.id}
-          renderItem={renderItem}
-          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
-            />
-          }
-          ListHeaderComponent={() => (
-            <View style={styles.listHeaderArea}>
-              <View style={styles.titleRow}>
-                <Text style={[styles.title, { color: colors.text }]}>Notifications</Text>
-                {unreadCount > 0 && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{unreadCount} new</Text>
-                  </View>
+        <>
+          <FlatList
+            data={filtered}
+            keyExtractor={(i) => i.id}
+            renderItem={renderItem}
+            ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+                title="Pull to refresh"
+                titleColor={colors.textSecondary}
+              />
+            }
+            ListHeaderComponent={renderHeader}
+            ListEmptyComponent={() => (
+              <View style={styles.empty}>
+                <View style={[
+                  styles.emptyIconContainer,
+                  { backgroundColor: isDark ? "rgba(59, 130, 246, 0.1)" : "#EFF6FF" }
+                ]}>
+                  <Ionicons
+                    name="notifications-off-outline"
+                    size={64}
+                    color={isDark ? "#60A5FA" : "#3B82F6"}
+                  />
+                </View>
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                  No notifications yet
+                </Text>
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                  {activeTab === "All"
+                    ? "You're all caught up! Check back later for updates."
+                    : `No ${activeTab.toLowerCase()} notifications to display.`}
+                </Text>
+              </View>
+            )}
+            contentContainerStyle={[
+              styles.listContent,
+              filtered.length === 0 && styles.listContentEmpty
+            ]}
+            showsVerticalScrollIndicator={false}
+          />
+
+          {/* Floating Mark All as Read Button */}
+          {/* {unreadCount > 0 && (
+            <View style={styles.floatingButtonContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.floatingButton,
+                  {
+                    backgroundColor: isDark ? colors.primary : "#3B82F6",
+                    shadowColor: isDark ? colors.primary : "#3B82F6"
+                  }
+                ]}
+                onPress={markAllAsRead}
+                activeOpacity={0.8}
+                disabled={markingAll}
+              >
+                {markingAll ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-done" size={20} color="#FFFFFF" />
+                    <Text style={styles.floatingButtonText}>
+                      Mark all as read ({unreadCount})
+                    </Text>
+                  </>
                 )}
-              </View>
-              <View style={styles.tabs}>
-                {tabs.map((t) => {
-                  const count = t === "New" ? unreadCount :
-                    t === "All" ? items.length :
-                      items.filter(i => i.type === t).length;
-                  return (
-                    <TouchableOpacity
-                      key={t}
-                      onPress={() => setActiveTab(t)}
-                      style={[
-                        styles.tab,
-                        { backgroundColor: colors.card, borderColor: colors.border },
-                        activeTab === t && [styles.tabActive, { borderColor: isDark ? colors.primary : "#F59E0B", backgroundColor: isDark ? colors.primary + "15" : "#FFFBEB" }]
-                      ]}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[
-                        styles.tabText,
-                        { color: colors.textSecondary },
-                        activeTab === t && [styles.tabTextActive, { color: isDark ? colors.primary : "#92400E" }]
-                      ]}>
-                        {t}
-                      </Text>
-                      {count > 0 && (
-                        <View style={[
-                          styles.tabBadge,
-                          { backgroundColor: isDark ? colors.surface : "#F3F4F6" },
-                          activeTab === t && [styles.tabBadgeActive, { backgroundColor: isDark ? colors.primary + "33" : "#FCD34D" }]
-                        ]}>
-                          <Text style={[
-                            styles.tabBadgeText,
-                            { color: colors.textSecondary },
-                            activeTab === t && [styles.tabBadgeTextActive, { color: isDark ? colors.primary : "#78350F" }]
-                          ]}>
-                            {count}
-                          </Text>
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              </TouchableOpacity>
             </View>
-          )}
-          ListFooterComponent={() => (
-            unreadCount > 0 ? (
-              <View style={styles.footer}>
-                <Button title="Mark All as Read" variant="secondary" onPress={markAllAsRead} />
-              </View>
-            ) : null
-          )}
-          ListEmptyComponent={() => (
-            <View style={styles.empty}>
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                No notifications to display
-              </Text>
-            </View>
-          )}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
+          )} */}
+        </>
       )}
     </View>
   );
@@ -395,9 +527,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 20,
   },
+  loadingCard: {
+    padding: 40,
+    borderRadius: 24,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+    minWidth: 280,
+  },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
+    marginTop: 20,
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  loadingSubtext: {
+    marginTop: 8,
+    fontSize: 14,
     fontWeight: "500",
   },
   errorContainer: {
@@ -405,118 +553,153 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
-    gap: 16,
+  },
+  errorCard: {
+    padding: 32,
+    borderRadius: 24,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+    maxWidth: 340,
+  },
+  errorIconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 8,
+    textAlign: "center",
   },
   errorText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "500",
     textAlign: "center",
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  retryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 12,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
   },
   listContent: {
     padding: 20,
-    paddingBottom: 24,
+    paddingBottom: 100,
+  },
+  listContentEmpty: {
+    flexGrow: 1,
   },
   listHeaderArea: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
-  titleRow: {
+  statsContainer: {
     flexDirection: "row",
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  statItem: {
+    flex: 1,
     alignItems: "center",
-    marginBottom: 16,
-    gap: 12,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
-    letterSpacing: -0.5,
+  statNumber: {
+    fontSize: 28,
+    fontWeight: "800",
+    marginBottom: 4,
   },
-  badge: {
-    backgroundColor: "#EF4444",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
+  statLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#fff",
+  statDivider: {
+    width: 1,
+    marginHorizontal: 12,
   },
   tabs: {
     flexDirection: "row",
-    gap: 8,
+    gap: 10,
     flexWrap: "wrap",
   },
   tab: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 999,
-    borderWidth: 1.5,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    borderWidth: 2,
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  tabActive: {
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowRadius: 4,
     elevation: 2,
   },
   tabText: {
-    fontWeight: "600",
+    fontWeight: "700",
     fontSize: 14,
   },
-  tabTextActive: {
-    fontWeight: "700",
-  },
   tabBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 999,
-    minWidth: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    minWidth: 24,
     alignItems: "center",
   },
-  tabBadgeActive: {
-  },
   tabBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  tabBadgeTextActive: {
+    fontSize: 12,
+    fontWeight: "800",
   },
   item: {
     borderRadius: 16,
-    borderWidth: 1.5,
+    borderWidth: 2,
     overflow: "hidden",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
   },
   itemUnread: {
-    borderWidth: 2,
-    shadowColor: "#3B82F6",
     shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowRadius: 16,
+    elevation: 5,
   },
   itemContent: {
     padding: 16,
-  },
-  itemLeft: {
     flexDirection: "row",
-    gap: 12,
-    alignItems: "flex-start",
+    gap: 14,
   },
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 999,
-    marginTop: 6,
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
   },
   itemBody: {
     flex: 1,
@@ -525,29 +708,37 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 10,
+  },
+  itemHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   pill: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-  },
-  pillKyc: {
-  },
-  pillApplication: {
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 8,
   },
   pillText: {
-    fontWeight: "700",
+    fontWeight: "800",
     fontSize: 11,
     textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  newBadge: {
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  newBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "900",
     letterSpacing: 0.5,
   },
-  pillTextKyc: {
-  },
-  pillTextApp: {
-  },
   time: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "600",
   },
   itemText: {
@@ -558,15 +749,55 @@ const styles = StyleSheet.create({
   itemTextUnread: {
     fontWeight: "600",
   },
-  footer: {
-    marginTop: 20,
-  },
   empty: {
-    paddingVertical: 60,
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
+    paddingVertical: 80,
+    paddingHorizontal: 40,
+  },
+  emptyIconContainer: {
+    width: 128,
+    height: 128,
+    borderRadius: 64,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    marginBottom: 8,
+    textAlign: "center",
   },
   emptyText: {
     fontSize: 15,
     fontWeight: "500",
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  floatingButtonContainer: {
+    position: "absolute",
+    bottom: 20,
+    left: 20,
+    right: 20,
+    alignItems: "center",
+  },
+  floatingButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  floatingButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "800",
   },
 });

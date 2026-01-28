@@ -515,7 +515,8 @@ export default function ReviewerApplicationDetailsScreen() {
       </ScrollView>
 
       {/* Action Buttons - Sticky Footer */}
-      {application && (
+      {/* Only show action buttons if status is not already approved, rejected, or waitlisted */}
+      {application && application.status !== "approved" && application.status !== "rejected" && application.status !== "waitlisted" && (
         <View style={[styles.actionFooter, {
           backgroundColor: colors.card,
           borderTopColor: colors.border,

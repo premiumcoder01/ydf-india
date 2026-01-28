@@ -1336,7 +1336,8 @@ export const updateUserProfile = async (
       moodlewsrestformat: "json",
     };
 
-    // Core fields (username and profileimageurl are now read-only, don't send them)
+    // Core fields
+    if (profileData.username) payload.username = profileData.username;
     if (profileData.firstName) payload.firstname = profileData.firstName;
     if (profileData.lastName) payload.lastname = profileData.lastName;
     if (profileData.email) payload.email = profileData.email;
@@ -1402,7 +1403,6 @@ export const updateUserProfile = async (
     }
 
     console.log("Update Profile URL:", baseUrl);
-    console.log("Update Profile Payload:", JSON.stringify(payload, null, 2));
 
     // Convert payload to x-www-form-urlencoded string with indexed arrays for Moodle
     const formDataParts: string[] = [];
@@ -1420,7 +1420,8 @@ export const updateUserProfile = async (
     });
 
     const formBody = formDataParts.join("&");
-    console.log("Update Profile Form Body:", formBody);
+
+    console.log(formBody,"formBody")
 
     const response = await fetch(baseUrl, {
       method: "POST",
@@ -2411,7 +2412,7 @@ export const getReviewerApplications = async (
   token: string,
   scholarshipId: number,
   params?: {
-    status?: "new" | "approved" | "waitlisted" | "rejected" | "";
+    status?: "new" | "approved" | "waitlisted" | "rejected" | "not_applied" | "";
     page?: number;
     per_page?: number;
   }

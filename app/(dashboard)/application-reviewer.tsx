@@ -233,21 +233,60 @@ export default function ApplicationReviewerDashboard() {
       >
         {/* Overview Cards */}
         <View style={styles.statsContainer}>
-          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
+          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
+            <View style={[styles.statIconContainer, { backgroundColor: "#E3F2FD" }]}>
+              <Ionicons name="albums-outline" size={24} color="#2196F3" />
+            </View>
             <Text style={[styles.statNumber, { color: colors.text }]}>{stats.total_applications_assigned}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Applications</Text>
           </View>
-          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
+
+          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
+            <View style={[styles.statIconContainer, { backgroundColor: "#FFF3E0" }]}>
+              <Ionicons name="time-outline" size={24} color="#FF9800" />
+            </View>
             <Text style={[styles.statNumber, { color: colors.text }]}>{stats.pending_review}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Pending Reviews</Text>
           </View>
-          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
+
+          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
+            <View style={[styles.statIconContainer, { backgroundColor: "#E8F5E9" }]}>
+              <Ionicons name="checkmark-circle-outline" size={24} color="#4CAF50" />
+            </View>
             <Text style={[styles.statNumber, { color: colors.text }]}>{stats.approved}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Approved</Text>
           </View>
-          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
+
+          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
+            <View style={[styles.statIconContainer, { backgroundColor: "#FFEBEE" }]}>
+              <Ionicons name="close-circle-outline" size={24} color="#F44336" />
+            </View>
             <Text style={[styles.statNumber, { color: colors.text }]}>{stats.rejected}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Rejected</Text>
+          </View>
+
+          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
+            <View style={[styles.statIconContainer, { backgroundColor: "#F3E5F5" }]}>
+              <Ionicons name="bookmark-outline" size={24} color="#9C27B0" />
+            </View>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.bookmarked}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Bookmarked</Text>
+          </View>
+
+          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
+            <View style={[styles.statIconContainer, { backgroundColor: "#E0F7FA" }]}>
+              <Ionicons name="document-text-outline" size={24} color="#00BCD4" />
+            </View>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.verified_today}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Verified Today</Text>
+          </View>
+
+          <View style={[styles.statCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
+            <View style={[styles.statIconContainer, { backgroundColor: "#EDE7F6" }]}>
+              <Ionicons name="calendar-outline" size={24} color="#673AB7" />
+            </View>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.verified_this_week}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Verified This Week</Text>
           </View>
         </View>
 
@@ -435,34 +474,46 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    marginBottom: 24,
-    gap: 12,
+    marginBottom: 20,
+    gap: 10,
   },
   statCard: {
     width: "48%",
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 14,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(51, 51, 51, 0.1)",
-    shadowColor: "#333",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    borderColor: "rgba(0, 0, 0, 0.06)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  statCardPrimary: {
+    // Not needed anymore - all cards same size
+  },
+  statIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
   },
   statNumber: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "800",
     color: "#333",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#666",
     textAlign: "center",
-    lineHeight: 16,
+    lineHeight: 14,
+    fontWeight: "500",
   },
   sectionContainer: {
     paddingHorizontal: 20,

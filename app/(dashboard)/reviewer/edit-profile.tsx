@@ -1,6 +1,6 @@
 import { AppHeader, Button, CustomTextInput, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { getUserProfile, updateUserProfile } from "@/utils/api";
+import { getUserProfile, updateUserProfile, uploadProfileImage } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -16,6 +16,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View
 } from "react-native";
@@ -71,9 +72,16 @@ const SCHEME_OPTIONS = [
     "other"
 ];
 
-const REGISTERING_AS_OPTIONS = ["New Applicant", "Renew Applicant"];
+// Fixed: Changed "Renew Applicant" to "Old Scholar" as per API allowed values
+const REGISTERING_AS_OPTIONS = ["New Applicant", "Old Scholar"];
 
 const YEAR_OF_COURSE_OPTIONS = ["23-24", "24-25", "25-26"];
+
+// Added: Session options as per API allowed values
+const SESSION_OPTIONS = ["23-24", "24-25", "25-26"];
+
+// Added: Application Year options as per API allowed values
+const APPLICATION_YEAR_OPTIONS = ["20-21", "21-22", "22-23", "23-24", "24-25", "25-26"];
 
 const BOARD_12TH_OPTIONS = [
     "BSEB(BR)",
@@ -103,7 +111,6 @@ export default function ReviewerEditProfileScreen() {
     const [personalInfo, setPersonalInfo] = useState({
         // General / Personal
         username: "",
-        fullName: "",
         firstName: "",
         lastName: "",
         email: "",
@@ -133,6 +140,7 @@ export default function ReviewerEditProfileScreen() {
     const [isSaving, setIsSaving] = useState(false);
     const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [selectedImageFile, setSelectedImageFile] = useState<any>(null); // Track the selected image file
 
     // Toast State
     const [showToast, setShowToast] = useState(false);
@@ -151,6 +159,8 @@ export default function ReviewerEditProfileScreen() {
     const [showBoard12thPicker, setShowBoard12thPicker] = useState(false);
     const [showStream12thPicker, setShowStream12thPicker] = useState(false);
     const [showPassingYear12thPicker, setShowPassingYear12thPicker] = useState(false);
+    const [showSessionPicker, setShowSessionPicker] = useState(false);
+    const [showApplicationYearPicker, setShowApplicationYearPicker] = useState(false);
 
 
 
@@ -175,7 +185,6 @@ export default function ReviewerEditProfileScreen() {
                             setPersonalInfo((prev) => ({
                                 ...prev,
                                 username: user.username || prev.username,
-                                fullName: user.fullname || `${user.firstname} ${user.lastname}` || prev.fullName,
                                 firstName: user.firstname || prev.firstName,
                                 lastName: user.lastname || prev.lastName,
                                 email: user.email || prev.email,
@@ -241,9 +250,6 @@ export default function ReviewerEditProfileScreen() {
     const validatePersonalInfo = (): boolean => {
         const errors: ValidationErrors = {};
 
-        if (!personalInfo.fullName.trim()) {
-            errors.fullName = "Full name is required";
-        }
         if (!validateEmail(personalInfo.email)) {
             errors.email = "Please enter a valid email address";
         }
@@ -287,7 +293,16 @@ export default function ReviewerEditProfileScreen() {
         });
 
         if (!result.canceled && result.assets && result.assets.length > 0) {
-            setPersonalInfo(prev => ({ ...prev, profileImageUrl: result.assets[0].uri }));
+            const asset = result.assets[0];
+            // Store the complete file object for upload
+            setSelectedImageFile({
+                uri: asset.uri,
+                name: asset.fileName || 'profile.jpg',
+                type: asset.type || 'image/jpeg',
+                mimeType: asset.type || 'image/jpeg',
+            });
+            // Update UI with the new image
+            setPersonalInfo(prev => ({ ...prev, profileImageUrl: asset.uri }));
             setHasUnsavedChanges(true);
         }
     };
@@ -301,6 +316,7 @@ export default function ReviewerEditProfileScreen() {
             setShowToast(true);
             return;
         }
+
         setIsSaving(true);
         try {
             const authDataStr = await AsyncStorage.getItem("authData");
@@ -309,11 +325,35 @@ export default function ReviewerEditProfileScreen() {
             const authData = JSON.parse(authDataStr);
             if (!authData.token) throw new Error("Invalid session token");
 
-            const payload = { ...personalInfo, phone: "" };
+            let profileImageFileId = null;
+
+            // Step 1: Upload profile image if a new one was selected
+            if (selectedImageFile) {
+                console.log("Uploading new profile image...");
+                const uploadResponse = await uploadProfileImage(authData.token, selectedImageFile);
+
+                if (uploadResponse.success && uploadResponse.data?.id) {
+                    profileImageFileId = uploadResponse.data.id; // Use 'id' not 'file_id'
+                    console.log("Profile image uploaded successfully. File ID:", profileImageFileId);
+                } else {
+                    throw new Error(uploadResponse.error || uploadResponse.message || "Failed to upload profile image");
+                }
+            }
+
+            // Step 2: Update profile with the file ID (if image was uploaded)
+            const payload = {
+                ...personalInfo,
+                phone: "",
+                profileImageFileId: profileImageFileId // Add file ID to payload
+            };
+
+            console.log(payload, "my payload")
+
             const response = await updateUserProfile(authData.token, payload);
 
             if (response.success) {
                 setHasUnsavedChanges(false);
+                setSelectedImageFile(null); // Clear selected file after successful save
                 setToastMessage("Personal information updated successfully");
                 setToastType("success");
                 setShowToast(true);
@@ -328,6 +368,7 @@ export default function ReviewerEditProfileScreen() {
                 setShowToast(true);
             }
         } catch (error: any) {
+            console.error("Save error:", error);
             setToastMessage(error.message || "Something went wrong");
             setToastType("error");
             setShowToast(true);
@@ -356,46 +397,109 @@ export default function ReviewerEditProfileScreen() {
         }
     };
 
-    const SelectionModal = ({ visible, onClose, title, options, selected, onSelect }: any) => (
-        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-            <View style={styles.modalOverlay}>
-                <TouchableOpacity
-                    style={styles.modalBackdrop}
-                    onPress={onClose}
-                    activeOpacity={1}
-                />
-                <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20, backgroundColor: colors.surface }]}>
-                    <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-                        <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
-                        <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                            <Ionicons name="close" size={24} color={colors.textSecondary} />
-                        </TouchableOpacity>
-                    </View>
-                    <ScrollView style={{ maxHeight: 350 }} showsVerticalScrollIndicator={false}>
-                        {options.map((opt: string) => (
-                            <TouchableOpacity
-                                key={opt}
-                                style={[styles.optionRow, selected === opt && styles.optionSelected, { borderBottomColor: colors.border }]}
-                                onPress={() => {
-                                    onSelect(opt);
-                                }}
-                                activeOpacity={0.7}
-                            >
-                                <Text
-                                    style={[styles.optionText, { color: colors.text }, selected === opt && styles.optionTextSelected]}
-                                >
-                                    {opt}
-                                </Text>
-                                {selected === opt && (
-                                    <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
-                                )}
+    const SelectionModal = ({ visible, onClose, title, options, selected, onSelect }: any) => {
+        const [searchQuery, setSearchQuery] = useState("");
+
+        // Filter options based on search query
+        const filteredOptions = options.filter((opt: string) =>
+            opt.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+
+        // Reset search when modal closes
+        useEffect(() => {
+            if (!visible) {
+                setSearchQuery("");
+            }
+        }, [visible]);
+
+        return (
+            <Modal
+                visible={visible}
+                transparent
+                animationType="slide"
+                onRequestClose={onClose}
+                statusBarTranslucent
+            >
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={styles.modalOverlay}
+                >
+                    <TouchableOpacity
+                        style={styles.modalBackdrop}
+                        onPress={onClose}
+                        activeOpacity={1}
+                    />
+                    <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20, backgroundColor: colors.surface }]}>
+                        <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+                            <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
+                            <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                                <Ionicons name="close" size={24} color={colors.textSecondary} />
                             </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </View>
-            </View>
-        </Modal>
-    );
+                        </View>
+
+                        {/* Search Input */}
+                        <View style={[styles.searchContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}>
+                            <Ionicons name="search" size={20} color={colors.textSecondary} />
+                            <TextInput
+                                style={[styles.searchInput, { color: colors.text }]}
+                                placeholder="Search..."
+                                placeholderTextColor={colors.textSecondary}
+                                value={searchQuery}
+                                onChangeText={setSearchQuery}
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                            />
+                            {searchQuery.length > 0 && (
+                                <TouchableOpacity onPress={() => setSearchQuery("")} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                                    <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+
+                        {/* Options List */}
+                        <ScrollView
+                            style={styles.optionsScrollView}
+                            showsVerticalScrollIndicator={false}
+                            keyboardShouldPersistTaps="handled"
+                            nestedScrollEnabled={true}
+                        >
+                            {filteredOptions.length > 0 ? (
+                                filteredOptions.map((opt: string) => (
+                                    <TouchableOpacity
+                                        key={opt}
+                                        style={[styles.optionRow, selected === opt && styles.optionSelected, { borderBottomColor: colors.border }]}
+                                        onPress={() => {
+                                            onSelect(opt);
+                                        }}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text
+                                            style={[styles.optionText, { color: colors.text }, selected === opt && styles.optionTextSelected]}
+                                        >
+                                            {opt}
+                                        </Text>
+                                        {selected === opt && (
+                                            <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+                                        )}
+                                    </TouchableOpacity>
+                                ))
+                            ) : (
+                                <View style={styles.emptyState}>
+                                    <Ionicons name="search-outline" size={48} color={colors.textSecondary} opacity={0.5} />
+                                    <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
+                                        No results found
+                                    </Text>
+                                    <Text style={[styles.emptyStateSubtext, { color: colors.textSecondary }]}>
+                                        Try a different search term
+                                    </Text>
+                                </View>
+                            )}
+                        </ScrollView>
+                    </View>
+                </KeyboardAvoidingView>
+            </Modal>
+        );
+    };
 
 
     return (
@@ -459,26 +563,25 @@ export default function ReviewerEditProfileScreen() {
                                 onChangeText={(val) => handlePersonalInfoChange("username", val)}
                                 style={styles.input}
                             />
-                            <CustomTextInput
-                                label="Full Name *"
-                                value={personalInfo.fullName}
-                                onChangeText={(val) => handlePersonalInfoChange("fullName", val)}
-                                style={styles.input}
-                                error={validationErrors.fullName}
-                            />
 
-                            <CustomTextInput
-                                label="First Name"
-                                value={personalInfo.firstName}
-                                onChangeText={(val) => handlePersonalInfoChange("firstName", val)}
-                                style={[styles.input, { flex: 1, marginRight: 8 }]}
-                            />
-                            <CustomTextInput
-                                label="Last Name"
-                                value={personalInfo.lastName}
-                                onChangeText={(val) => handlePersonalInfoChange("lastName", val)}
-                                style={[styles.input, { flex: 1 }]}
-                            />
+                            <View style={{ flexDirection: 'row', gap: 10 }}>
+                                <View style={{ flex: 1 }}>
+                                    <CustomTextInput
+                                        label="First Name"
+                                        value={personalInfo.firstName}
+                                        onChangeText={(val) => handlePersonalInfoChange("firstName", val)}
+                                        style={styles.input}
+                                    />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <CustomTextInput
+                                        label="Last Name"
+                                        value={personalInfo.lastName}
+                                        onChangeText={(val) => handlePersonalInfoChange("lastName", val)}
+                                        style={styles.input}
+                                    />
+                                </View>
+                            </View>
 
                             <CustomTextInput
                                 label="Email Address *"
@@ -549,22 +652,32 @@ export default function ReviewerEditProfileScreen() {
 
                             <View style={{ flexDirection: 'row', gap: 10 }}>
                                 <View style={{ flex: 1 }}>
-                                    <CustomTextInput
-                                        label="Session"
-                                        value={personalInfo.session}
-                                        onChangeText={(val) => handlePersonalInfoChange("session", val)}
-                                        style={styles.input}
-                                        placeholder="e.g. 24-25"
-                                    />
+                                    <View style={styles.inputGroup}>
+                                        <Text style={[styles.label, { color: colors.textSecondary }]}>Session</Text>
+                                        <TouchableOpacity
+                                            style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
+                                            onPress={() => setShowSessionPicker(true)}
+                                        >
+                                            <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.session && styles.placeholderText]}>
+                                                {personalInfo.session || "Select Session"}
+                                            </Text>
+                                            <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
                                 <View style={{ flex: 1 }}>
-                                    <CustomTextInput
-                                        label="Application Year"
-                                        value={personalInfo.applicationYear}
-                                        onChangeText={(val) => handlePersonalInfoChange("applicationYear", val)}
-                                        style={styles.input}
-                                        placeholder="e.g. 25-26"
-                                    />
+                                    <View style={styles.inputGroup}>
+                                        <Text style={[styles.label, { color: colors.textSecondary }]}>Application Year</Text>
+                                        <TouchableOpacity
+                                            style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
+                                            onPress={() => setShowApplicationYearPicker(true)}
+                                        >
+                                            <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.applicationYear && styles.placeholderText]}>
+                                                {personalInfo.applicationYear || "Select Year"}
+                                            </Text>
+                                            <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
                             </View>
 
@@ -896,6 +1009,30 @@ export default function ReviewerEditProfileScreen() {
                     setShowPassingYear12thPicker(false);
                 }}
             />
+
+            <SelectionModal
+                visible={showSessionPicker}
+                onClose={() => setShowSessionPicker(false)}
+                title="Select Session"
+                options={SESSION_OPTIONS}
+                selected={personalInfo.session}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("session", val);
+                    setShowSessionPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showApplicationYearPicker}
+                onClose={() => setShowApplicationYearPicker(false)}
+                title="Select Application Year"
+                options={APPLICATION_YEAR_OPTIONS}
+                selected={personalInfo.applicationYear}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("applicationYear", val);
+                    setShowApplicationYearPicker(false);
+                }}
+            />
         </View >
     );
 }
@@ -1061,7 +1198,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#fff",
         borderTopLeftRadius: 30,
         borderTopRightRadius: 30,
-        maxHeight: "60%",
+        height: "75%",
         paddingTop: 8,
         borderWidth: 1,
         borderColor: "#f0f0f0",
@@ -1078,6 +1215,28 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: "700",
         color: "#1a1a1a",
+    },
+    searchContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginHorizontal: 20,
+        marginVertical: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 12,
+        borderWidth: 1.5,
+        gap: 10,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 15,
+        fontWeight: "500",
+        padding: 0,
+    },
+    optionsScrollView: {
+        flex: 1,
+        // minHeight: 200,
+        // maxHeight: 400,
     },
     optionRow: {
         flexDirection: "row",
@@ -1098,5 +1257,25 @@ const styles = StyleSheet.create({
     optionTextSelected: {
         color: "#0056D2",
         fontWeight: "600",
+    },
+    emptyState: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingVertical: 60,
+        paddingHorizontal: 40,
+    },
+    emptyStateText: {
+        fontSize: 16,
+        fontWeight: "600",
+        marginTop: 16,
+        textAlign: "center",
+    },
+    emptyStateSubtext: {
+        fontSize: 14,
+        fontWeight: "500",
+        marginTop: 8,
+        textAlign: "center",
+        opacity: 0.7,
     },
 });
