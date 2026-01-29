@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Animated,
@@ -90,81 +90,91 @@ export default function ScholarshipListingScreen() {
   }, [query]);
 
   // Fetch scholarships from API
-  useEffect(() => {
-    const fetchScholarships = async () => {
-      try {
-        setLoading(true);
-        // Get token from AsyncStorage
-        const authDataString = await AsyncStorage.getItem("authData");
-        if (!authDataString) {
-          console.log("No auth data found");
-          setLoading(false);
-          return;
-        }
+  const fetchScholarships = useCallback(async () => {
+    try {
+      setLoading(true);
+      // Get token from AsyncStorage
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) {
+        console.log("No auth data found");
+        setLoading(false);
+        return;
+      }
 
-        const authData = JSON.parse(authDataString);
-        const token = authData?.token;
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
 
-        if (!token) {
-          console.log("No token found in auth data");
-          setLoading(false);
-          return;
-        }
+      if (!token) {
+        console.log("No token found in auth data");
+        setLoading(false);
+        return;
+      }
 
-        // Call getAllScholarships API with search query
-        const response = await getAllScholarships(token, {
-          search: searchQuery || undefined,
-          page: page,
-          per_page: 100,
-        });
-        if (response.success && response.data) {
-          const apiData = response.data.data || response.data;
+      // Call getAllScholarships API with search query
+      const response = await getAllScholarships(token, {
+        search: searchQuery || undefined,
+        page: page,
+        per_page: 100,
+      });
+      if (response.success && response.data) {
+        const apiData = response.data.data || response.data;
 
-          // Extract scholarships array
-          const scholarshipsList = Array.isArray(apiData)
-            ? apiData
-            : apiData?.data || apiData?.scholarships || [];
+        // Extract scholarships array
+        const scholarshipsList = Array.isArray(apiData)
+          ? apiData
+          : apiData?.data || apiData?.scholarships || [];
 
-          if (page === 1) {
-            setApiScholarships(scholarshipsList);
-            const bookmarksMap: Record<number, boolean> = {};
-            scholarshipsList.forEach((scholarship: any) => {
-              if (scholarship.bookmarked !== undefined) {
-                bookmarksMap[scholarship.id] = scholarship.bookmarked;
-              }
-            });
-            setBookmarks(bookmarksMap);
-          } else {
-            setApiScholarships((prev) => [...prev, ...scholarshipsList]);
-            const newBookmarks: Record<number, boolean> = {};
-            scholarshipsList.forEach((scholarship: any) => {
-              if (scholarship.bookmarked !== undefined) {
-                newBookmarks[scholarship.id] = scholarship.bookmarked;
-              }
-            });
-            setBookmarks((prev) => ({ ...prev, ...newBookmarks }));
-          }
-
-          // Store pagination info
-          if (apiData?.pagination) {
-            setPagination(apiData.pagination);
-          }
+        if (page === 1) {
+          setApiScholarships(scholarshipsList);
+          const bookmarksMap: Record<number, boolean> = {};
+          scholarshipsList.forEach((scholarship: any) => {
+            if (scholarship.bookmarked !== undefined) {
+              bookmarksMap[scholarship.id] = scholarship.bookmarked;
+            }
+          });
+          setBookmarks(bookmarksMap);
         } else {
-          console.log("API call failed:", response.error || response.message);
-          if (page === 1) {
-            setApiScholarships([]);
-          }
+          setApiScholarships((prev) => [...prev, ...scholarshipsList]);
+          const newBookmarks: Record<number, boolean> = {};
+          scholarshipsList.forEach((scholarship: any) => {
+            if (scholarship.bookmarked !== undefined) {
+              newBookmarks[scholarship.id] = scholarship.bookmarked;
+            }
+          });
+          setBookmarks((prev) => ({ ...prev, ...newBookmarks }));
         }
-      } catch (error) {
-        console.error("Error fetching scholarships:", error);
+
+        // Store pagination info
+        if (apiData?.pagination) {
+          setPagination(apiData.pagination);
+        }
+      } else {
+        console.log("API call failed:", response.error || response.message);
         if (page === 1) {
           setApiScholarships([]);
         }
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching scholarships:", error);
+      if (page === 1) {
+        setApiScholarships([]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [searchQuery, page]);
 
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      // Reset to page 1 and fetch fresh data
+      setPage(1);
+      fetchScholarships();
+    }, [fetchScholarships])
+  );
+
+  // Fetch when searchQuery or page changes
+  useEffect(() => {
     fetchScholarships();
   }, [searchQuery, page]);
 
@@ -648,13 +658,37 @@ export default function ScholarshipListingScreen() {
         style={styles.background}
         locations={[0, 0.4, 1]}
       />
+
+      {/* Fixed Header Outside FlatList */}
+      <View style={styles.fixedHeader}>
+        <AppHeader
+          title="Scholarships"
+          onBack={() => router.back()}
+          rightIcon={
+            <TouchableOpacity onPress={openFilters} style={[styles.filterIconBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" }]}>
+              <Ionicons name="options-outline" size={22} color={colors.text} />
+              {activeFiltersCount > 0 && (
+                <View style={styles.filterBadge}>
+                  <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          }
+        />
+        <SearchBar
+          value={query}
+          onChangeText={setQuery}
+          onClear={() => setQuery("")}
+          placeholder="Search scholarships..."
+        />
+      </View>
+
+      {/* Scrollable Content */}
       <FlatList
         data={data}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
-        ListHeaderComponent={Header}
-        stickyHeaderIndices={[0]}
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
         showsVerticalScrollIndicator={false}
@@ -862,6 +896,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  fixedHeader: {
+    backgroundColor: "transparent",
+  },
   background: {
     position: "absolute",
     top: 0,
@@ -870,6 +907,7 @@ const styles = StyleSheet.create({
     right: 0,
   },
   listContent: {
+    paddingTop: 16,
     paddingBottom: 40,
   },
   header: {

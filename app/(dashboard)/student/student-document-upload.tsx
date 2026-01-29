@@ -76,7 +76,7 @@ export default function DocumentUploadScreen() {
       const response = await fetch(url);
       const result = await response.json();
 
-      console.log("Documents Result:", result);
+
 
       if (result.success && Array.isArray(result.data)) {
         const mappedDocs: Document[] = result.data.map((item: any) => ({

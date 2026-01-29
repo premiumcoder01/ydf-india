@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   Alert,
   BackHandler,
@@ -283,14 +283,18 @@ export default function StudentDashboardScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    const init = async () => {
-      setLoading(true);
-      await Promise.all([fetchUserProfile(), fetchDashboardData()]);
-      setLoading(false);
-    };
-    init();
-  }, [fetchUserProfile, fetchDashboardData]);
+
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      const init = async () => {
+        setLoading(true);
+        await Promise.all([fetchUserProfile(), fetchDashboardData()]);
+        setLoading(false);
+      };
+      init();
+    }, [fetchUserProfile, fetchDashboardData])
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -482,14 +486,7 @@ export default function StudentDashboardScreen() {
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeaderRow}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Upcoming Deadlines</Text>
-            <TouchableOpacity
-              onPress={() =>
-                router.push("/(dashboard)/student/student-scholarship-listing")
-              }
-              accessibilityRole="button"
-            >
-              <Text style={[styles.viewAllText, { color: colors.text }]}>View All</Text>
-            </TouchableOpacity>
+
           </View>
           <View style={{ gap: 12 }}>
             {upcomingDeadlines.slice(0, 3).map((item) => (
@@ -556,7 +553,7 @@ export default function StudentDashboardScreen() {
         <View style={styles.sectionContainer}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Recommended Scholarships</Text>
           <View style={styles.cardGrid}>
-            {recommendedScholarships.slice(0, 5).map((s) => {
+            {recommendedScholarships.map((s) => {
               const categoryColor = getCategoryColor(s.category);
               const daysInfo = getDaysRemaining(s.deadline, s.expired); // s.deadline in state is raw date string from API now, or null.
               // Wait, in previous step I updated state to have deadline: item.end_date || null.

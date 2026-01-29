@@ -1,9 +1,27 @@
 import { Button } from "@/components";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link } from "expo-router";
-import { Image, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef } from "react";
+import { Animated, Image, StyleSheet, Text, View } from "react-native";
 
 export default function WelcomeScreen() {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -17,19 +35,45 @@ export default function WelcomeScreen() {
       {/* Content */}
       <View style={styles.content}>
         {/* Logo/Title Section */}
-        <View style={styles.titleSection}>
-          <Image
-            source={require("@/assets/appImages/new.png")}
-            resizeMode="contain"
-            style={{ width: 200, height: 200 }}
-          />
-        </View>
+        <Animated.View
+          style={[
+            styles.titleSection,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <View style={styles.logoContainer}>
+            <Image
+              source={require("@/assets/appImages/new.png")}
+              resizeMode="contain"
+              style={styles.logoImage}
+            />
+          </View>
+
+          <View style={styles.brandTextContainer}>
+            <Text style={styles.brandTitle}>Welcome</Text>
+            <Text style={styles.brandSubtitle}>
+              Empowering Dreams, Building Futures
+            </Text>
+          </View>
+        </Animated.View>
 
         {/* Bottom Section with Buttons */}
-        <View style={styles.bottomSection}>
-          <Text style={styles.welcomeText}>
-            Sign in or create an account to continue
-          </Text>
+        <Animated.View
+          style={[
+            styles.bottomSection,
+            {
+              opacity: fadeAnim,
+            },
+          ]}
+        >
+          <View style={styles.welcomeTextContainer}>
+            <Text style={styles.welcomeText}>
+              Sign in or create an account to continue
+            </Text>
+          </View>
 
           <View style={styles.buttonContainer}>
             <Link href="/(auth)/sign-in" asChild>
@@ -53,10 +97,15 @@ export default function WelcomeScreen() {
             </Link>
           </View>
 
-          <Text style={styles.termsText}>
-            By continuing, you agree to our Terms of Service and Privacy Policy
-          </Text>
-        </View>
+          <View style={styles.termsContainer}>
+            <Text style={styles.termsText}>
+              By continuing, you agree to our{" "}
+              <Text style={styles.termsLink}>Terms of Service</Text>
+              {" "}and{" "}
+              <Text style={styles.termsLink}>Privacy Policy</Text>
+            </Text>
+          </View>
+        </Animated.View>
       </View>
     </View>
   );
@@ -77,79 +126,106 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: "space-between",
-    paddingTop: 80,
-    paddingBottom: 50,
-    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 40,
+    paddingHorizontal: 28,
   },
   titleSection: {
     alignItems: "center",
-    gap: 12,
+    gap: 24,
+    paddingTop: 20,
   },
-  logo: {
-    fontSize: 64,
-    fontWeight: "800",
-    color: "#fff",
-    letterSpacing: 4,
-    textShadowColor: "rgba(0, 0, 0, 0.75)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 10,
+  logoContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
   },
-  tagline: {
-    fontSize: 18,
-    color: "rgba(255, 255, 255, 0.9)",
-    letterSpacing: 2,
-    textTransform: "uppercase",
+  logoImage: {
+    width: 240,
+    height: 240,
+  },
+  brandTextContainer: {
+    alignItems: "center",
+    gap: 8,
+  },
+  brandTitle: {
+    fontSize: 32,
+    fontWeight: "700",
+    color: "#1a1a1a",
+    letterSpacing: 0.5,
+    textAlign: "center",
+  },
+  brandSubtitle: {
+    fontSize: 15,
+    color: "#666",
+    letterSpacing: 0.3,
+    textAlign: "center",
     fontWeight: "500",
+    maxWidth: 280,
+    lineHeight: 22,
   },
   bottomSection: {
-    gap: 20,
+    gap: 24,
+  },
+  welcomeTextContainer: {
+    alignItems: "center",
+    gap: 12,
   },
   welcomeText: {
-    fontSize: 15,
-    color: "#333",
+    fontSize: 16,
+    color: "#2d2d2d",
     textAlign: "center",
-    marginBottom: 8,
-    fontWeight: "500",
+    fontWeight: "600",
+    letterSpacing: 0.2,
+  },
+  decorativeLine: {
+    width: 60,
+    height: 3,
+    backgroundColor: "#f2c44d",
+    borderRadius: 2,
   },
   buttonContainer: {
-    gap: 14,
+    gap: 16,
+    paddingHorizontal: 4,
   },
   signInButton: {
     backgroundColor: "#333",
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: 18,
+    borderRadius: 14,
     alignItems: "center",
     shadowColor: "#333",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  signInText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 17,
-    letterSpacing: 0.5,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 8,
   },
   createAccountButton: {
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    paddingVertical: 16,
-    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    paddingVertical: 18,
+    borderRadius: 14,
     alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: "#fff",
+    borderWidth: 2,
+    borderColor: "rgba(51, 51, 51, 0.15)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  createAccountText: {
-    color: "#333",
-    fontWeight: "600",
-    fontSize: 17,
-    letterSpacing: 0.5,
+  termsContainer: {
+    paddingHorizontal: 8,
+    marginTop: 4,
   },
   termsText: {
-    fontSize: 12,
-    color: "#000",
+    fontSize: 13,
+    color: "#555",
     textAlign: "center",
-    marginTop: 8,
-    lineHeight: 18,
+    lineHeight: 20,
+    fontWeight: "400",
+  },
+  termsLink: {
+    color: "#1a1a1a",
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
 });

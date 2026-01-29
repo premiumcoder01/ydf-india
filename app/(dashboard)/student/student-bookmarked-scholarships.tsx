@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
@@ -50,6 +50,7 @@ export default function BookmarkedScholarshipsScreen() {
   const { isDark, colors } = useTheme();
   const [apiScholarships, setApiScholarships] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [pagination, setPagination] = useState<{
     page: number;
     per_page: number;
@@ -64,80 +65,82 @@ export default function BookmarkedScholarshipsScreen() {
   const inset = useSafeAreaInsets();
 
   // Fetch bookmarked scholarships from API
-  useEffect(() => {
-    const fetchBookmarkedScholarships = async () => {
-      try {
+  const fetchBookmarkedScholarships = async (isRefreshing: boolean = false) => {
+    try {
+      if (isRefreshing) {
+        setRefreshing(true);
+      } else {
         setLoading(true);
-        // Get token from AsyncStorage
-        const authDataString = await AsyncStorage.getItem("authData");
-        if (!authDataString) {
-          console.log("No auth data found");
-          setLoading(false);
-          return;
-        }
+      }
 
-        const authData = JSON.parse(authDataString);
-        const token = authData?.token;
-
-        if (!token) {
-          console.log("No token found in auth data");
-          setLoading(false);
-          return;
-        }
-
-        // Call getBookmarkedScholarships API
-        const response = await getBookmarkedScholarships(token, {
-          page: page,
-          per_page: 200,
-        });
-
-        console.log("Bookmarked Scholarships Response:", JSON.stringify(response, null, 2));
-
-        if (response.success && response.data) {
-          // API response structure from user: { success: true, data: [...], pagination: {...} }
-          // But our wrapper returns: { success: true, data: <api_response> }
-          // So response.data contains the API response which has both data array and pagination
-          const apiResponse = response.data;
-
-          // Extract scholarships array
-          // Check if apiResponse is directly an array, or has a data property
-          const scholarshipsList = Array.isArray(apiResponse)
-            ? apiResponse
-            : apiResponse?.data || [];
-
-          // Store scholarships
-          if (page === 1) {
-            setApiScholarships(scholarshipsList);
-          } else {
-            // Append for pagination
-            setApiScholarships((prev) => [...prev, ...scholarshipsList]);
-          }
-
-          // Store pagination info
-          // Pagination is at the same level as data in the API response
-          if (apiResponse?.pagination) {
-            setPagination(apiResponse.pagination);
-          } else if (!Array.isArray(apiResponse) && (response as any).pagination) {
-            // Fallback: check if pagination is at response level
-            setPagination((response as any).pagination);
-          }
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) {
+        console.log("No auth data found");
+        if (isRefreshing) setRefreshing(false);
+        else setLoading(false);
+        return;
+      }
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
+      if (!token) {
+        console.log("No token found in auth data");
+        if (isRefreshing) setRefreshing(false);
+        else setLoading(false);
+        return;
+      }
+      const response = await getBookmarkedScholarships(token, {
+        page: isRefreshing ? 1 : page,
+        per_page: 200,
+      });
+      if (response.success && response.data) {
+        const apiResponse = response.data;
+        const scholarshipsList = Array.isArray(apiResponse)
+          ? apiResponse
+          : apiResponse?.data || [];
+        if (page === 1 || isRefreshing) {
+          setApiScholarships(scholarshipsList);
         } else {
-          console.log("API call failed:", response.error || response.message);
-          if (page === 1) {
-            setApiScholarships([]);
-          }
+          setApiScholarships((prev) => [...prev, ...scholarshipsList]);
         }
-      } catch (error) {
-        console.error("Error fetching bookmarked scholarships:", error);
-        if (page === 1) {
+        if (apiResponse?.pagination) {
+          setPagination(apiResponse.pagination);
+        } else if (!Array.isArray(apiResponse) && (response as any).pagination) {
+          setPagination((response as any).pagination);
+        }
+      } else {
+        console.log("API call failed:", response.error || response.message);
+        if (page === 1 || isRefreshing) {
           setApiScholarships([]);
         }
-      } finally {
+      }
+    } catch (error) {
+      console.error("Error fetching bookmarked scholarships:", error);
+      if (page === 1 || isRefreshing) {
+        setApiScholarships([]);
+      }
+    } finally {
+      if (isRefreshing) {
+        setRefreshing(false);
+      } else {
         setLoading(false);
       }
-    };
+    }
+  };
 
-    fetchBookmarkedScholarships();
+  // Fetch data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      // Reset to page 1 and fetch fresh data when screen is focused
+      setPage(1);
+      fetchBookmarkedScholarships(true);
+    }, [])
+  );
+
+  // Fetch more data when page changes (pagination)
+  useEffect(() => {
+    if (page > 1) {
+      fetchBookmarkedScholarships();
+    }
   }, [page]);
 
   // Show toast helper
@@ -147,29 +150,27 @@ export default function BookmarkedScholarshipsScreen() {
     setToastVisible(true);
   }, []);
 
+  // Handle pull to refresh
+  const onRefresh = useCallback(() => {
+    setPage(1);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    fetchBookmarkedScholarships(true);
+  }, []);
+
   // Handle bookmark/unbookmark with API
   const toggleBookmark = useCallback(async (id: number, currentBookmarkState: boolean) => {
     if (bookmarking[id]) return;
-
     const newBookmarkState = !currentBookmarkState;
-
-    // Optimistic UI update - update immediately
     setApiScholarships((prev) =>
       prev.map((item) =>
         item.id === id ? { ...item, bookmarked: newBookmarkState } : item
       )
     );
-
-    // Haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
     try {
       setBookmarking((prev) => ({ ...prev, [id]: true }));
-
-      // Get token from AsyncStorage
       const authDataString = await AsyncStorage.getItem("authData");
       if (!authDataString) {
-        // Revert on error
         setApiScholarships((prev) =>
           prev.map((item) =>
             item.id === id ? { ...item, bookmarked: !newBookmarkState } : item
@@ -179,12 +180,9 @@ export default function BookmarkedScholarshipsScreen() {
         showToast("Authentication failed. Please login again.", "error");
         return;
       }
-
       const authData = JSON.parse(authDataString);
       const token = authData?.token;
-
       if (!token) {
-        // Revert on error
         setApiScholarships((prev) =>
           prev.map((item) =>
             item.id === id ? { ...item, bookmarked: !newBookmarkState } : item
@@ -194,34 +192,25 @@ export default function BookmarkedScholarshipsScreen() {
         showToast("Authentication failed. Please login again.", "error");
         return;
       }
-
-      // Call bookmark API
       const action = newBookmarkState ? "bookmark" : "unbookmark";
       const response = await bookmarkScholarship(token, id, action);
-
       if (response.success) {
-        // Success haptic feedback
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        // Show success toast
         showToast(
           newBookmarkState
             ? "Scholarship bookmarked successfully!"
             : "Scholarship unbookmarked successfully!",
           "success"
         );
-
-        // If unbookmarked, remove from list after a short delay
         if (!newBookmarkState) {
           setTimeout(() => {
             setApiScholarships((prev) => prev.filter((item) => item.id !== id));
-            // Update pagination total
             if (pagination) {
               setPagination((prev) => prev ? { ...prev, total: prev.total - 1 } : null);
             }
           }, 500);
         }
       } else {
-        // Revert on error
         setApiScholarships((prev) =>
           prev.map((item) =>
             item.id === id ? { ...item, bookmarked: !newBookmarkState } : item
@@ -235,7 +224,6 @@ export default function BookmarkedScholarshipsScreen() {
         console.error("Bookmark error:", response.error);
       }
     } catch (err: any) {
-      // Revert on error
       setApiScholarships((prev) =>
         prev.map((item) =>
           item.id === id ? { ...item, bookmarked: !newBookmarkState } : item
@@ -254,11 +242,12 @@ export default function BookmarkedScholarshipsScreen() {
       pagination &&
       page < pagination.total_pages &&
       !loading &&
+      !refreshing &&
       apiScholarships.length > 0
     ) {
       setPage((p) => p + 1);
     }
-  }, [pagination, page, loading, apiScholarships.length]);
+  }, [pagination, page, loading, refreshing, apiScholarships.length]);
 
   const getDaysRemaining = (deadline: string | null, isExpired: boolean = false) => {
     if (isExpired) return { text: "Expired", color: "#F44336" };
@@ -276,21 +265,6 @@ export default function BookmarkedScholarshipsScreen() {
       return { text: `${diffDays} days left`, color: "#FF9800" };
     return { text: `${diffDays} days left`, color: isDark ? colors.textSecondary : "#666" };
   };
-
-  const Header = (
-    <View style={{ marginBottom: 20 }}>
-      <AppHeader
-        title="Saved Scholarships"
-        onBack={() => router.back()}
-      />
-      <View style={[styles.headerInfo, { backgroundColor: isDark ? colors.card : "#fff", borderBottomColor: colors.border }]}>
-        <Ionicons name="bookmark" size={20} color="#FFB400" />
-        <Text style={[styles.headerInfoText, { color: colors.textSecondary }]}>
-          {apiScholarships.length} {apiScholarships.length === 1 ? "scholarship" : "scholarships"} saved
-        </Text>
-      </View>
-    </View>
-  );
 
   const renderItem = useCallback(
     ({ item }: { item: any }) => {
@@ -510,43 +484,87 @@ export default function BookmarkedScholarshipsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? colors.background : "#fff"} />
-      <LinearGradient
-        colors={isDark ? ["#121212", "#121212", "#1e1e1e"] : ["#fff", "#fff", "#FFF8E1"]}
-        style={styles.background}
-        locations={[0, 0.4, 1]}
-      />
+
+      {/* Fixed Header Outside FlatList */}
+      <View style={styles.fixedHeader}>
+        <AppHeader
+          title="Saved Scholarships"
+          onBack={() => router.back()}
+        />
+        <LinearGradient
+          colors={isDark
+            ? ["rgba(255, 180, 0, 0.15)", "rgba(255, 180, 0, 0.05)"]
+            : ["rgba(255, 180, 0, 0.1)", "rgba(255, 235, 59, 0.05)"]
+          }
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.headerInfoGradient, { borderBottomColor: colors.border }]}
+        >
+          <View style={styles.headerInfoContent}>
+            <View style={styles.headerIconContainer}>
+              <LinearGradient
+                colors={["#FFB400", "#FFA000"]}
+                style={styles.headerIconGradient}
+              >
+                <Ionicons name="bookmark" size={22} color="#fff" />
+              </LinearGradient>
+            </View>
+            <View style={styles.headerTextContainer}>
+              <Text style={[styles.headerInfoTitle, { color: colors.text }]}>
+                Your Collection
+              </Text>
+              <Text style={[styles.headerInfoSubtitle, { color: colors.textSecondary }]}>
+                {apiScholarships.length} {apiScholarships.length === 1 ? "scholarship" : "scholarships"} saved
+              </Text>
+            </View>
+            {pagination && pagination.total > 0 && (
+              <View style={styles.headerBadge}>
+                <Text style={styles.headerBadgeText}>{pagination.total}</Text>
+              </View>
+            )}
+          </View>
+        </LinearGradient>
+      </View>
+
+      {/* Scrollable Content */}
       <FlatList
         data={apiScholarships}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
-        ListHeaderComponent={Header}
-        stickyHeaderIndices={[0]}
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
         showsVerticalScrollIndicator={false}
-        refreshing={loading && page === 1}
-        onRefresh={() => {
-          setPage(1);
-        }}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Ionicons name="bookmark-outline" size={64} color={isDark ? colors.textSecondary : "#ccc"} />
-            <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
-              {loading ? "Loading bookmarked scholarships..." : "No bookmarked scholarships"}
+            <View style={[styles.emptyIconContainer, { backgroundColor: isDark ? "rgba(255, 180, 0, 0.1)" : "rgba(255, 180, 0, 0.08)" }]}>
+              <Ionicons name="bookmark-outline" size={64} color="#FFB400" />
+            </View>
+            <Text style={[styles.emptyStateText, { color: colors.text }]}>
+              {loading ? "Loading your collection..." : "No Saved Scholarships"}
             </Text>
             <Text style={[styles.emptyStateSubtext, { color: colors.textSecondary }]}>
               {loading
-                ? "Please wait..."
-                : "Start bookmarking scholarships to see them here"}
+                ? "Please wait while we fetch your bookmarked scholarships"
+                : "Start bookmarking scholarships to build your personalized collection"}
             </Text>
             {!loading && (
               <TouchableOpacity
                 onPress={() => router.push("/(dashboard)/student/student-scholarship-listing")}
                 style={styles.browseButton}
+                activeOpacity={0.8}
               >
-                <Ionicons name="search" size={18} color="#fff" />
-                <Text style={styles.browseButtonText}>Browse Scholarships</Text>
+                <LinearGradient
+                  colors={["#4CAF50", "#45a049"]}
+                  style={styles.browseButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Ionicons name="search" size={20} color="#fff" />
+                  <Text style={styles.browseButtonText}>Explore Scholarships</Text>
+                </LinearGradient>
               </TouchableOpacity>
             )}
           </View>
@@ -554,7 +572,9 @@ export default function BookmarkedScholarshipsScreen() {
         ListFooterComponent={
           loading && page > 1 ? (
             <View style={styles.loadingFooter}>
-              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading more...</Text>
+              <View style={styles.loadingIndicator}>
+                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading more...</Text>
+              </View>
             </View>
           ) : null
         }
@@ -576,6 +596,65 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  fixedHeader: {
+    backgroundColor: "transparent",
+  },
+  headerInfoGradient: {
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+  },
+  headerInfoContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  headerIconContainer: {
+    shadowColor: "#FFB400",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  headerIconGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  headerInfoTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 2,
+    letterSpacing: 0.3,
+  },
+  headerInfoSubtitle: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  headerBadge: {
+    backgroundColor: "#FFB400",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    minWidth: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#FFB400",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  headerBadgeText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "800",
+  },
   background: {
     position: "absolute",
     top: 0,
@@ -584,6 +663,7 @@ const styles = StyleSheet.create({
     right: 0,
   },
   listContent: {
+    paddingTop: 20,
     paddingBottom: 40,
   },
   headerInfo: {
@@ -600,16 +680,16 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   scholarshipCard: {
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 20,
     marginHorizontal: 20,
     marginBottom: 16,
-    borderLeftWidth: 4,
+    borderLeftWidth: 5,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
   },
   scholarshipHeader: {
     marginBottom: 16,
@@ -629,17 +709,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     flex: 1,
+    letterSpacing: 0.2,
   },
   categoryBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 10,
   },
   categoryBadgeText: {
     fontSize: 11,
-    fontWeight: "600",
+    fontWeight: "700",
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   scholarshipDescription: {
     fontSize: 14,
@@ -663,6 +744,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     textTransform: "uppercase",
     letterSpacing: 0.5,
+    fontWeight: "600",
   },
   amountText: {
     fontSize: 28,
@@ -679,7 +761,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 10,
   },
   bookmarkedText: {
     fontSize: 12,
@@ -710,6 +792,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     textTransform: "uppercase",
     letterSpacing: 0.5,
+    fontWeight: "600",
   },
   detailText: {
     fontSize: 14,
@@ -759,40 +842,70 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 80,
+    paddingVertical: 100,
+    paddingHorizontal: 30,
+  },
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 24,
+    shadowColor: "#FFB400",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   emptyStateText: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginTop: 16,
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 8,
+    letterSpacing: 0.3,
   },
   emptyStateSubtext: {
     fontSize: 14,
-    marginTop: 4,
+    lineHeight: 20,
     textAlign: "center",
-    paddingHorizontal: 40,
+    paddingHorizontal: 20,
   },
   browseButton: {
+    marginTop: 28,
+    borderRadius: 14,
+    overflow: "hidden",
+    shadowColor: "#4CAF50",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  browseButtonGradient: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    marginTop: 24,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: "#4CAF50",
+    gap: 10,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
   },
   browseButtonText: {
     color: "#fff",
     fontWeight: "700",
-    fontSize: 15,
+    fontSize: 16,
+    letterSpacing: 0.3,
   },
   loadingFooter: {
-    paddingVertical: 20,
+    paddingVertical: 24,
     alignItems: "center",
+  },
+  loadingIndicator: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.05)",
   },
   loadingText: {
     fontSize: 14,
+    fontWeight: "600",
   },
 });
 
