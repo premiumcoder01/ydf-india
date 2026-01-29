@@ -32,13 +32,13 @@ const DIGILOCKER_CLIENT_SECRET =
   process.env.EXPO_PUBLIC_DIGILOCKER_CLIENT_SECRET || "";
 
 const DIGILOCKER_AUTH_URL =
-  "https://api.digitallocker.gov.in/public/oauth2/1/authorize";
+  "https://digilocker.meripehchaan.gov.in/public/oauth2/1/authorize";
 
 const DIGILOCKER_TOKEN_URL =
-  "https://api.digitallocker.gov.in/public/oauth2/1/token";
+  "https://digilocker.meripehchaan.gov.in/public/oauth2/1/token";
 
 const DIGILOCKER_USER_INFO_URL =
-  "https://api.digitallocker.gov.in/public/oauth2/1/user";
+  "https://digilocker.meripehchaan.gov.in/public/oauth2/1/user";
 
 // DigiLocker requires scope to be either "avs" or "avs_parent"
 const DIGILOCKER_SCOPE = "";
@@ -316,7 +316,7 @@ export async function loginWithDigiLocker(
 
 /**
  * Exchange authorization code for access token
- * POST https://api.digitallocker.gov.in/public/oauth2/1/token
+ * POST https://digilocker.meripehchaan.gov.in/public/oauth2/1/token
  * Content-Type: application/x-www-form-urlencoded
  */
 export async function exchangeAuthorizationCodeForToken(
@@ -410,7 +410,7 @@ export async function exchangeAuthorizationCodeForToken(
 
 /**
  * Get user information from DigiLocker
- * According to DigiLocker API docs: https://api.digitallocker.gov.in/public/oauth2/1/user
+ * According to DigiLocker API docs: https://digilocker.meripehchaan.gov.in/public/oauth2/1/user
  */
 export async function getDigiLockerUserInfo(
   accessToken: string

@@ -228,7 +228,7 @@ export default function DocumentUploadScreen() {
   };
 
   const fetchDigiLockerFiles = async (accessToken: string) => {
-    const response = await fetch("https://api.digitallocker.gov.in/public/oauth2/1/files", {
+    const response = await fetch("https://digilocker.meripehchaan.gov.in/public/oauth2/1/files/issued", {
       method: "GET",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -252,7 +252,7 @@ export default function DocumentUploadScreen() {
 
     try {
       setIssuedRequestLoading(true);
-      const response = await fetch("https://api.digitallocker.gov.in/public/oauth2/1/request-uri", {
+      const response = await fetch("https://digilocker.meripehchaan.gov.in/public/oauth2/1/request-uri", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${digilockerAccessToken}`,
@@ -287,7 +287,7 @@ export default function DocumentUploadScreen() {
     }
 
     const encodedUri = file.uri;
-    const downloadUrl = `https://api.digitallocker.gov.in/public/oauth2/1/file/${encodedUri}`;
+    const downloadUrl = `https://digilocker.meripehchaan.gov.in/public/oauth2/1/file/${encodedUri}`;
     const filename = file.name || "digilocker-file";
     const destinationBase =
       (FileSystem as any).cacheDirectory || (FileSystem as any).documentDirectory || "";
