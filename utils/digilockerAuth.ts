@@ -26,7 +26,7 @@ export function getCurrentBrowserUrl(): string | null {
 
 
 const DIGILOCKER_CLIENT_ID =
-  process.env.EXPO_PUBLIC_DIGILOCKER_CLIENT_ID || "LU843A12AD";
+  process.env.EXPO_PUBLIC_DIGILOCKER_CLIENT_ID || "";
 
 const DIGILOCKER_CLIENT_SECRET =
   process.env.EXPO_PUBLIC_DIGILOCKER_CLIENT_SECRET || "";
@@ -40,6 +40,7 @@ const DIGILOCKER_TOKEN_URL =
 const DIGILOCKER_USER_INFO_URL =
   "https://api.digitallocker.gov.in/public/oauth2/1/user";
 
+// DigiLocker requires scope to be either "avs" or "avs_parent"
 const DIGILOCKER_SCOPE = "";
 
 
@@ -279,7 +280,7 @@ export async function loginWithDigiLocker(
         response_type: "code",
         client_id: DIGILOCKER_CLIENT_ID,
         redirect_uri: redirectUri,
-        // scope: DIGILOCKER_SCOPE,
+        scope: DIGILOCKER_SCOPE,
         state,
         code_challenge: codeChallenge,
         code_challenge_method: "S256", // SHA256
@@ -288,6 +289,7 @@ export async function loginWithDigiLocker(
     console.log("🔐 DigiLocker Auth URL:", authUrl);
     console.log("🔗 Redirect URI (must match API Setu dashboard):", redirectUri);
     console.log("📱 Opening WebView for DigiLocker authentication...");
+    console.log("🔏 DigiLocker Scope:", DIGILOCKER_SCOPE);
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log("🌐 Initial URL:");
     console.log("📋 Current URL (copy this):", authUrl);
@@ -427,7 +429,6 @@ export async function getDigiLockerUserInfo(
     if (!response.ok) {
       const errorText = await response.text();
       console.error("❌ Failed to fetch user info:", response.status, errorText);
-      throw new Error(`Failed to fetch user info: ${response.status} - ${errorText}`);
     }
 
     const userInfo: DigiLockerUserInfo = await response.json();

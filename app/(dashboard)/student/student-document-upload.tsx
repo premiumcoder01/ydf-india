@@ -2,17 +2,22 @@ import { AppHeader, Button } from "@/components";
 import { API_CONFIG } from "@/utils/apiConfig";
 
 import { useTheme } from "@/context/ThemeContext";
+import { exchangeAuthorizationCodeForToken, loginWithDigiLocker, useDigiLockerWebView } from "@/utils/digilockerAuth";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
+import * as Sharing from "expo-sharing";
 import { useCallback, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -21,6 +26,8 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import WebView from "react-native-webview";
 
 type DocumentStatus = "pending" | "uploaded" | "approved" | "rejected";
 
@@ -31,6 +38,19 @@ type Document = {
   uri: string;
   size: string;
   uploadDate: string;
+};
+
+type DigiLockerFileItem = {
+  type: "file";
+  name: string;
+  mime: string;
+  uri: string;
+};
+
+type DigiLockerIssuedOption = {
+  label: string;
+  issuerid: string;
+  doctype: string;
 };
 
 const DOCUMENTS_STORAGE_KEY = "student_uploaded_documents";
@@ -45,9 +65,38 @@ export default function DocumentUploadScreen() {
     size: number;
   } | null>(null);
   const [saveAsName, setSaveAsName] = useState("");
+  const inset = useSafeAreaInsets();
 
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [digilockerFiles, setDigilockerFiles] = useState<DigiLockerFileItem[]>([]);
+  const [digilockerModalVisible, setDigilockerModalVisible] = useState(false);
+  const [digilockerLoading, setDigilockerLoading] = useState(false);
+  const [digilockerAccessToken, setDigilockerAccessToken] = useState<string | null>(null);
+  const [downloadingUri, setDownloadingUri] = useState<string | null>(null);
+  const [issuedConsentVisible, setIssuedConsentVisible] = useState(false);
+  const [issuedConsentUrl, setIssuedConsentUrl] = useState<string | null>(null);
+  const [issuedRequestLoading, setIssuedRequestLoading] = useState(false);
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [previewFile, setPreviewFile] = useState<{
+    uri: string;
+    mime: string;
+    name: string;
+  } | null>(null);
+  const [savingPreview, setSavingPreview] = useState(false);
+  const [uploadingPreview, setUploadingPreview] = useState(false);
+  const [digilockerFileCache, setDigilockerFileCache] = useState<Record<string, string>>({});
+
+  const issuedOptions: DigiLockerIssuedOption[] = [
+    { label: "PAN Card", issuerid: "in.gov.pan", doctype: "PANCR" },
+    { label: "Driving Licence", issuerid: "in.gov.dl", doctype: "DRVLC" },
+    { label: "Vehicle RC", issuerid: "in.gov.rc", doctype: "REGCERT" },
+    { label: "Aadhaar (masked XML)", issuerid: "uidai.gov.in", doctype: "AADHARXML" },
+    { label: "Class 10 Marksheet", issuerid: "in.gov.cbse", doctype: "XMARKS" },
+    { label: "Class 12 Marksheet", issuerid: "in.gov.cbse", doctype: "XIIMARKS" },
+  ];
+
+  const { WebViewComponent, show: showWebView } = useDigiLockerWebView();
 
   // Load Documents on focus
   useFocusEffect(
@@ -126,12 +175,7 @@ export default function DocumentUploadScreen() {
     }
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile || !saveAsName.trim()) {
-      Alert.alert("Error", "Please select a file and provide a name.");
-      return;
-    }
-
+  const uploadFile = async (file: { uri: string; name: string; mimeType: string }) => {
     setIsUploading(true);
 
     try {
@@ -140,21 +184,20 @@ export default function DocumentUploadScreen() {
       const token = authData?.token;
       if (!token) {
         Alert.alert("Error", "Authentication token not found. Please login again.");
-        setIsUploading(false);
         return;
       }
       const uploadUrl = `${API_CONFIG.BASE_URL}local/mobileapi/upload_document.php?wstoken=${token}`;
       const formData = new FormData();
-      formData.append('file', {
-        uri: selectedFile.uri,
-        name: selectedFile.name,
-        type: selectedFile.mimeType,
+      formData.append("file", {
+        uri: file.uri,
+        name: file.name,
+        type: file.mimeType,
       } as any);
-      formData.append('mode', 'private');
+      formData.append("mode", "private");
       const response = await fetch(uploadUrl, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'multipart/form-data',
+          "Content-Type": "multipart/form-data",
         },
         body: formData,
       });
@@ -175,8 +218,201 @@ export default function DocumentUploadScreen() {
     }
   };
 
-  const handleDigiLockerClick = () => {
-    Alert.alert("Coming Soon", "DigiLocker integration is coming soon!");
+  const handleUpload = async () => {
+    if (!selectedFile || !saveAsName.trim()) {
+      Alert.alert("Error", "Please select a file and provide a name.");
+      return;
+    }
+
+    await uploadFile(selectedFile);
+  };
+
+  const fetchDigiLockerFiles = async (accessToken: string) => {
+    const response = await fetch("https://api.digitallocker.gov.in/public/oauth2/1/files", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result?.error_description || result?.error || "Failed to fetch DigiLocker files");
+    }
+    const items = Array.isArray(result?.items) ? result.items : [];
+    setDigilockerFiles(items);
+  };
+
+  const requestIssuedConsent = async (option: DigiLockerIssuedOption) => {
+    if (!digilockerAccessToken) {
+      Alert.alert("Error", "DigiLocker access token missing. Please reconnect.");
+      return;
+    }
+   
+
+    try {
+      setIssuedRequestLoading(true);
+      const response = await fetch("https://api.digitallocker.gov.in/public/oauth2/1/request-uri", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${digilockerAccessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          issuerid: option.issuerid,
+          doctype: option.doctype,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result?.uri) {
+        throw new Error(result?.error_description || result?.error || "Failed to create consent request");
+      }
+      setIssuedConsentUrl(result.uri);
+      setIssuedConsentVisible(true);
+    } catch (error) {
+      console.error("Issued consent error:", error);
+      Alert.alert("Error", "Unable to start consent. Please try again.");
+    } finally {
+      setIssuedRequestLoading(false);
+    }
+  };
+
+  const downloadDigiLockerFile = async (file: DigiLockerFileItem) => {
+    if (!digilockerAccessToken) {
+      throw new Error("DigiLocker access token missing.");
+    }
+
+    if (digilockerFileCache[file.uri]) {
+      return digilockerFileCache[file.uri];
+    }
+
+    const encodedUri = file.uri;
+    const downloadUrl = `https://api.digitallocker.gov.in/public/oauth2/1/file/${encodedUri}`;
+    const filename = file.name || "digilocker-file";
+    const destinationBase =
+      (FileSystem as any).cacheDirectory || (FileSystem as any).documentDirectory || "";
+    const destination = `${destinationBase}${filename}`;
+
+    const result = await FileSystem.downloadAsync(downloadUrl, destination, {
+      headers: {
+        Authorization: `Bearer ${digilockerAccessToken}`,
+      },
+    });
+
+    setDigilockerFileCache((prev) => ({ ...prev, [file.uri]: result.uri }));
+    return result.uri;
+  };
+
+  const viewDigiLockerFile = async (file: DigiLockerFileItem) => {
+    if (!digilockerAccessToken) {
+      Alert.alert("Error", "DigiLocker access token missing. Please reconnect.");
+      return;
+    }
+
+    try {
+      setDownloadingUri(file.uri);
+      const localUri = await downloadDigiLockerFile(file);
+      setPreviewFile({ uri: localUri, mime: file.mime, name: file.name });
+      setDigilockerModalVisible(false);
+      setPreviewVisible(true);
+    } catch (error) {
+      console.error("Failed to open DigiLocker file:", error);
+      Alert.alert("Error", "Unable to open this file. Please try again.");
+    } finally {
+      setDownloadingUri(null);
+    }
+  };
+
+  const savePreviewFile = async () => {
+    if (!previewFile) return;
+    try {
+      setSavingPreview(true);
+      const canShare = await Sharing.isAvailableAsync();
+      if (!canShare) {
+        Alert.alert("Not Available", "File sharing is not available on this device.");
+        return;
+      }
+
+      await Sharing.shareAsync(previewFile.uri, {
+        mimeType: previewFile.mime,
+        dialogTitle: "Save DigiLocker file",
+        UTI: previewFile.mime,
+      });
+      Alert.alert("Saved", "Use Files app to choose where to save.");
+    } catch (error) {
+      console.error("Save file error:", error);
+      Alert.alert("Error", "Unable to save this file. Please try again.");
+    } finally {
+      setSavingPreview(false);
+    }
+  };
+
+  const handleUploadPreviewFile = async () => {
+    if (!previewFile) return;
+    try {
+      setUploadingPreview(true);
+      const info = await FileSystem.getInfoAsync(previewFile.uri);
+      const file = {
+        uri: previewFile.uri,
+        name: previewFile.name,
+        mimeType: previewFile.mime,
+        size: info?.exists && !info.isDirectory ? (info as any).size || 0 : 0,
+      };
+      setSelectedFile(file);
+      if (!saveAsName.trim()) {
+        const baseName = previewFile.name.split(".").slice(0, -1).join(".") || previewFile.name;
+        setSaveAsName(baseName);
+      }
+      await uploadFile(file);
+      setPreviewVisible(false);
+    } catch (error) {
+      console.error("Upload DigiLocker file error:", error);
+      Alert.alert("Error", "Unable to upload this file. Please try again.");
+    } finally {
+      setUploadingPreview(false);
+    }
+  };
+
+  const handleConsentDone = async () => {
+    setIssuedConsentVisible(false);
+    if (digilockerAccessToken) {
+      setDigilockerLoading(true);
+      try {
+        await fetchDigiLockerFiles(digilockerAccessToken);
+      } finally {
+        setDigilockerLoading(false);
+      }
+    }
+  };
+
+  const handleDigiLockerClick = async () => {
+    try {
+      console.log("🔐 Opening DigiLocker WebView...");
+      const digiLockerResult = await loginWithDigiLocker(showWebView);
+      if (!digiLockerResult) {
+        console.log("ℹ️ DigiLocker login cancelled by user");
+        return;
+      }
+
+      console.log("✅ DigiLocker authorization code received");
+      console.log("📋 DigiLocker Auth Result:", digiLockerResult);
+
+      const data = await exchangeAuthorizationCodeForToken(
+        digiLockerResult.authorizationCode,
+        digiLockerResult.codeVerifier
+      );
+      console.log("✅ DigiLocker Data:", data);
+
+      setDigilockerLoading(true);
+      setDigilockerAccessToken(data.access_token);
+      await fetchDigiLockerFiles(data.access_token);
+      setDigilockerModalVisible(true);
+    } catch (error) {
+      console.error("❌ DigiLocker Login Error:", error);
+      Alert.alert("Error", "DigiLocker login failed. Please try again.");
+    } finally {
+      setDigilockerLoading(false);
+    }
   };
 
   const handleDeleteDocument = (docId: number) => {
@@ -233,6 +469,187 @@ export default function DocumentUploadScreen() {
         rightIcon={<View />}
       />
 
+      {WebViewComponent}
+      <Modal
+        visible={digilockerModalVisible}
+        animationType="slide"
+        onRequestClose={() => setDigilockerModalVisible(false)}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: colors.card, paddingTop: inset.top }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>DigiLocker Files</Text>
+            <TouchableOpacity onPress={() => setDigilockerModalVisible(false)} style={styles.modalCloseAbsolute}>
+              <Ionicons name="close" size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+          {digilockerLoading ? (
+            <View style={styles.modalLoading}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[styles.modalLoadingText, { color: colors.textSecondary }]}>Loading files...</Text>
+            </View>
+          ) : (
+            <ScrollView contentContainerStyle={styles.modalContent} showsVerticalScrollIndicator={false}>
+              <View style={[styles.issuedSection, { borderColor: colors.border, backgroundColor: isDark ? "#141c2c" : "#f6f8ff" }]}>
+                <View style={styles.sectionHeader}>
+                  <Text style={[styles.modalSectionTitle, { color: colors.text }]}>Fetch Issued Documents</Text>
+                  <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>Consent required per document</Text>
+                </View>
+                <View style={styles.issuedGrid}>
+                  {issuedOptions.map((option) => (
+                    <TouchableOpacity
+                      key={`${option.issuerid}-${option.doctype}`}
+                      style={[
+                        styles.issuedCard,
+                        { borderColor: colors.border, backgroundColor: colors.card },
+                      ]}
+                      onPress={() => requestIssuedConsent(option)}
+                      disabled={issuedRequestLoading}
+                    >
+                      <View style={[styles.issuedIcon, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#eef2ff" }]}>
+                        <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+                      </View>
+                      <Text style={[styles.issuedLabel, { color: colors.text }]} numberOfLines={2}>
+                        {option.label}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {issuedRequestLoading && (
+                  <View style={styles.issuedLoading}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={[styles.issuedLoadingText, { color: colors.textSecondary }]}>
+                      Opening consent...
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.uploadedSection}>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={[styles.modalSectionTitle, { color: colors.text }]}>Uploaded Documents</Text>
+                  <Text style={[styles.sectionCount, { color: colors.textSecondary }]}>
+                    {digilockerFiles.length}
+                  </Text>
+                </View>
+                {digilockerFiles.length === 0 ? (
+                  <Text style={[styles.modalEmptyText, { color: colors.textSecondary }]}>
+                    No DigiLocker files found.
+                  </Text>
+                ) : (
+                  <View style={styles.uploadedList}>
+                    {digilockerFiles.map((file) => (
+                      <TouchableOpacity
+                        key={file.uri}
+                        style={[
+                          styles.uploadedCard,
+                          { backgroundColor: colors.card, borderColor: colors.border },
+                        ]}
+                        onPress={() => viewDigiLockerFile(file)}
+                      >
+                        <View style={styles.fileItemRow}>
+                          <View style={[styles.fileIconWrapper, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" }]}>
+                            <Ionicons name="document-text-outline" size={24} color={isDark ? colors.primary : "#2196F3"} />
+                          </View>
+                          <View style={styles.fileItemInfo}>
+                            <Text style={[styles.fileItemName, { color: colors.text }]} numberOfLines={1}>
+                              {file.name}
+                            </Text>
+                            <Text style={[styles.fileItemMeta, { color: colors.textSecondary }]}>
+                              {file.mime}
+                            </Text>
+                          </View>
+                          <View style={styles.actionButtons}>
+                            {downloadingUri === file.uri ? (
+                              <ActivityIndicator size="small" color={colors.primary} />
+                            ) : (
+                              <Ionicons name="eye-outline" size={20} color={isDark ? colors.primary : "#2196F3"} />
+                            )}
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+            </ScrollView>
+          )}
+        </View>
+      </Modal>
+      <Modal
+        visible={issuedConsentVisible}
+        animationType="slide"
+        onRequestClose={handleConsentDone}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: colors.card, paddingTop: inset.top }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]} numberOfLines={1}>
+              DigiLocker Consent
+            </Text>
+            <TouchableOpacity onPress={handleConsentDone} style={styles.modalCloseAbsolute}>
+              <Ionicons name="close" size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+          {issuedConsentUrl ? (
+            <WebView source={{ uri: issuedConsentUrl }} style={styles.previewModalWebView} />
+          ) : (
+            <View style={styles.modalLoading}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[styles.modalLoadingText, { color: colors.textSecondary }]}>Loading consent...</Text>
+            </View>
+          )}
+          <View style={[styles.previewFooter, { borderTopColor: colors.border, backgroundColor: colors.card }]}>
+            <Button title="Done (Refresh Files)" onPress={handleConsentDone} variant="primary" />
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        visible={previewVisible}
+        animationType="slide"
+        onRequestClose={() => setPreviewVisible(false)}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: colors.card, paddingTop: inset.top }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]} numberOfLines={1}>
+              {previewFile?.name || "DigiLocker File"}
+            </Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity onPress={savePreviewFile} style={styles.modalActionBtn} disabled={savingPreview}>
+                {savingPreview ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Ionicons name="download-outline" size={22} color={colors.text} />
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setPreviewVisible(false)} style={styles.modalClose}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+          </View>
+          {previewFile ? (
+            previewFile.mime.startsWith("image/") ? (
+              <View style={styles.previewBody}>
+                <Image source={{ uri: previewFile.uri }} style={styles.previewModalImage} resizeMode="contain" />
+              </View>
+            ) : (
+              <WebView source={{ uri: previewFile.uri }} style={styles.previewModalWebView} />
+            )
+          ) : (
+            <View style={styles.modalLoading}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[styles.modalLoadingText, { color: colors.textSecondary }]}>Preparing preview...</Text>
+            </View>
+          )}
+          <View style={[styles.previewFooter, { borderTopColor: colors.border, backgroundColor: colors.card }]}>
+            <Button
+              title={uploadingPreview || isUploading ? "Uploading..." : "Upload to My Files"}
+              onPress={handleUploadPreviewFile}
+              disabled={uploadingPreview || isUploading}
+              variant="primary"
+            />
+          </View>
+        </View>
+      </Modal>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
@@ -243,7 +660,7 @@ export default function DocumentUploadScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* DigiLocker Banner - Now Disabled */}
+          {/* DigiLocker Banner */}
           <TouchableOpacity
             style={[styles.digilockerBanner, { backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={handleDigiLockerClick}
@@ -255,7 +672,7 @@ export default function DocumentUploadScreen() {
               />
               <View style={styles.digilockerTextContainer}>
                 <Text style={[styles.digilockerTitle, { color: isDark ? colors.primary : "#052c65" }]}>Connect DigiLocker</Text>
-                <Text style={[styles.digilockerSubtitle, { color: colors.textSecondary }]}>Import documents (Coming Soon)</Text>
+              <Text style={[styles.digilockerSubtitle, { color: colors.textSecondary }]}>Import documents from DigiLocker</Text>
               </View>
               <Ionicons name="chevron-forward" size={24} color={isDark ? colors.textSecondary : "#052c65"} />
             </View>
@@ -554,5 +971,146 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 15,
     color: "#333",
+  },
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    height: 56,
+    alignItems: "center",
+    justifyContent: "center",
+    borderBottomWidth: 1,
+  },
+  modalActions: {
+    position: "absolute",
+    right: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  modalActionBtn: {
+    padding: 6,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  modalClose: {
+    padding: 6,
+  },
+  modalCloseAbsolute: {
+    position: "absolute",
+    right: 16,
+    padding: 6,
+  },
+  modalContent: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 40,
+  },
+  issuedSection: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 18,
+  },
+  sectionHeader: {
+    marginBottom: 12,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  modalSectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+  },
+  sectionCount: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  issuedGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  issuedCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    minWidth: "48%",
+    flexGrow: 1,
+    flexBasis: "48%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  issuedIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  issuedLabel: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  issuedLoading: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+  },
+  issuedLoadingText: {
+    fontSize: 12,
+  },
+  uploadedSection: {
+    marginTop: 6,
+  },
+  uploadedList: {
+    gap: 12,
+  },
+  uploadedCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  modalEmptyText: {
+    textAlign: "center",
+    marginTop: 20,
+    fontSize: 14,
+  },
+  modalLoading: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
+  },
+  modalLoadingText: {
+    fontSize: 13,
+  },
+  previewBody: {
+    flex: 1,
+    padding: 16,
+  },
+  previewModalImage: {
+    width: "100%",
+    height: "100%",
+  },
+  previewModalWebView: {
+    flex: 1,
+  },
+  previewFooter: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 20,
+    borderTopWidth: 1,
   },
 });
