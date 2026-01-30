@@ -58,7 +58,7 @@ const formSchema = z.object({
     }),
 
   // Narrative
-  statement: z.string().min(1, "Statement is required"), // Relaxed min length for testing given user issues
+  statement: z.string().optional(),
   activities: z.string().optional().default(""),
   financial: z.string().optional().default(""),
 
@@ -280,6 +280,106 @@ export default function ApplyFormScreen() {
     fetchUserProfile();
   }, [reset, getValues, scholarshipId]);
 
+  // --- Draft Saving Logic ---
+  const [userId, setUserId] = useState<string | number | null>(null);
+
+  // 1. Get User ID on mount to enable drafting
+  useEffect(() => {
+    const getUserId = async () => {
+      try {
+        const authDataStr = await AsyncStorage.getItem("authData");
+        if (authDataStr) {
+          const authData = JSON.parse(authDataStr);
+          if (authData?.user?.id) {
+            setUserId(authData.user.id);
+          }
+        }
+      } catch (e) {
+        console.log("Error getting user ID for draft", e);
+      }
+    };
+    getUserId();
+  }, []);
+
+  // 2. Recovery: Check for draft when UserID is available
+  useEffect(() => {
+    if (!userId || !scholarshipId) return;
+
+    const checkDraft = async () => {
+      try {
+        const draftKey = `draft_application_${userId}_${scholarshipId}`;
+        const savedDraft = await AsyncStorage.getItem(draftKey);
+
+        if (savedDraft) {
+          const { values, step } = JSON.parse(savedDraft);
+          Alert.alert(
+            "Draft Found",
+            "We found an unfinished application for this scholarship. Would you like to resume where you left off?",
+            [
+              {
+                text: "No, Start Fresh",
+                style: "cancel",
+                onPress: async () => {
+                  await AsyncStorage.removeItem(draftKey);
+                }
+              },
+              {
+                text: "Yes, Resume",
+                onPress: () => {
+                  // Merge saved values with default/reset structure to avoid missing keys
+                  reset({ ...getValues(), ...values });
+                  setStepIndex(step || 0);
+                  setToast({ visible: true, message: "Draft restored successfully", type: "success" });
+                }
+              }
+            ]
+          );
+        }
+      } catch (e) {
+        console.error("Failed to load draft", e);
+      }
+    };
+
+    // Small delay to ensure profile fetch doesn't conflict visually, though logic handles merge
+    setTimeout(checkDraft, 1000);
+  }, [userId, scholarshipId, reset, getValues]);
+
+  // 3. Auto-Save: Subscription based (No Re-renders)
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stepIndexRef = useRef(stepIndex);
+
+  // Keep stepIndexRef updated
+  useEffect(() => {
+    stepIndexRef.current = stepIndex;
+  }, [stepIndex]);
+
+  useEffect(() => {
+    if (!userId || !scholarshipId) return;
+
+    const subscription = watch((value) => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+
+      saveTimeoutRef.current = setTimeout(async () => {
+        try {
+          const draftKey = `draft_application_${userId}_${scholarshipId}`;
+          const draftData = JSON.stringify({
+            values: value,
+            step: stepIndexRef.current
+          });
+          await AsyncStorage.setItem(draftKey, draftData);
+        } catch (e) {
+          console.error("Failed to save draft", e);
+        }
+      }, 2000); // 2 second debounce
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [watch, userId, scholarshipId]);
+  // --------------------------
+
   const currentStepKey = useMemo(() => STEPS[stepIndex].key, [stepIndex]);
 
   const next = async () => {
@@ -365,7 +465,7 @@ export default function ApplyFormScreen() {
 
         const submissionData = {
           scholarship_id: Number(scholarshipId),
-          application_text: values.statement,
+          application_text: values.statement || "",
           fullname: values.fullName,
           email: values.email,
           phone: values.phone,
@@ -388,6 +488,13 @@ export default function ApplyFormScreen() {
 
         if (response.success) {
           setToast({ visible: true, message: response.message || "Application submitted successfully!", type: "success" });
+
+          // Clear draft on success
+          if (userId && scholarshipId) {
+            const draftKey = `draft_application_${userId}_${scholarshipId}`;
+            await AsyncStorage.removeItem(draftKey);
+          }
+
           // Delay redirect to show toast
           setTimeout(() => {
             router.replace("/(dashboard)/student/student-application-status");
@@ -535,8 +642,46 @@ export default function ApplyFormScreen() {
                 <Controller control={control} name="institution" render={({ field: { onChange, value, onBlur } }) => (
                   <CustomTextInput label="Institution Name" placeholder="Enter your institution" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.institution?.message} required />
                 )} />
-                <Controller control={control} name="major" render={({ field: { onChange, value, onBlur } }) => (
-                  <CustomTextInput label="Major / Field of Study" placeholder="Enter your major" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.major?.message} required />
+                <Controller control={control} name="major" render={({ field: { onChange, value } }) => (
+                  <TouchableOpacity onPress={() => {
+                    setOptionPickerState({
+                      visible: true,
+                      title: "Select Major / Field of Study",
+                      options: [
+                        "Computer Science",
+                        "Engineering",
+                        "Medicine / Health Sciences",
+                        "Business Administration",
+                        "Accounting / Finance",
+                        "Economics",
+                        "Arts & Humanities",
+                        "Psychology",
+                        "Law",
+                        "Education",
+                        "Science (Physics, Chem, Bio)",
+                        "Architecture",
+                        "Design / Creative Arts",
+                        "Agriculture",
+                        "Vocational Training",
+                        "Other"
+                      ],
+                      onSelect: (val) => onChange(val)
+                    });
+                  }}>
+                    <View pointerEvents="none">
+                      <CustomTextInput
+                        label="Major / Field of Study"
+                        placeholder="Select your major"
+                        value={value}
+                        editable={false}
+                        onChangeText={() => { }}
+                        error={errors.major?.message}
+                        required
+                        inputStyle={{ color: colors.text }}
+                        rightIcon="chevron-down"
+                      />
+                    </View>
+                  </TouchableOpacity>
                 )} />
                 <Controller control={control} name="gradDate" render={({ field: { value } }) => (
                   <TouchableOpacity onPress={() => openPicker("gradDate", "date")}>
@@ -549,6 +694,7 @@ export default function ApplyFormScreen() {
                         error={errors.gradDate?.message}
                         onChangeText={() => { }}
                         required
+                        rightIcon="calendar-outline"
                       />
                     </View>
                   </TouchableOpacity>
@@ -564,6 +710,7 @@ export default function ApplyFormScreen() {
                         error={errors.currentYear?.message}
                         onChangeText={() => { }}
                         required
+                        rightIcon="calendar-outline"
                       />
                     </View>
                   </TouchableOpacity>
@@ -584,15 +731,70 @@ export default function ApplyFormScreen() {
 
             {currentStepKey === "family" && (
               <Section>
-                <Controller control={control} name="financial" render={({ field: { onChange, value, onBlur } }) => (
-                  <CustomTextInput label="Family / Income Info" placeholder="Explain your financial situation" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.financial?.message} />
+                <Controller control={control} name="financial" render={({ field: { onChange, value } }) => (
+                  <TouchableOpacity onPress={() => {
+                    setOptionPickerState({
+                      visible: true,
+                      title: "Family Annual Income",
+                      options: [
+                        "Less than ₹1 Lakh",
+                        "₹1 Lakh - ₹3 Lakhs",
+                        "₹3 Lakhs - ₹5 Lakhs",
+                        "₹5 Lakhs - ₹8 Lakhs",
+                        "More than ₹8 Lakhs"
+                      ],
+                      onSelect: (val) => onChange(val)
+                    });
+                  }}>
+                    <View pointerEvents="none">
+                      <CustomTextInput
+                        label="Family Annual Income"
+                        placeholder="Select income range"
+                        value={value}
+                        editable={false}
+                        onChangeText={() => { }}
+                        error={errors.financial?.message}
+                        inputStyle={{ color: colors.text }}
+                        rightIcon="chevron-down"
+                      />
+                    </View>
+                  </TouchableOpacity>
                 )} />
-                <Controller control={control} name="activities" render={({ field: { onChange, value, onBlur } }) => (
-                  <CustomTextInput label="Extracurricular Activities" placeholder="List your activities" value={value} onChangeText={onChange} onBlur={onBlur} />
+                <Controller control={control} name="activities" render={({ field: { onChange, value } }) => (
+                  <TouchableOpacity onPress={() => {
+                    setOptionPickerState({
+                      visible: true,
+                      title: "Extracurricular Activities",
+                      options: [
+                        "Sports (Team/Individual)",
+                        "Music / Performing Arts",
+                        "Debate / Public Speaking",
+                        "Volunteering / Social Work",
+                        "Student Council / Leadership",
+                        "Tech / Coding Clubs",
+                        "Arts & Crafts",
+                        "None",
+                        "Other"
+                      ],
+                      onSelect: (val) => onChange(val)
+                    });
+                  }}>
+                    <View pointerEvents="none">
+                      <CustomTextInput
+                        label="Extracurricular Activities"
+                        placeholder="Select primary activity"
+                        value={value}
+                        editable={false}
+                        onChangeText={() => { }}
+                        inputStyle={{ color: colors.text }}
+                        rightIcon="chevron-down"
+                      />
+                    </View>
+                  </TouchableOpacity>
                 )} />
 
                 <Controller control={control} name="statement" render={({ field: { onChange, value, onBlur } }) => (
-                  <CustomTextInput label="Personal Statement" placeholder="Why do you deserve this scholarship? (min 50 char)" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.statement?.message} inputStyle={{ minHeight: 100, textAlignVertical: "top" }} required />
+                  <CustomTextInput label="Personal Statement (Optional)" placeholder="Why do you deserve this scholarship?" value={value || ""} onChangeText={onChange} onBlur={onBlur} error={errors.statement?.message} inputStyle={{ minHeight: 100 }} multiline={true} />
                 )} />
               </Section>
             )}
@@ -620,6 +822,7 @@ export default function ApplyFormScreen() {
                         editable={false}
                         onChangeText={() => { }}
                         inputStyle={{ color: colors.text }} // Ensure text is visible
+                        rightIcon="chevron-down"
                       />
                     </View>
                   </TouchableOpacity>
@@ -642,6 +845,7 @@ export default function ApplyFormScreen() {
                         editable={false}
                         onChangeText={() => { }}
                         inputStyle={{ color: colors.text }}
+                        rightIcon="chevron-down"
                       />
                     </View>
                   </TouchableOpacity>
@@ -717,6 +921,7 @@ export default function ApplyFormScreen() {
                         value={value ? (value instanceof Date ? value.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : String(value)) : ""}
                         editable={false}
                         onChangeText={() => { }}
+                        rightIcon="time-outline"
                       />
                     </View>
                   </TouchableOpacity>

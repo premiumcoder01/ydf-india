@@ -26,6 +26,7 @@ interface CustomTextInputProps {
   forceLight?: boolean;
   required?: boolean;
   icon?: keyof typeof Ionicons.glyphMap;
+  rightIcon?: keyof typeof Ionicons.glyphMap;
 }
 
 export default function CustomTextInput({
@@ -51,6 +52,7 @@ export default function CustomTextInput({
   forceLight = false,
   required = false,
   icon,
+  rightIcon,
 }: CustomTextInputProps) {
   const { isDark: globalIsDark, colors: themeColors } = useTheme();
 
@@ -153,8 +155,17 @@ export default function CustomTextInput({
           maxLength={maxLength}
           editable={editable}
           multiline={multiline}
+          verticalAlign='top'
         />
         {showPasswordToggle && togglePosition === 'right' && renderToggle()}
+        {rightIcon && (
+          <Ionicons
+            name={rightIcon}
+            size={20}
+            color={colors.textSecondary}
+            style={{ marginLeft: 8 }}
+          />
+        )}
       </View>
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>

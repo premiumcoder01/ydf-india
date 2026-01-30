@@ -18,18 +18,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-// Helper function to strip HTML tags
-const stripHtml = (html: string): string => {
-  if (!html) return "";
-  return html
-    .replace(/<[^>]*>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .trim();
-};
+
 
 // Helper function to get category color
 const getCategoryColor = (category: string): string => {
@@ -249,175 +238,107 @@ export default function BookmarkedScholarshipsScreen() {
     }
   }, [pagination, page, loading, refreshing, apiScholarships.length]);
 
-  const getDaysRemaining = (deadline: string | null, isExpired: boolean = false) => {
-    if (isExpired) return { text: "Expired", color: "#F44336" };
-    if (!deadline) return { text: "Open", color: "#4CAF50" };
-
-    const today = new Date();
-    const deadlineDate = new Date(deadline);
-    const diffTime = deadlineDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 0) return { text: "Expired", color: "#F44336" };
-    if (diffDays === 0) return { text: "Today", color: "#FF9800" };
-    if (diffDays === 1) return { text: "1 day left", color: "#FF9800" };
-    if (diffDays <= 7)
-      return { text: `${diffDays} days left`, color: "#FF9800" };
-    return { text: `${diffDays} days left`, color: isDark ? colors.textSecondary : "#666" };
-  };
 
   const renderItem = useCallback(
     ({ item }: { item: any }) => {
       const categoryColor = getCategoryColor(item.category || "");
-      const deadline = item.end_date || item.start_date;
-      const daysInfo = getDaysRemaining(deadline, item.expired);
-      const description = stripHtml(item.description || "");
       const isBookmarked = item.bookmarked !== false;
-      const isExpired = item.expired || daysInfo.text === "Expired" || description.toLowerCase().includes("applications closed") || description.toLowerCase().includes("!! applications closed !!");
+      const isExpired = item.expired;
+      const hasApplied = item.has_applied;
+      const deadline = item.end_date || item.start_date;
+      const shortDescription = item.shortname || "";
+
+      // Status Configuration
+      let statusConfig = { text: "Open", color: "#10B981", bg: "rgba(16, 185, 129, 0.1)" };
+      if (isExpired) {
+        statusConfig = { text: "Expired", color: "#EF4444", bg: "rgba(239, 68, 68, 0.1)" };
+      } else if (hasApplied) {
+        statusConfig = { text: "Applied", color: "#3B82F6", bg: "rgba(59, 130, 246, 0.1)" };
+      }
 
       return (
         <View
           style={[
-            styles.scholarshipCard,
-            { borderLeftColor: categoryColor, backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 },
+            styles.cardContainer,
+            {
+              backgroundColor: colors.card,
+              borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB",
+              borderLeftWidth: 4,
+              borderLeftColor: isExpired ? "#9CA3AF" : categoryColor
+            }
           ]}
         >
-          <View style={styles.scholarshipHeader}>
-            <View style={styles.scholarshipInfo}>
-              <View style={styles.titleRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.scholarshipTitle, { color: colors.text }]} numberOfLines={2}>
-                    {item.title}
-                  </Text>
-                </View>
-                <View style={{ flexDirection: 'row', gap: 6 }}>
-                  {isExpired && (
-                    <View style={[styles.categoryBadge, { backgroundColor: 'rgba(244, 67, 54, 0.1)' }]}>
-                      <Text style={[styles.categoryBadgeText, { color: '#F44336' }]}>Expired</Text>
-                    </View>
-                  )}
-                  <View
-                    style={[
-                      styles.categoryBadge,
-                      { backgroundColor: `${categoryColor}15` },
-                    ]}
-                  >
-                    <Text
-                      style={[styles.categoryBadgeText, { color: categoryColor }]}
-                    >
-                      {item.category || "General"}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-              {description ? (
-                <Text style={[styles.scholarshipDescription, { color: colors.textSecondary }]} numberOfLines={2}>
-                  {description}
+          {/* Header: Category & Status */}
+          <View style={styles.cardHeader}>
+            <View style={[styles.cardPill, { backgroundColor: isExpired ? "#F3F4F6" : `${categoryColor}15` }]}>
+              <Ionicons name="location-sharp" size={10} color={isExpired ? "#6B7280" : categoryColor} />
+              <Text style={[styles.cardPillText, { color: isExpired ? "#6B7280" : categoryColor }]}>
+                {item.category || "General"}
+              </Text>
+            </View>
+
+            <View style={[styles.cardPill, { backgroundColor: statusConfig.bg }]}>
+              <Text style={[styles.cardPillText, { color: statusConfig.color, fontWeight: '700' }]}>
+                {statusConfig.text}
+              </Text>
+            </View>
+          </View>
+
+          {/* Content: Title & Shortname */}
+          <View style={styles.cardContent}>
+            <Text style={[styles.cardTitle, { color: isExpired ? colors.textSecondary : colors.text }]} numberOfLines={2}>
+              {item.title}
+            </Text>
+            {shortDescription ? (
+              <Text style={[styles.cardSubtitle, { color: colors.textSecondary, marginTop: 4 }]} numberOfLines={1}>
+                {shortDescription}
+              </Text>
+            ) : null}
+
+            {item.bookmarked_at && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 4 }}>
+                <Ionicons name="time-outline" size={12} color={colors.textSecondary} />
+                <Text style={{ fontSize: 11, color: colors.textSecondary }}>
+                  Saved on {new Date(item.bookmarked_at).toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' })}
                 </Text>
-              ) : null}
-            </View>
-          </View>
-
-          <View style={[styles.amountRow, { borderColor: colors.border }]}>
-            <View style={styles.amountContainer}>
-              <Text style={styles.amountLabel}>Application Period</Text>
-              <Text style={[styles.amountText, { color: categoryColor }]}>
-                {item.start_date
-                  ? new Date(item.start_date).toLocaleDateString("en-US", {
-                    month: "short",
-                    year: "numeric",
-                  })
-                  : "Open"}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => toggleBookmark(item.id, isBookmarked)}
-              disabled={bookmarking[item.id]}
-              style={styles.bookmarkBtn}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="bookmark"
-                size={24}
-                color="#FFB400"
-              />
-            </TouchableOpacity>
-          </View>
-
-          {item.bookmarked_at && (
-            <View style={[styles.bookmarkedInfo, { backgroundColor: isDark ? "rgba(255, 180, 0, 0.1)" : "#FFF9E6" }]}>
-              <Ionicons name="time-outline" size={14} color={isDark ? colors.textSecondary : "#999"} />
-              <Text style={[styles.bookmarkedText, { color: colors.textSecondary }]}>
-                Bookmarked on {new Date(item.bookmarked_at).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
-              </Text>
-            </View>
-          )}
-
-          <View style={styles.scholarshipDetails}>
-            <View style={styles.detailRow}>
-              <View style={[styles.detailIcon, { backgroundColor: isDark ? colors.surface : "#f8f8f8" }]}>
-                <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
-              </View>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Deadline</Text>
-                <View style={styles.deadlineRow}>
-                  <Text style={[styles.detailText, { color: colors.text }]}>
-                    {deadline
-                      ? new Date(deadline).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })
-                      : "No deadline"}
-                  </Text>
-                  {deadline && (
-                    <Text
-                      style={[styles.daysRemaining, { color: daysInfo.color }]}
-                    >
-                      • {daysInfo.text}
-                    </Text>
-                  )}
-                </View>
-              </View>
-            </View>
-
-            {item.category && (
-              <View style={styles.detailRow}>
-                <View style={[styles.detailIcon, { backgroundColor: isDark ? colors.surface : "#f8f8f8" }]}>
-                  <Ionicons
-                    name="location-outline"
-                    size={16}
-                    color={colors.textSecondary}
-                  />
-                </View>
-                <View style={styles.detailContent}>
-                  <Text style={styles.detailLabel}>Location</Text>
-                  <Text style={[styles.detailText, { color: colors.text }]}>{item.category}</Text>
-                </View>
               </View>
             )}
           </View>
 
+          {/* Dates Row */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15, paddingHorizontal: 16, marginBottom: 16 }}>
+            <View>
+              <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>Opens</Text>
+              <Text style={[styles.dateValue, { color: colors.text }]}>
+                {item.start_date ? new Date(item.start_date).toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' }) : "TBA"}
+              </Text>
+            </View>
 
-          {/* NEW: Application Progress Bar */}
+            <View style={[styles.verticalSep, { backgroundColor: isDark ? "rgba(255,255,255,0.2)" : "#E5E7EB" }]} />
+
+            <View>
+              <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>Closes</Text>
+              <Text style={[styles.dateValue, { color: colors.text }]}>
+                {deadline ? new Date(deadline).toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' }) : "No Deadline"}
+              </Text>
+            </View>
+          </View>
+
+          {/* Application Progress Bar */}
           {(item.progress_percent !== undefined) && (
-            <View style={{ marginBottom: 16 }}>
+            <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6, alignItems: 'center' }}>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.textSecondary }}>Application Progress</Text>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: item.progress_percent === 100 ? "#4CAF50" : categoryColor }}>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: colors.textSecondary, textTransform: 'uppercase' }}>Application Progress</Text>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: item.progress_percent === 100 ? "#10B981" : categoryColor }}>
                   {item.progress_percent}%
                 </Text>
               </View>
-              <View style={{ height: 6, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f0f0f0', borderRadius: 3, overflow: 'hidden' }}>
+              <View style={{ height: 6, backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : '#F3F4F6', borderRadius: 3, overflow: 'hidden' }}>
                 <View
                   style={{
                     height: '100%',
                     width: `${item.progress_percent}%`,
-                    backgroundColor: item.progress_percent === 100 ? '#4CAF50' : categoryColor,
+                    backgroundColor: item.progress_percent === 100 ? '#10B981' : categoryColor,
                     borderRadius: 3
                   }}
                 />
@@ -425,6 +346,10 @@ export default function BookmarkedScholarshipsScreen() {
             </View>
           )}
 
+          {/* Divider */}
+          <View style={[styles.cardDivider, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "#F3F4F6", marginBottom: 12 }]} />
+
+          {/* Actions Footer */}
           <View style={styles.cardActionsRow}>
             <TouchableOpacity
               onPress={() =>
@@ -433,23 +358,13 @@ export default function BookmarkedScholarshipsScreen() {
                   params: { scholarshipId: item.id },
                 })
               }
-              style={[styles.viewBtn, { backgroundColor: isDark ? colors.surface : "#f8f8f8", borderColor: colors.border }]}
+              style={[styles.viewBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#F9FAFB", borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB" }]}
             >
-              <Ionicons name="eye-outline" size={18} color={isDark ? colors.text : "#333"} />
+              <Ionicons name="eye-outline" size={16} color={colors.text} />
               <Text style={[styles.viewBtnText, { color: colors.text }]}>Details</Text>
             </TouchableOpacity>
 
-            {item.has_applied ? (
-              <View
-                style={[
-                  styles.applyBtn,
-                  { backgroundColor: isDark ? "rgba(76, 175, 80, 0.2)" : "#E8F5E9", borderWidth: 1, borderColor: "#4CAF50" }
-                ]}
-              >
-                <Ionicons name="checkmark-circle" size={18} color="#4CAF50" />
-                <Text style={[styles.applyBtnText, { color: "#4CAF50" }]}>Applied</Text>
-              </View>
-            ) : (
+            {!isExpired && !hasApplied ? (
               <TouchableOpacity
                 onPress={() =>
                   router.push({
@@ -457,23 +372,41 @@ export default function BookmarkedScholarshipsScreen() {
                     params: { scholarshipId: item.id },
                   })
                 }
-                disabled={isExpired}
                 style={[
                   styles.applyBtn,
-                  { backgroundColor: categoryColor },
-                  isExpired && { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#eee", opacity: 0.8 }
+                  { backgroundColor: categoryColor }
                 ]}
               >
-                <Ionicons
-                  name={isExpired ? "close-circle-outline" : "paper-plane-outline"}
-                  size={18}
-                  color={isExpired ? (isDark ? colors.textSecondary : "#999") : "#fff"}
-                />
-                <Text style={[styles.applyBtnText, isExpired && { color: isDark ? colors.textSecondary : "#999" }]}>
-                  {isExpired ? "Expired" : "Apply Now"}
-                </Text>
+                <Text style={[styles.applyBtnText, { color: "#FFF" }]}>Apply Now</Text>
+                <Ionicons name="arrow-forward" size={16} color="#FFF" />
               </TouchableOpacity>
+            ) : (
+              <View
+                style={[
+                  styles.applyBtn,
+                  hasApplied
+                    ? { backgroundColor: isDark ? "rgba(16, 185, 129, 0.2)" : "#DCFCE7", borderWidth: 1, borderColor: isDark ? "#065F46" : "#86EFAC" }
+                    : { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#F3F4F6", opacity: 0.8 }
+                ]}
+              >
+                <Text style={[styles.applyBtnText, { color: hasApplied ? (isDark ? "#34D399" : "#166534") : colors.textSecondary }]}>
+                  {hasApplied ? "Applied" : "Closed"}
+                </Text>
+                <Ionicons
+                  name={hasApplied ? "checkmark-circle" : "lock-closed"}
+                  size={16}
+                  color={hasApplied ? (isDark ? "#34D399" : "#166534") : colors.textSecondary}
+                />
+              </View>
             )}
+
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => toggleBookmark(item.id, isBookmarked)}
+              style={[styles.bookmarkIconBtn]}
+            >
+              <Ionicons name={isBookmarked ? "bookmark" : "bookmark-outline"} size={22} color={isBookmarked ? "#F59E0B" : colors.textSecondary} />
+            </TouchableOpacity>
           </View>
         </View>
       );
@@ -679,137 +612,80 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
-  scholarshipCard: {
+  cardContainer: {
     borderRadius: 20,
-    padding: 20,
+    borderWidth: 1,
     marginHorizontal: 20,
-    marginBottom: 16,
-    borderLeftWidth: 5,
+    marginBottom: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.1,
     shadowRadius: 12,
-    elevation: 3,
+    elevation: 4,
+    overflow: 'hidden',
   },
-  scholarshipHeader: {
-    marginBottom: 16,
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
   },
-  scholarshipInfo: {
-    flex: 1,
+  cardPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
   },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
-    flexWrap: "wrap",
-    gap: 8,
+  cardPillText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
-  scholarshipTitle: {
+  cardContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 4,
+  },
+  cardTitle: {
     fontSize: 18,
-    fontWeight: "700",
-    flex: 1,
-    letterSpacing: 0.2,
+    fontWeight: '800',
+    lineHeight: 26,
   },
-  categoryBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 10,
+  cardSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
   },
-  categoryBadgeText: {
+  cardDivider: {
+    height: 1,
+    width: '100%',
+  },
+  dateLabel: {
     fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  scholarshipDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  amountRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    marginBottom: 16,
-  },
-  amountContainer: {
-    flex: 1,
-  },
-  amountLabel: {
-    fontSize: 12,
-    color: "#999",
-    marginBottom: 4,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    fontWeight: "600",
-  },
-  amountText: {
-    fontSize: 28,
-    fontWeight: "800",
-    letterSpacing: -1,
-  },
-  bookmarkBtn: {
-    padding: 8,
-  },
-  bookmarkedInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-  },
-  bookmarkedText: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  scholarshipDetails: {
-    gap: 12,
-    marginBottom: 16,
-  },
-  detailRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-  detailIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  detailContent: {
-    flex: 1,
-  },
-  detailLabel: {
-    fontSize: 12,
-    color: "#999",
+    fontWeight: '600',
+    textTransform: 'uppercase',
     marginBottom: 2,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    fontWeight: "600",
+    opacity: 0.7,
   },
-  detailText: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  deadlineRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  daysRemaining: {
+  dateValue: {
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: '700',
+  },
+  verticalSep: {
+    width: 1,
+    height: 24,
+  },
+  bookmarkIconBtn: {
+    width: 44,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   cardActionsRow: {
     flexDirection: "row",
     gap: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   viewBtn: {
     flex: 1,
@@ -818,12 +694,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
   },
   viewBtnText: {
     fontWeight: "700",
-    fontSize: 15,
+    fontSize: 14,
   },
   applyBtn: {
     flex: 1,
@@ -832,12 +708,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 14,
   },
   applyBtnText: {
-    color: "#fff",
     fontWeight: "700",
-    fontSize: 15,
+    fontSize: 14,
   },
   emptyState: {
     alignItems: "center",
