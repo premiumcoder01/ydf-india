@@ -72,7 +72,7 @@ const formSchema = z.object({
       documentId: z.union([z.string(), z.number()]).optional(),
       label: z.string().optional(),
     })
-  ).min(1, "Please upload required documents"),
+  ),
 
   // Need Assessment (Static/Mock)
   assessmentQ1: z.string().optional(),
@@ -137,6 +137,8 @@ export default function ApplyFormScreen() {
     getValues,
     reset,
     watch,
+    setError,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema) as Resolver<FormValues>,
@@ -165,6 +167,9 @@ export default function ApplyFormScreen() {
   });
 
   const documents = watch("documents") || [];
+  const hasDocumentRequirements = Boolean(
+    scholarship && Array.isArray(scholarship.documents) && scholarship.documents.length > 0
+  );
 
   const [pickerState, setPickerState] = useState<{ show: boolean; mode: "date" | "time"; field: keyof FormValues | null }>({
     show: false,
@@ -389,6 +394,14 @@ export default function ApplyFormScreen() {
       const ok = await trigger(fields as any);
       if (!ok) return;
     }
+
+    if (currentStepKey === "documents" && hasDocumentRequirements && documents.length === 0) {
+      setError("documents", { type: "manual", message: "Please upload required documents" });
+      return;
+    } else if (currentStepKey === "documents") {
+      clearErrors("documents");
+    }
+
     setStepIndex((i) => {
       const ni = Math.min(i + 1, STEPS.length - 1);
       return ni;
@@ -436,6 +449,61 @@ export default function ApplyFormScreen() {
     }
   };
 
+  const getReqDocId = (reqDoc: any) =>
+    reqDoc?.id ?? reqDoc?.shortname ?? reqDoc?.label ?? reqDoc?.name;
+
+  const buildExistingDocItem = (reqDoc: any): DocumentItem => {
+    const file = Array.isArray(reqDoc?.files) ? reqDoc.files[0] : null;
+    const fileName =
+      file?.name ||
+      file?.filename ||
+      file?.label ||
+      reqDoc?.label ||
+      reqDoc?.name ||
+      "Existing document";
+    const docId = getReqDocId(reqDoc);
+
+    return {
+      name: fileName,
+      uri: `existing://${String(docId ?? fileName)}`,
+      mimeType: file?.mimetype ?? file?.mimeType ?? null,
+      size: file?.size ?? null,
+      documentId: docId,
+      label: reqDoc?.label || reqDoc?.name,
+    };
+  };
+
+  const toggleUseExistingDocument = (reqDoc: any) => {
+    if (!Array.isArray(reqDoc?.files) || reqDoc.files.length === 0) return;
+    const docId = getReqDocId(reqDoc);
+    if (!docId) return;
+
+    const existing = getValues("documents") || [];
+    const isSelected = existing.some(
+      (d) =>
+        d.documentId === docId &&
+        typeof d.uri === "string" &&
+        d.uri.startsWith("existing://")
+    );
+
+    if (isSelected) {
+      const filtered = existing.filter(
+        (d) =>
+          !(
+            d.documentId === docId &&
+            typeof d.uri === "string" &&
+            d.uri.startsWith("existing://")
+          )
+      );
+      setValue("documents", filtered, { shouldDirty: true, shouldValidate: true });
+      return;
+    }
+
+    const filtered = existing.filter((d) => d.documentId !== docId);
+    const newItem = buildExistingDocItem(reqDoc);
+    setValue("documents", [...filtered, newItem], { shouldDirty: true, shouldValidate: true });
+  };
+
   const removeDocument = (index: number) => {
     const existing = getValues("documents");
     const nextDocs = existing.filter((_, i) => i !== index);
@@ -452,6 +520,12 @@ export default function ApplyFormScreen() {
   const onSubmit = handleSubmit(
     async (values) => {
       try {
+        if (hasDocumentRequirements && (!values.documents || values.documents.length === 0)) {
+          setError("documents", { type: "manual", message: "Please upload required documents" });
+          setStepIndex(findStepForField("documents"));
+          return;
+        }
+
         const authDataStr = await AsyncStorage.getItem("authData");
         if (!authDataStr) {
           Alert.alert("Error", "User not logged in");
@@ -521,6 +595,7 @@ export default function ApplyFormScreen() {
   );
 
   const STEP_ITEM_WIDTH = 140;
+
 
   useEffect(() => {
     const screenW = Dimensions.get('window').width;
@@ -943,22 +1018,69 @@ export default function ApplyFormScreen() {
                   {scholarship && scholarship.documents && scholarship.documents.length > 0 ? (
                     <View>
                       <Text style={{ fontSize: 14, fontWeight: '700', marginBottom: 12, color: colors.text }}>Required Documents</Text>
+                      {!scholarship.documents.some((d: any) => Array.isArray(d?.files) && d.files.length > 0) && (
+                        <View style={[styles.noDocNote, { backgroundColor: isDark ? "#1F2937" : "#EFF6FF", borderColor: isDark ? colors.border : "#BFDBFE" }]}>
+                          <Ionicons name="information-circle-outline" size={16} color={isDark ? colors.textSecondary : "#2563EB"} />
+                          <Text style={[styles.noDocNoteText, { color: isDark ? colors.textSecondary : "#1E40AF" }]}>
+                            No documents found in this scheme. You can proceed further.
+                          </Text>
+                        </View>
+                      )}
                       {scholarship.documents.map((reqDoc: any, index: number) => {
-                        const uploadedDoc = documents.find(d => d.documentId === (reqDoc.id || reqDoc.shortname));
+                        const docId = reqDoc.id || reqDoc.shortname || reqDoc.label || reqDoc.name || index;
+                        const uploadedDoc = documents.find(d => d.documentId === docId);
+                        const isExistingSelected = Boolean(
+                          uploadedDoc?.uri && uploadedDoc.uri.startsWith("existing://")
+                        );
+                        const hasExistingFile = Array.isArray(reqDoc?.files) && reqDoc.files.length > 0;
+                        const existingFileName =
+                          hasExistingFile
+                            ? reqDoc.files[0]?.name ||
+                              reqDoc.files[0]?.filename ||
+                              reqDoc.files[0]?.label
+                            : null;
                         return (
                           <View key={reqDoc.id || index} style={[styles.docReqItem, { borderColor: isDark ? colors.border : '#e5e5e5' }]}>
                             <View style={{ flex: 1 }}>
                               <Text style={[styles.reqDocLabel, { color: colors.text }]}>
-                                {/* {reqDoc.label || reqDoc.name} */}Upload Document
+                                {reqDoc.label || reqDoc.name || "Upload Document"}
                                 {reqDoc.required !== false && <Text style={{ color: 'red' }}> *</Text>}
                               </Text>
                               {uploadedDoc ? (
                                 <View style={styles.uploadedBadge}>
-                                  <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
-                                  <Text numberOfLines={1} style={styles.uploadedText}>{uploadedDoc.name}</Text>
+                                  <Ionicons
+                                    name="checkmark-circle"
+                                    size={14}
+                                    color={isExistingSelected ? "#2563EB" : "#4CAF50"}
+                                  />
+                                  <Text
+                                    numberOfLines={1}
+                                    style={[
+                                      styles.uploadedText,
+                                      { color: isExistingSelected ? "#2563EB" : "#4CAF50" }
+                                    ]}
+                                  >
+                                    {isExistingSelected ? `Using existing: ${uploadedDoc.name}` : uploadedDoc.name}
+                                  </Text>
                                 </View>
                               ) : (
                                 <Text style={{ fontSize: 12, color: colors.textSecondary }}>Not uploaded yet</Text>
+                              )}
+                              {hasExistingFile && (
+                                <TouchableOpacity
+                                  onPress={() => toggleUseExistingDocument(reqDoc)}
+                                  style={styles.existingDocRow}
+                                >
+                                  <Ionicons
+                                    name={isExistingSelected ? "checkbox" : "square-outline"}
+                                    size={18}
+                                    color={isExistingSelected ? colors.primary : colors.textSecondary}
+                                  />
+                                  <Text style={[styles.existingDocText, { color: colors.textSecondary }]}>
+                                    Use existing document
+                                    {existingFileName ? ` (${existingFileName})` : ""}
+                                  </Text>
+                                </TouchableOpacity>
                               )}
                             </View>
                             <TouchableOpacity
@@ -975,36 +1097,43 @@ export default function ApplyFormScreen() {
                       })}
                     </View>
                   ) : (
-                    <Button variant="secondary" onPress={onPickGlobalDocuments}>
-                      <Text style={{ fontWeight: "700", color: isDark ? colors.text : "#333" }}>Pick Documents</Text>
-                    </Button>
+                    <View style={{ gap: 10 }}>
+                      <View style={[styles.noDocNote, { backgroundColor: isDark ? "#1F2937" : "#EFF6FF", borderColor: isDark ? colors.border : "#BFDBFE" }]}>
+                        <Ionicons name="information-circle-outline" size={16} color={isDark ? colors.textSecondary : "#2563EB"} />
+                        <Text style={[styles.noDocNoteText, { color: isDark ? colors.textSecondary : "#1E40AF" }]}>
+                          There are no documents required for this scheme. You can proceed further.
+                        </Text>
+                      </View>
+                    </View>
                   )}
 
                   {/* General / Extra Documents list */}
-                  <View style={{ gap: 8 }}>
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginTop: 8 }}>Attached Files:</Text>
+                  {scholarship && scholarship.documents && scholarship.documents.length > 0 && (
+                    <View style={{ gap: 8 }}>
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginTop: 8 }}>Attached Files:</Text>
 
-                    {documents.length === 0 && (
-                      <Text style={{ fontStyle: 'italic', color: colors.textSecondary, fontSize: 12 }}>No documents selected</Text>
-                    )}
+                      {documents.length === 0 && (
+                        <Text style={{ fontStyle: 'italic', color: colors.textSecondary, fontSize: 12 }}>No documents selected</Text>
+                      )}
 
-                    {documents.map((doc, idx) => (
-                      <View key={`${doc.uri}-${idx}`} style={[styles.docItem, { backgroundColor: isDark ? colors.surface : "rgba(255,255,255,0.8)", borderColor: isDark ? colors.border : "rgba(51,51,51,0.1)" }]}>
-                        <Ionicons name="document-attach-outline" size={20} color={isDark ? colors.text : "#333"} />
-                        <View style={{ flex: 1, marginLeft: 8 }}>
-                          <Text numberOfLines={1} style={[styles.docName, { color: colors.text }]}>{doc.name}</Text>
-                          {doc.label && <Text style={{ fontSize: 10, color: colors.textSecondary }}>{doc.label}</Text>}
+                      {documents.map((doc, idx) => (
+                        <View key={`${doc.uri}-${idx}`} style={[styles.docItem, { backgroundColor: isDark ? colors.surface : "rgba(255,255,255,0.8)", borderColor: isDark ? colors.border : "rgba(51,51,51,0.1)" }]}>
+                          <Ionicons name="document-attach-outline" size={20} color={isDark ? colors.text : "#333"} />
+                          <View style={{ flex: 1, marginLeft: 8 }}>
+                            <Text numberOfLines={1} style={[styles.docName, { color: colors.text }]}>{doc.name}</Text>
+                            {doc.label && <Text style={{ fontSize: 10, color: colors.textSecondary }}>{doc.label}</Text>}
+                          </View>
+                          <TouchableOpacity onPress={() => removeDocument(idx)} style={styles.docRemove}>
+                            <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                          </TouchableOpacity>
                         </View>
-                        <TouchableOpacity onPress={() => removeDocument(idx)} style={styles.docRemove}>
-                          <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                        </TouchableOpacity>
-                      </View>
-                    ))}
+                      ))}
 
-                    {errors.documents?.message && (
-                      <Text style={styles.errorTextInline}>{String(errors.documents.message)}</Text>
-                    )}
-                  </View>
+                      {errors.documents?.message && (
+                        <Text style={styles.errorTextInline}>{String(errors.documents.message)}</Text>
+                      )}
+                    </View>
+                  )}
                 </View>
               </Section>
             )}
@@ -1268,5 +1397,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6
+  },
+  existingDocRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 6
+  },
+  existingDocText: {
+    fontSize: 12
+  },
+  noDocNote: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 12
+  },
+  noDocNoteText: {
+    fontSize: 12,
+    flex: 1
   }
 });

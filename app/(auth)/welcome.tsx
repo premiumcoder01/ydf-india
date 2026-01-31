@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
   },
   termsContainer: {
     paddingHorizontal: 8,
-    marginTop: 4,
+
   },
   termsText: {
     fontSize: 13,

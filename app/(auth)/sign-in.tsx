@@ -1,7 +1,7 @@
 import { Button, CustomTextInput, Toast } from "@/components";
 import { LinkedInLogin } from "@/components/LinkedInLogin";
 import { loginUser, socialLogin } from "@/utils/api";
-import { exchangeAuthorizationCodeForToken, loginWithDigiLocker, useDigiLockerWebView } from "@/utils/digilockerAuth";
+import { completeDigiLockerAuth, loginWithDigiLocker, useDigiLockerWebView } from "@/utils/digilockerAuth";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -239,24 +239,23 @@ export default function SignInScreen() {
 
       console.log("✅ DigiLocker authorization code received");
       console.log("📋 Authorization Code:", digiLockerResult.authorizationCode.substring(0, 10) + "...");
-      const tokenResponse = await exchangeAuthorizationCodeForToken(
-        digiLockerResult.authorizationCode,
-        digiLockerResult.codeVerifier
-      );
+      const { token, userInfo } = await completeDigiLockerAuth(digiLockerResult);
 
       // Call social login API with DigiLocker access token
-      console.log("🔄 Calling social login with DigiLocker token...", tokenResponse);
+      console.log("🔄 Calling social login with DigiLocker token...", token);
+      console.log("✅ DigiLocker user info received:", userInfo);
+      
 
-      // If email is present in token response, use it. Otherwise generate one from access token.
-      let userEmail = (tokenResponse as any).email;
+      // Prefer email from user info; fallback to token, else generate placeholder.
+      let userEmail = (userInfo as any).email || (token as any).email;
       if (!userEmail) {
         // Generate email: first 10 chars of access token + @digilocker.com
-        const shortToken = tokenResponse.access_token.substring(0, 10);
+        const shortToken = token.access_token.substring(0, 10);
         userEmail = `${shortToken}@digilocker.com`;
         console.log("⚠️ No email from DigiLocker, generated placeholder:", userEmail);
       }
 
-      const apiResponse = await socialLogin("digilocker", tokenResponse.access_token, userEmail);
+      const apiResponse = await socialLogin("digilocker", token.access_token, userEmail);
 
       if (apiResponse.success && apiResponse.data) {
         await handleLoginSuccess(apiResponse, true);
