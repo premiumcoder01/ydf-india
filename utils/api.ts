@@ -129,7 +129,7 @@ export const registerUser = async (userData: {
     urlObj.searchParams.append("emailagain", userData.email); // API requires email confirmation
     urlObj.searchParams.append("firstname", userData.firstname);
     urlObj.searchParams.append("lastname", userData.lastname);
-    urlObj.searchParams.append("phone1", userData.phone);
+    urlObj.searchParams.append("phone", userData.phone);
     
     const finalUrl = urlObj.toString();
     console.log("Registration URL:", finalUrl);
