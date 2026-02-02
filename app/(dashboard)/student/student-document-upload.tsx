@@ -194,14 +194,14 @@ export default function DocumentUploadScreen() {
         type: file.mimeType,
       } as any);
       formData.append("mode", "private");
+
+      console.log("Starting upload to:", uploadUrl);
       const response = await fetch(uploadUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
         body: formData,
       });
       const result = await response.json();
+      console.log("Upload result:", result);
       if (response.ok && (result.success || result.status === true || result[0]?.status === true)) {
         setSelectedFile(null);
         setSaveAsName("");
@@ -288,11 +288,18 @@ export default function DocumentUploadScreen() {
 
     const encodedUri = file.uri;
     const downloadUrl = `https://digilocker.meripehchaan.gov.in/public/oauth2/1/file/${encodedUri}`;
-    const filename = file.name || "digilocker-file";
+
+    let filename = file.name || "digilocker-file";
+    // Important: iOS WebView needs the .pdf extension to render the file as a PDF
+    if (file.mime === "application/pdf" && !filename.toLowerCase().endsWith(".pdf")) {
+      filename += ".pdf";
+    }
+
     const destinationBase =
       (FileSystem as any).cacheDirectory || (FileSystem as any).documentDirectory || "";
-    const destination = `${destinationBase}${filename}`;
+    const destination = `${destinationBase}${filename.replace(/\s/g, '_')}`;
 
+    console.log("Downloading DigiLocker file to:", destination);
     const result = await FileSystem.downloadAsync(downloadUrl, destination, {
       headers: {
         Authorization: `Bearer ${digilockerAccessToken}`,
@@ -312,9 +319,16 @@ export default function DocumentUploadScreen() {
     try {
       setDownloadingUri(file.uri);
       const localUri = await downloadDigiLockerFile(file);
-      setPreviewFile({ uri: localUri, mime: file.mime, name: file.name });
+
+      let displayName = file.name;
+      if (file.mime === "application/pdf" && !displayName.toLowerCase().endsWith(".pdf")) {
+        displayName += ".pdf";
+      }
+
+      setPreviewFile({ uri: localUri, mime: file.mime, name: displayName });
       setDigilockerModalVisible(false);
       setPreviewVisible(true);
+      console.log("Opening preview for local file:", localUri);
     } catch (error) {
       console.error("Failed to open DigiLocker file:", error);
       Alert.alert("Error", "Unable to open this file. Please try again.");
@@ -452,7 +466,6 @@ export default function DocumentUploadScreen() {
       ]
     );
   };
-
 
 
   return (
@@ -632,7 +645,14 @@ export default function DocumentUploadScreen() {
                 <Image source={{ uri: previewFile.uri }} style={styles.previewModalImage} resizeMode="contain" />
               </View>
             ) : (
-              <WebView source={{ uri: previewFile.uri }} style={styles.previewModalWebView} />
+              <WebView
+                source={{ uri: previewFile.uri }}
+                style={styles.previewModalWebView}
+                originWhitelist={['*']}
+                allowFileAccess={true}
+                allowFileAccessFromFileURLs={true}
+                scalesPageToFit={true}
+              />
             )
           ) : (
             <View style={styles.modalLoading}>
