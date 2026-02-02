@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "1001621686502",
+    "project_id": "ydf-mobile-app",
+    "storage_bucket": "ydf-mobile-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1001621686502:android:132c1153bd7abd1b545327",
+        "android_client_info": {
+          "package_name": "com.YDF"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1001621686502-plhlho1chhk796rcmbjchpo544mhe6vl.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.YDF",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "1001621686502-jopl8tosnhl2d71blsncqs3gte656tds.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLESVP9-6mcZnuBeYMVFyjBZ5OLqNxsf4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1001621686502-jopl8tosnhl2d71blsncqs3gte656tds.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1001621686502-shv47u2lqnbbfigdtovjr4npf77r9ca5.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.YDF"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -7,8 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "ydf",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
-
+    "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "com.YDF",
       "supportsTablet": true,
@@ -16,7 +15,6 @@
         "NSCameraUsageDescription": "This app uses the camera to capture documents."
       }
     },
-
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#FFF",
@@ -31,18 +29,17 @@
         "android.permission.READ_CALENDAR",
         "android.permission.WRITE_CALENDAR"
       ],
-      "package": "com.YDF"
+      "package": "com.YDF",
+      "googleServicesFile": "./google-services.json"
     },
-
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
-
     "plugins": [
       [
         "@react-native-google-signin/google-signin",
-        { "iosUrlScheme": "com.googleusercontent.apps.1001621686502-9fifki7bjqknjshv0rroodrusj1das0m" }
+        { "iosUrlScheme": "com.googleusercontent.apps.1001621686502-shv47u2lqnbbfigdtovjr4npf77r9ca5" }
       ],
       "expo-router",
       [

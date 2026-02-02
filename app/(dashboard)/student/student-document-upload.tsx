@@ -248,7 +248,7 @@ export default function DocumentUploadScreen() {
       Alert.alert("Error", "DigiLocker access token missing. Please reconnect.");
       return;
     }
-   
+
 
     try {
       setIssuedRequestLoading(true);
@@ -489,7 +489,7 @@ export default function DocumentUploadScreen() {
             </View>
           ) : (
             <ScrollView contentContainerStyle={styles.modalContent} showsVerticalScrollIndicator={false}>
-              <View style={[styles.issuedSection, { borderColor: colors.border, backgroundColor: isDark ? "#141c2c" : "#f6f8ff" }]}>
+              {/* <View style={[styles.issuedSection, { borderColor: colors.border, backgroundColor: isDark ? "#141c2c" : "#f6f8ff" }]}>
                 <View style={styles.sectionHeader}>
                   <Text style={[styles.modalSectionTitle, { color: colors.text }]}>Fetch Issued Documents</Text>
                   <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>Consent required per document</Text>
@@ -523,7 +523,7 @@ export default function DocumentUploadScreen() {
                     </Text>
                   </View>
                 )}
-              </View>
+              </View> */}
 
               <View style={styles.uploadedSection}>
                 <View style={styles.sectionHeaderRow}>
@@ -672,7 +672,7 @@ export default function DocumentUploadScreen() {
               />
               <View style={styles.digilockerTextContainer}>
                 <Text style={[styles.digilockerTitle, { color: isDark ? colors.primary : "#052c65" }]}>Connect DigiLocker</Text>
-              <Text style={[styles.digilockerSubtitle, { color: colors.textSecondary }]}>Import documents from DigiLocker</Text>
+                <Text style={[styles.digilockerSubtitle, { color: colors.textSecondary }]}>Import documents from DigiLocker</Text>
               </View>
               <Ionicons name="chevron-forward" size={24} color={isDark ? colors.textSecondary : "#052c65"} />
             </View>

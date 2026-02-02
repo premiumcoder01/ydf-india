@@ -88,7 +88,8 @@ export default function SignInScreen() {
 
   GoogleSignin.configure({
     webClientId: '1001621686502-jopl8tosnhl2d71blsncqs3gte656tds.apps.googleusercontent.com',
-    iosClientId: '1001621686502-9fifki7bjqknjshv0rroodrusj1das0m.apps.googleusercontent.com',
+    iosClientId: '1001621686502-shv47u2lqnbbfigdtovjr4npf77r9ca5.apps.googleusercontent.com',
+    offlineAccess: true,
   });
 
   const handleLoginSuccess = async (response: any, defaultToStudent: boolean = false) => {
