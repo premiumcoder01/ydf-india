@@ -192,7 +192,8 @@ export default function StudentProfilePersonalScreen() {
                 phone: (() => {
                   let p = user.phone1 || user.phone || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'phone_number')?.value || "";
                   if (p === "N/A") return "";
-                  if (p && p.startsWith('+91')) return p.replace('+91', '');
+                  if (p && p.startsWith('+91')) return p.substring(3);
+                  if (p && p.startsWith('91') && p.length === 12) return p.substring(2);
                   return p || prev.phone;
                 })(),
 
@@ -362,10 +363,12 @@ export default function StudentProfilePersonalScreen() {
       // Step 2: Update profile with the file ID (if image was uploaded)
       const { ...rest } = personalInfo;
 
-      // Add +91 to phone if it's just the number
+      // Add 91 to phone if it's just the 10-digit number
       let finalPhone = personalInfo.phone;
       if (finalPhone && finalPhone.replace(/\D/g, '').length === 10 && !finalPhone.startsWith('+')) {
-        finalPhone = `+91${finalPhone.replace(/\D/g, '')}`;
+        finalPhone = `91${finalPhone.replace(/\D/g, '')}`;
+      } else if (finalPhone && finalPhone.startsWith('+91')) {
+        finalPhone = finalPhone.replace('+91', '91');
       }
 
       const payload = {
