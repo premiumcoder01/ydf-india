@@ -65,30 +65,22 @@ export default function OtpScreen() {
       // Check if coming from forgot password
       if (params.fromForgotPassword === "true" && params.email) {
         setEmail(params.email);
-        const otpParam = Array.isArray(params.otp) ? params.otp[0] : params.otp;
-        if (otpParam) {
-          setReceivedOtp(String(otpParam));
-        } else {
-          console.warn("OTP not found in params!");
-        }
-
         setFromForgotPassword(true);
-        setToastMessage("OTP sent successfully to your email.");
-        setToastType("success");
-        setShowToast(true);
+
+        // For reset password flow, we call send OTP as the previous screen only returns the code but may not send it or we want to ensure it's sent
+        await handleSendOtp(params.email);
         return;
       }
 
-      // Otherwise, get email from AsyncStorage and send OTP (for registration flow)
-      const fetchEmailAndSendOtp = async () => {
+      // Otherwise, get email from AsyncStorage (for registration flow)
+      const fetchEmail = async () => {
         try {
           const authDataString = await AsyncStorage.getItem("authData");
           if (authDataString) {
             const authData = JSON.parse(authDataString);
             if (authData?.user?.email) {
               setEmail(authData.user.email);
-              // Send OTP automatically when screen loads
-              await handleSendOtp(authData.user.email);
+              // Note: Backend already sent OTP during registration, so no need to call handleSendOtp here
             } else {
               setToastMessage("Email not found. Please register again.");
               setToastType("error");
@@ -107,7 +99,7 @@ export default function OtpScreen() {
         }
       };
 
-      fetchEmailAndSendOtp();
+      fetchEmail();
     };
 
     initializeData();
@@ -115,12 +107,6 @@ export default function OtpScreen() {
 
   // Handle resend OTP
   const handleResend = async () => {
-    if (fromForgotPassword) {
-      setToastMessage("Please go back to forgot password screen to resend OTP.");
-      setToastType("info");
-      setShowToast(true);
-      return;
-    }
     setResending(true);
     await handleSendOtp();
     setResending(false);
@@ -157,11 +143,6 @@ export default function OtpScreen() {
       return;
     }
 
-    // Otherwise, verify with backend
-
-    // For forgot password flow, we skip backend verification here to prevent 
-    // "consuming" the OTP if it's a one-time use code. 
-    // The verify/consumption will happen in the Reset Password screen.
     if (fromForgotPassword) {
       handleVerificationSuccess();
       return;
@@ -169,9 +150,9 @@ export default function OtpScreen() {
 
     try {
       const response = await verifyOtp(otp, email);
-      console.log(response, "verify otp response");
+      console.log(JSON.stringify(response), "verify otp response");
       if (response.success) {
-        handleVerificationSuccess();
+        handleVerificationSuccess(response.data);
       } else {
         setToastMessage(response.error || response.message || "Invalid OTP. Please try again.");
         setToastType("error");
@@ -187,17 +168,15 @@ export default function OtpScreen() {
     }
   };
 
-  const handleVerificationSuccess = () => {
+  const handleVerificationSuccess = (apiData?: any) => {
     setToastMessage("OTP verified successfully!");
     setToastType("success");
     setShowToast(true);
 
     // Navigate based on flow
-    setTimeout(() => {
+    setTimeout(async () => {
       if (fromForgotPassword) {
         // Navigate to reset password screen with email and OTP
-        // Note: For reset password, we pass the verified OTP. 
-        // If we verified via backend, we pass the user entered OTP.
         router.replace({
           pathname: "/(auth)/reset",
           params: {
@@ -206,8 +185,25 @@ export default function OtpScreen() {
           },
         });
       } else {
-        // Navigate to roles screen (for registration flow)
-        router.replace("/(auth)/roles");
+        try {
+          // If we have data from the verify OTP API (login/token data)
+          if (apiData) {
+            // Add userRole: "student" so the app knows which dashboard to load
+            const authData = {
+              ...apiData,
+              userRole: "student",
+            };
+
+            // Save the complete auth data to AsyncStorage
+            await AsyncStorage.setItem("authData", JSON.stringify(authData));
+          }
+
+          // Navigate directly to student dashboard
+          router.replace("/(dashboard)/student-dashboard" as any);
+        } catch (error) {
+          console.error("Error saving auth data:", error);
+          router.replace("/(dashboard)/student-dashboard" as any);
+        }
       }
     }, 1500);
   };
