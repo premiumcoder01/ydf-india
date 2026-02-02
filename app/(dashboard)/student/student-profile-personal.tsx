@@ -7,7 +7,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Image,
   KeyboardAvoidingView,
@@ -20,6 +20,7 @@ import {
   View
 } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
+import PhoneInput from "react-native-phone-number-input";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface ValidationErrors {
@@ -75,7 +76,7 @@ const SCHEME_OPTIONS = [
 
 const REGISTERING_AS_OPTIONS = ["New Applicant", "Renew Applicant"];
 
-const YEAR_OF_COURSE_OPTIONS = ["23-24", "24-25", "25-26"];
+const YEAR_OF_COURSE_OPTIONS = ["20-21", "21-22", "22-23", "23-24", "24-25", "25-26"];
 
 const BOARD_12TH_OPTIONS = [
   "BSEB(BR)",
@@ -99,16 +100,18 @@ const STREAM_12TH_OPTIONS = [
 
 const PASSING_YEAR_12TH_OPTIONS = ["2024", "2025", "Not Applicable"];
 
+const APPLICATION_YEAR_OPTIONS = ["20-21", "21-22", "22-23", "23-24", "24-25", "25-26"];
+
 export default function StudentProfilePersonalScreen() {
   const { isDark, colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [personalInfo, setPersonalInfo] = useState({
     // General / Personal
     username: "",
-    fullName: "",
     firstName: "",
     lastName: "",
     email: "",
+    phone: "",
     dob: "",
     gender: "",
     religion: "",
@@ -135,6 +138,8 @@ export default function StudentProfilePersonalScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const phoneInput = useRef<PhoneInput>(null);
   const [selectedImageFile, setSelectedImageFile] = useState<any>(null); // Track the selected image file
   const [originalProfileImageUrl, setOriginalProfileImageUrl] = useState(""); // Track original image URL
 
@@ -155,6 +160,7 @@ export default function StudentProfilePersonalScreen() {
   const [showBoard12thPicker, setShowBoard12thPicker] = useState(false);
   const [showStream12thPicker, setShowStream12thPicker] = useState(false);
   const [showPassingYear12thPicker, setShowPassingYear12thPicker] = useState(false);
+  const [showApplicationYearPicker, setShowApplicationYearPicker] = useState(false);
 
 
 
@@ -180,10 +186,15 @@ export default function StudentProfilePersonalScreen() {
               setPersonalInfo((prev) => ({
                 ...prev,
                 username: user.username || prev.username,
-                fullName: user.fullname || `${user.firstname} ${user.lastname}` || prev.fullName,
                 firstName: user.firstname || prev.firstName,
                 lastName: user.lastname || prev.lastName,
                 email: user.email || prev.email,
+                phone: (() => {
+                  let p = user.phone1 || user.phone || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'phone_number')?.value || "";
+                  if (p === "N/A") return "";
+                  if (p && p.startsWith('+91')) return p.replace('+91', '');
+                  return p || prev.phone;
+                })(),
 
                 address: user.address || prev.address,
                 city: user.city || prev.city,
@@ -246,11 +257,20 @@ export default function StudentProfilePersonalScreen() {
   const validatePersonalInfo = (): boolean => {
     const errors: ValidationErrors = {};
 
-    if (!personalInfo.fullName.trim()) {
-      errors.fullName = "Full name is required";
+    if (!personalInfo.firstName.trim()) {
+      errors.firstName = "First name is required";
+    }
+    if (!personalInfo.lastName.trim()) {
+      errors.lastName = "Last name is required";
     }
     if (!validateEmail(personalInfo.email)) {
       errors.email = "Please enter a valid email address";
+    }
+    if (personalInfo.phone) {
+      const cleanPhone = personalInfo.phone.replace(/\D/g, '');
+      if (cleanPhone.length !== 10) {
+        errors.phone = "Enter a valid 10-digit number";
+      }
     }
 
     if (!personalInfo.annualIncome.trim()) errors.annualIncome = "Annual income is required";
@@ -340,9 +360,17 @@ export default function StudentProfilePersonalScreen() {
       }
 
       // Step 2: Update profile with the file ID (if image was uploaded)
+      const { ...rest } = personalInfo;
+
+      // Add +91 to phone if it's just the number
+      let finalPhone = personalInfo.phone;
+      if (finalPhone && finalPhone.replace(/\D/g, '').length === 10 && !finalPhone.startsWith('+')) {
+        finalPhone = `+91${finalPhone.replace(/\D/g, '')}`;
+      }
+
       const payload = {
-        ...personalInfo,
-        phone: "",
+        ...rest,
+        phone: finalPhone,
         profileImageFileId: profileImageFileId // Add file ID to payload
       };
 
@@ -496,27 +524,29 @@ export default function StudentProfilePersonalScreen() {
                 value={personalInfo.username}
                 onChangeText={(val) => handlePersonalInfoChange("username", val)}
                 style={styles.input}
-              />
-              <CustomTextInput
-                label="Full Name *"
-                value={personalInfo.fullName}
-                onChangeText={(val) => handlePersonalInfoChange("fullName", val)}
-                style={styles.input}
-                error={validationErrors.fullName}
+                editable={false}
               />
 
-              <CustomTextInput
-                label="First Name"
-                value={personalInfo.firstName}
-                onChangeText={(val) => handlePersonalInfoChange("firstName", val)}
-                style={[styles.input, { flex: 1, marginRight: 8 }]}
-              />
-              <CustomTextInput
-                label="Last Name"
-                value={personalInfo.lastName}
-                onChangeText={(val) => handlePersonalInfoChange("lastName", val)}
-                style={[styles.input, { flex: 1 }]}
-              />
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <CustomTextInput
+                    label="First Name"
+                    value={personalInfo.firstName}
+                    onChangeText={(val) => handlePersonalInfoChange("firstName", val)}
+                    style={styles.input}
+                    error={validationErrors.firstName}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <CustomTextInput
+                    label="Last Name"
+                    value={personalInfo.lastName}
+                    onChangeText={(val) => handlePersonalInfoChange("lastName", val)}
+                    style={styles.input}
+                    error={validationErrors.lastName}
+                  />
+                </View>
+              </View>
 
               <CustomTextInput
                 label="Email Address *"
@@ -526,7 +556,43 @@ export default function StudentProfilePersonalScreen() {
                 autoCapitalize="none"
                 style={styles.input}
                 error={validationErrors.email}
+                editable={false}
               />
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Phone Number</Text>
+                <View
+                  style={[
+                    styles.phoneContainer,
+                    {
+                      backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9",
+                      borderColor: colors.border
+                    },
+                    validationErrors.phone && styles.phoneError,
+                  ]}
+                >
+                  <PhoneInput
+                    key={personalInfo.phone ? 'loaded' : 'initial'}
+                    ref={phoneInput}
+                    defaultValue={personalInfo.phone}
+                    defaultCode="IN"
+                    layout="second"
+                    onChangeText={(text) => handlePersonalInfoChange("phone", text)}
+                    withDarkTheme={isDark}
+                    withShadow={false}
+                    autoFocus={false}
+                    containerStyle={styles.phoneInputContainer}
+                    textContainerStyle={styles.phoneTextContainer}
+                    textInputStyle={[styles.phoneTextInput, { color: colors.text }]}
+                    codeTextStyle={[styles.phoneCodeText, { color: colors.text }]}
+                    flagButtonStyle={styles.phoneFlagButton}
+                    countryPickerButtonStyle={styles.countryPickerButton}
+                  />
+                </View>
+                {validationErrors.phone && (
+                  <Text style={styles.errorText}>{validationErrors.phone}</Text>
+                )}
+              </View>
 
             </View>
           </View>
@@ -610,13 +676,18 @@ export default function StudentProfilePersonalScreen() {
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <CustomTextInput
-                    label="Application Year"
-                    value={personalInfo.applicationYear}
-                    onChangeText={(val) => handlePersonalInfoChange("applicationYear", val)}
-                    style={styles.input}
-                    placeholder="e.g. 25-26"
-                  />
+                  <View style={styles.inputGroup}>
+                    <Text style={[styles.label, { color: colors.textSecondary }]}>Application Year</Text>
+                    <TouchableOpacity
+                      style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
+                      onPress={() => setShowApplicationYearPicker(true)}
+                    >
+                      <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.applicationYear && styles.placeholderText]}>
+                        {personalInfo.applicationYear || "Select Year"}
+                      </Text>
+                      <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
 
@@ -947,6 +1018,18 @@ export default function StudentProfilePersonalScreen() {
         onSelect={(val: string) => {
           handlePersonalInfoChange("passingYear12th", val);
           setShowPassingYear12thPicker(false);
+        }}
+      />
+
+      <SelectionModal
+        visible={showApplicationYearPicker}
+        onClose={() => setShowApplicationYearPicker(false)}
+        title="Select Application Year"
+        options={APPLICATION_YEAR_OPTIONS}
+        selected={personalInfo.applicationYear}
+        onSelect={(val: string) => {
+          handlePersonalInfoChange("applicationYear", val);
+          setShowApplicationYearPicker(false);
         }}
       />
     </View >
@@ -1358,6 +1441,50 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 10,
     fontStyle: 'italic'
+  },
+  phoneContainer: {
+    borderRadius: 12,
+    borderWidth: 1.5,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+  },
+  phoneError: {
+    borderColor: "#EF4444",
+  },
+  phoneInputContainer: {
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    padding: 0,
+    margin: 0,
+    height: 48,
+    width: '100%',
+  },
+  phoneTextContainer: {
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    padding: 0,
+    margin: 0,
+    height: 48,
+  },
+  phoneTextInput: {
+    fontSize: 16,
+    paddingVertical: 12,
+    backgroundColor: "transparent",
+    height: 48,
+  },
+  phoneCodeText: {
+    fontSize: 16,
+    backgroundColor: "transparent",
+  },
+  phoneFlagButton: {
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    padding: 0,
+    margin: 0,
+  },
+  countryPickerButton: {
+    backgroundColor: "transparent",
+    width: 70,
   },
 });
 

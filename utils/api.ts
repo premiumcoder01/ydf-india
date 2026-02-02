@@ -118,19 +118,80 @@ export const registerUser = async (userData: {
   lastname: string;
   phone: string;
 }): Promise<ApiResponse> => {
-  return apiRequest(
-    "local/mobileapi/registration.php",
-    {
-      username: userData.username,
-      password: userData.password,
-      email: userData.email,
-      emailagain: userData.email, // API requires email confirmation
-      firstname: userData.firstname,
-      lastname: userData.lastname,
-      phone: userData.phone,
-    },
-    "POST"
-  );
+  try {
+    const baseUrl = getApiUrl("local/mobileapi/registration.php");
+    const urlObj = new URL(baseUrl);
+    
+    // Add query parameters
+    urlObj.searchParams.append("username", userData.username);
+    urlObj.searchParams.append("password", userData.password);
+    urlObj.searchParams.append("email", userData.email);
+    urlObj.searchParams.append("emailagain", userData.email); // API requires email confirmation
+    urlObj.searchParams.append("firstname", userData.firstname);
+    urlObj.searchParams.append("lastname", userData.lastname);
+    urlObj.searchParams.append("phone1", userData.phone);
+    
+    const finalUrl = urlObj.toString();
+    console.log("Registration URL:", finalUrl);
+    
+    // Make POST request with query parameters in URL
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    // Get response text first to handle different response types
+    const responseText = await response.text();
+    let data: any = {};
+
+    // Try to parse as JSON
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for inactive account
+      if (data?.errorcode === "accountinactive") {
+        await AsyncStorage.removeItem("authData");
+        router.replace("/(auth)/sign-in");
+        return {
+          success: false,
+          error: "Account inactive",
+          message: "Your account is inactive.",
+        };
+      }
+    } catch (e) {
+      // If not JSON, treat as plain text error
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    // Check if request was successful
+    if (response.ok) {
+      return {
+        success: true,
+        data: data,
+        message: data.message || "Registration successful",
+      };
+    } else {
+      // Handle API errors
+      return {
+        success: false,
+        error: data.error || data.message || data.error_message || "Registration failed",
+        message: data.message || "Registration failed",
+      };
+    }
+  } catch (error: any) {
+    // Handle network errors
+    return {
+      success: false,
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server",
+    };
+  }
 };
 
 /**
@@ -1518,12 +1579,20 @@ export const updateUserProfile = async (
       payload.profileimage_file_id = profileData.profileImageFileId;
     }
 
-    // Date of birth (YYYY-MM-DD)
+    // Date of birth handling
+    let dobTimestamp: string | null = null;
     if (profileData.dob) {
       // Assuming format is DD/MM/YYYY from frontend
       const parts = profileData.dob.split('/');
       if (parts.length === 3) {
+        // YYYY-MM-DD for core field
         payload.date_of_birth = `${parts[2]}-${parts[1]}-${parts[0]}`;
+        
+        // Convert to Unix timestamp for custom field
+        const dateObj = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+        if (!isNaN(dateObj.getTime())) {
+          dobTimestamp = Math.floor(dateObj.getTime() / 1000).toString();
+        }
       }
     }
 
@@ -1537,6 +1606,7 @@ export const updateUserProfile = async (
       }
     };
 
+    addCustomField('DOB', dobTimestamp); // Send DOB as custom field too
     addCustomField('Gender', profileData.gender);
     addCustomField('Religion', profileData.religion);
     addCustomField('Caste', profileData.caste);
@@ -1562,7 +1632,6 @@ export const updateUserProfile = async (
     addCustomField('12th_passing_year', profileData.passingYear12th);
 
     // Add phone as custom field as well based on example
-    addCustomField('phone', profileData.phone);
     addCustomField('phone_number', profileData.phone); // API response showed phone_number as well
 
     if (customFields.length > 0) {

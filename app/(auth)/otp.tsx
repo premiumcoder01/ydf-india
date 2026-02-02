@@ -67,8 +67,13 @@ export default function OtpScreen() {
         setEmail(params.email);
         setFromForgotPassword(true);
 
-        // For reset password flow, we call send OTP as the previous screen only returns the code but may not send it or we want to ensure it's sent
-        await handleSendOtp(params.email);
+        // Set received OTP from params if available
+        const otpParam = Array.isArray(params.otp) ? params.otp[0] : params.otp;
+        if (otpParam) {
+          setReceivedOtp(String(otpParam));
+        }
+
+        // Removed handleSendOtp here because forgotPassword API already sends the email
         return;
       }
 

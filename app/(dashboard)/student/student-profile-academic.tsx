@@ -314,7 +314,7 @@ export default function StudentProfileAcademicScreen() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+          contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 100 }}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.headerRow}>
@@ -406,7 +406,7 @@ export default function StudentProfileAcademicScreen() {
           </View>
 
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-            <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 30 }}>
+            <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 30, paddingBottom: insets.bottom + 60 }}>
               {/* Course & Category */}
               <View style={styles.inputGroup}>
                 <Text style={[styles.label, { color: colors.textSecondary }]}>Course Name *</Text>
@@ -461,7 +461,7 @@ export default function StudentProfileAcademicScreen() {
               <View style={{ flexDirection: 'row', gap: 12 }}>
                 <View style={{ flex: 1 }}>
                   <CustomTextInput
-                    label="GPA / Percentage"
+                    label="GPA"
                     value={editingRecord.gpa}
                     onChangeText={(t) => handleFieldChange("gpa", t)}
                     keyboardType="numeric"

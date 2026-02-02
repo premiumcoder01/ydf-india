@@ -149,6 +149,7 @@ export default function CustomTextInput({
           style={[
             styles.input,
             { color: colors.text },
+            !editable && { opacity: 0.6 },
             inputStyle,
             multiline && { height: 100, textAlignVertical: 'top' }
           ]}
