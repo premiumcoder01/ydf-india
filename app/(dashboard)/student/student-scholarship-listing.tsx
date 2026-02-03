@@ -13,8 +13,10 @@ import {
   FlatList,
   Modal,
   Platform,
+  ScrollView,
   StatusBar,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -60,8 +62,11 @@ export default function ScholarshipListingScreen() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedSort, setSelectedSort] =
     useState<(typeof sortOptions)[number]>("Latest");
-
   const [eligibility, setEligibility] = useState("");
+  const [showExpired, setShowExpired] = useState(false);
+  const [showApplied, setShowApplied] = useState(false);
+  const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
+
   const [bookmarks, setBookmarks] = useState<Record<number, boolean>>({});
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
@@ -204,7 +209,16 @@ export default function ScholarshipListingScreen() {
       const catMatch =
         selectedCategory === "All" || s.category === selectedCategory;
 
-      const deadlineMatch = true; // Removed deadline filter
+      // Expired Filter
+      const isExpired = s.expired === true;
+      const expiredMatch = showExpired ? true : !isExpired;
+
+      // Applied Filter
+      const appliedMatch = showApplied ? s.has_applied === true : true;
+
+      // Bookmarked Filter
+      const isBookmarked = s.bookmarked || bookmarks[s.id];
+      const bookmarkMatch = showBookmarkedOnly ? isBookmarked : true;
 
       // Eligibility filter (search in description)
       const descriptionText = stripHtml(s.description || "").toLowerCase();
@@ -213,10 +227,7 @@ export default function ScholarshipListingScreen() {
         descriptionText.includes(eligibility.trim().toLowerCase()) ||
         (s.category && s.category.toLowerCase().includes(eligibility.trim().toLowerCase()));
 
-      // Amount filter - Note: API doesn't provide amount, so we skip this
-      // If you need amount filtering, you'll need to add it to the API response
-
-      return catMatch && deadlineMatch && eligMatch;
+      return catMatch && expiredMatch && appliedMatch && bookmarkMatch && eligMatch;
     });
 
     // Sorting
@@ -245,6 +256,10 @@ export default function ScholarshipListingScreen() {
     selectedCategory,
     selectedSort,
     eligibility,
+    showExpired,
+    showApplied,
+    showBookmarkedOnly,
+    bookmarks
   ]);
 
   const loadMore = useCallback(() => {
@@ -383,6 +398,9 @@ export default function ScholarshipListingScreen() {
     setSelectedCategory("All");
     setEligibility("");
     setSelectedSort("Latest");
+    setShowExpired(false);
+    setShowApplied(false);
+    setShowBookmarkedOnly(false);
   }, []);
 
   const applyFilters = useCallback(() => {
@@ -410,11 +428,13 @@ export default function ScholarshipListingScreen() {
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (selectedCategory !== "All") count++;
-    // Removed deadline filter
     if (eligibility) count++;
     if (selectedSort !== "Latest") count++;
+    if (showExpired) count++;
+    if (showApplied) count++;
+    if (showBookmarkedOnly) count++;
     return count;
-  }, [selectedCategory, eligibility, selectedSort]);
+  }, [selectedCategory, eligibility, selectedSort, showExpired, showApplied, showBookmarkedOnly]);
 
   const Header = (
     <View>
@@ -627,8 +647,18 @@ export default function ScholarshipListingScreen() {
           title="Scholarships"
           onBack={() => router.back()}
           rightIcon={
-            <TouchableOpacity onPress={openFilters} style={[styles.filterIconBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" }]}>
-              <Ionicons name="options-outline" size={22} color={colors.text} />
+            <TouchableOpacity
+              onPress={openFilters}
+              style={[
+                styles.filterIconBtn,
+                { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" }
+              ]}
+            >
+              <Ionicons
+                name="filter-circle-outline"
+                size={28}
+                color={activeFiltersCount > 0 ? colors.primary : colors.text}
+              />
               {activeFiltersCount > 0 && (
                 <View style={styles.filterBadge}>
                   <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
@@ -683,136 +713,123 @@ export default function ScholarshipListingScreen() {
 
       <Modal
         visible={showFilters}
-        animationType="fade"
-        transparent
+        animationType="slide"
+        presentationStyle="fullScreen"
         onRequestClose={closeFilters}
-        statusBarTranslucent
       >
-        <View style={styles.modalBackdrop}>
-          <TouchableOpacity
-            style={styles.backdropTouchable}
-            activeOpacity={1}
-            onPress={closeFilters}
-          />
-          <Animated.View
-            style={[
-              styles.modalSheet,
-              { transform: [{ translateY: modalTranslateY }], backgroundColor: colors.surface },
-            ]}
-          >
-            <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
-
-            {/* Header */}
-            <View style={styles.sheetHeader}>
-              <View>
-                <Text style={[styles.sheetTitle, { color: colors.text }]}>Filters & Sorting</Text>
-                <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]}>
-                  Refine your scholarship search
-                </Text>
-              </View>
-              {activeFiltersCount > 0 && (
-                <View style={styles.activeFiltersBadge}>
-                  <Text style={styles.activeFiltersText}>
-                    {activeFiltersCount}
-                  </Text>
-                </View>
-              )}
+        <View style={[styles.fullScreenModal, { backgroundColor: colors.surface }]}>
+          {/* Header */}
+          <View style={[styles.modalHeader, { paddingTop: inset.top + 10, backgroundColor: isDark ? "#1E1E1E" : "#fff", borderBottomColor: colors.border }]}>
+            <View style={styles.modalHeaderTop}>
+              <TouchableOpacity onPress={closeFilters} style={styles.closeBtn}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Filters</Text>
+              <TouchableOpacity onPress={clearFilters}>
+                <Text style={[styles.resetText, { color: colors.primary }]}>Reset</Text>
+              </TouchableOpacity>
             </View>
+          </View>
 
+          <ScrollView
+            contentContainerStyle={[styles.modalScrollContent, { paddingBottom: inset.bottom + 100 }]}
+            showsVerticalScrollIndicator={false}
+          >
             {/* Category Section */}
-            <View style={[styles.filterSection, styles.filterCard, { backgroundColor: isDark ? colors.card : 'rgba(255,255,255,0.5)', borderColor: colors.border }]}>
-              <View style={styles.sectionHeaderRow}>
-                <View style={[styles.iconCircle, { backgroundColor: isDark ? 'rgba(76, 175, 80, 0.15)' : '#E8F5E9' }]}>
-                  <Ionicons name="grid-outline" size={18} color="#4CAF50" />
-                </View>
-                <Text style={[styles.sectionLabel, { color: colors.text }]}>Category</Text>
-              </View>
-              <FlatList
-                data={categories}
-                keyExtractor={(item) => item}
-                renderItem={({ item }) => (
+            <View style={[styles.filterSection, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.filterSectionTitle, { color: colors.text }]}>State / Category</Text>
+              <View style={styles.chipContainer}>
+                {categories.map((cat) => (
                   <TouchableOpacity
-                    onPress={() => setSelectedCategory(item)}
+                    key={cat}
+                    onPress={() => setSelectedCategory(cat)}
                     style={[
-                      styles.categoryChip,
-                      { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#fff", borderColor: colors.border },
-                      selectedCategory === item && [styles.categoryChipActive, { backgroundColor: colors.primary, borderColor: colors.primary }],
+                      styles.filterChip,
+                      { borderColor: colors.border, backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f9fa" },
+                      selectedCategory === cat && { backgroundColor: colors.primary, borderColor: colors.primary }
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.categoryText,
-                        { color: colors.textSecondary },
-                        selectedCategory === item && [styles.categoryTextActive, { color: "#fff" }],
-                      ]}
-                    >
-                      {item}
+                    <Text style={[
+                      styles.filterChipText,
+                      { color: isDark ? colors.text : "#555" },
+                      selectedCategory === cat && { color: "#fff", fontWeight: "700" }
+                    ]}>
+                      {cat}
                     </Text>
                   </TouchableOpacity>
-                )}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.categoryScroll}
-              />
+                ))}
+              </View>
             </View>
 
+            {/* Status Section */}
+            <View style={[styles.filterSection, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.filterSectionTitle, { color: colors.text, marginBottom: 16 }]}>Status & Availability</Text>
 
-
-            {/* Eligibility Section */}
-            <View style={[styles.filterSection, styles.filterCard, { backgroundColor: isDark ? colors.card : 'rgba(255,255,255,0.5)', borderColor: colors.border }]}>
-              <View style={styles.sectionHeaderRow}>
-                <View style={[styles.iconCircle, { backgroundColor: isDark ? 'rgba(255, 152, 0, 0.15)' : '#FFF3E0' }]}>
-                  <Ionicons
-                    name="shield-checkmark-outline"
-                    size={18}
-                    color="#FF9800"
-                  />
+              <View style={styles.switchRow}>
+                <View style={styles.switchInfo}>
+                  <Text style={[styles.switchLabel, { color: colors.text }]}>Show Expired</Text>
+                  <Text style={[styles.switchSubLabel, { color: colors.textSecondary }]}>Include past scholarships</Text>
                 </View>
-                <Text style={[styles.sectionLabel, { color: colors.text }]}>Eligibility Keywords</Text>
-              </View>
-              <View style={[styles.inputContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#fff", borderColor: colors.border }]}>
-                <Ionicons
-                  name="search-outline"
-                  size={18}
-                  color={colors.textSecondary}
-                  style={styles.inputIcon}
+                <Switch
+                  value={showExpired}
+                  onValueChange={setShowExpired}
+                  trackColor={{ false: "#e0e0e0", true: colors.primary + "80" }}
+                  thumbColor={showExpired ? colors.primary : "#f4f3f4"}
                 />
-                <TextInput
-                  value={eligibility}
-                  onChangeText={setEligibility}
-                  placeholder="e.g., STEM, GPA, Female"
-                  style={[styles.filterInput, styles.fullWidthInput, { color: colors.text }]}
-                  placeholderTextColor={colors.textSecondary}
+              </View>
+
+              <View style={styles.switchRow}>
+                <View style={styles.switchInfo}>
+                  <Text style={[styles.switchLabel, { color: colors.text }]}>Applied Only</Text>
+                  <Text style={[styles.switchSubLabel, { color: colors.textSecondary }]}>Show only applications submitted</Text>
+                </View>
+                <Switch
+                  value={showApplied}
+                  onValueChange={setShowApplied}
+                  trackColor={{ false: "#e0e0e0", true: colors.primary + "80" }}
+                  thumbColor={showApplied ? colors.primary : "#f4f3f4"}
+                />
+              </View>
+
+              <View style={styles.switchRow}>
+                <View style={styles.switchInfo}>
+                  <Text style={[styles.switchLabel, { color: colors.text }]}>Bookmarked</Text>
+                  <Text style={[styles.switchSubLabel, { color: colors.textSecondary }]}>Show saved scholarships</Text>
+                </View>
+                <Switch
+                  value={showBookmarkedOnly}
+                  onValueChange={setShowBookmarkedOnly}
+                  trackColor={{ false: "#e0e0e0", true: colors.primary + "80" }}
+                  thumbColor={showBookmarkedOnly ? colors.primary : "#f4f3f4"}
                 />
               </View>
             </View>
 
             {/* Sort Section */}
-            <View style={[styles.filterSection, styles.filterCard, { backgroundColor: isDark ? colors.card : 'rgba(255,255,255,0.5)', borderColor: colors.border }]}>
-              <View style={styles.sectionHeaderRow}>
-                <View style={[styles.iconCircle, { backgroundColor: isDark ? 'rgba(156, 39, 176, 0.15)' : '#F3E5F5' }]}>
-                  <Ionicons name="swap-vertical-outline" size={18} color="#9C27B0" />
-                </View>
-                <Text style={[styles.sectionLabel, { color: colors.text }]}>Sort By</Text>
-              </View>
-              <View style={styles.sortRow}>
+            <View style={[styles.filterSection, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.filterSectionTitle, { color: colors.text }]}>Sort By</Text>
+              <View style={styles.chipContainer}>
                 {sortOptions.map((opt) => (
                   <TouchableOpacity
                     key={opt}
                     onPress={() => setSelectedSort(opt)}
                     style={[
-                      styles.sortChip,
-                      { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#fff", borderColor: colors.border },
-                      selectedSort === opt && [styles.sortChipActive, { backgroundColor: colors.primary, borderColor: colors.primary }],
+                      styles.filterChip,
+                      { borderColor: colors.border, backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f9fa", width: '48%' },
+                      selectedSort === opt && { backgroundColor: colors.primary, borderColor: colors.primary }
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.sortText,
-                        { color: colors.textSecondary },
-                        selectedSort === opt && [styles.sortTextActive, { color: "#fff" }],
-                      ]}
-                    >
+                    <Ionicons
+                      name={opt === "Latest" ? "time-outline" : "hourglass-outline"}
+                      size={16}
+                      color={selectedSort === opt ? "#fff" : colors.textSecondary}
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text style={[
+                      styles.filterChipText,
+                      { color: isDark ? colors.text : "#555" },
+                      selectedSort === opt && { color: "#fff", fontWeight: "700" }
+                    ]}>
                       {opt}
                     </Text>
                   </TouchableOpacity>
@@ -820,24 +837,34 @@ export default function ScholarshipListingScreen() {
               </View>
             </View>
 
-            {/* Actions */}
-            <View style={[styles.sheetActions, { borderTopColor: colors.border }]}>
-              <TouchableOpacity onPress={clearFilters} style={[styles.clearBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" }]}>
-                <Ionicons name="refresh-outline" size={20} color={colors.textSecondary} />
-                <Text style={[styles.clearBtnText, { color: colors.textSecondary }]}>Clear All</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={applyFilters}
-                style={styles.applyBtnSheet}
-              >
-                <Text style={styles.applyBtnSheetText}>Apply Filters</Text>
-                <Ionicons name="checkmark-outline" size={20} color="#fff" />
-              </TouchableOpacity>
+            {/* Keywords Section */}
+            <View style={[styles.filterSection, { borderBottomWidth: 0 }]}>
+              <Text style={[styles.filterSectionTitle, { color: colors.text }]}>Keywords</Text>
+              <View style={[styles.inputContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f9fa", borderColor: colors.border }]}>
+                <Ionicons name="search-outline" size={20} color={colors.textSecondary} style={{ marginRight: 10 }} />
+                <TextInput
+                  value={eligibility}
+                  onChangeText={setEligibility}
+                  placeholder="e.g. Merit, Sports, 10th Pass"
+                  placeholderTextColor={colors.textSecondary}
+                  style={[styles.filterInput, { color: colors.text }]}
+                />
+              </View>
             </View>
-          </Animated.View>
+
+          </ScrollView>
+
+          {/* Footer Actions */}
+          <View style={[styles.modalFooter, { paddingBottom: inset.bottom + 20, backgroundColor: isDark ? "#1E1E1E" : "#fff", borderTopColor: colors.border }]}>
+            <TouchableOpacity
+              onPress={applyFilters}
+              style={[styles.applyFab, { backgroundColor: colors.primary }]}
+            >
+              <Text style={styles.applyFabText}>Show Results</Text>
+              <Ionicons name="arrow-forward" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
-
-
       </Modal>
 
 
@@ -1139,9 +1166,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
-  filterSection: {
-    marginBottom: 16,
-  },
   filterCard: {
     marginHorizontal: 16,
     padding: 16,
@@ -1302,5 +1326,105 @@ const styles = StyleSheet.create({
   loadingText: {
     color: "#999",
     fontSize: 14,
+  },
+  // Modal Styles
+  fullScreenModal: {
+    flex: 1,
+  },
+  modalHeader: {
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+  },
+  modalHeaderTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  closeBtn: {
+    padding: 4,
+    marginLeft: -4,
+  },
+  resetText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalScrollContent: {
+    padding: 24,
+  },
+  filterSection: {
+    marginBottom: 32,
+    borderBottomWidth: 1,
+    paddingBottom: 32,
+  },
+  filterSectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+  chipContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  filterChipText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  switchInfo: {
+    flex: 1,
+    marginRight: 16,
+  },
+  switchLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  switchSubLabel: {
+    fontSize: 13,
+  },
+  modalFooter: {
+    padding: 20,
+    borderTopWidth: 1,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  applyFab: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 18,
+    borderRadius: 16,
+    gap: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  applyFabText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
   },
 });

@@ -4,7 +4,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { OtpInput } from "react-native-otp-entry";
 
 export default function OtpScreen() {
@@ -222,54 +230,71 @@ export default function OtpScreen() {
         locations={[0, 1]}
       />
 
-      <View style={styles.content}>
-        {/* Header Section */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Enter OTP</Text>
-          <Text style={styles.subtitle}>
-            We have sent a 6-digit code to your email{email ? ` (${email})` : ""}
-          </Text>
-        </View>
-
-        {/* Card */}
-        <View style={styles.card}>
-          {/* OTP Input */}
-          <OtpInput
-            numberOfDigits={6}
-            focusColor="#fff"
-            onTextChange={(text) => setOtp(text)}
-            theme={{
-              containerStyle: styles.otpContainer,
-              pinCodeContainerStyle: styles.otpBox,
-              focusedPinCodeContainerStyle: styles.otpBoxFocused,
-              pinCodeTextStyle: styles.otpText,
-            }}
-          />
-
-          {/* Verify Button */}
-          <Button
-            title={loading ? "Verifying..." : "Verify"}
-            onPress={handleVerify}
-            variant="primary"
-            disabled={loading || otp.length !== 6}
-            forceLight={true}
-          />
-
-          {/* Resend Link */}
-          <View style={styles.resendContainer}>
-            <Text style={styles.resendQuestion}>Didn't receive the code?</Text>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={handleResend}
-              disabled={resending}
-            >
-              <Text style={[styles.resendLink, resending && styles.resendLinkDisabled]}>
-                {resending ? "Sending..." : "Resend"}
-              </Text>
-            </TouchableOpacity>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Header Section */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Enter OTP</Text>
+            <Text style={styles.subtitle}>
+              We have sent a 6-digit code to your email
+              {email ? ` (${email})` : ""}
+            </Text>
           </View>
-        </View>
-      </View>
+
+          {/* Card */}
+          <View style={styles.card}>
+            {/* OTP Input */}
+            <OtpInput
+              numberOfDigits={6}
+              focusColor="#fff"
+              onTextChange={(text) => setOtp(text)}
+              theme={{
+                containerStyle: styles.otpContainer,
+                pinCodeContainerStyle: styles.otpBox,
+                focusedPinCodeContainerStyle: styles.otpBoxFocused,
+                pinCodeTextStyle: styles.otpText,
+              }}
+            />
+
+            {/* Verify Button */}
+            <Button
+              title={loading ? "Verifying..." : "Verify"}
+              onPress={handleVerify}
+              variant="primary"
+              disabled={loading || otp.length !== 6}
+              forceLight={true}
+            />
+
+            {/* Resend Link */}
+            <View style={styles.resendContainer}>
+              <Text style={styles.resendQuestion}>
+                Didn't receive the code?
+              </Text>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={handleResend}
+                disabled={resending}
+              >
+                <Text
+                  style={[
+                    styles.resendLink,
+                    resending && styles.resendLinkDisabled,
+                  ]}
+                >
+                  {resending ? "Sending..." : "Resend"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Toast Notification */}
       <Toast
@@ -295,8 +320,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     right: 0,
   },
-  content: {
-    flex: 1,
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: "center",
     paddingHorizontal: 24,
     paddingVertical: 40,

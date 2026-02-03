@@ -245,7 +245,7 @@ export default function SignInScreen() {
       // Call social login API with DigiLocker access token
       console.log("🔄 Calling social login with DigiLocker token...", token);
       console.log("✅ DigiLocker user info received:", userInfo);
-      
+
 
       // Prefer email from user info; fallback to token, else generate placeholder.
       let userEmail = (userInfo as any).email || (token as any).email;

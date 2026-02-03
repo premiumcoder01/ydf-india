@@ -3,7 +3,7 @@ import { registerUser } from "@/utils/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, router } from "expo-router";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import {
   Image,
   KeyboardAvoidingView,
@@ -11,10 +11,12 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import PhoneInput from "react-native-phone-number-input";
+
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function SignUpScreen() {
   const [firstName, setFirstName] = useState("");
@@ -35,7 +37,9 @@ export default function SignUpScreen() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState("");
   const [showToast, setShowToast] = useState(false);
-  const phoneInput = useRef<PhoneInput>(null);
+
+  const inset = useSafeAreaInsets();
+
 
   // Generate username from firstname + lastname + random number
   const generateUsername = (first: string, last: string): string => {
@@ -54,16 +58,31 @@ export default function SignUpScreen() {
       password?: string;
       confirmPassword?: string;
     } = {};
-    const emailRegex = /^(?:[^\s@]+@[^\s@]+\.[^\s@]+)$/;
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
     if (firstName.trim().length < 2)
       nextErrors.firstName = "Enter your first name";
     if (lastName.trim().length < 2)
       nextErrors.lastName = "Enter your last name";
-    if (!emailRegex.test(email)) nextErrors.email = "Enter a valid email";
-    if (!phoneInput.current?.isValidNumber(phone))
-      nextErrors.phone = "Enter a valid phone number";
-    if (password.length < 6) nextErrors.password = "Minimum 6 characters";
+    // Strict check for common domain typos
+    const lowerEmail = email.toLowerCase();
+    if (!emailRegex.test(email)) {
+      nextErrors.email = "Enter a valid email";
+    } else if (
+      lowerEmail.includes("@gmail.") &&
+      !lowerEmail.endsWith("@gmail.com")
+    ) {
+      nextErrors.email = "Did you mean @gmail.com?";
+    }
+    const phoneRegex = /^[6-9]\d{9}$/;
+    if (!phoneRegex.test(phone))
+      nextErrors.phone = "Enter a valid 10-digit mobile number";
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._-])[A-Za-z\d@$!%*?&._-]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      nextErrors.password =
+        "Password must be at least 8 chars with 1 uppercase, 1 lowercase, 1 number, & 1 special char";
+    }
     if (confirmPassword.length < 6)
       nextErrors.confirmPassword = "Minimum 6 characters";
     if (
@@ -89,8 +108,11 @@ export default function SignUpScreen() {
       // Generate username
       const username = generateUsername(firstName, lastName);
 
-      // Get phone number without country code formatting
-      const phoneNumber = phone.replace(/\D/g, ""); // Remove all non-digits
+      // Get phone number with country code
+      let phoneNumber = phone.replace(/\D/g, ""); // Remove all non-digits
+      if (phoneNumber.length === 10) {
+        phoneNumber = "91" + phoneNumber;
+      }
 
       // Call registration API
       const response = await registerUser({
@@ -127,7 +149,7 @@ export default function SignUpScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: inset.bottom, paddingTop: inset.top }]}>
       {/* Gradient Background */}
       <LinearGradient
         colors={["#fff", "#fff", "#f2c44d"]}
@@ -208,25 +230,37 @@ export default function SignUpScreen() {
                   errors.phone && styles.phoneError,
                 ]}
               >
-                <PhoneInput
-                  ref={phoneInput}
-                  defaultValue={phone}
-                  defaultCode="IN"
-                  layout="second"
-                  onChangeText={setPhone}
-                  onChangeFormattedText={(text) => {
-                    setPhone(text);
-                  }}
-                  withDarkTheme={false}
-                  withShadow={false}
-                  autoFocus={false}
-                  containerStyle={styles.phoneInputContainer}
-                  textContainerStyle={styles.phoneTextContainer}
-                  textInputStyle={styles.phoneTextInput}
-                  codeTextStyle={styles.phoneCodeText}
-                  flagButtonStyle={styles.phoneFlagButton}
-                  countryPickerButtonStyle={styles.countryPickerButton}
-                />
+                <View style={{ flexDirection: "row", alignItems: "center", height: 48 }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginRight: 10,
+                      paddingRight: 10,
+                      borderRightWidth: 1,
+                      borderRightColor: "rgba(51, 51, 51, 0.1)",
+                    }}
+                  >
+                    <Text style={{ fontSize: 20 }}>🇮🇳</Text>
+                    <Text style={{ fontSize: 16, fontWeight: "600", color: "#333", marginLeft: 8 }}>+91</Text>
+                  </View>
+                  <TextInput
+                    style={[styles.phoneTextInput, { flex: 1 }]}
+                    value={phone}
+                    onChangeText={(text) => {
+                      const numeric = text.replace(/[^0-9]/g, "");
+                      if (numeric.length <= 10) {
+                        setPhone(numeric);
+                      }
+                    }}
+                    onFocus={() => setFocusedField("phone")}
+                    onBlur={() => setFocusedField(null)}
+                    placeholder="Mobile Number"
+                    placeholderTextColor="rgba(51, 51, 51, 0.4)"
+                    keyboardType="number-pad"
+                    maxLength={10}
+                  />
+                </View>
               </View>
               {errors.phone && (
                 <Text style={styles.errorText}>{errors.phone}</Text>
@@ -247,6 +281,10 @@ export default function SignUpScreen() {
               showPasswordToggle={true}
               forceLight={true}
             />
+            <Text style={styles.passwordHelper}>
+              Must be at least 8 chars, including 1 uppercase, 1 lowercase, 1
+              number, and 1 special char.
+            </Text>
 
             {/* Confirm Password Input */}
             <CustomTextInput
@@ -265,7 +303,7 @@ export default function SignUpScreen() {
 
             {/* Create Account Button */}
             <Button
-              title={submitting ? "Creating account..." : "Create account"}
+              title={submitting ? "Register account..." : "Register"}
               onPress={onSubmit}
               disabled={submitting}
               loading={submitting}
@@ -273,65 +311,7 @@ export default function SignUpScreen() {
               forceLight={true}
             />
 
-            {/* Divider */}
-            {/* <View style={styles.dividerContainer}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or continue with</Text>
-              <View style={styles.dividerLine} />
-            </View> */}
 
-            {/* Social Buttons */}
-            {/* <View style={styles.socialContainer}>
-              <Button
-                title=""
-                onPress={async () => {
-                  router.push("/(auth)/roles");
-                }}
-                variant="social"
-                style={styles.socialButton}
-              >
-                <Ionicons name="logo-google" size={20} color="#333" />
-              </Button>
-
-              <Button
-                title=""
-                onPress={async () => {
-                  router.push("/(auth)/roles");
-                }}
-                variant="social"
-                style={styles.socialButton}
-              >
-                <Ionicons name="logo-linkedin" size={20} color="#333" />
-              </Button>
-
-              {Platform.OS === 'ios' && (
-                <Button
-                  title=""
-                  onPress={async () => {
-                    router.push("/(auth)/roles");
-                  }}
-                  variant="social"
-                  style={styles.socialButton}
-                  forceLight={true}
-                >
-                  <Ionicons name="logo-apple" size={20} color="#333" />
-                </Button>
-              )}
-
-              <Button
-                title=""
-                onPress={async () => {
-                  router.push("/(auth)/roles");
-                }}
-                variant="social"
-                style={styles.socialButton}
-              >
-                <Image
-                  source={require("../../assets/appImages/digi.png")}
-                  style={{ width: 25, height: 25, tintColor: "#333" }}
-                />
-              </Button>
-            </View> */}
           </View>
 
           {/* Sign In Link */}
@@ -451,7 +431,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   errorText: {
-    color: "#FCA5A5",
+    color: "rgba(239, 68, 68, 1)",
     fontSize: 13,
     marginTop: 6,
     fontWeight: "500",
@@ -565,19 +545,12 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     height: 48,
   },
-  phoneCodeText: {
-    fontSize: 16,
-    color: "#333",
-    backgroundColor: "transparent",
-  },
-  phoneFlagButton: {
-    backgroundColor: "transparent",
-    borderWidth: 0,
-    padding: 0,
-    margin: 0,
-  },
-  countryPickerButton: {
-    backgroundColor: "transparent",
-    width: 70,
+
+  passwordHelper: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 4,
+    marginBottom: 16,
+    marginLeft: 4,
   },
 });

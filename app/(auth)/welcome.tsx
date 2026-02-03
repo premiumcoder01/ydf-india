@@ -3,10 +3,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Link } from "expo-router";
 import { useEffect, useRef } from "react";
 import { Animated, Image, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function WelcomeScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
+  const inset = useSafeAreaInsets();
 
   useEffect(() => {
     Animated.parallel([
@@ -24,7 +26,7 @@ export default function WelcomeScreen() {
   }, []);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: inset.bottom }]}>
       {/* Gradient Background */}
       <LinearGradient
         colors={["#fff", "#fff", "#f2c44d"]}
