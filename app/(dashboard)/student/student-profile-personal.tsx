@@ -295,9 +295,50 @@ export default function StudentProfilePersonalScreen() {
     return Object.keys(errors).length === 0;
   };
 
-  const handleImagePick = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  const [showImageOptions, setShowImageOptions] = useState(false);
+  const [showImagePreview, setShowImagePreview] = useState(false);
+  const [previewImageUri, setPreviewImageUri] = useState("");
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
+  const handleImageOptions = () => {
+    setShowImageOptions(true);
+  };
+
+  const handleTakePhoto = async () => {
+    setShowImageOptions(false);
+
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      setToastMessage("Camera permission is required to take photos");
+      setToastType("error");
+      setShowToast(true);
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+      cameraType: ImagePicker.CameraType.front,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const asset = result.assets[0];
+      setPreviewImageUri(asset.uri);
+      setSelectedImageFile({
+        uri: asset.uri,
+        name: asset.fileName || `photo_${Date.now()}.jpg`,
+        type: asset.type || 'image/jpeg',
+        mimeType: asset.type || 'image/jpeg',
+      });
+      setShowImagePreview(true);
+    }
+  };
+
+  const handlePickFromGallery = async () => {
+    setShowImageOptions(false);
+
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       setToastMessage("Permission to access gallery is required");
       setToastType("error");
@@ -314,16 +355,63 @@ export default function StudentProfilePersonalScreen() {
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const asset = result.assets[0];
-      // Store the complete file object for upload
+      setPreviewImageUri(asset.uri);
       setSelectedImageFile({
         uri: asset.uri,
-        name: asset.fileName || 'profile.jpg',
+        name: asset.fileName || `image_${Date.now()}.jpg`,
         type: asset.type || 'image/jpeg',
         mimeType: asset.type || 'image/jpeg',
       });
-      // Update UI with the new image
-      setPersonalInfo(prev => ({ ...prev, profileImageUrl: asset.uri }));
-      setHasUnsavedChanges(true);
+      setShowImagePreview(true);
+    }
+  };
+
+  const handleUpdateProfileImage = async () => {
+    if (!selectedImageFile) return;
+
+    setIsUploadingImage(true);
+    try {
+      const authDataStr = await AsyncStorage.getItem("authData");
+      if (!authDataStr) throw new Error("Authentication session expired");
+
+      const authData = JSON.parse(authDataStr);
+      if (!authData.token) throw new Error("Invalid session token");
+
+      console.log("Uploading profile image...");
+      const uploadResponse = await uploadProfileImage(authData.token, selectedImageFile);
+
+      if (uploadResponse.success && uploadResponse.data?.id) {
+        const profileImageFileId = uploadResponse.data.id;
+        console.log("Profile image uploaded successfully. File ID:", profileImageFileId);
+
+        // Update profile with the new image file ID
+        const payload = {
+          profileImageFileId: profileImageFileId
+        };
+
+        const response = await updateUserProfile(authData.token, payload);
+
+        if (response.success) {
+          // Update UI with new image
+          setPersonalInfo(prev => ({ ...prev, profileImageUrl: previewImageUri }));
+          setSelectedImageFile(null);
+          setShowImagePreview(false);
+          setToastMessage("Profile image updated successfully");
+          setToastType("success");
+          setShowToast(true);
+        } else {
+          throw new Error(response.error || "Failed to update profile");
+        }
+      } else {
+        throw new Error(uploadResponse.error || uploadResponse.message || "Failed to upload profile image");
+      }
+    } catch (error: any) {
+      console.error("Image upload error:", error);
+      setToastMessage(error.message || "Failed to update profile image");
+      setToastType("error");
+      setShowToast(true);
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 
@@ -345,22 +433,7 @@ export default function StudentProfilePersonalScreen() {
       const authData = JSON.parse(authDataStr);
       if (!authData.token) throw new Error("Invalid session token");
 
-      let profileImageFileId = null;
-
-      // Step 1: Upload profile image if a new one was selected
-      if (selectedImageFile) {
-        console.log("Uploading new profile image...");
-        const uploadResponse = await uploadProfileImage(authData.token, selectedImageFile);
-
-        if (uploadResponse.success && uploadResponse.data?.id) {
-          profileImageFileId = uploadResponse.data.id; // Use 'id' not 'file_id'
-          console.log("Profile image uploaded successfully. File ID:", profileImageFileId);
-        } else {
-          throw new Error(uploadResponse.error || uploadResponse.message || "Failed to upload profile image");
-        }
-      }
-
-      // Step 2: Update profile with the file ID (if image was uploaded)
+      // Update profile with personal information
       const { ...rest } = personalInfo;
 
       // Add 91 to phone if it's just the 10-digit number
@@ -374,14 +447,12 @@ export default function StudentProfilePersonalScreen() {
       const payload = {
         ...rest,
         phone: finalPhone,
-        profileImageFileId: profileImageFileId // Add file ID to payload
       };
 
       const response = await updateUserProfile(authData.token, payload);
 
       if (response.success) {
         setHasUnsavedChanges(false);
-        setSelectedImageFile(null); // Clear selected file after successful save
         setToastMessage("Personal information updated successfully");
         setToastType("success");
         setShowToast(true);
@@ -491,7 +562,7 @@ export default function StudentProfilePersonalScreen() {
           <View style={styles.profileSection}>
             <TouchableOpacity
               style={styles.imageContainer}
-              onPress={handleImagePick}
+              onPress={handleImageOptions}
               activeOpacity={0.8}
             >
               {personalInfo?.profileImageUrl !== "" ? (
@@ -1035,6 +1106,112 @@ export default function StudentProfilePersonalScreen() {
           setShowApplicationYearPicker(false);
         }}
       />
+
+      {/* Image Options Modal */}
+      <Modal
+        visible={showImageOptions}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowImageOptions(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            onPress={() => setShowImageOptions(false)}
+            activeOpacity={1}
+          />
+          <View style={[styles.imageOptionsContent, { backgroundColor: colors.surface, borderColor: colors.border, paddingBottom: insets.bottom || 20 }]}>
+            <View style={styles.imageOptionsHandle}>
+              <View style={[styles.handleBar, { backgroundColor: colors.border }]} />
+            </View>
+
+            <Text style={[styles.imageOptionsTitle, { color: colors.text }]}>Change Profile Picture</Text>
+
+            <TouchableOpacity
+              style={[styles.imageOptionButton, { borderBottomColor: colors.border }]}
+              onPress={handleTakePhoto}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="camera" size={24} color={colors.primary} />
+              <Text style={[styles.imageOptionText, { color: colors.text }]}>Take Photo</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.imageOptionButton, { borderBottomColor: colors.border }]}
+              onPress={handlePickFromGallery}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="images" size={24} color={colors.primary} />
+              <Text style={[styles.imageOptionText, { color: colors.text }]}>Choose from Gallery</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.imageOptionButton}
+              onPress={() => setShowImageOptions(false)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close-circle" size={24} color={colors.textSecondary} />
+              <Text style={[styles.imageOptionText, { color: colors.textSecondary }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Image Preview Modal */}
+      <Modal
+        visible={showImagePreview}
+        transparent
+        animationType="slide"
+        onRequestClose={() => !isUploadingImage && setShowImagePreview(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            onPress={() => !isUploadingImage && setShowImagePreview(false)}
+            activeOpacity={1}
+            disabled={isUploadingImage}
+          />
+          <View style={[styles.imagePreviewContent, { backgroundColor: colors.surface, paddingBottom: insets.bottom || 20 }]}>
+            <View style={styles.imageOptionsHandle}>
+              <View style={[styles.handleBar, { backgroundColor: colors.border }]} />
+            </View>
+
+            <View style={[styles.imagePreviewHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.imagePreviewTitle, { color: colors.text }]}>Preview</Text>
+              {!isUploadingImage && (
+                <TouchableOpacity onPress={() => setShowImagePreview(false)}>
+                  <Ionicons name="close" size={24} color={colors.textSecondary} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={styles.imagePreviewBody}>
+              {previewImageUri ? (
+                <Image
+                  source={{ uri: previewImageUri }}
+                  style={styles.previewImage}
+                />
+              ) : null}
+            </View>
+
+            <View style={styles.imagePreviewFooter}>
+              <Button
+                title={isUploadingImage ? "Uploading..." : "Update Profile Image"}
+                onPress={handleUpdateProfileImage}
+                disabled={isUploadingImage}
+                loading={isUploadingImage}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Toast
+        visible={showToast}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setShowToast(false)}
+      />
     </View >
   );
 }
@@ -1489,10 +1666,78 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     width: 70,
   },
+  // Image Options Modal Styles
+  imageOptionsContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    width: "100%",
+    position: "absolute",
+    bottom: 0,
+  },
+  imageOptionsHandle: {
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#ddd",
+  },
+  imageOptionsTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    textAlign: "center",
+  },
+  imageOptionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    gap: 16,
+    borderBottomWidth: 1,
+  },
+  imageOptionText: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  // Image Preview Modal Styles
+  imagePreviewContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    width: "100%",
+    position: "absolute",
+    bottom: 0,
+    maxHeight: "90%",
+  },
+  imagePreviewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+    borderBottomWidth: 1,
+  },
+  imagePreviewTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  imagePreviewBody: {
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  previewImage: {
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    borderWidth: 3,
+    borderColor: "#f2c44d",
+  },
+  imagePreviewFooter: {
+    padding: 20,
+    paddingTop: 10,
+  },
 });
-
-
-
-
-
-

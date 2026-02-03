@@ -4,8 +4,8 @@ import { getUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useState } from "react";
 import {
   Image,
   Modal,
@@ -16,18 +16,8 @@ import {
   View,
 } from "react-native";
 
-// Mock data for profile completion calculation
-const MANDATORY_DOCUMENTS = [
-  { name: "Aadhar Card", key: "aadhar" },
-  { name: "PAN Card", key: "pan" },
-  { name: "Mark Sheets", key: "marksheets" },
-];
 
-const INITIAL_DOCUMENTS = [
-  { id: 1, name: "Aadhar Card", status: "verified", mandatory: true },
-  { id: 2, name: "PAN Card", status: "pending", mandatory: true },
-  { id: 3, name: "Mark Sheets", status: "verified", mandatory: true },
-];
+
 
 export default function StudentProfileScreen() {
   const { isDark, colors } = useTheme();
@@ -40,73 +30,57 @@ export default function StudentProfileScreen() {
   const [loading, setLoading] = useState(true);
 
 
-  const documents = INITIAL_DOCUMENTS;
+
 
   // Fetch user profile on component mount
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        setLoading(true);
-        // Get auth token from AsyncStorage
-        const authDataString = await AsyncStorage.getItem("authData");
-        if (!authDataString) {
-          console.log("No auth data found");
-          setLoading(false);
-          return;
-        }
 
-        const authData = JSON.parse(authDataString);
-        const token = authData?.token;
 
-        if (!token) {
-          console.log("No token found in auth data");
-          setLoading(false);
-          return;
-        }
-
-        // Call getUserProfile API
-        const response = await getUserProfile(token);
-        console.log("response", response);
-
-        // Response structure: { success: true, data: { success: true, user: {...} } }
-        if (response.success && response.data?.user) {
-          const user = response.data.user;
-
-          // Update student name (use fullname if available, otherwise firstname + lastname)
-          const name = user.fullname ||
-            `${user.firstname || ""} ${user.lastname || ""}`.trim() ||
-            "Student";
-          setPersonalInfo({
-            fullName: name,
-            email: user.email || "",
-          });
-
-          // Update profile photo URL if available
-          if (user.profileimageurl) {
-            setProfilePhotoUrl(user.profileimageurl);
+  useFocusEffect(
+    useCallback(() => {
+      const fetchUserProfile = async () => {
+        try {
+          setLoading(true);
+          // Get auth token from AsyncStorage
+          const authDataString = await AsyncStorage.getItem("authData");
+          if (!authDataString) {
+            console.log("No auth data found");
+            setLoading(false);
+            return;
           }
-        } else {
-          console.log("Failed to fetch user profile:", response.error || response.message);
-          // Fallback to authData user info if API fails
-          if (authData?.user) {
-            const user = authData.user;
-            const name = user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || "Student";
+
+          const authData = JSON.parse(authDataString);
+          const token = authData?.token;
+
+          if (!token) {
+            console.log("No token found in auth data");
+            setLoading(false);
+            return;
+          }
+
+          // Call getUserProfile API
+          const response = await getUserProfile(token);
+          console.log("response", response);
+
+          // Response structure: { success: true, data: { success: true, user: {...} } }
+          if (response.success && response.data?.user) {
+            const user = response.data.user;
+
+            // Update student name (use fullname if available, otherwise firstname + lastname)
+            const name = user.fullname ||
+              `${user.firstname || ""} ${user.lastname || ""}`.trim() ||
+              "Student";
             setPersonalInfo({
               fullName: name,
               email: user.email || "",
             });
+
+            // Update profile photo URL if available
             if (user.profileimageurl) {
               setProfilePhotoUrl(user.profileimageurl);
             }
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching user profile:", error);
-        // Fallback to authData user info on error
-        try {
-          const authDataString = await AsyncStorage.getItem("authData");
-          if (authDataString) {
-            const authData = JSON.parse(authDataString);
+          } else {
+            console.log("Failed to fetch user profile:", response.error || response.message);
+            // Fallback to authData user info if API fails
             if (authData?.user) {
               const user = authData.user;
               const name = user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || "Student";
@@ -119,16 +93,36 @@ export default function StudentProfileScreen() {
               }
             }
           }
-        } catch (fallbackError) {
-          console.error("Error in fallback:", fallbackError);
+        } catch (error) {
+          console.error("Error fetching user profile:", error);
+          // Fallback to authData user info on error
+          try {
+            const authDataString = await AsyncStorage.getItem("authData");
+            if (authDataString) {
+              const authData = JSON.parse(authDataString);
+              if (authData?.user) {
+                const user = authData.user;
+                const name = user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || "Student";
+                setPersonalInfo({
+                  fullName: name,
+                  email: user.email || "",
+                });
+                if (user.profileimageurl) {
+                  setProfilePhotoUrl(user.profileimageurl);
+                }
+              }
+            }
+          } catch (fallbackError) {
+            console.error("Error in fallback:", fallbackError);
+          }
+        } finally {
+          setLoading(false);
         }
-      } finally {
-        setLoading(false);
-      }
-    };
+      };
 
-    fetchUserProfile();
-  }, []);
+      fetchUserProfile();
+    }, [])
+  );
 
 
 

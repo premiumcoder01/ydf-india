@@ -27,7 +27,6 @@ import {
 } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import StepIndicator from "react-native-step-indicator";
 import { z } from "zod";
 
 type DocumentItem = {
@@ -181,6 +180,16 @@ export default function ApplyFormScreen() {
     options: string[];
     onSelect: (val: string) => void;
   }>({ visible: false, title: "", options: [], onSelect: () => { } });
+
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Filter options based on search query
+  const filteredOptions = useMemo(() => {
+    if (!searchQuery.trim()) return optionPickerState.options;
+    return optionPickerState.options.filter(option =>
+      option.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [optionPickerState.options, searchQuery]);
 
   const openPicker = (field: keyof FormValues, mode: "date" | "time" | "datetime") => {
     setPickerState({ show: true, mode, field });
@@ -351,41 +360,21 @@ export default function ApplyFormScreen() {
     setTimeout(checkDraft, 1000);
   }, [userId, scholarshipId, reset, getValues]);
 
-  // 3. Auto-Save: Subscription based (No Re-renders)
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const stepIndexRef = useRef(stepIndex);
-
-  // Keep stepIndexRef updated
-  useEffect(() => {
-    stepIndexRef.current = stepIndex;
-  }, [stepIndex]);
-
-  useEffect(() => {
+  // Helper function to save draft manually
+  const saveDraft = async (nextStepIndex: number) => {
     if (!userId || !scholarshipId) return;
 
-    const subscription = watch((value) => {
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-
-      saveTimeoutRef.current = setTimeout(async () => {
-        try {
-          const draftKey = `draft_application_${userId}_${scholarshipId}`;
-          const draftData = JSON.stringify({
-            values: value,
-            step: stepIndexRef.current
-          });
-          await AsyncStorage.setItem(draftKey, draftData);
-        } catch (e) {
-          console.error("Failed to save draft", e);
-        }
-      }, 2000); // 2 second debounce
-    });
-
-    return () => {
-      subscription.unsubscribe();
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    };
-  }, [watch, userId, scholarshipId]);
-  // --------------------------
+    try {
+      const draftKey = `draft_application_${userId}_${scholarshipId}`;
+      const draftData = JSON.stringify({
+        values: getValues(),
+        step: nextStepIndex // Save the step we're moving TO, not the current step
+      });
+      await AsyncStorage.setItem(draftKey, draftData);
+    } catch (e) {
+      console.error("Failed to save draft", e);
+    }
+  };
 
   const currentStepKey = useMemo(() => STEPS[stepIndex].key, [stepIndex]);
 
@@ -394,7 +383,7 @@ export default function ApplyFormScreen() {
     const fields = FIELDS_BY_STEP[currentStepKey];
     if (fields.length) {
       const ok = await trigger(fields as any);
-      if (!ok) return;
+      if (!ok) return; // Validation failed, don't save draft
     }
 
     if (currentStepKey === "documents" && hasDocumentRequirements) {
@@ -408,14 +397,17 @@ export default function ApplyFormScreen() {
 
       if (!allChecked) {
         setError("acknowledgedDocIds", { type: "manual", message: "Please confirmation all required documents." });
-        return;
+        return; // Validation failed, don't save draft
       }
     } else if (currentStepKey === "documents") {
       clearErrors("acknowledgedDocIds");
     }
 
+    // Validation passed, move to next step and save draft
     setStepIndex((i) => {
       const ni = Math.min(i + 1, STEPS.length - 1);
+      // Save draft with the new step index
+      saveDraft(ni);
       return ni;
     });
   };
@@ -521,53 +513,141 @@ export default function ApplyFormScreen() {
 
   const Stepper = () => {
     const totalWidth = STEP_ITEM_WIDTH * STEPS.length;
-    const colorActive = isDark ? colors.primary : "#111827";
-    const colorDone = "#10B981";
-    const colorPending = isDark ? "rgba(255,255,255,0.2)" : "#D1D5DB";
-    const colorLabel = isDark ? colors.textSecondary : "#6B7280";
-
-    const customStyles = {
-      stepIndicatorSize: 28,
-      currentStepIndicatorSize: 32,
-      separatorStrokeWidth: 3,
-      currentStepStrokeWidth: 2,
-      stepStrokeWidth: 2,
-      stepStrokeCurrentColor: colorActive,
-      stepStrokeFinishedColor: colorDone,
-      stepStrokeUnFinishedColor: colorPending,
-      separatorFinishedColor: colorDone,
-      separatorUnFinishedColor: colorPending,
-      stepIndicatorFinishedColor: colorDone,
-      stepIndicatorUnFinishedColor: isDark ? colors.card : "#FFFFFF",
-      stepIndicatorCurrentColor: isDark ? colors.card : "#FFFFFF",
-      stepIndicatorLabelFontSize: 12,
-      currentStepIndicatorLabelFontSize: 12,
-      stepIndicatorLabelCurrentColor: colorActive,
-      stepIndicatorLabelFinishedColor: "#FFFFFF",
-      stepIndicatorLabelUnFinishedColor: isDark ? colors.textSecondary : "#9CA3AF",
-      labelColor: colorLabel,
-      currentStepLabelColor: isDark ? colors.primary : colorActive,
-      labelSize: 11,
-    };
 
     return (
       <View style={styles.stepperContainer}>
-        <View style={[styles.stepperInner, { backgroundColor: isDark ? colors.card : "rgba(255,255,255,0.9)", borderColor: isDark ? colors.border : "rgba(51,51,51,0.08)" }]}>
+        <View style={[
+          styles.stepperInner,
+          {
+            backgroundColor: isDark ? colors.card : "#FFFFFF",
+            borderColor: isDark ? colors.border : "rgba(51,51,51,0.08)",
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: isDark ? 0.3 : 0.1,
+            shadowRadius: 8,
+            elevation: 4,
+          }
+        ]}>
           <ScrollView
             ref={stepperScrollRef}
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ width: totalWidth }}
+            contentContainerStyle={{ width: totalWidth, paddingVertical: 16 }}
           >
-            <View style={{ width: totalWidth, paddingVertical: 6 }}>
-              <StepIndicator
-                stepCount={STEPS.length}
-                currentPosition={stepIndex}
-                customStyles={customStyles as any}
-                direction="horizontal"
-                labels={STEPS.map((s) => s.title)}
-                onPress={() => { }}
-              />
+            <View style={{ width: totalWidth, flexDirection: "row", alignItems: "flex-start" }}>
+              {STEPS.map((step, index) => {
+                const isCompleted = index < stepIndex;
+                const isCurrent = index === stepIndex;
+                const isPending = index > stepIndex;
+
+                return (
+                  <View key={step.key} style={{ width: STEP_ITEM_WIDTH, alignItems: "center" }}>
+                    {/* Connector Line (before step) */}
+                    {index > 0 && (
+                      <View
+                        style={{
+                          position: "absolute",
+                          left: -STEP_ITEM_WIDTH / 2 + 18,
+                          top: 16,
+                          width: STEP_ITEM_WIDTH - 32,
+                          height: 2,
+                          backgroundColor: isCompleted
+                            ? "#10B981"
+                            : (isDark ? "rgba(255,255,255,0.15)" : "#E5E7EB"),
+                        }}
+                      />
+                    )}
+
+                    {/* Step Circle */}
+                    <MotiView
+                      from={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ type: "timing", duration: 300, delay: index * 50 }}
+                    >
+                      <View
+                        style={{
+                          width: isCurrent ? 36 : 32,
+                          height: isCurrent ? 36 : 32,
+                          borderRadius: isCurrent ? 18 : 16,
+                          backgroundColor: isCompleted
+                            ? "#10B981"
+                            : isCurrent
+                              ? colors.primary
+                              : (isDark ? colors.surface : "#F3F4F6"),
+                          borderWidth: 2,
+                          borderColor: isCompleted
+                            ? "#10B981"
+                            : isCurrent
+                              ? colors.primary
+                              : (isDark ? "rgba(255,255,255,0.2)" : "#D1D5DB"),
+                          justifyContent: "center",
+                          alignItems: "center",
+                          shadowColor: isCurrent ? colors.primary : "#000",
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: isCurrent ? 0.3 : 0.1,
+                          shadowRadius: isCurrent ? 4 : 2,
+                          elevation: isCurrent ? 4 : 2,
+                        }}
+                      >
+                        {isCompleted ? (
+                          <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                        ) : (
+                          <Text
+                            style={{
+                              fontSize: isCurrent ? 14 : 13,
+                              fontWeight: "700",
+                              color: isCurrent
+                                ? "#FFFFFF"
+                                : (isDark ? colors.textSecondary : "#9CA3AF"),
+                            }}
+                          >
+                            {index + 1}
+                          </Text>
+                        )}
+                      </View>
+
+                      {/* Pulsing animation for current step */}
+                      {isCurrent && (
+                        <MotiView
+                          from={{ scale: 1, opacity: 0.5 }}
+                          animate={{ scale: 1.3, opacity: 0 }}
+                          transition={{
+                            type: "timing",
+                            duration: 1500,
+                            loop: true,
+                          }}
+                          style={{
+                            position: "absolute",
+                            width: 36,
+                            height: 36,
+                            borderRadius: 18,
+                            backgroundColor: colors.primary,
+                          }}
+                        />
+                      )}
+                    </MotiView>
+
+                    {/* Step Label */}
+                    <Text
+                      style={{
+                        marginTop: 6,
+                        fontSize: isCurrent ? 11 : 10,
+                        fontWeight: isCurrent ? "700" : "600",
+                        color: isCompleted
+                          ? "#10B981"
+                          : isCurrent
+                            ? colors.primary
+                            : (isDark ? colors.textSecondary : "#6B7280"),
+                        textAlign: "center",
+                        maxWidth: STEP_ITEM_WIDTH - 20,
+                      }}
+                      numberOfLines={2}
+                    >
+                      {step.title}
+                    </Text>
+                  </View>
+                );
+              })}
             </View>
           </ScrollView>
         </View>
@@ -812,7 +892,7 @@ export default function ApplyFormScreen() {
                 <Controller control={control} name="gpa" render={({ field: { onChange, value, onBlur } }) => (
                   <View style={{ marginBottom: 16 }}>
                     <CustomTextInput
-                      label="Last Exam Percentage (%)"
+                      label="Last Exam Percentage (%) (Optional)"
                       placeholder="e.g. 82.5"
                       value={value}
                       onChangeText={onChange}
@@ -849,7 +929,7 @@ export default function ApplyFormScreen() {
                   }}>
                     <View pointerEvents="none">
                       <CustomTextInput
-                        label="Family Annual Income"
+                        label="Family Annual Income (Optional)"
                         placeholder="Select income range"
                         value={value}
                         editable={false}
@@ -882,7 +962,7 @@ export default function ApplyFormScreen() {
                   }}>
                     <View pointerEvents="none">
                       <CustomTextInput
-                        label="Extracurricular Activities"
+                        label="Extracurricular Activities (Optional)"
                         placeholder="Select primary activity"
                         value={value}
                         editable={false}
@@ -896,7 +976,7 @@ export default function ApplyFormScreen() {
 
                 <Controller control={control} name="statement" render={({ field: { onChange, value, onBlur } }) => (
                   <CustomTextInput
-                    label="Why do you deserve this scholarship?"
+                    label="Why do you deserve this scholarship? (Optional)"
                     placeholder="Briefly describe your academic achievements, financial need, and career goals (max 150 words)..."
                     value={value || ""}
                     onChangeText={onChange}
@@ -927,7 +1007,7 @@ export default function ApplyFormScreen() {
                   }}>
                     <View pointerEvents="none">
                       <CustomTextInput
-                        label="Do you own any vehicle (2-wheeler/4-wheeler)?"
+                        label="Do you own any vehicle (2-wheeler/4-wheeler)? (Optional)"
                         placeholder="Select Yes/No"
                         value={value || ""}
                         editable={false}
@@ -950,7 +1030,7 @@ export default function ApplyFormScreen() {
                   }}>
                     <View pointerEvents="none">
                       <CustomTextInput
-                        label="Type of Housing"
+                        label="Type of Housing (Optional)"
                         placeholder="Select Housing Type"
                         value={value || ""}
                         editable={false}
@@ -1087,7 +1167,7 @@ export default function ApplyFormScreen() {
                     <TouchableOpacity onPress={() => openPicker("verificationTime", "datetime")}>
                       <View pointerEvents="none">
                         <CustomTextInput
-                          label="Preferred Date & Time for Visit"
+                          label="Preferred Date & Time for Visit (Optional)"
                           placeholder="Select Date & Time"
                           value={displayValue}
                           editable={false}
@@ -1523,32 +1603,84 @@ export default function ApplyFormScreen() {
         visible={optionPickerState.visible}
         transparent
         animationType="fade"
-        onRequestClose={() => setOptionPickerState(prev => ({ ...prev, visible: false }))}
+        onRequestClose={() => {
+          setOptionPickerState(prev => ({ ...prev, visible: false }));
+          setSearchQuery("");
+        }}
       >
         <TouchableOpacity
           style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: 'center', padding: 20 }}
           activeOpacity={1}
-          onPress={() => setOptionPickerState(prev => ({ ...prev, visible: false }))}
+          onPress={() => {
+            setOptionPickerState(prev => ({ ...prev, visible: false }));
+            setSearchQuery("");
+          }}
         >
-          <View style={{ backgroundColor: isDark ? colors.card : "#fff", borderRadius: 12, overflow: 'hidden', maxHeight: '60%' }}>
+          <View style={{ backgroundColor: isDark ? colors.card : "#fff", borderRadius: 12, overflow: 'hidden', maxHeight: '70%' }}>
+            {/* Header */}
             <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: isDark ? colors.border : '#eee' }}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>{optionPickerState.title}</Text>
             </View>
-            <FlatList
-              data={optionPickerState.options}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: isDark ? colors.border : '#f5f5f5' }}
-                  onPress={() => {
-                    optionPickerState.onSelect(item);
-                    setOptionPickerState(prev => ({ ...prev, visible: false }));
+
+            {/* Search Input */}
+            <View style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: isDark ? colors.border : '#eee' }}>
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: isDark ? colors.surface : '#F3F4F6',
+                borderRadius: 8,
+                paddingHorizontal: 12,
+                height: 44
+              }}>
+                <Ionicons name="search" size={20} color={colors.textSecondary} />
+                <TextInput
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder="Search..."
+                  placeholderTextColor={colors.textSecondary}
+                  style={{
+                    flex: 1,
+                    marginLeft: 8,
+                    fontSize: 15,
+                    color: colors.text,
+                    paddingVertical: 0
                   }}
-                >
-                  <Text style={{ fontSize: 16, color: colors.text }}>{item}</Text>
-                </TouchableOpacity>
-              )}
-            />
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchQuery("")}>
+                    <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {/* Options List */}
+            {filteredOptions.length > 0 ? (
+              <FlatList
+                data={filteredOptions}
+                keyExtractor={(item) => item}
+                keyboardShouldPersistTaps="always"
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: isDark ? colors.border : '#f5f5f5' }}
+                    onPress={() => {
+                      optionPickerState.onSelect(item);
+                      setOptionPickerState(prev => ({ ...prev, visible: false }));
+                      setSearchQuery("");
+                    }}
+                  >
+                    <Text style={{ fontSize: 16, color: colors.text }}>{item}</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            ) : (
+              <View style={{ padding: 32, alignItems: 'center' }}>
+                <Ionicons name="search-outline" size={48} color={colors.textSecondary} />
+                <Text style={{ fontSize: 15, color: colors.textSecondary, marginTop: 12, textAlign: 'center' }}>
+                  No results found for "{searchQuery}"
+                </Text>
+              </View>
+            )}
           </View>
         </TouchableOpacity>
       </Modal>

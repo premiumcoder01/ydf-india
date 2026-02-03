@@ -121,7 +121,7 @@ export const registerUser = async (userData: {
   try {
     const baseUrl = getApiUrl("local/mobileapi/registration.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add query parameters
     urlObj.searchParams.append("username", userData.username);
     urlObj.searchParams.append("password", userData.password);
@@ -130,10 +130,10 @@ export const registerUser = async (userData: {
     urlObj.searchParams.append("firstname", userData.firstname);
     urlObj.searchParams.append("lastname", userData.lastname);
     urlObj.searchParams.append("phone", userData.phone);
-    
+
     const finalUrl = urlObj.toString();
     console.log("Registration URL:", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -201,14 +201,14 @@ export const loginUser = async (email: string, password: string): Promise<ApiRes
   try {
     const baseUrl = getApiUrl("local/mobileapi/login.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add query parameters - using username for email as per API requirement
     urlObj.searchParams.append("username", email);
     urlObj.searchParams.append("password", password);
-    
+
     const finalUrl = urlObj.toString();
     console.log("Login URL:", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -276,17 +276,17 @@ export const sendOtp = async (email: string): Promise<ApiResponse> => {
   try {
     const baseUrl = getApiUrl("local/mobileapi/send_otp.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add query parameters
     urlObj.searchParams.append("wsfunction", "local_mobileapi_send_otp");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("email", email);
     urlObj.searchParams.append("identifier", "email");
-    
+
     const finalUrl = urlObj.toString();
     console.log(finalUrl, "finalUrl");
     console.log(email, "email");
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -354,17 +354,17 @@ export const verifyOtp = async (otp: string, email: string): Promise<ApiResponse
   try {
     const baseUrl = getApiUrl("local/mobileapi/verify_otp.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add query parameters
     urlObj.searchParams.append("wsfunction", "local_mobileapi_verify_otp");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("otp", otp);
     urlObj.searchParams.append("identifier", email);
     urlObj.searchParams.append("type", "email");
-    
+
     const finalUrl = urlObj.toString();
     console.log("finalUrl", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -432,15 +432,15 @@ export const forgotPassword = async (email: string): Promise<ApiResponse> => {
   try {
     const baseUrl = getApiUrl("local/mobileapi/forgot_password.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add query parameters
     urlObj.searchParams.append("wsfunction", "local_mobileapi_forgot_password");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("email", email);
-    
+
     const finalUrl = urlObj.toString();
     console.log("Forgot Password URL:", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -512,14 +512,14 @@ export const resetPassword = async (
   try {
     const baseUrl = getApiUrl("local/mobileapi/reset_password.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add query parameters
     urlObj.searchParams.append("wsfunction", "local_mobileapi_reset_password");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("email", email);
     urlObj.searchParams.append("otp", otp);
     urlObj.searchParams.append("newpassword", newPassword);
-    
+
     const finalUrl = urlObj.toString();
     console.log("--------------- Reset Password API Request ---------------");
     console.log("URL:", finalUrl);
@@ -532,7 +532,7 @@ export const resetPassword = async (
       newpassword: newPassword
     }, null, 2));
     console.log("----------------------------------------------------------");
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -602,15 +602,15 @@ export const getUserProfile = async (token: string): Promise<ApiResponse> => {
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_get_user_profile");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get User Profile URL:", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -754,17 +754,17 @@ export const updatePassword = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add query parameters
     urlObj.searchParams.append("wsfunction", "local_mobileapi_update_password");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("current_password", currentPassword);
     urlObj.searchParams.append("new_password", newPassword);
-    
+
     const finalUrl = urlObj.toString();
     console.log("Update Password URL:", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -841,13 +841,13 @@ export const getReviewerSchemes = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     // Updated wsfunction for reviewer schemes
     urlObj.searchParams.append("wsfunction", "local_mobileapi_reviewer_get_my_schemes");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     // Add optional parameters if provided
     if (params?.search) {
       urlObj.searchParams.append("search", params.search);
@@ -858,10 +858,10 @@ export const getReviewerSchemes = async (
     if (params?.per_page) {
       urlObj.searchParams.append("per_page", String(params.per_page));
     }
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Reviewer Schemes URL:", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -937,12 +937,12 @@ export const getAllScholarships = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_get_all_scholarships");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     // Add optional parameters if provided
     if (params?.search) {
       urlObj.searchParams.append("search", params.search);
@@ -953,10 +953,10 @@ export const getAllScholarships = async (
     if (params?.per_page) {
       urlObj.searchParams.append("per_page", String(params.per_page));
     }
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get All Scholarships URL:", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -1028,16 +1028,16 @@ export const getScholarshipDetails = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_get_scholarship_details");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("scholarship_id", String(scholarshipId));
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Scholarship Details URL:", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -1110,17 +1110,17 @@ export const bookmarkScholarship = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_bookmark_scholarship");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("scholarship_id", String(scholarshipId));
     urlObj.searchParams.append("action", action);
-    
+
     const finalUrl = urlObj.toString();
     console.log("Bookmark Scholarship URL:", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -1195,12 +1195,12 @@ export const getBookmarkedScholarships = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_get_bookmarked_scholarships");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     // Add optional parameters if provided
     if (params?.page) {
       urlObj.searchParams.append("page", String(params.page));
@@ -1208,10 +1208,10 @@ export const getBookmarkedScholarships = async (
     if (params?.per_page) {
       urlObj.searchParams.append("per_page", String(params.per_page));
     }
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Bookmarked Scholarships URL:", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -1287,12 +1287,12 @@ export const getMyApplications = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_get_my_applications");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     // Add optional parameters if provided
     if (params?.page) {
       urlObj.searchParams.append("page", String(params.page));
@@ -1303,10 +1303,10 @@ export const getMyApplications = async (
     if (params?.status) {
       urlObj.searchParams.append("status", params.status);
     }
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get My Applications URL:", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -1381,28 +1381,33 @@ export const uploadProfileImage = async (
   try {
     const baseUrl = getApiUrl("local/mobileapi/upload_document.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add token query parameter
     urlObj.searchParams.append("wstoken", token);
-    
+
     const finalUrl = urlObj.toString();
     console.log("Upload Profile Image URL:", finalUrl);
-    
+
     // Create FormData
     const formData = new FormData();
-    
+
     // Append image file
+    const fileType =
+      imageFile.mimeType ||
+      imageFile.type ||
+      "image/jpeg";
+
     formData.append("file", {
       uri: imageFile.uri,
       name: imageFile.name || "profile.jpg",
-      type: imageFile.mimeType || imageFile.type || "image/jpeg",
+      type: fileType.includes("/") ? fileType : "image/jpeg",
     } as any);
-    
+
     // Use mode='private' for profile images (uploads to user context)
     formData.append("mode", "private");
-    
-    console.log("Uploading profile image with mode=private");
-    
+
+    console.log("Uploading profile image with mode=private", JSON.stringify(formData));
+
     // Make POST request with FormData
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -1414,7 +1419,7 @@ export const uploadProfileImage = async (
 
     const responseText = await response.text();
     console.log("Upload Profile Image Response:", responseText);
-    
+
     let data: any = {};
 
     try {
@@ -1463,16 +1468,16 @@ export const uploadDocument = async (
   try {
     const baseUrl = getApiUrl("local/mobileapi/upload_document.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add token query parameter
     urlObj.searchParams.append("wstoken", token);
-    
+
     const finalUrl = urlObj.toString();
     console.log("Upload Document URL:", finalUrl);
-    
+
     // Create FormData
     const formData = new FormData();
-    
+
     // Append file - modify this based on the actual file object handling from document picker
     // React Native FormData expects { uri, name, type }
     formData.append("file", {
@@ -1480,10 +1485,10 @@ export const uploadDocument = async (
       name: file.name || "document.pdf",
       type: file.mimeType || file.type || "application/pdf",
     } as any);
-    
+
     formData.append("mode", mode);
     formData.append("cmid", String(cmid));
-    
+
     // Make POST request with FormData
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -1556,7 +1561,7 @@ export const updateUserProfile = async (
 ): Promise<ApiResponse> => {
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
-    
+
     // Construct the payload with JSON format
     const payload: any = {
       wstoken: token,
@@ -1587,7 +1592,7 @@ export const updateUserProfile = async (
       if (parts.length === 3) {
         // YYYY-MM-DD for core field
         payload.date_of_birth = `${parts[2]}-${parts[1]}-${parts[0]}`;
-        
+
         // Convert to Unix timestamp for custom field
         const dateObj = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
         if (!isNaN(dateObj.getTime())) {
@@ -1598,7 +1603,7 @@ export const updateUserProfile = async (
 
     // Custom Fields
     const customFields: { shortname: string; value: string }[] = [];
-    
+
     // Helper to add custom field if value exists
     const addCustomField = (shortname: string, value: any) => {
       if (value) {
@@ -1610,16 +1615,16 @@ export const updateUserProfile = async (
     addCustomField('Gender', profileData.gender);
     addCustomField('Religion', profileData.religion);
     addCustomField('Caste', profileData.caste);
-    
-    
-    
+
+
+
     addCustomField('State', profileData.domicileState);
     addCustomField('domiciledistrict', profileData.district);
     // addCustomField('village', profileData.village); // Removed as requested
     addCustomField('fathername', profileData.fatherName);
     addCustomField('mothername', profileData.motherName);
     addCustomField('Family_income', profileData.annualIncome); // Note: API uses Family_income or annualincome, user req to match response which showed Family_income
-    
+
     // New fields from API response
     addCustomField('session', profileData.session);
     addCustomField('year_of_course', profileData.yearOfCourse);
@@ -1642,7 +1647,7 @@ export const updateUserProfile = async (
 
     // Convert payload to x-www-form-urlencoded string with indexed arrays for Moodle
     const formDataParts: string[] = [];
-    
+
     Object.keys(payload).forEach(key => {
       const value = payload[key];
       if (key === 'customfields' && Array.isArray(value)) {
@@ -1657,7 +1662,7 @@ export const updateUserProfile = async (
 
     const formBody = formDataParts.join("&");
 
-    console.log(formBody,"formBody")
+    console.log(formBody, "formBody")
 
     const response = await fetch(baseUrl, {
       method: "POST",
@@ -1717,12 +1722,12 @@ export const getNotifications = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_get_notifications");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     // Add optional parameters if provided
     if (params?.page) {
       urlObj.searchParams.append("page", String(params.page));
@@ -1733,10 +1738,10 @@ export const getNotifications = async (
     if (params?.unread_only !== undefined) {
       urlObj.searchParams.append("unread_only", String(params.unread_only));
     }
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Notifications URL:", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -1804,13 +1809,13 @@ export const markAllNotificationsRead = async (token: string): Promise<ApiRespon
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_mark_all_notifications_read");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     const finalUrl = urlObj.toString();
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1818,7 +1823,7 @@ export const markAllNotificationsRead = async (token: string): Promise<ApiRespon
 
     const responseText = await response.text();
     let data: any = {};
-    try { data = JSON.parse(responseText); } catch(e) {}
+    try { data = JSON.parse(responseText); } catch (e) { }
 
     if (response.ok) {
       return { success: true, data, message: "Notifications marked as read" };
@@ -1840,14 +1845,14 @@ export const markNotificationRead = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_mark_notification_read");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("notification_id", String(notificationId));
-    
+
     const finalUrl = urlObj.toString();
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1855,7 +1860,7 @@ export const markNotificationRead = async (
 
     const responseText = await response.text();
     let data: any = {};
-    try { data = JSON.parse(responseText); } catch(e) {}
+    try { data = JSON.parse(responseText); } catch (e) { }
 
     if (response.ok) {
       return { success: true, data, message: "Notification marked as read" };
@@ -1890,34 +1895,34 @@ export const submitApplication = async (
     assessment_q2?: string;
     interview_mode?: string;
     verification_time?: string;
-    documents?: any[]; 
+    documents?: any[];
   }
 ): Promise<ApiResponse> => {
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_submit_application");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     // Add data parameters
     Object.keys(data).forEach(key => {
       // @ts-ignore
       const val = data[key];
       if (val !== undefined && val !== null) {
         if (typeof val === 'object') {
-             urlObj.searchParams.append(key, JSON.stringify(val));
+          urlObj.searchParams.append(key, JSON.stringify(val));
         } else {
-             urlObj.searchParams.append(key, String(val));
+          urlObj.searchParams.append(key, String(val));
         }
       }
     });
-    
+
     const finalUrl = urlObj.toString();
     console.log("Submit Application URL:", finalUrl);
-    
+
     // Make POST request
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -1940,13 +1945,13 @@ export const submitApplication = async (
     }
 
     if (response.ok) {
-        if (resData.exception) {
-            return {
-                success: false,
-                error: resData.message || resData.exception,
-                message: resData.message || "Submission failed"
-            };
-        }
+      if (resData.exception) {
+        return {
+          success: false,
+          error: resData.message || resData.exception,
+          message: resData.message || "Submission failed"
+        };
+      }
       return {
         success: true,
         data: resData,
@@ -1975,14 +1980,14 @@ export const getDashboardStats = async (token: string): Promise<ApiResponse> => 
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_student_get_dashboard_stats");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Dashboard Stats URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1990,7 +1995,7 @@ export const getDashboardStats = async (token: string): Promise<ApiResponse> => 
 
     const responseText = await response.text();
     let data: any = {};
-    try { data = JSON.parse(responseText); } catch(e) {}
+    try { data = JSON.parse(responseText); } catch (e) { }
 
     if (response.ok) {
       return { success: true, data, message: "Stats retrieved successfully" };
@@ -2012,16 +2017,16 @@ export const getUpcomingDeadlines = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_get_upcoming_deadlines");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("limit", String(limit));
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Upcoming Deadlines URL:", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -2044,7 +2049,7 @@ export const getUpcomingDeadlines = async (
     }
 
     if (response.ok) {
-       // The API returns { success: true, data: [...] }
+      // The API returns { success: true, data: [...] }
       return {
         success: true,
         data: data.data || [], // Return the array which is inside data.data
@@ -2079,12 +2084,12 @@ export const getRecommendedScholarships = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_get_recommended_scholarships");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     // Add optional parameters
     if (params?.page) {
       urlObj.searchParams.append("page", String(params.page));
@@ -2092,10 +2097,10 @@ export const getRecommendedScholarships = async (
     if (params?.per_page) {
       urlObj.searchParams.append("per_page", String(params.per_page));
     }
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Recommended Scholarships URL:", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -2118,7 +2123,7 @@ export const getRecommendedScholarships = async (
     }
 
     if (response.ok) {
-        // The API returns standard scholarship list format
+      // The API returns standard scholarship list format
       return {
         success: true,
         data: data.data || data, // Handle if data is wrapped or direct array
@@ -2147,14 +2152,14 @@ export const getApplicationProgress = async (token: string): Promise<ApiResponse
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_get_application_progress");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Application Progress URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2162,14 +2167,14 @@ export const getApplicationProgress = async (token: string): Promise<ApiResponse
 
     const responseText = await response.text();
     let data: any = {};
-    try { data = JSON.parse(responseText); } catch(e) {}
+    try { data = JSON.parse(responseText); } catch (e) { }
 
     if (response.ok) {
-        // Response format: { success: true, progress: { total_submitted, approved, rejected, pending } }
-        if (data.progress) {
-             return { success: true, data: data.progress, message: "Progress retrieved successfully" };
-        } 
-        return { success: true, data: data, message: "Progress retrieved successfully" };
+      // Response format: { success: true, progress: { total_submitted, approved, rejected, pending } }
+      if (data.progress) {
+        return { success: true, data: data.progress, message: "Progress retrieved successfully" };
+      }
+      return { success: true, data: data, message: "Progress retrieved successfully" };
     } else {
       return { success: false, error: "Failed to retrieve progress" };
     }
@@ -2185,14 +2190,14 @@ export const getAcademicDetails = async (token: string): Promise<ApiResponse> =>
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_get_academic_details");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Academic Details URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2200,13 +2205,13 @@ export const getAcademicDetails = async (token: string): Promise<ApiResponse> =>
 
     const responseText = await response.text();
     let data: any = {};
-    try { data = JSON.parse(responseText); } catch(e) {}
+    try { data = JSON.parse(responseText); } catch (e) { }
 
     if (response.ok) {
-        if (data.success && data.data) {
-             return { success: true, data: data.data, message: "Academic details retrieved successfully" };
-        }
-        return { success: true, data: data, message: "Academic details retrieved successfully" };
+      if (data.success && data.data) {
+        return { success: true, data: data.data, message: "Academic details retrieved successfully" };
+      }
+      return { success: true, data: data, message: "Academic details retrieved successfully" };
     } else {
       return { success: false, error: "Failed to retrieve academic details" };
     }
@@ -2234,21 +2239,21 @@ export const createAcademicDetail = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_create_academic_detail");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     // Add create params
     Object.keys(params).forEach(key => {
-        if (params[key as keyof typeof params]) {
-            urlObj.searchParams.append(key, params[key as keyof typeof params] as string);
-        }
+      if (params[key as keyof typeof params]) {
+        urlObj.searchParams.append(key, params[key as keyof typeof params] as string);
+      }
     });
-    
+
     const finalUrl = urlObj.toString();
     console.log("Create Academic Detail URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2256,13 +2261,13 @@ export const createAcademicDetail = async (
 
     const responseText = await response.text();
     let data: any = {};
-    try { data = JSON.parse(responseText); } catch(e) {}
+    try { data = JSON.parse(responseText); } catch (e) { }
 
     if (response.ok) {
-        if (data.success) {
-             return { success: true, data: data, message: data.message || "Academic detail created successfully" };
-        }
-        return { success: false, error: data.message || "Failed to create academic detail" };
+      if (data.success) {
+        return { success: true, data: data, message: data.message || "Academic detail created successfully" };
+      }
+      return { success: false, error: data.message || "Failed to create academic detail" };
     } else {
       return { success: false, error: "Failed to create academic detail" };
     }
@@ -2291,22 +2296,22 @@ export const updateAcademicDetail = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_update_academic_detail");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("id", String(id));
-    
+
     // Add update params
     Object.keys(params).forEach(key => {
-        if (params[key as keyof typeof params]) {
-            urlObj.searchParams.append(key, params[key as keyof typeof params] as string);
-        }
+      if (params[key as keyof typeof params]) {
+        urlObj.searchParams.append(key, params[key as keyof typeof params] as string);
+      }
     });
-    
+
     const finalUrl = urlObj.toString();
     console.log("Update Academic Detail URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2314,13 +2319,13 @@ export const updateAcademicDetail = async (
 
     const responseText = await response.text();
     let data: any = {};
-    try { data = JSON.parse(responseText); } catch(e) {}
+    try { data = JSON.parse(responseText); } catch (e) { }
 
     if (response.ok) {
-        if (data.success) {
-             return { success: true, data: data, message: data.message || "Academic detail updated successfully" };
-        }
-        return { success: false, error: data.message || "Failed to update academic detail" };
+      if (data.success) {
+        return { success: true, data: data, message: data.message || "Academic detail updated successfully" };
+      }
+      return { success: false, error: data.message || "Failed to update academic detail" };
     } else {
       return { success: false, error: "Failed to update academic detail" };
     }
@@ -2339,15 +2344,15 @@ export const deleteAcademicDetail = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_delete_academic_detail");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("id", String(id));
-    
+
     const finalUrl = urlObj.toString();
     console.log("Delete Academic Detail URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2355,13 +2360,13 @@ export const deleteAcademicDetail = async (
 
     const responseText = await response.text();
     let data: any = {};
-    try { data = JSON.parse(responseText); } catch(e) {}
+    try { data = JSON.parse(responseText); } catch (e) { }
 
     if (response.ok) {
-        if (data.success) {
-             return { success: true, data: data, message: data.message || "Academic detail deleted successfully" };
-        }
-        return { success: false, error: data.message || "Failed to delete academic detail" };
+      if (data.success) {
+        return { success: true, data: data, message: data.message || "Academic detail deleted successfully" };
+      }
+      return { success: false, error: data.message || "Failed to delete academic detail" };
     } else {
       return { success: false, error: "Failed to delete academic detail" };
     }
@@ -2377,15 +2382,15 @@ export const getFinancialInfo = async (token: string): Promise<ApiResponse> => {
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_get_financial_info");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("include_full_account_number", "1");
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Financial Info URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2393,13 +2398,13 @@ export const getFinancialInfo = async (token: string): Promise<ApiResponse> => {
 
     const responseText = await response.text();
     let data: any = {};
-    try { data = JSON.parse(responseText); } catch(e) {}
+    try { data = JSON.parse(responseText); } catch (e) { }
 
     if (response.ok) {
-        if (data.success && data.data) {
-             return { success: true, data: data.data, message: "Financial info retrieved successfully" };
-        }
-        return { success: true, data: null, message: "No financial info found" };
+      if (data.success && data.data) {
+        return { success: true, data: data.data, message: "Financial info retrieved successfully" };
+      }
+      return { success: true, data: null, message: "No financial info found" };
     } else {
       return { success: false, error: "Failed to retrieve financial info" };
     }
@@ -2424,20 +2429,20 @@ export const updateFinancialInfo = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_update_financial_info");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     // Add update params
     urlObj.searchParams.append("accountholder", params.accountholder);
     urlObj.searchParams.append("bank_name", params.bank_name);
     urlObj.searchParams.append("account_number", params.account_number);
     urlObj.searchParams.append("ifsc", params.ifsc);
-    
+
     const finalUrl = urlObj.toString();
     console.log("Update Financial Info URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2445,13 +2450,13 @@ export const updateFinancialInfo = async (
 
     const responseText = await response.text();
     let data: any = {};
-    try { data = JSON.parse(responseText); } catch(e) {}
+    try { data = JSON.parse(responseText); } catch (e) { }
 
     if (response.ok) {
-        if (data.success) {
-             return { success: true, data: data, message: data.message || "Financial information updated successfully" };
-        }
-        return { success: false, error: data.message || "Failed to update financial information" };
+      if (data.success) {
+        return { success: true, data: data, message: data.message || "Financial information updated successfully" };
+      }
+      return { success: false, error: data.message || "Failed to update financial information" };
     } else {
       return { success: false, error: "Failed to update financial information" };
     }
@@ -2467,14 +2472,14 @@ export const getTermsAndConditions = async (token: string): Promise<ApiResponse>
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_get_terms_conditions");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Terms URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2482,13 +2487,13 @@ export const getTermsAndConditions = async (token: string): Promise<ApiResponse>
 
     const responseText = await response.text();
     let data: any = {};
-    try { data = JSON.parse(responseText); } catch(e) {}
+    try { data = JSON.parse(responseText); } catch (e) { }
 
     if (response.ok) {
-        if (data.success && data.data) {
-             return { success: true, data: data.data, message: "Terms retrieved successfully" };
-        }
-        return { success: false, error: data.message || "Failed to retrieve terms" };
+      if (data.success && data.data) {
+        return { success: true, data: data.data, message: "Terms retrieved successfully" };
+      }
+      return { success: false, error: data.message || "Failed to retrieve terms" };
     } else {
       return { success: false, error: "Failed to retrieve terms" };
     }
@@ -2504,14 +2509,14 @@ export const getPrivacyPolicy = async (token: string): Promise<ApiResponse> => {
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_get_privacy_policy");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Privacy Policy URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2519,13 +2524,13 @@ export const getPrivacyPolicy = async (token: string): Promise<ApiResponse> => {
 
     const responseText = await response.text();
     let data: any = {};
-    try { data = JSON.parse(responseText); } catch(e) {}
+    try { data = JSON.parse(responseText); } catch (e) { }
 
     if (response.ok) {
-        if (data.success && data.data) {
-             return { success: true, data: data.data, message: "Privacy policy retrieved successfully" };
-        }
-        return { success: false, error: data.message || "Failed to retrieve privacy policy" };
+      if (data.success && data.data) {
+        return { success: true, data: data.data, message: "Privacy policy retrieved successfully" };
+      }
+      return { success: false, error: data.message || "Failed to retrieve privacy policy" };
     } else {
       return { success: false, error: "Failed to retrieve privacy policy" };
     }
@@ -2541,14 +2546,14 @@ export const getAboutPage = async (token: string): Promise<ApiResponse> => {
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_get_about_page");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get About Page URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2556,13 +2561,13 @@ export const getAboutPage = async (token: string): Promise<ApiResponse> => {
 
     const responseText = await response.text();
     let data: any = {};
-    try { data = JSON.parse(responseText); } catch(e) {}
+    try { data = JSON.parse(responseText); } catch (e) { }
 
     if (response.ok) {
-        if (data.success && data.data) {
-             return { success: true, data: data.data, message: "About page retrieved successfully" };
-        }
-        return { success: false, error: data.message || "Failed to retrieve about page" };
+      if (data.success && data.data) {
+        return { success: true, data: data.data, message: "About page retrieved successfully" };
+      }
+      return { success: false, error: data.message || "Failed to retrieve about page" };
     } else {
       return { success: false, error: "Failed to retrieve about page" };
     }
@@ -2578,18 +2583,18 @@ export const contactSupport = async (token: string, subject: string, message: st
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_contact_support");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     // Add params
     urlObj.searchParams.append("subject", subject);
     urlObj.searchParams.append("message", message);
-    
+
     const finalUrl = urlObj.toString();
     console.log("Contact Support URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2597,13 +2602,13 @@ export const contactSupport = async (token: string, subject: string, message: st
 
     const responseText = await response.text();
     let data: any = {};
-    try { data = JSON.parse(responseText); } catch(e) {}
+    try { data = JSON.parse(responseText); } catch (e) { }
 
     if (response.ok) {
-        if (data.success) {
-             return { success: true, data: data, message: data.message || "Support request submitted successfully" };
-        }
-        return { success: false, error: data.message || "Failed to submit support request" };
+      if (data.success) {
+        return { success: true, data: data, message: data.message || "Support request submitted successfully" };
+      }
+      return { success: false, error: data.message || "Failed to submit support request" };
     } else {
       return { success: false, error: "Failed to submit support request" };
     }
@@ -2619,14 +2624,14 @@ export const getFAQs = async (token: string): Promise<ApiResponse> => {
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_get_faqs");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get FAQs URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2634,13 +2639,13 @@ export const getFAQs = async (token: string): Promise<ApiResponse> => {
 
     const responseText = await response.text();
     let data: any = {};
-    try { data = JSON.parse(responseText); } catch(e) {}
+    try { data = JSON.parse(responseText); } catch (e) { }
 
     if (response.ok) {
-        if (data.success && data.data) {
-             return { success: true, data: data.data, message: "FAQs retrieved successfully" };
-        }
-        return { success: false, error: data.message || "Failed to retrieve FAQs" };
+      if (data.success && data.data) {
+        return { success: true, data: data.data, message: "FAQs retrieved successfully" };
+      }
+      return { success: false, error: data.message || "Failed to retrieve FAQs" };
     } else {
       return { success: false, error: "Failed to retrieve FAQs" };
     }
@@ -2667,13 +2672,13 @@ export const getReviewerApplications = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_reviewer_get_all_applications");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("scholarship_id", String(scholarshipId));
-    
+
     // Add optional parameters if provided
     // Always append status, even if it's an empty string
     if (params?.status !== undefined) {
@@ -2685,10 +2690,10 @@ export const getReviewerApplications = async (
     if (params?.per_page) {
       urlObj.searchParams.append("per_page", String(params.per_page));
     }
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Reviewer Applications URL:", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -2770,16 +2775,16 @@ export const getReviewerApplicationDetails = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_reviewer_get_application_details");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("application_id", String(applicationId));
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Reviewer Application Details URL:", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -2795,7 +2800,7 @@ export const getReviewerApplicationDetails = async (
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
-      
+
       // Check for Moodle exception format
       if (data.exception || data.errorcode) {
         return {
@@ -2854,21 +2859,21 @@ export const verifyDocument = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_reviewer_verify_document");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("file_id", String(fileId));
     urlObj.searchParams.append("action", action);
-    
+
     if (notes) {
       urlObj.searchParams.append("notes", notes);
     }
-    
+
     const finalUrl = urlObj.toString();
     console.log(`Verify Document (${action}) URL:`, finalUrl);
-    
+
     // Make POST request
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -2884,7 +2889,7 @@ export const verifyDocument = async (
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
-      
+
       // Check for Moodle exception format
       if (data.exception || data.errorcode) {
         return {
@@ -2903,13 +2908,13 @@ export const verifyDocument = async (
 
     // Check if request was successful
     if (response.ok) {
-        if (data.success === false) {
-             return {
-                success: false,
-                error: data.message || "Action failed",
-                message: data.message || "Action failed"
-            };
-        }
+      if (data.success === false) {
+        return {
+          success: false,
+          error: data.message || "Action failed",
+          message: data.message || "Action failed"
+        };
+      }
 
       return {
         success: true,
@@ -2949,21 +2954,21 @@ export const reviewApplication = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_reviewer_review_application");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("application_id", String(applicationId));
     urlObj.searchParams.append("action", action);
-    
+
     if (notes) {
       urlObj.searchParams.append("notes", notes);
     }
-    
+
     const finalUrl = urlObj.toString();
     console.log(`Review Application (${action}) URL:`, finalUrl);
-    
+
     // Make POST request
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -2979,7 +2984,7 @@ export const reviewApplication = async (
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
-      
+
       // Check for Moodle exception format
       if (data.exception || data.errorcode) {
         return {
@@ -2998,13 +3003,13 @@ export const reviewApplication = async (
 
     // Check if request was successful
     if (response.ok) {
-        if (data.success === false) {
-             return {
-                success: false,
-                error: data.message || "Action failed",
-                message: data.message || "Action failed"
-            };
-        }
+      if (data.success === false) {
+        return {
+          success: false,
+          error: data.message || "Action failed",
+          message: data.message || "Action failed"
+        };
+      }
 
       return {
         success: true,
@@ -3043,21 +3048,21 @@ export const donorReviewApplication = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_review_application");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("application_id", String(applicationId));
     urlObj.searchParams.append("action", action);
-    
+
     if (notes) {
       urlObj.searchParams.append("notes", notes);
     }
-    
+
     const finalUrl = urlObj.toString();
     console.log(`Donor Review Application (${action}) URL:`, finalUrl);
-    
+
     // Make POST request
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -3073,7 +3078,7 @@ export const donorReviewApplication = async (
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
-      
+
       // Check for Moodle exception format
       if (data.exception || data.errorcode) {
         return {
@@ -3092,13 +3097,13 @@ export const donorReviewApplication = async (
 
     // Check if request was successful
     if (response.ok) {
-        if (data.success === false) {
-             return {
-                success: false,
-                error: data.message || "Action failed",
-                message: data.message || "Action failed"
-            };
-        }
+      if (data.success === false) {
+        return {
+          success: false,
+          error: data.message || "Action failed",
+          message: data.message || "Action failed"
+        };
+      }
 
       return {
         success: true,
@@ -3132,15 +3137,15 @@ export const getReviewerDashboardStats = async (token: string): Promise<ApiRespo
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_reviewer_get_dashboard_stats");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Reviewer Dashboard Stats URL:", finalUrl);
-    
+
     // Make POST request
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -3154,7 +3159,7 @@ export const getReviewerDashboardStats = async (token: string): Promise<ApiRespo
 
     try {
       data = responseText ? JSON.parse(responseText) : {};
-      
+
       if (data.exception || data.errorcode) {
         return {
           success: false,
@@ -3171,13 +3176,13 @@ export const getReviewerDashboardStats = async (token: string): Promise<ApiRespo
     }
 
     if (response.ok) {
-        if (data.success === false) {
-             return {
-                success: false,
-                error: data.message || "Failed to fetch stats",
-                message: data.message || "Failed to fetch stats"
-             };
-        }
+      if (data.success === false) {
+        return {
+          success: false,
+          error: data.message || "Failed to fetch stats",
+          message: data.message || "Failed to fetch stats"
+        };
+      }
       return {
         success: true,
         data: data,
@@ -3209,16 +3214,16 @@ export const getReviewerRecentApplications = async (token: string, limit: number
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_reviewer_get_recent_applications");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("limit", String(limit));
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Recent Applications URL:", finalUrl);
-    
+
     // Make POST request
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -3232,7 +3237,7 @@ export const getReviewerRecentApplications = async (token: string, limit: number
 
     try {
       data = responseText ? JSON.parse(responseText) : {};
-      
+
       if (data.exception || data.errorcode) {
         return {
           success: false,
@@ -3249,13 +3254,13 @@ export const getReviewerRecentApplications = async (token: string, limit: number
     }
 
     if (response.ok) {
-        if (data.success === false) {
-             return {
-                success: false,
-                error: data.message || "Failed to fetch recent applications",
-                message: data.message || "Failed to fetch recent applications"
-             };
-        }
+      if (data.success === false) {
+        return {
+          success: false,
+          error: data.message || "Failed to fetch recent applications",
+          message: data.message || "Failed to fetch recent applications"
+        };
+      }
       return {
         success: true,
         data: data,
@@ -3287,15 +3292,15 @@ export const getReviewerProgress = async (token: string): Promise<ApiResponse> =
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_reviewer_get_progress");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Reviewer Progress URL:", finalUrl);
-    
+
     // Make POST request
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -3309,7 +3314,7 @@ export const getReviewerProgress = async (token: string): Promise<ApiResponse> =
 
     try {
       data = responseText ? JSON.parse(responseText) : {};
-      
+
       if (data.exception || data.errorcode) {
         return {
           success: false,
@@ -3326,13 +3331,13 @@ export const getReviewerProgress = async (token: string): Promise<ApiResponse> =
     }
 
     if (response.ok) {
-        if (data.success === false) {
-             return {
-                success: false,
-                error: data.message || "Failed to fetch progress",
-                message: data.message || "Failed to fetch progress"
-             };
-        }
+      if (data.success === false) {
+        return {
+          success: false,
+          error: data.message || "Failed to fetch progress",
+          message: data.message || "Failed to fetch progress"
+        };
+      }
       return {
         success: true,
         data: data,
@@ -3368,22 +3373,22 @@ export const getDonorDashboardStats = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_get_dashboard_stats");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     if (startDate) {
       urlObj.searchParams.append("start_date", String(startDate));
     }
     if (endDate) {
       urlObj.searchParams.append("end_date", String(endDate));
     }
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Donor Dashboard Stats URL:", finalUrl);
-    
+
     // Make POST request
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -3397,7 +3402,7 @@ export const getDonorDashboardStats = async (
 
     try {
       data = responseText ? JSON.parse(responseText) : {};
-      
+
       if (data.exception || data.errorcode) {
         return {
           success: false,
@@ -3414,13 +3419,13 @@ export const getDonorDashboardStats = async (
     }
 
     if (response.ok) {
-        if (data.success === false) {
-             return {
-                success: false,
-                error: data.message || "Failed to fetch stats",
-                message: data.message || "Failed to fetch stats"
-             };
-        }
+      if (data.success === false) {
+        return {
+          success: false,
+          error: data.message || "Failed to fetch stats",
+          message: data.message || "Failed to fetch stats"
+        };
+      }
       return {
         success: true,
         data: data,
@@ -3455,16 +3460,16 @@ export const getDonorRecentScholarships = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_get_recent_scholarships");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("limit", String(limit));
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Donor Recent Scholarships URL:", finalUrl);
-    
+
     // Make POST request
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -3478,7 +3483,7 @@ export const getDonorRecentScholarships = async (
 
     try {
       data = responseText ? JSON.parse(responseText) : {};
-      
+
       if (data.exception || data.errorcode) {
         return {
           success: false,
@@ -3495,13 +3500,13 @@ export const getDonorRecentScholarships = async (
     }
 
     if (response.ok) {
-        if (data.success === false) {
-             return {
-                success: false,
-                error: data.message || "Failed to fetch recent scholarships",
-                message: data.message || "Failed to fetch recent scholarships"
-             };
-        }
+      if (data.success === false) {
+        return {
+          success: false,
+          error: data.message || "Failed to fetch recent scholarships",
+          message: data.message || "Failed to fetch recent scholarships"
+        };
+      }
       return {
         success: true,
         data: data,
@@ -3536,16 +3541,16 @@ export const getDonorScholarshipProgress = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_get_scholarship_progress");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("scholarship_id", String(scholarshipId));
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Scholarship Progress URL:", finalUrl);
-    
+
     // Make POST request
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -3559,7 +3564,7 @@ export const getDonorScholarshipProgress = async (
 
     try {
       data = responseText ? JSON.parse(responseText) : {};
-      
+
       if (data.exception || data.errorcode) {
         return {
           success: false,
@@ -3608,27 +3613,27 @@ export const createScholarship = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_create_scholarship");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     // Prepare request parameters
     Object.keys(scholarshipData).forEach(key => {
-        const val = scholarshipData[key];
-        if (typeof val === 'object' && val !== null) {
-            urlObj.searchParams.append(key, JSON.stringify(val));
-        } else if (val === null || val === undefined) {
-             urlObj.searchParams.append(key, "");
-        } else {
-             urlObj.searchParams.append(key, String(val));
-        }
+      const val = scholarshipData[key];
+      if (typeof val === 'object' && val !== null) {
+        urlObj.searchParams.append(key, JSON.stringify(val));
+      } else if (val === null || val === undefined) {
+        urlObj.searchParams.append(key, "");
+      } else {
+        urlObj.searchParams.append(key, String(val));
+      }
     });
 
     const finalUrl = urlObj.toString();
     console.log("Create Scholarship URL:", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -3666,13 +3671,13 @@ export const createScholarship = async (
 
     // Check if request was successful
     if (response.ok) {
-        if (data.exception) {
-            return {
-              success: false,
-              error: data.message || data.exception,
-              message: data.message || "Failed to create scholarship",
-            };
-        }
+      if (data.exception) {
+        return {
+          success: false,
+          error: data.message || data.exception,
+          message: data.message || "Failed to create scholarship",
+        };
+      }
       return {
         success: true,
         data: data,
@@ -3714,12 +3719,12 @@ export const getMyScholarships = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_get_my_scholarships");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     // Add optional parameters if provided
     if (params?.page) {
       urlObj.searchParams.append("page", String(params.page));
@@ -3742,10 +3747,10 @@ export const getMyScholarships = async (
     if (params?.end_date) {
       urlObj.searchParams.append("end_date", String(params.end_date));
     }
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get My Scholarships URL:", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -3783,13 +3788,13 @@ export const getMyScholarships = async (
 
     // Check if request was successful
     if (response.ok) {
-        if (data.exception) {
-            return {
-              success: false,
-              error: data.message || data.exception,
-              message: data.message || "Failed to retrieve scholarships",
-            };
-        }
+      if (data.exception) {
+        return {
+          success: false,
+          error: data.message || data.exception,
+          message: data.message || "Failed to retrieve scholarships",
+        };
+      }
       return {
         success: true,
         data: data,
@@ -3829,13 +3834,13 @@ export const getScholarshipApplicants = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_get_scholarship_applicants");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("scholarship_id", String(scholarshipId));
-    
+
     // Add optional parameters if provided
     if (params?.status) {
       urlObj.searchParams.append("status", params.status);
@@ -3846,10 +3851,10 @@ export const getScholarshipApplicants = async (
     if (params?.per_page) {
       urlObj.searchParams.append("per_page", String(params.per_page));
     }
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Scholarship Applicants URL:", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -3887,16 +3892,16 @@ export const getScholarshipApplicants = async (
 
     // Check if request was successful
     if (response.ok) {
-        if (data.exception) {
-            return {
-              success: false,
-              error: data.message || data.exception,
-              message: data.message || "Failed to retrieve applicants",
-            };
-        }
+      if (data.exception) {
+        return {
+          success: false,
+          error: data.message || data.exception,
+          message: data.message || "Failed to retrieve applicants",
+        };
+      }
       return {
         success: true,
-        data: data, 
+        data: data,
         message: "Applicants retrieved successfully",
       };
     } else {
@@ -3940,16 +3945,16 @@ export const getDonorApplicantDetails = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_get_applicant_details");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("application_id", String(applicationId));
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Donor Applicant Details URL:", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -3965,7 +3970,7 @@ export const getDonorApplicantDetails = async (
     // Try to parse as JSON
     try {
       data = responseText ? JSON.parse(responseText) : {};
-      
+
       // Check for Moodle-style exceptions
       if (data.exception || data.errorcode) {
         return {
@@ -4030,12 +4035,12 @@ export const getDonorAnalytics = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_get_analytics");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     // Add optional parameters if provided
     if (params?.scholarship_id !== undefined) {
       urlObj.searchParams.append("scholarship_id", String(params.scholarship_id));
@@ -4046,10 +4051,10 @@ export const getDonorAnalytics = async (
     if (params?.end_date) {
       urlObj.searchParams.append("end_date", String(params.end_date));
     }
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Donor Analytics URL:", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",
@@ -4087,13 +4092,13 @@ export const getDonorAnalytics = async (
 
     // Check if request was successful
     if (response.ok) {
-        if (data.exception) {
-            return {
-              success: false,
-              error: data.message || data.exception,
-              message: data.message || "Failed to retrieve analytics",
-            };
-        }
+      if (data.exception) {
+        return {
+          success: false,
+          error: data.message || data.exception,
+          message: data.message || "Failed to retrieve analytics",
+        };
+      }
       return {
         success: true,
         data: data,
@@ -4138,11 +4143,11 @@ export const submitDonorKyc = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_submit_kyc");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     // Add optional params
     Object.keys(data).forEach(key => {
       // @ts-ignore
@@ -4151,10 +4156,10 @@ export const submitDonorKyc = async (
         urlObj.searchParams.append(key, String(val));
       }
     });
-    
+
     const finalUrl = urlObj.toString();
     console.log("Submit Donor KYC URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -4162,16 +4167,16 @@ export const submitDonorKyc = async (
 
     const responseText = await response.text();
     let resData: any = {};
-    try { resData = JSON.parse(responseText); } catch(e) {}
+    try { resData = JSON.parse(responseText); } catch (e) { }
 
     if (response.ok) {
-        if (resData.exception) {
-            return {
-                success: false,
-                error: resData.message || resData.exception,
-                message: resData.message || "KYC Submission failed"
-            };
-        }
+      if (resData.exception) {
+        return {
+          success: false,
+          error: resData.message || resData.exception,
+          message: resData.message || "KYC Submission failed"
+        };
+      }
       return {
         success: true,
         data: resData,
@@ -4196,14 +4201,14 @@ export const getDonorKycStatus = async (token: string): Promise<ApiResponse> => 
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_donor_get_kyc_status");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Donor KYC Status URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -4211,16 +4216,16 @@ export const getDonorKycStatus = async (token: string): Promise<ApiResponse> => 
 
     const responseText = await response.text();
     let data: any = {};
-    try { data = JSON.parse(responseText); } catch(e) {}
+    try { data = JSON.parse(responseText); } catch (e) { }
 
     if (response.ok) {
-         if (data.exception) {
-            return {
-                success: false,
-                error: data.message || data.exception,
-                message: data.message || "Failed to get KYC status"
-            };
-        }
+      if (data.exception) {
+        return {
+          success: false,
+          error: data.message || data.exception,
+          message: data.message || "Failed to get KYC status"
+        };
+      }
       return { success: true, data: data, message: "KYC status retrieved successfully" };
     } else {
       return { success: false, error: "Failed to retrieve KYC status" };
@@ -4238,14 +4243,14 @@ export const getMobilizerDashboardStats = async (token: string): Promise<ApiResp
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_get_dashboard_stats");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Mobilizer Dashboard Stats URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -4253,7 +4258,7 @@ export const getMobilizerDashboardStats = async (token: string): Promise<ApiResp
 
     const responseText = await response.text();
     let data: any = {};
-    
+
     try {
       data = responseText ? JSON.parse(responseText) : {};
     } catch (e) {
@@ -4272,21 +4277,21 @@ export const getMobilizerDashboardStats = async (token: string): Promise<ApiResp
           message: data.message || "Failed to get mobilizer dashboard stats"
         };
       }
-      return { 
-        success: true, 
-        data: data, 
-        message: data.message || "Dashboard stats retrieved successfully" 
+      return {
+        success: true,
+        data: data,
+        message: data.message || "Dashboard stats retrieved successfully"
       };
     } else {
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: data.error || data.message || "Failed to retrieve dashboard stats",
         message: data.message || "Failed to retrieve dashboard stats"
       };
     }
   } catch (error: any) {
-    return { 
-      success: false, 
+    return {
+      success: false,
       error: error.message || "Network error. Please check your connection.",
       message: "Failed to connect to server"
     };
@@ -4305,19 +4310,19 @@ export const getMobilizerUpcomingDeadlines = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_get_upcoming_deadlines");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("limit", limit.toString());
-    
+
     if (studentId) {
       urlObj.searchParams.append("student_id", studentId.toString());
     }
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Mobilizer Upcoming Deadlines URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -4325,7 +4330,7 @@ export const getMobilizerUpcomingDeadlines = async (
 
     const responseText = await response.text();
     let data: any = {};
-    
+
     try {
       data = responseText ? JSON.parse(responseText) : {};
     } catch (e) {
@@ -4344,21 +4349,21 @@ export const getMobilizerUpcomingDeadlines = async (
           message: data.message || "Failed to get upcoming deadlines"
         };
       }
-      return { 
-        success: true, 
-        data: data, 
-        message: "Upcoming deadlines retrieved successfully" 
+      return {
+        success: true,
+        data: data,
+        message: "Upcoming deadlines retrieved successfully"
       };
     } else {
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: data.error || data.message || "Failed to retrieve upcoming deadlines",
         message: data.message || "Failed to retrieve upcoming deadlines"
       };
     }
   } catch (error: any) {
-    return { 
-      success: false, 
+    return {
+      success: false,
       error: error.message || "Network error. Please check your connection.",
       message: "Failed to connect to server"
     };
@@ -4378,17 +4383,17 @@ export const getMobilizerRecommendedScholarships = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_get_recommended_scholarships");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("student_id", studentId.toString());
     urlObj.searchParams.append("page", page.toString());
     urlObj.searchParams.append("per_page", perPage.toString());
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Mobilizer Recommended Scholarships URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -4396,7 +4401,7 @@ export const getMobilizerRecommendedScholarships = async (
 
     const responseText = await response.text();
     let data: any = {};
-    
+
     try {
       data = responseText ? JSON.parse(responseText) : {};
     } catch (e) {
@@ -4415,21 +4420,21 @@ export const getMobilizerRecommendedScholarships = async (
           message: data.message || "Failed to get recommended scholarships"
         };
       }
-      return { 
-        success: true, 
-        data: data, 
-        message: "Recommended scholarships retrieved successfully" 
+      return {
+        success: true,
+        data: data,
+        message: "Recommended scholarships retrieved successfully"
       };
     } else {
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: data.error || data.message || "Failed to retrieve recommended scholarships",
         message: data.message || "Failed to retrieve recommended scholarships"
       };
     }
   } catch (error: any) {
-    return { 
-      success: false, 
+    return {
+      success: false,
       error: error.message || "Network error. Please check your connection.",
       message: "Failed to connect to server"
     };
@@ -4449,20 +4454,20 @@ export const getMobilizerStudents = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_get_my_students");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("page", page.toString());
     urlObj.searchParams.append("per_page", perPage.toString());
-    
+
     if (search) {
       urlObj.searchParams.append("search", search);
     }
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Mobilizer Students URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -4470,7 +4475,7 @@ export const getMobilizerStudents = async (
 
     const responseText = await response.text();
     let data: any = {};
-    
+
     try {
       data = responseText ? JSON.parse(responseText) : {};
     } catch (e) {
@@ -4489,21 +4494,21 @@ export const getMobilizerStudents = async (
           message: data.message || "Failed to get students"
         };
       }
-      return { 
-        success: true, 
-        data: data, 
-        message: "Students retrieved successfully" 
+      return {
+        success: true,
+        data: data,
+        message: "Students retrieved successfully"
       };
     } else {
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: data.error || data.message || "Failed to retrieve students",
         message: data.message || "Failed to retrieve students"
       };
     }
   } catch (error: any) {
-    return { 
-      success: false, 
+    return {
+      success: false,
       error: error.message || "Network error. Please check your connection.",
       message: "Failed to connect to server"
     };
@@ -4521,15 +4526,15 @@ export const getMobilizerStudentProfile = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_get_student_profile");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("student_id", studentId.toString());
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Mobilizer Student Profile URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -4537,7 +4542,7 @@ export const getMobilizerStudentProfile = async (
 
     const responseText = await response.text();
     let data: any = {};
-    
+
     try {
       data = responseText ? JSON.parse(responseText) : {};
     } catch (e) {
@@ -4556,21 +4561,21 @@ export const getMobilizerStudentProfile = async (
           message: data.message || "Failed to get student profile"
         };
       }
-      return { 
-        success: true, 
-        data: data, 
-        message: "Student profile retrieved successfully" 
+      return {
+        success: true,
+        data: data,
+        message: "Student profile retrieved successfully"
       };
     } else {
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: data.error || data.message || "Failed to retrieve student profile",
         message: data.message || "Failed to retrieve student profile"
       };
     }
   } catch (error: any) {
-    return { 
-      success: false, 
+    return {
+      success: false,
       error: error.message || "Network error. Please check your connection.",
       message: "Failed to connect to server"
     };
@@ -4597,11 +4602,11 @@ export const getMobilizerApplications = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_get_my_applications");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     // Add optional parameters if provided
     if (params?.page) {
       urlObj.searchParams.append("page", String(params.page));
@@ -4624,10 +4629,10 @@ export const getMobilizerApplications = async (
     if (params?.end_date) {
       urlObj.searchParams.append("end_date", String(params.end_date));
     }
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Mobilizer Applications URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -4635,7 +4640,7 @@ export const getMobilizerApplications = async (
 
     const responseText = await response.text();
     let data: any = {};
-    
+
     try {
       data = responseText ? JSON.parse(responseText) : {};
     } catch (e) {
@@ -4654,21 +4659,21 @@ export const getMobilizerApplications = async (
           message: data.message || "Failed to get applications"
         };
       }
-      return { 
-        success: true, 
-        data: data, 
-        message: "Applications retrieved successfully" 
+      return {
+        success: true,
+        data: data,
+        message: "Applications retrieved successfully"
       };
     } else {
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: data.error || data.message || "Failed to retrieve applications",
         message: data.message || "Failed to retrieve applications"
       };
     }
   } catch (error: any) {
-    return { 
-      success: false, 
+    return {
+      success: false,
       error: error.message || "Network error. Please check your connection.",
       message: "Failed to connect to server"
     };
@@ -4707,13 +4712,13 @@ export const mobilizerApplyForStudent = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_apply_for_student");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("student_id", String(data.student_id));
     urlObj.searchParams.append("scholarship_id", String(data.scholarship_id));
-    
+
     // Add all optional parameters if provided
     if (data.application_text) {
       urlObj.searchParams.append("application_text", data.application_text);
@@ -4764,10 +4769,10 @@ export const mobilizerApplyForStudent = async (
       urlObj.searchParams.append("verification_time", data.verification_time);
     }
     // Note: documents handling may need special processing depending on API requirements
-    
+
     const finalUrl = urlObj.toString();
     console.log("Mobilizer Apply for Student URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -4775,7 +4780,7 @@ export const mobilizerApplyForStudent = async (
 
     const responseText = await response.text();
     let responseData: any = {};
-    
+
     try {
       responseData = responseText ? JSON.parse(responseText) : {};
     } catch (e) {
@@ -4794,21 +4799,21 @@ export const mobilizerApplyForStudent = async (
           message: responseData.message || "Failed to submit application"
         };
       }
-      return { 
-        success: true, 
-        data: responseData, 
-        message: responseData.message || "Application submitted successfully" 
+      return {
+        success: true,
+        data: responseData,
+        message: responseData.message || "Application submitted successfully"
       };
     } else {
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: responseData.error || responseData.message || "Failed to submit application",
         message: responseData.message || "Failed to submit application"
       };
     }
   } catch (error: any) {
-    return { 
-      success: false, 
+    return {
+      success: false,
       error: error.message || "Network error. Please check your connection.",
       message: "Failed to connect to server"
     };
@@ -4826,13 +4831,13 @@ export const addMobilizerStudent = async (
 ): Promise<ApiResponse> => {
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
-    
+
     // Build query string manually to avoid encoding brackets
     const params: string[] = [];
     params.push(`wsfunction=local_mobileapi_mobilizer_add_student`);
     params.push(`moodlewsrestformat=json`);
     params.push(`wstoken=${token}`);
-    
+
     // Add all fields from studentData
     Object.keys(studentData).forEach(key => {
       if (studentData[key] !== undefined && studentData[key] !== null && studentData[key] !== '') {
@@ -4841,10 +4846,10 @@ export const addMobilizerStudent = async (
         params.push(`${key}=${encodedValue}`);
       }
     });
-    
+
     const finalUrl = `${baseUrl}?${params.join('&')}`;
     console.log("Add Mobilizer Student URL:", finalUrl);
-    
+
     const response = await fetch(finalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -4852,7 +4857,7 @@ export const addMobilizerStudent = async (
 
     const responseText = await response.text();
     let data: any = {};
-    
+
     try {
       data = responseText ? JSON.parse(responseText) : {};
     } catch (e) {
@@ -4871,21 +4876,21 @@ export const addMobilizerStudent = async (
           message: data.message || "Failed to add student"
         };
       }
-      return { 
-        success: true, 
-        data: data, 
-        message: data.message || "Student added successfully" 
+      return {
+        success: true,
+        data: data,
+        message: data.message || "Student added successfully"
       };
     } else {
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: data.error || data.message || "Failed to add student",
         message: data.message || "Failed to add student"
       };
     }
   } catch (error: any) {
-    return { 
-      success: false, 
+    return {
+      success: false,
       error: error.message || "Network error. Please check your connection.",
       message: "Failed to connect to server"
     };
@@ -4910,12 +4915,12 @@ export const getMobilizerScholarships = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
     const urlObj = new URL(baseUrl);
-    
+
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
     urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_get_scholarships");
     urlObj.searchParams.append("moodlewsrestformat", "json");
-    
+
     // Add optional parameters if provided
     if (params?.search) {
       urlObj.searchParams.append("search", params.search);
@@ -4927,18 +4932,18 @@ export const getMobilizerScholarships = async (
       urlObj.searchParams.append("per_page", String(params.per_page));
     }
     if (params?.categoryid) {
-        urlObj.searchParams.append("categoryid", String(params.categoryid));
+      urlObj.searchParams.append("categoryid", String(params.categoryid));
     }
     if (params?.deadline_before) {
-        urlObj.searchParams.append("deadline_before", String(params.deadline_before));
+      urlObj.searchParams.append("deadline_before", String(params.deadline_before));
     }
     if (params?.bookmarked !== undefined) {
-        urlObj.searchParams.append("bookmarked", String(params.bookmarked));
+      urlObj.searchParams.append("bookmarked", String(params.bookmarked));
     }
-    
+
     const finalUrl = urlObj.toString();
     console.log("Get Mobilizer Scholarships URL:", finalUrl);
-    
+
     // Make POST request with query parameters in URL
     const response = await fetch(finalUrl, {
       method: "POST",

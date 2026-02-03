@@ -15,6 +15,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View
 } from "react-native";
@@ -37,23 +38,170 @@ interface ValidationErrors {
 }
 
 const COURSE_OPTIONS = [
-  "B.Tech", "B.E.", "B.Sc", "B.Com", "B.A.", "BBA", "BCA", "MBBS", "BDS",
-  "B.Pharm", "LLB", "M.Tech", "M.Sc", "MBA", "MCA", "M.A.", "M.Com",
-  "Ph.D", "Diploma", "Other"
+  // Undergraduate - Engineering
+  "B.Tech", "B.E.", "B.Arch", "B.Des", "B.Plan",
+  // Undergraduate - Medical
+  "MBBS", "BDS", "BAMS", "BHMS", "BUMS", "B.Pharm", "BPT", "B.Sc Nursing", "BNYS",
+  // Undergraduate - Science
+  "B.Sc", "B.Sc (Hons)", "B.Sc Agriculture", "B.Sc Forestry", "B.Sc Biotechnology",
+  // Undergraduate - Commerce
+  "B.Com", "B.Com (Hons)", "BBA", "BMS", "BBM",
+  // Undergraduate - Arts & Humanities
+  "B.A.", "B.A. (Hons)", "BFA", "B.Mus", "B.P.Ed", "B.Ed",
+  // Undergraduate - Computer Applications
+  "BCA", "B.Sc IT", "B.Sc CS",
+  // Undergraduate - Law
+  "LLB", "BA LLB", "BBA LLB", "B.Com LLB",
+  // Undergraduate - Others
+  "B.Lib.Sc", "B.J.M.C", "B.F.Tech", "B.H.M", "B.T.M",
+
+  // Postgraduate - Engineering
+  "M.Tech", "M.E.", "M.Arch", "M.Des", "M.Plan",
+  // Postgraduate - Medical
+  "MD", "MS", "MDS", "M.Pharm", "MPT", "M.Sc Nursing",
+  // Postgraduate - Science
+  "M.Sc", "M.Sc (Hons)", "M.Phil",
+  // Postgraduate - Commerce
+  "M.Com", "M.Com (Hons)", "MBA", "PGDM", "MMS", "MFM",
+  // Postgraduate - Arts & Humanities
+  "M.A.", "M.A. (Hons)", "MFA", "M.Mus", "M.P.Ed", "M.Ed",
+  // Postgraduate - Computer Applications
+  "MCA", "M.Sc IT", "M.Sc CS",
+  // Postgraduate - Law
+  "LLM",
+  // Postgraduate - Others
+  "M.Lib.Sc", "M.J.M.C", "M.H.M", "M.T.M", "MSW",
+
+  // Doctoral
+  "Ph.D", "D.Sc", "D.Litt", "DM", "M.Ch",
+
+  // Diploma & Certificate
+  "Diploma", "Advanced Diploma", "PG Diploma", "Certificate Course",
+
+  // Integrated Courses
+  "B.Tech + M.Tech", "BS-MS", "BBA + MBA", "Integrated M.Sc",
+
+  "Other"
 ];
 
 const COURSE_CATEGORY_OPTIONS = [
-  "Engineering", "Medical", "Arts", "Science", "Commerce", "Law",
-  "Management", "Pharmacy", "Education", "Vocational", "Other"
+  // Main Categories
+  "Engineering & Technology",
+  "Medical & Health Sciences",
+  "Science & Research",
+  "Commerce & Business",
+  "Arts & Humanities",
+  "Law & Legal Studies",
+  "Management & Administration",
+  "Computer Applications & IT",
+  "Education & Teaching",
+  "Agriculture & Forestry",
+  "Architecture & Planning",
+  "Design & Fine Arts",
+  "Pharmacy & Pharmaceutical Sciences",
+  "Nursing & Healthcare",
+  "Veterinary Science",
+  "Mass Communication & Journalism",
+  "Hotel Management & Tourism",
+  "Fashion & Textile",
+  "Social Work & Social Sciences",
+  "Library Science",
+  "Physical Education & Sports",
+  "Performing Arts",
+  "Vocational & Skill Development",
+  "Other"
 ];
 
 const MAJOR_OPTIONS = [
-  "Computer Science", "Information Technology", "Mechanical Engineering",
-  "Civil Engineering", "Electrical Engineering", "Electronics & Communication",
-  "Physics", "Chemistry", "Mathematics", "Biology", "Economics", "English",
-  "History", "Political Science", "Accounting", "Finance", "Marketing",
-  "Human Resources", "General", "Other"
+  // Computer Science & IT
+  "Computer Science", "Information Technology", "Software Engineering",
+  "Data Science", "Artificial Intelligence", "Machine Learning", "Cyber Security",
+  "Cloud Computing", "Internet of Things (IoT)", "Blockchain Technology",
+  "Computer Networks", "Database Management", "Web Development", "Mobile App Development",
+
+  // Engineering - Core Branches
+  "Mechanical Engineering", "Civil Engineering", "Electrical Engineering",
+  "Electronics Engineering", "Electronics & Communication", "Electronics & Telecommunication",
+  "Chemical Engineering", "Aerospace Engineering", "Automobile Engineering",
+  "Production Engineering", "Industrial Engineering", "Manufacturing Engineering",
+  "Instrumentation Engineering", "Biomedical Engineering", "Biotechnology Engineering",
+  "Environmental Engineering", "Mining Engineering", "Petroleum Engineering",
+  "Agricultural Engineering", "Food Technology", "Textile Engineering",
+  "Marine Engineering", "Naval Architecture", "Robotics & Automation",
+  "Mechatronics", "Nanotechnology", "Material Science",
+
+  // Medical & Health Sciences
+  "General Medicine", "General Surgery", "Pediatrics", "Obstetrics & Gynecology",
+  "Orthopedics", "Ophthalmology", "ENT", "Dermatology", "Psychiatry",
+  "Radiology", "Anesthesiology", "Pathology", "Medical Microbiology", "Pharmacology",
+  "Dentistry", "Oral Surgery", "Orthodontics", "Periodontics", "Prosthodontics",
+  "Nursing", "Physiotherapy", "Occupational Therapy", "Pharmacy", "Ayurveda",
+  "Homeopathy", "Unani", "Naturopathy & Yoga", "Public Health", "Nutrition & Dietetics",
+
+  // Pure Sciences
+  "Physics", "Chemistry", "Mathematics", "Statistics", "Biology", "Zoology",
+  "Botany", "Microbiology", "Biochemistry", "Biotechnology", "Genetics",
+  "Environmental Science", "Geology", "Physical Geography", "Astronomy", "Astrophysics",
+
+  // Commerce & Business
+  "Accounting", "Finance", "Banking", "Taxation", "Auditing", "Cost Accounting",
+  "Financial Management", "Investment Management", "Insurance", "Business Economics",
+  "International Business", "E-Commerce", "Retail Management",
+
+  // Management
+  "Marketing", "Human Resources", "Operations Management", "Supply Chain Management",
+  "Project Management", "Strategic Management", "Entrepreneurship", "Business Analytics",
+  "International Business Management", "Hospitality Management",
+  "Tourism Management", "Event Management", "Sports Management", "Healthcare Management",
+
+  // Arts & Humanities
+  "English", "Hindi", "Sanskrit", "Urdu", "Regional Languages", "Linguistics",
+  "History", "Political Science", "Sociology", "Psychology", "Philosophy",
+  "Anthropology", "Archaeology", "Human Geography", "Economics", "Public Administration",
+  "International Relations", "Social Work", "Women Studies", "Cultural Studies",
+
+  // Law
+  "Constitutional Law", "Criminal Law", "Civil Law", "Corporate Law",
+  "Intellectual Property Law", "Tax Law", "International Law", "Cyber Law",
+  "Environmental Law", "Human Rights Law", "Family Law", "Labour Law",
+
+  // Education
+  "Elementary Education", "Secondary Education", "Special Education",
+  "Educational Psychology", "Educational Technology", "Curriculum Development",
+  "Educational Administration", "Physical Education", "Early Childhood Education",
+
+  // Agriculture & Allied
+  "Agronomy", "Horticulture", "Soil Science", "Plant Pathology", "Entomology",
+  "Agricultural Economics", "Agricultural Extension", "Animal Husbandry",
+  "Dairy Science", "Fisheries", "Forestry", "Veterinary Science",
+
+  // Architecture & Design
+  "Architecture", "Urban Planning", "Landscape Architecture", "Interior Design",
+  "Industrial Design", "Fashion Design", "Graphic Design", "Product Design",
+  "Textile Design", "Animation", "Visual Communication",
+
+  // Mass Communication & Media
+  "Journalism", "Mass Communication", "Advertising", "Public Relations",
+  "Film Making", "Photography", "Video Production", "Digital Media",
+  "Broadcasting", "Print Media", "Electronic Media",
+
+  // Performing Arts
+  "Music", "Dance", "Drama", "Theatre Arts", "Fine Arts", "Painting",
+  "Sculpture", "Applied Arts",
+
+  // Library & Information Science
+  "Library Science", "Information Science", "Archival Science",
+
+  // General & Others
+  "General", "Interdisciplinary Studies", "Liberal Arts", "Other"
 ];
+
+// Generate graduation year options (current year to 2040)
+const currentYear = new Date().getFullYear();
+const GRADUATION_YEAR_OPTIONS = Array.from(
+  { length: 2040 - currentYear + 1 },
+  (_, i) => (currentYear + i).toString()
+);
 
 const INITIAL_RECORD: AcademicRecord = {
   id: "",
@@ -85,8 +233,11 @@ export default function StudentProfileAcademicScreen() {
   const [showCoursePicker, setShowCoursePicker] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showMajorPicker, setShowMajorPicker] = useState(false);
-  const [showGradDatePicker, setShowGradDatePicker] = useState(false);
+  const [showGradYearPicker, setShowGradYearPicker] = useState(false);
   const [showAcademicYearPicker, setShowAcademicYearPicker] = useState(false);
+
+  // CGPA/Percentage toggle
+  const [gradeType, setGradeType] = useState<'cgpa' | 'percentage'>('cgpa');
 
   // Toast State
   const [showToast, setShowToast] = useState(false);
@@ -262,7 +413,22 @@ export default function StudentProfileAcademicScreen() {
   // --- Render Components ---
 
   const SelectionModal = ({ visible, onClose, title, options, selected, onSelect }: any) => {
+    const [searchQuery, setSearchQuery] = React.useState("");
+
     if (!visible) return null;
+
+    // Filter options based on search query
+    const filteredOptions = options.filter((opt: string) =>
+      opt.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    // Reset search when modal closes
+    React.useEffect(() => {
+      if (!visible) {
+        setSearchQuery("");
+      }
+    }, [visible]);
+
     return (
       <View style={[styles.modalOverlay, { zIndex: 1000, elevation: 1000 }]}>
         <TouchableOpacity style={styles.modalBackdrop} onPress={onClose} activeOpacity={1} />
@@ -273,21 +439,48 @@ export default function StudentProfileAcademicScreen() {
               <Ionicons name="close" size={24} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
-          <ScrollView style={{ maxHeight: 350 }}>
-            {options.map((opt: string) => (
-              <TouchableOpacity
-                key={opt}
-                style={[styles.optionRow, selected === opt && styles.optionSelected, { borderBottomColor: colors.border }]}
-                onPress={() => onSelect(opt)}
-              >
-                <Text style={[styles.optionText, { color: colors.text }, selected === opt && styles.optionTextSelected]}>
-                  {opt}
-                </Text>
-                {selected === opt && (
-                  <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
-                )}
+
+          {/* Search Input */}
+          <View style={[styles.searchContainer, { backgroundColor: isDark ? '#1F1F1F' : '#F5F5F5', borderColor: colors.border }]}>
+            <Ionicons name="search" size={20} color={colors.textSecondary} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={`Search ${title.toLowerCase()}...`}
+              placeholderTextColor={colors.textSecondary}
+              style={[styles.searchInput, { color: colors.text }]}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery("")}>
+                <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
-            ))}
+            )}
+          </View>
+
+          <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            {filteredOptions.length === 0 ? (
+              <View style={{ padding: 20, alignItems: 'center' }}>
+                <Ionicons name="search-outline" size={48} color={colors.textSecondary} />
+                <Text style={[styles.noResultsText, { color: colors.textSecondary }]}>
+                  No results found for "{searchQuery}"
+                </Text>
+              </View>
+            ) : (
+              filteredOptions.map((opt: string) => (
+                <TouchableOpacity
+                  key={opt}
+                  style={[styles.optionRow, selected === opt && styles.optionSelected, { borderBottomColor: colors.border }]}
+                  onPress={() => onSelect(opt)}
+                >
+                  <Text style={[styles.optionText, { color: colors.text }, selected === opt && styles.optionTextSelected]}>
+                    {opt}
+                  </Text>
+                  {selected === opt && (
+                    <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              ))
+            )}
           </ScrollView>
         </View>
       </View>
@@ -406,97 +599,150 @@ export default function StudentProfileAcademicScreen() {
           </View>
 
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-            <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 30, paddingBottom: insets.bottom + 60 }}>
-              {/* Course & Category */}
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Course Name *</Text>
-                <TouchableOpacity
-                  style={[styles.selector, { borderColor: validationErrors.currentCourse ? '#EF4444' : colors.border, backgroundColor: isDark ? '#1F1F1F' : '#FAFAFA' }]}
-                  onPress={() => setShowCoursePicker(true)}
-                >
-                  <Text style={{ color: editingRecord.currentCourse ? colors.text : colors.textSecondary }}>
-                    {editingRecord.currentCourse || "Select Course"}
-                  </Text>
-                  <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
-                {validationErrors.currentCourse && <Text style={styles.errorText}>{validationErrors.currentCourse}</Text>}
-              </View>
+            <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 24, paddingBottom: insets.bottom + 60 }} showsVerticalScrollIndicator={false}>
 
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Category *</Text>
-                <TouchableOpacity
-                  style={[styles.selector, { borderColor: validationErrors.currentCourseCategory ? '#EF4444' : colors.border, backgroundColor: isDark ? '#1F1F1F' : '#FAFAFA' }]}
-                  onPress={() => setShowCategoryPicker(true)}
-                >
-                  <Text style={{ color: editingRecord.currentCourseCategory ? colors.text : colors.textSecondary }}>
-                    {editingRecord.currentCourseCategory || "Select Category"}
-                  </Text>
-                  <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
-                {validationErrors.currentCourseCategory && <Text style={styles.errorText}>{validationErrors.currentCourseCategory}</Text>}
-              </View>
-
-              <CustomTextInput
-                label="Institution Name *"
-                value={editingRecord.institution}
-                onChangeText={(t) => handleFieldChange("institution", t)}
-                style={{ marginBottom: 16 }}
-                error={validationErrors.institution}
-              />
-
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Major / Stream *</Text>
-                <TouchableOpacity
-                  style={[styles.selector, { borderColor: validationErrors.major ? '#EF4444' : colors.border, backgroundColor: isDark ? '#1F1F1F' : '#FAFAFA' }]}
-                  onPress={() => setShowMajorPicker(true)}
-                >
-                  <Text style={{ color: editingRecord.major ? colors.text : colors.textSecondary }}>
-                    {editingRecord.major || "Select Major"}
-                  </Text>
-                  <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
-                {validationErrors.major && <Text style={styles.errorText}>{validationErrors.major}</Text>}
-              </View>
-
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <View style={{ flex: 1 }}>
-                  <CustomTextInput
-                    label="GPA"
-                    value={editingRecord.gpa}
-                    onChangeText={(t) => handleFieldChange("gpa", t)}
-                    keyboardType="numeric"
-                    placeholder="e.g. 8.5"
-                    error={validationErrors.gpa}
-                  />
+              {/* Course & Category Section */}
+              <View style={[styles.formSection, { backgroundColor: isDark ? '#1A1A1A' : '#F8F9FA', borderColor: colors.border }]}>
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="school-outline" size={20} color={colors.primary} />
+                  <Text style={[styles.sectionTitle2, { color: colors.text }]}>Course Information</Text>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <View style={styles.inputGroup}>
-                    <Text style={[styles.label, { color: colors.textSecondary }]}>Academic Year *</Text>
+
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>Course Name *</Text>
+                  <TouchableOpacity
+                    style={[styles.selector, { borderColor: validationErrors.currentCourse ? '#EF4444' : colors.border, backgroundColor: isDark ? '#252525' : '#FFFFFF' }]}
+                    onPress={() => setShowCoursePicker(true)}
+                  >
+                    <Ionicons name="book-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
+                    <Text style={[{ flex: 1 }, { color: editingRecord.currentCourse ? colors.text : colors.textSecondary }]}>
+                      {editingRecord.currentCourse || "Select your course (e.g., B.Tech, MBA)"}
+                    </Text>
+                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                  {validationErrors.currentCourse && <Text style={styles.errorText}>{validationErrors.currentCourse}</Text>}
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>Category *</Text>
+                  <TouchableOpacity
+                    style={[styles.selector, { borderColor: validationErrors.currentCourseCategory ? '#EF4444' : colors.border, backgroundColor: isDark ? '#252525' : '#FFFFFF' }]}
+                    onPress={() => setShowCategoryPicker(true)}
+                  >
+                    <Ionicons name="grid-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
+                    <Text style={[{ flex: 1 }, { color: editingRecord.currentCourseCategory ? colors.text : colors.textSecondary }]}>
+                      {editingRecord.currentCourseCategory || "Select category (e.g., Engineering)"}
+                    </Text>
+                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                  {validationErrors.currentCourseCategory && <Text style={styles.errorText}>{validationErrors.currentCourseCategory}</Text>}
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>Major / Stream *</Text>
+                  <TouchableOpacity
+                    style={[styles.selector, { borderColor: validationErrors.major ? '#EF4444' : colors.border, backgroundColor: isDark ? '#252525' : '#FFFFFF' }]}
+                    onPress={() => setShowMajorPicker(true)}
+                  >
+                    <Ionicons name="ribbon-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
+                    <Text style={[{ flex: 1 }, { color: editingRecord.major ? colors.text : colors.textSecondary }]}>
+                      {editingRecord.major || "Select your specialization"}
+                    </Text>
+                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                  {validationErrors.major && <Text style={styles.errorText}>{validationErrors.major}</Text>}
+                </View>
+              </View>
+
+              {/* Institution Section */}
+              <View style={[styles.formSection, { backgroundColor: isDark ? '#1A1A1A' : '#F8F9FA', borderColor: colors.border }]}>
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="business-outline" size={20} color={colors.primary} />
+                  <Text style={[styles.sectionTitle2, { color: colors.text }]}>Institution Details</Text>
+                </View>
+
+                <CustomTextInput
+                  label="College / University Name *"
+                  value={editingRecord.institution}
+                  onChangeText={(t) => handleFieldChange("institution", t)}
+                  placeholder="e.g., IIT Delhi, Delhi University"
+                  style={{ marginBottom: 0 }}
+                  error={validationErrors.institution}
+                />
+              </View>
+
+              {/* Academic Performance Section */}
+              <View style={[styles.formSection, { backgroundColor: isDark ? '#1A1A1A' : '#F8F9FA', borderColor: colors.border }]}>
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="trophy-outline" size={20} color={colors.primary} />
+                  <Text style={[styles.sectionTitle2, { color: colors.text }]}>Academic Performance</Text>
+                </View>
+
+                {/* Grade Type Toggle */}
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>Grade Type</Text>
+                  <View style={styles.toggleContainer}>
                     <TouchableOpacity
-                      style={[styles.selector, { borderColor: validationErrors.year ? '#EF4444' : colors.border, backgroundColor: isDark ? '#1F1F1F' : '#FAFAFA', height: 50, paddingVertical: 14 }]}
-                      onPress={() => setShowAcademicYearPicker(true)}
+                      style={[styles.toggleButton, gradeType === 'cgpa' && styles.toggleButtonActive, { borderColor: colors.border, backgroundColor: gradeType === 'cgpa' ? colors.primary : (isDark ? '#252525' : '#FFFFFF') }]}
+                      onPress={() => setGradeType('cgpa')}
                     >
-                      <Text style={{ color: editingRecord.year ? colors.text : colors.textSecondary }}>
-                        {editingRecord.year || "Select Year"}
-                      </Text>
+                      <Text style={[styles.toggleText, { color: gradeType === 'cgpa' ? '#FFFFFF' : colors.textSecondary }]}>CGPA</Text>
                     </TouchableOpacity>
-                    {validationErrors.year && <Text style={styles.errorText}>{validationErrors.year}</Text>}
+                    <TouchableOpacity
+                      style={[styles.toggleButton, gradeType === 'percentage' && styles.toggleButtonActive, { borderColor: colors.border, backgroundColor: gradeType === 'percentage' ? colors.primary : (isDark ? '#252525' : '#FFFFFF') }]}
+                      onPress={() => setGradeType('percentage')}
+                    >
+                      <Text style={[styles.toggleText, { color: gradeType === 'percentage' ? '#FFFFFF' : colors.textSecondary }]}>Percentage</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
+
+                <CustomTextInput
+                  label={gradeType === 'cgpa' ? 'CGPA (out of 10)' : 'Percentage (%)'}
+                  value={editingRecord.gpa}
+                  onChangeText={(t) => handleFieldChange("gpa", t)}
+                  keyboardType="decimal-pad"
+                  placeholder={gradeType === 'cgpa' ? 'e.g., 8.5' : 'e.g., 85'}
+                  error={validationErrors.gpa}
+                  style={{ marginBottom: 0 }}
+                />
               </View>
 
-              {/* Graduation Date Picker - Added Back */}
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Expected Graduation</Text>
-                <TouchableOpacity
-                  style={[styles.selector, { borderColor: colors.border, backgroundColor: isDark ? '#1F1F1F' : '#FAFAFA' }]}
-                  onPress={() => setShowGradDatePicker(true)}
-                >
-                  <Text style={{ color: editingRecord.graduation ? colors.text : colors.textSecondary }}>
-                    {editingRecord.graduation || "Select Date"}
-                  </Text>
-                  <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
+              {/* Timeline Section */}
+              <View style={[styles.formSection, { backgroundColor: isDark ? '#1A1A1A' : '#F8F9FA', borderColor: colors.border }]}>
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+                  <Text style={[styles.sectionTitle2, { color: colors.text }]}>Timeline</Text>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>Academic Year (Start Year) *</Text>
+                  <TouchableOpacity
+                    style={[styles.selector, { borderColor: validationErrors.year ? '#EF4444' : colors.border, backgroundColor: isDark ? '#252525' : '#FFFFFF' }]}
+                    onPress={() => setShowAcademicYearPicker(true)}
+                  >
+                    <Ionicons name="calendar" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
+                    <Text style={[{ flex: 1 }, { color: editingRecord.year ? colors.text : colors.textSecondary }]}>
+                      {editingRecord.year || "Year you started"}
+                    </Text>
+                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                  {validationErrors.year && <Text style={styles.errorText}>{validationErrors.year}</Text>}
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>Expected Graduation Year</Text>
+                  <TouchableOpacity
+                    style={[styles.selector, { borderColor: colors.border, backgroundColor: isDark ? '#252525' : '#FFFFFF' }]}
+                    onPress={() => setShowGradYearPicker(true)}
+                  >
+                    <Ionicons name="flag-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
+                    <Text style={[{ flex: 1 }, { color: editingRecord.graduation ? colors.text : colors.textSecondary }]}>
+                      {editingRecord.graduation || "Year you'll graduate"}
+                    </Text>
+                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
               </View>
 
               <Button
@@ -535,7 +781,7 @@ export default function StudentProfileAcademicScreen() {
             onSelect={(val: string) => { handleFieldChange("major", val); setShowMajorPicker(false); }}
           />
 
-          {/* Date Pickers (Moved inside Modal to fix z-order overlay issue) */}
+          {/* Year Pickers */}
           <DateTimePickerModal
             isVisible={showAcademicYearPicker}
             mode="date"
@@ -549,17 +795,14 @@ export default function StudentProfileAcademicScreen() {
             isDarkModeEnabled={isDark}
           />
 
-          <DateTimePickerModal
-            isVisible={showGradDatePicker}
-            mode="date"
-            display="spinner"
-            locale="en-GB"
-            onConfirm={(date) => {
-              handleFieldChange("graduation", date.getFullYear().toString());
-              setShowGradDatePicker(false);
-            }}
-            onCancel={() => setShowGradDatePicker(false)}
-            isDarkModeEnabled={isDark}
+          {/* Graduation Year Dropdown */}
+          <SelectionModal
+            visible={showGradYearPicker}
+            onClose={() => setShowGradYearPicker(false)}
+            title="Expected Graduation Year"
+            options={GRADUATION_YEAR_OPTIONS}
+            selected={editingRecord.graduation}
+            onSelect={(val: string) => { handleFieldChange("graduation", val); setShowGradYearPicker(false); }}
           />
         </View>
       </Modal>
@@ -636,8 +879,8 @@ const styles = StyleSheet.create({
   },
   fsModalTitle: { fontSize: 18, fontWeight: '700' },
   closeBtn: { padding: 4 },
-  inputGroup: { marginBottom: 16 },
-  label: { marginBottom: 8, fontSize: 14, fontWeight: '600' },
+  inputGroup: { marginBottom: 20 },
+  label: { marginBottom: 8, fontSize: 13, fontWeight: '600', letterSpacing: 0.3 },
   selector: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -645,17 +888,84 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     minHeight: 56
   },
-  errorText: { color: '#EF4444', fontSize: 12, marginTop: 4 },
+  errorText: { color: '#EF4444', fontSize: 12, marginTop: 6 },
+  formSection: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    gap: 10,
+  },
+  sectionTitle2: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toggleButtonActive: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  toggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
 
   // Selection Modal (Internal)
   modalOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: "flex-end", zIndex: 1000 },
   modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.5)" },
-  modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    height: '80%',
+    maxHeight: '80%',
+  },
   modalHeader: { flexDirection: "row", justifyContent: "space-between", padding: 20, borderBottomWidth: 1 },
   modalTitle: { fontSize: 18, fontWeight: "700" },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    paddingVertical: 0,
+  },
+  noResultsText: {
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
+  },
   optionRow: { flexDirection: "row", justifyContent: "space-between", padding: 16, borderBottomWidth: 1 },
   optionSelected: { backgroundColor: "rgba(33, 150, 243, 0.1)" },
   optionText: { fontSize: 16 },
