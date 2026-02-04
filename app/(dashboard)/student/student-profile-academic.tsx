@@ -336,11 +336,23 @@ export default function StudentProfileAcademicScreen() {
     if (!editingRecord.currentCourse.trim()) errors.currentCourse = "Required";
     if (!editingRecord.currentCourseCategory.trim()) errors.currentCourseCategory = "Required";
 
-    // GPA Validation
-    if (editingRecord.gpa) {
+    // Academic Performance Validation (Required)
+    if (!editingRecord.gpa || !editingRecord.gpa.trim()) {
+      errors.gpa = "Academic performance is required";
+    } else {
       const gpaNum = parseFloat(editingRecord.gpa);
-      if (isNaN(gpaNum) || gpaNum < 0 || gpaNum > 10.0) {
-        errors.gpa = "Invalid GPA (0-10)";
+      if (isNaN(gpaNum)) {
+        errors.gpa = "Please enter a valid number";
+      } else if (gradeType === 'cgpa') {
+        // CGPA validation (0-10)
+        if (gpaNum < 0 || gpaNum > 10.0) {
+          errors.gpa = "CGPA must be between 0 and 10";
+        }
+      } else {
+        // Percentage validation (0-100)
+        if (gpaNum < 0 || gpaNum > 100) {
+          errors.gpa = "Percentage must be between 0 and 100";
+        }
       }
     }
 
@@ -616,7 +628,7 @@ export default function StudentProfileAcademicScreen() {
                   >
                     <Ionicons name="book-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
                     <Text style={[{ flex: 1 }, { color: editingRecord.currentCourse ? colors.text : colors.textSecondary }]}>
-                      {editingRecord.currentCourse || "Select your course (e.g., B.Tech, MBA)"}
+                      {editingRecord.currentCourse || "Select your course"}
                     </Text>
                     <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
                   </TouchableOpacity>
@@ -698,7 +710,7 @@ export default function StudentProfileAcademicScreen() {
                 </View>
 
                 <CustomTextInput
-                  label={gradeType === 'cgpa' ? 'CGPA (out of 10)' : 'Percentage (%)'}
+                  label={gradeType === 'cgpa' ? 'CGPA (out of 10) *' : 'Percentage (%) *'}
                   value={editingRecord.gpa}
                   onChangeText={(t) => handleFieldChange("gpa", t)}
                   keyboardType="decimal-pad"

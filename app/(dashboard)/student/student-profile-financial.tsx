@@ -239,8 +239,9 @@ export default function StudentProfileFinancialScreen() {
     const [isSaving, setIsSaving] = useState(false);
     const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
 
-    // Bank Selection Modal
+    // Bank Selection Dropdown (inline)
     const [showBankPicker, setShowBankPicker] = useState(false);
+    const [bankSearchQuery, setBankSearchQuery] = useState("");
 
     // Toast State
     const [showToast, setShowToast] = useState(false);
@@ -528,7 +529,7 @@ export default function StudentProfileFinancialScreen() {
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
                     >
-                        {/* Bank Name Dropdown */}
+                        {/* Bank Name Dropdown - Inline Expandable */}
                         <View style={styles.input}>
                             <Text style={[styles.label, { color: colors.textSecondary }]}>Bank Name *</Text>
                             <TouchableOpacity
@@ -536,15 +537,109 @@ export default function StudentProfileFinancialScreen() {
                                     borderColor: validationErrors.bankName ? '#EF4444' : colors.border,
                                     backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF'
                                 }]}
-                                onPress={() => setShowBankPicker(true)}
+                                onPress={() => {
+                                    setShowBankPicker(!showBankPicker);
+                                    setBankSearchQuery("");
+                                }}
                             >
                                 <Ionicons name="business-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
                                 <Text style={[{ flex: 1 }, { color: editForm.bankName ? colors.text : colors.textSecondary }]}>
                                     {editForm.bankName || "Select your bank"}
                                 </Text>
-                                <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                                <Ionicons name={showBankPicker ? "chevron-up" : "chevron-down"} size={20} color={colors.textSecondary} />
                             </TouchableOpacity>
                             {validationErrors.bankName && <Text style={styles.errorText}>{validationErrors.bankName}</Text>}
+
+                            {/* Inline Bank Picker Dropdown */}
+                            {showBankPicker && (
+                                <View style={[styles.inlineBankPicker, {
+                                    backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
+                                    borderColor: colors.border
+                                }]}>
+                                    {/* Search Bar */}
+                                    <View style={[styles.inlineSearchContainer, {
+                                        backgroundColor: isDark ? '#2A2A2A' : '#F5F5F5',
+                                        borderColor: colors.border
+                                    }]}>
+                                        <Ionicons name="search" size={18} color={colors.textSecondary} />
+                                        <TextInput
+                                            style={[styles.inlineSearchInput, { color: colors.text }]}
+                                            placeholder="Search for your bank..."
+                                            placeholderTextColor={colors.textSecondary}
+                                            value={bankSearchQuery}
+                                            onChangeText={setBankSearchQuery}
+                                        />
+                                        {bankSearchQuery ? (
+                                            <TouchableOpacity onPress={() => setBankSearchQuery("")}>
+                                                <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+                                            </TouchableOpacity>
+                                        ) : null}
+                                    </View>
+
+                                    {/* Bank List */}
+                                    <ScrollView
+                                        style={styles.inlineBankList}
+                                        nestedScrollEnabled={true}
+                                        keyboardShouldPersistTaps="handled"
+                                        showsVerticalScrollIndicator={true}
+                                    >
+                                        {INDIAN_BANKS
+                                            .filter(bank =>
+                                                bank.toLowerCase().includes(bankSearchQuery.toLowerCase())
+                                            )
+                                            .map((bank, index) => (
+                                                <TouchableOpacity
+                                                    key={index}
+                                                    style={[
+                                                        styles.inlineBankOption,
+                                                        {
+                                                            backgroundColor: editForm.bankName === bank
+                                                                ? (isDark ? '#2A2A2A' : '#E3F2FD')
+                                                                : 'transparent',
+                                                            borderBottomColor: colors.border
+                                                        }
+                                                    ]}
+                                                    onPress={() => {
+                                                        handleEditChange("bankName", bank);
+                                                        setShowBankPicker(false);
+                                                        setBankSearchQuery("");
+                                                    }}
+                                                >
+                                                    <Ionicons
+                                                        name="business"
+                                                        size={18}
+                                                        color={editForm.bankName === bank ? colors.primary : colors.textSecondary}
+                                                    />
+                                                    <Text
+                                                        style={[
+                                                            styles.inlineBankOptionText,
+                                                            {
+                                                                color: editForm.bankName === bank ? colors.primary : colors.text,
+                                                                fontWeight: editForm.bankName === bank ? '600' : '400'
+                                                            }
+                                                        ]}
+                                                    >
+                                                        {bank}
+                                                    </Text>
+                                                    {editForm.bankName === bank && (
+                                                        <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+                                                    )}
+                                                </TouchableOpacity>
+                                            ))
+                                        }
+                                        {INDIAN_BANKS.filter(bank =>
+                                            bank.toLowerCase().includes(bankSearchQuery.toLowerCase())
+                                        ).length === 0 && (
+                                                <View style={styles.inlineNoResults}>
+                                                    <Ionicons name="search-outline" size={40} color={colors.textSecondary} />
+                                                    <Text style={[styles.inlineNoResultsText, { color: colors.textSecondary }]}>
+                                                        No banks found matching "{bankSearchQuery}"
+                                                    </Text>
+                                                </View>
+                                            )}
+                                    </ScrollView>
+                                </View>
+                            )}
                         </View>
 
                         <CustomTextInput
@@ -604,102 +699,6 @@ export default function StudentProfileFinancialScreen() {
                             loading={isSaving}
                         />
                     </View>
-                </View>
-            </Modal>
-
-            {/* Bank Selection Modal */}
-            <Modal
-                visible={showBankPicker}
-                animationType="slide"
-                onRequestClose={() => setShowBankPicker(false)}
-            >
-                <View style={[styles.fullScreenModal, { backgroundColor: colors.background }]}>
-                    {/* Header */}
-                    <View style={[styles.modalHeader, { paddingTop: insets.top + 16, borderBottomColor: colors.border }]}>
-                        <Text style={[styles.modalTitle, { color: colors.text }]}>Select Bank</Text>
-                        <TouchableOpacity onPress={() => setShowBankPicker(false)} style={styles.closeBtn}>
-                            <Ionicons name="close" size={28} color={colors.text} />
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Search Bar */}
-                    <View style={[styles.searchContainer, { backgroundColor: isDark ? '#1E1E1E' : '#F5F5F5', borderColor: colors.border, marginTop: 10 }]}>
-                        <Ionicons name="search" size={20} color={colors.textSecondary} />
-                        <TextInput
-                            style={[styles.searchInput, { color: colors.text }]}
-                            placeholder="Search for your bank..."
-                            placeholderTextColor={colors.textSecondary}
-                            value={editForm.bankName}
-                            onChangeText={(text: string) => handleEditChange("bankName", text)}
-                            autoFocus
-                        />
-                        {editForm.bankName ? (
-                            <TouchableOpacity onPress={() => handleEditChange("bankName", "")}>
-                                <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
-                            </TouchableOpacity>
-                        ) : null}
-                    </View>
-
-                    {/* Bank List */}
-                    <ScrollView
-                        style={{ flex: 1 }}
-                        keyboardShouldPersistTaps="handled"
-                        showsVerticalScrollIndicator={false}
-                    >
-                        {INDIAN_BANKS
-                            .filter(bank =>
-                                bank.toLowerCase().includes(editForm.bankName.toLowerCase())
-                            )
-                            .map((bank, index) => (
-                                <TouchableOpacity
-                                    key={index}
-                                    style={[
-                                        styles.bankOption,
-                                        {
-                                            backgroundColor: editForm.bankName === bank
-                                                ? (isDark ? '#2A2A2A' : '#E3F2FD')
-                                                : 'transparent',
-                                            borderBottomColor: colors.border
-                                        }
-                                    ]}
-                                    onPress={() => {
-                                        handleEditChange("bankName", bank);
-                                        setShowBankPicker(false);
-                                    }}
-                                >
-                                    <Ionicons
-                                        name="business"
-                                        size={20}
-                                        color={editForm.bankName === bank ? colors.primary : colors.textSecondary}
-                                    />
-                                    <Text
-                                        style={[
-                                            styles.bankOptionText,
-                                            {
-                                                color: editForm.bankName === bank ? colors.primary : colors.text,
-                                                fontWeight: editForm.bankName === bank ? '600' : '400'
-                                            }
-                                        ]}
-                                    >
-                                        {bank}
-                                    </Text>
-                                    {editForm.bankName === bank && (
-                                        <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
-                                    )}
-                                </TouchableOpacity>
-                            ))
-                        }
-                        {INDIAN_BANKS.filter(bank =>
-                            bank.toLowerCase().includes(editForm.bankName.toLowerCase())
-                        ).length === 0 && (
-                                <View style={styles.noResults}>
-                                    <Ionicons name="search-outline" size={48} color={colors.textSecondary} />
-                                    <Text style={[styles.noResultsText, { color: colors.textSecondary }]}>
-                                        No banks found matching "{editForm.bankName}"
-                                    </Text>
-                                </View>
-                            )}
-                    </ScrollView>
                 </View>
             </Modal>
 
@@ -979,42 +978,49 @@ const styles = StyleSheet.create({
         marginTop: 6,
     },
 
-    // Search Modal Styles
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        marginHorizontal: 20,
-        marginBottom: 16,
+    // Inline Bank Picker Styles
+    inlineBankPicker: {
+        marginTop: 12,
         borderRadius: 12,
         borderWidth: 1,
-        gap: 12,
+        overflow: 'hidden',
+        maxHeight: 350,
     },
-    searchInput: {
-        flex: 1,
-        fontSize: 16,
-        paddingVertical: 0,
-    },
-    bankOption: {
+    inlineSearchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 16,
-        gap: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        gap: 10,
+    },
+    inlineSearchInput: {
+        flex: 1,
+        fontSize: 15,
+        paddingVertical: 0,
+    },
+    inlineBankList: {
+        maxHeight: 280,
+    },
+    inlineBankOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 14,
+        gap: 10,
         borderBottomWidth: 0.5,
     },
-    bankOptionText: {
-        fontSize: 16,
+    inlineBankOptionText: {
+        fontSize: 15,
         flex: 1,
     },
-    noResults: {
+    inlineNoResults: {
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 40,
-        gap: 16,
+        padding: 30,
+        gap: 12,
     },
-    noResultsText: {
-        fontSize: 16,
+    inlineNoResultsText: {
+        fontSize: 14,
         textAlign: 'center',
     },
 });
