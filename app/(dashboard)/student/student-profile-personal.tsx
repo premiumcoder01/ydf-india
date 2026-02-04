@@ -7,8 +7,9 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -16,11 +17,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View
 } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
-import PhoneInput from "react-native-phone-number-input";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface ValidationErrors {
@@ -139,9 +140,9 @@ export default function StudentProfilePersonalScreen() {
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
-  const phoneInput = useRef<PhoneInput>(null);
   const [selectedImageFile, setSelectedImageFile] = useState<any>(null); // Track the selected image file
   const [originalProfileImageUrl, setOriginalProfileImageUrl] = useState(""); // Track original image URL
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
 
   // Toast State
   const [showToast, setShowToast] = useState(false);
@@ -175,6 +176,7 @@ export default function StudentProfilePersonalScreen() {
 
   useEffect(() => {
     const fetchUserProfile = async () => {
+      setIsProfileLoading(true);
       try {
         const authDataStr = await AsyncStorage.getItem("authData");
         if (authDataStr) {
@@ -232,6 +234,8 @@ export default function StudentProfilePersonalScreen() {
         }
       } catch (error) {
         console.error("Failed to fetch user profile:", error);
+      } finally {
+        setIsProfileLoading(false);
       }
     };
 
@@ -299,6 +303,7 @@ export default function StudentProfilePersonalScreen() {
   const [showImagePreview, setShowImagePreview] = useState(false);
   const [previewImageUri, setPreviewImageUri] = useState("");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isRemovingImage, setIsRemovingImage] = useState(false);
 
   const handleImageOptions = () => {
     setShowImageOptions(true);
@@ -412,6 +417,37 @@ export default function StudentProfilePersonalScreen() {
       setShowToast(true);
     } finally {
       setIsUploadingImage(false);
+    }
+  };
+
+  const handleRemoveProfileImage = async () => {
+    if (!personalInfo.profileImageUrl || isRemovingImage) return;
+
+    setIsRemovingImage(true);
+    setShowImageOptions(false);
+    try {
+      const authDataStr = await AsyncStorage.getItem("authData");
+      if (!authDataStr) throw new Error("Authentication session expired");
+
+      const authData = JSON.parse(authDataStr);
+      if (!authData.token) throw new Error("Invalid session token");
+
+      const response = await updateUserProfile(authData.token, { profileImageFileId: null });
+      if (response.success) {
+        setPersonalInfo(prev => ({ ...prev, profileImageUrl: "" }));
+        setToastMessage("Profile image removed successfully");
+        setToastType("success");
+        setShowToast(true);
+      } else {
+        throw new Error(response.error || "Failed to remove profile image");
+      }
+    } catch (error: any) {
+      console.error("Remove image error:", error);
+      setToastMessage(error.message || "Failed to remove profile image");
+      setToastType("error");
+      setShowToast(true);
+    } finally {
+      setIsRemovingImage(false);
     }
   };
 
@@ -565,7 +601,11 @@ export default function StudentProfilePersonalScreen() {
               onPress={handleImageOptions}
               activeOpacity={0.8}
             >
-              {personalInfo?.profileImageUrl !== "" ? (
+              {isProfileLoading ? (
+                <View style={[styles.placeholderContainer, { backgroundColor: isDark ? colors.surface : "#F0F0F0", borderColor: isDark ? colors.card : "#fff" }]}>
+                  <ActivityIndicator size="small" color={isDark ? "#9CA3AF" : "#6B7280"} />
+                </View>
+              ) : personalInfo?.profileImageUrl !== "" ? (
                 <Image
                   source={{ uri: personalInfo?.profileImageUrl }}
                   style={[styles.profileImage, { borderColor: isDark ? colors.card : "#fff" }]}
@@ -645,23 +685,35 @@ export default function StudentProfilePersonalScreen() {
                     validationErrors.phone && styles.phoneError,
                   ]}
                 >
-                  <PhoneInput
-                    key={personalInfo.phone ? 'loaded' : 'initial'}
-                    ref={phoneInput}
-                    defaultValue={personalInfo.phone}
-                    defaultCode="IN"
-                    layout="second"
-                    onChangeText={(text) => handlePersonalInfoChange("phone", text)}
-                    withDarkTheme={isDark}
-                    withShadow={false}
-                    autoFocus={false}
-                    containerStyle={styles.phoneInputContainer}
-                    textContainerStyle={styles.phoneTextContainer}
-                    textInputStyle={[styles.phoneTextInput, { color: colors.text }]}
-                    codeTextStyle={[styles.phoneCodeText, { color: colors.text }]}
-                    flagButtonStyle={styles.phoneFlagButton}
-                    countryPickerButtonStyle={styles.countryPickerButton}
+                <View style={{ flexDirection: "row", alignItems: "center", height: 48 }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginRight: 10,
+                      paddingRight: 10,
+                      borderRightWidth: 1,
+                      borderRightColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(51, 51, 51, 0.1)",
+                    }}
+                  >
+                    <Text style={{ fontSize: 20 }}>🇮🇳</Text>
+                    <Text style={{ fontSize: 16, fontWeight: "600", color: colors.text, marginLeft: 8 }}>+91</Text>
+                  </View>
+                  <TextInput
+                    style={[styles.phoneTextInput, { flex: 1, color: colors.text }]}
+                    value={personalInfo.phone}
+                    onChangeText={(text) => {
+                      const numeric = text.replace(/[^0-9]/g, "");
+                      if (numeric.length <= 10) {
+                        handlePersonalInfoChange("phone", numeric);
+                      }
+                    }}
+                    placeholder="Mobile Number"
+                    placeholderTextColor={isDark ? "rgba(255,255,255,0.4)" : "rgba(51, 51, 51, 0.4)"}
+                    keyboardType="number-pad"
+                    maxLength={10}
                   />
+                </View>
                 </View>
                 {validationErrors.phone && (
                   <Text style={styles.errorText}>{validationErrors.phone}</Text>
@@ -1143,6 +1195,18 @@ export default function StudentProfilePersonalScreen() {
             >
               <Ionicons name="images" size={24} color={colors.primary} />
               <Text style={[styles.imageOptionText, { color: colors.text }]}>Choose from Gallery</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.imageOptionButton, { opacity: !personalInfo.profileImageUrl || isRemovingImage ? 0.5 : 1 }]}
+              onPress={handleRemoveProfileImage}
+              activeOpacity={0.7}
+              disabled={!personalInfo.profileImageUrl || isRemovingImage}
+            >
+              <Ionicons name="trash-outline" size={24} color={colors.textSecondary} />
+              <Text style={[styles.imageOptionText, { color: colors.textSecondary }]}>
+                {isRemovingImage ? "Removing..." : "Remove Photo"}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
