@@ -39,6 +39,44 @@ const stripHtml = (html: string): string => {
     .trim();
 };
 
+const normalizeText = (value: string): string =>
+  value
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+
+const getScholarshipSearchText = (scholarship: any): string => {
+  const descriptionText = stripHtml(scholarship?.description || "");
+  const tagsText = Array.isArray(scholarship?.tags)
+    ? scholarship.tags.join(" ")
+    : scholarship?.tags || "";
+  const keywordsText = Array.isArray(scholarship?.keywords)
+    ? scholarship.keywords.join(" ")
+    : scholarship?.keywords || "";
+
+  return normalizeText(
+    [
+      scholarship?.title,
+      scholarship?.name,
+      scholarship?.shortname,
+      scholarship?.category,
+      scholarship?.state,
+      scholarship?.location,
+      scholarship?.provider_name,
+      scholarship?.provider,
+      scholarship?.organization,
+      scholarship?.department,
+      scholarship?.eligibility,
+      scholarship?.type,
+      tagsText,
+      keywordsText,
+      descriptionText,
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+};
+
 // Helper function to get category color
 const getCategoryColor = (category: string): string => {
   const colors: Record<string, string> = {
@@ -197,11 +235,25 @@ export default function ScholarshipListingScreen() {
     return Array.from(cats);
   }, [apiScholarships]);
 
+  const searchIndex = useMemo(() => {
+    const index = new Map<number, string>();
+    apiScholarships.forEach((scholarship) => {
+      if (scholarship?.id != null) {
+        index.set(scholarship.id, getScholarshipSearchText(scholarship));
+      }
+    });
+    return index;
+  }, [apiScholarships]);
+
   // Filter and sort API data
   const data = useMemo(() => {
     if (apiScholarships.length === 0) return [];
 
     let list = [...apiScholarships];
+    const keywordQuery = normalizeText(
+      [searchQuery, eligibility].filter(Boolean).join(" ")
+    );
+    const keywordTokens = keywordQuery ? keywordQuery.split(" ") : [];
 
     // Client-side filtering
     list = list.filter((s) => {
@@ -211,7 +263,7 @@ export default function ScholarshipListingScreen() {
 
       // Expired Filter
       const isExpired = s.expired === true;
-      const expiredMatch = showExpired ? true : !isExpired;
+      const expiredMatch = showExpired ? isExpired : !isExpired;
 
       // Applied Filter
       const appliedMatch = showApplied ? s.has_applied === true : true;
@@ -220,14 +272,19 @@ export default function ScholarshipListingScreen() {
       const isBookmarked = s.bookmarked || bookmarks[s.id];
       const bookmarkMatch = showBookmarkedOnly ? isBookmarked : true;
 
-      // Eligibility filter (search in description)
-      const descriptionText = stripHtml(s.description || "").toLowerCase();
-      const eligMatch =
-        !eligibility ||
-        descriptionText.includes(eligibility.trim().toLowerCase()) ||
-        (s.category && s.category.toLowerCase().includes(eligibility.trim().toLowerCase()));
+      // Keyword filter across multiple fields
+      const searchText = searchIndex.get(s.id) || "";
+      const keywordMatch =
+        keywordTokens.length === 0 ||
+        keywordTokens.every((token) => searchText.includes(token));
 
-      return catMatch && expiredMatch && appliedMatch && bookmarkMatch && eligMatch;
+      return (
+        catMatch &&
+        expiredMatch &&
+        appliedMatch &&
+        bookmarkMatch &&
+        keywordMatch
+      );
     });
 
     // Sorting
@@ -256,10 +313,12 @@ export default function ScholarshipListingScreen() {
     selectedCategory,
     selectedSort,
     eligibility,
+    searchQuery,
     showExpired,
     showApplied,
     showBookmarkedOnly,
-    bookmarks
+    bookmarks,
+    searchIndex
   ]);
 
   const loadMore = useCallback(() => {
@@ -693,6 +752,22 @@ export default function ScholarshipListingScreen() {
             contentContainerStyle={[styles.modalScrollContent, { paddingBottom: inset.bottom + 100 }]}
             showsVerticalScrollIndicator={false}
           >
+
+         {/* Keywords Section */}
+          <View style={[styles.filterSection, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.filterSectionTitle, { color: colors.text }]}>Keywords</Text>
+              <View style={[styles.inputContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f9fa", borderColor: colors.border }]}>
+                <Ionicons name="search-outline" size={20} color={colors.textSecondary} style={{ marginRight: 10 }} />
+                <TextInput
+                  value={eligibility}
+                  onChangeText={setEligibility}
+                  placeholder="e.g. Merit, Sports, 10th Pass"
+                  placeholderTextColor={colors.textSecondary}
+                  style={[styles.filterInput, { color: colors.text }]}
+                />
+              </View>
+            </View>
+
             {/* Category Section */}
             <View style={[styles.filterSection, { borderBottomColor: colors.border }]}>
               <Text style={[styles.filterSectionTitle, { color: colors.text }]}>State / Category</Text>
@@ -720,7 +795,7 @@ export default function ScholarshipListingScreen() {
             </View>
 
             {/* Status Section */}
-            <View style={[styles.filterSection, { borderBottomColor: colors.border }]}>
+            <View style={[styles.filterSection, { borderBottomWidth: 0 }]}>
               <Text style={[styles.filterSectionTitle, { color: colors.text, marginBottom: 16 }]}>Status & Availability</Text>
 
               <View style={styles.switchRow}>
@@ -765,20 +840,7 @@ export default function ScholarshipListingScreen() {
 
 
 
-            {/* Keywords Section */}
-            <View style={[styles.filterSection, { borderBottomWidth: 0 }]}>
-              <Text style={[styles.filterSectionTitle, { color: colors.text }]}>Keywords</Text>
-              <View style={[styles.inputContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f9fa", borderColor: colors.border }]}>
-                <Ionicons name="search-outline" size={20} color={colors.textSecondary} style={{ marginRight: 10 }} />
-                <TextInput
-                  value={eligibility}
-                  onChangeText={setEligibility}
-                  placeholder="e.g. Merit, Sports, 10th Pass"
-                  placeholderTextColor={colors.textSecondary}
-                  style={[styles.filterInput, { color: colors.text }]}
-                />
-              </View>
-            </View>
+          
 
           </ScrollView>
 

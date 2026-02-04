@@ -5051,4 +5051,3 @@ export const getMobilizerScholarships = async (
     };
   }
 };
-
