@@ -8,6 +8,7 @@ export interface ApiResponse<T = any> {
   data?: T;
   message?: string;
   error?: string;
+  errorcode?: string; // Moodle error codes like 'accountnotverified', 'invalidtoken', etc.
 }
 
 // API Error types
@@ -15,6 +16,29 @@ export interface ApiError {
   message: string;
   code?: string;
   field?: string;
+}
+
+/**
+ * Helper function to check for authentication errors
+ * Returns true if user should be logged out, false otherwise
+ */
+async function checkAuthenticationError(data: any): Promise<boolean> {
+  // Check for invalid/expired token
+  if (data?.errorcode === "invalidtoken" || data?.data?.errorcode === "invalidtoken") {
+    console.log("🔒 Invalid token detected - logging out user");
+    await AsyncStorage.removeItem("authData");
+    router.replace("/(auth)/sign-in");
+    return true;
+  }
+
+  if (data?.errorcode === "accountinactive" || data?.data?.errorcode === "accountinactive") {
+    console.log("🔒 Account inactive detected - logging out user");
+    await AsyncStorage.removeItem("authData");
+    router.replace("/(auth)/sign-in");
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -63,14 +87,15 @@ export const apiRequest = async (
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {
@@ -150,14 +175,15 @@ export const registerUser = async (userData: {
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {
@@ -225,14 +251,15 @@ export const loginUser = async (email: string, password: string): Promise<ApiRes
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {
@@ -257,6 +284,7 @@ export const loginUser = async (email: string, password: string): Promise<ApiRes
         success: false,
         error: data.error || data.message || data.error_message || "Invalid credentials",
         message: data.message || "Login failed",
+        errorcode: data.errorcode || data.exception, // Include error code from Moodle
       };
     }
   } catch (error: any) {
@@ -303,14 +331,15 @@ export const sendOtp = async (email: string): Promise<ApiResponse> => {
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {
@@ -381,14 +410,15 @@ export const verifyOtp = async (otp: string, email: string): Promise<ApiResponse
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {
@@ -457,14 +487,15 @@ export const forgotPassword = async (email: string): Promise<ApiResponse> => {
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {
@@ -549,14 +580,15 @@ export const resetPassword = async (
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {
@@ -627,14 +659,15 @@ export const getUserProfile = async (token: string): Promise<ApiResponse> => {
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {
@@ -781,14 +814,15 @@ export const updatePassword = async (
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {
@@ -878,14 +912,15 @@ export const getReviewerSchemes = async (
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {
@@ -973,14 +1008,15 @@ export const getAllScholarships = async (
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {
@@ -1054,14 +1090,15 @@ export const getScholarshipDetails = async (
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {
@@ -1137,14 +1174,15 @@ export const bookmarkScholarship = async (
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {
@@ -1228,14 +1266,15 @@ export const getBookmarkedScholarships = async (
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {
@@ -1323,14 +1362,15 @@ export const getMyApplications = async (
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {
@@ -1507,14 +1547,15 @@ export const uploadDocument = async (
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {
@@ -1758,14 +1799,15 @@ export const getNotifications = async (
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {
@@ -2710,14 +2752,15 @@ export const getReviewerApplications = async (
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {
@@ -3650,14 +3693,15 @@ export const createScholarship = async (
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {
@@ -3767,14 +3811,15 @@ export const getMyScholarships = async (
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {
@@ -3871,14 +3916,15 @@ export const getScholarshipApplicants = async (
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {
@@ -4071,14 +4117,15 @@ export const getDonorAnalytics = async (
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {
@@ -4960,14 +5007,15 @@ export const getMobilizerScholarships = async (
     try {
       data = responseText ? JSON.parse(responseText) : {};
 
-      // Check for inactive account
-      if (data?.errorcode === "accountinactive") {
-        await AsyncStorage.removeItem("authData");
-        router.replace("/(auth)/sign-in");
+      // Check for authentication errors (invalid token or inactive account)
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) {
         return {
           success: false,
-          error: "Account inactive",
-          message: "Your account is inactive.",
+          error: data?.errorcode === "invalidtoken" ? "Invalid token" : "Account inactive",
+          message: data?.errorcode === "invalidtoken"
+            ? "Your session has expired. Please login again."
+            : "Your account is inactive.",
         };
       }
     } catch (e) {

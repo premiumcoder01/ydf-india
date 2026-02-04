@@ -218,7 +218,28 @@ export default function SignInScreen() {
       if (response.success) {
         await handleLoginSuccess(response, false);
       } else {
-        showToast(response.error || response.message || "Invalid credentials. Please try again.");
+        // Check if error is account not verified
+        if (response.errorcode === "accountnotverified" || response.error?.toLowerCase().includes("verify")) {
+          // Save email to AsyncStorage for OTP screen
+          const userEmail = emailOrUsername.includes("@") ? emailOrUsername.trim() : "";
+
+          if (userEmail) {
+            // Store temporary auth data with email
+            await AsyncStorage.setItem("authData", JSON.stringify({
+              user: { email: userEmail }
+            }));
+
+            // Navigate to OTP screen
+            router.push("/(auth)/otp");
+
+            // Show informative toast
+            showToast("Please verify your account with the OTP sent to your email.");
+          } else {
+            showToast("Please use your email address to verify your account.");
+          }
+        } else {
+          showToast(response.error || response.message || "Invalid credentials. Please try again.");
+        }
       }
     } catch (error) {
       console.error("Error during login:", error);

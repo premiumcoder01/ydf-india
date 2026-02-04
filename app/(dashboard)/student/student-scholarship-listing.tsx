@@ -404,26 +404,10 @@ export default function ScholarshipListingScreen() {
   }, []);
 
   const applyFilters = useCallback(() => {
-    setPage(1);
     closeFilters();
   }, [closeFilters]);
 
-  const getDaysRemaining = (deadline: string | null, isExpired: boolean = false) => {
-    if (isExpired) return { text: "Expired", color: "#F44336" };
-    if (!deadline) return { text: "Open", color: "#4CAF50" };
 
-    const today = new Date();
-    const deadlineDate = new Date(deadline);
-    const diffTime = deadlineDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 0) return { text: "Expired", color: "#F44336" };
-    if (diffDays === 0) return { text: "Today", color: "#FF9800" };
-    if (diffDays === 1) return { text: "1 day left", color: "#FF9800" };
-    if (diffDays <= 7)
-      return { text: `${diffDays} days left`, color: "#FF9800" };
-    return { text: `${diffDays} days left`, color: "#666" };
-  };
 
   const activeFiltersCount = useMemo(() => {
     let count = 0;
@@ -436,30 +420,7 @@ export default function ScholarshipListingScreen() {
     return count;
   }, [selectedCategory, eligibility, selectedSort, showExpired, showApplied, showBookmarkedOnly]);
 
-  const Header = (
-    <View>
-      <AppHeader
-        title="Scholarships"
-        onBack={() => router.back()}
-        rightIcon={
-          <TouchableOpacity onPress={openFilters} style={[styles.filterIconBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" }]}>
-            <Ionicons name="options-outline" size={22} color={colors.text} />
-            {activeFiltersCount > 0 && (
-              <View style={styles.filterBadge}>
-                <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        }
-      />
-      <SearchBar
-        value={query}
-        onChangeText={setQuery}
-        onClear={() => setQuery("")}
-        placeholder="Search scholarships..."
-      />
-    </View>
-  );
+
 
   const renderItem = useCallback(
     ({ item }: { item: any }) => {
@@ -627,10 +588,7 @@ export default function ScholarshipListingScreen() {
     [bookmarks, toggleBookmark, isDark, colors]
   );
 
-  const modalTranslateY = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [600, 0],
-  });
+
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? "#121212" : "#f2c44d" }]}>
@@ -805,37 +763,7 @@ export default function ScholarshipListingScreen() {
               </View>
             </View>
 
-            {/* Sort Section */}
-            <View style={[styles.filterSection, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.filterSectionTitle, { color: colors.text }]}>Sort By</Text>
-              <View style={styles.chipContainer}>
-                {sortOptions.map((opt) => (
-                  <TouchableOpacity
-                    key={opt}
-                    onPress={() => setSelectedSort(opt)}
-                    style={[
-                      styles.filterChip,
-                      { borderColor: colors.border, backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f9fa", width: '48%' },
-                      selectedSort === opt && { backgroundColor: colors.primary, borderColor: colors.primary }
-                    ]}
-                  >
-                    <Ionicons
-                      name={opt === "Latest" ? "time-outline" : "hourglass-outline"}
-                      size={16}
-                      color={selectedSort === opt ? "#fff" : colors.textSecondary}
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text style={[
-                      styles.filterChipText,
-                      { color: isDark ? colors.text : "#555" },
-                      selectedSort === opt && { color: "#fff", fontWeight: "700" }
-                    ]}>
-                      {opt}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
+
 
             {/* Keywords Section */}
             <View style={[styles.filterSection, { borderBottomWidth: 0 }]}>

@@ -49,6 +49,48 @@ export default function SignUpScreen() {
     return `${firstName}${lastName}${randomNum}`;
   };
 
+  // Real-time validation functions
+  const validateFirstName = (value: string) => {
+    if (value.trim().length >= 2) {
+      setErrors(prev => ({ ...prev, firstName: undefined }));
+    }
+  };
+
+  const validateLastName = (value: string) => {
+    if (value.trim().length >= 2) {
+      setErrors(prev => ({ ...prev, lastName: undefined }));
+    }
+  };
+
+  const validateEmail = (value: string) => {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    const lowerEmail = value.toLowerCase();
+
+    if (emailRegex.test(value) && !(lowerEmail.includes("@gmail.") && !lowerEmail.endsWith("@gmail.com"))) {
+      setErrors(prev => ({ ...prev, email: undefined }));
+    }
+  };
+
+  const validatePhone = (value: string) => {
+    const phoneRegex = /^[6-9]\d{9}$/;
+    if (phoneRegex.test(value)) {
+      setErrors(prev => ({ ...prev, phone: undefined }));
+    }
+  };
+
+  const validatePassword = (value: string) => {
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._-])[A-Za-z\d@$!%*?&._-]{8,}$/;
+    if (passwordRegex.test(value)) {
+      setErrors(prev => ({ ...prev, password: undefined }));
+    }
+  };
+
+  const validateConfirmPassword = (value: string) => {
+    if (value.length >= 6 && value === password) {
+      setErrors(prev => ({ ...prev, confirmPassword: undefined }));
+    }
+  };
+
   const validate = () => {
     const nextErrors: {
       firstName?: string;
@@ -184,7 +226,10 @@ export default function SignUpScreen() {
               label="First Name"
               placeholder="Your first name"
               value={firstName}
-              onChangeText={setFirstName}
+              onChangeText={(text) => {
+                setFirstName(text);
+                validateFirstName(text);
+              }}
               onFocus={() => setFocusedField("firstName")}
               onBlur={() => setFocusedField(null)}
               error={errors.firstName}
@@ -197,7 +242,10 @@ export default function SignUpScreen() {
               label="Last Name"
               placeholder="Your last name"
               value={lastName}
-              onChangeText={setLastName}
+              onChangeText={(text) => {
+                setLastName(text);
+                validateLastName(text);
+              }}
               onFocus={() => setFocusedField("lastName")}
               onBlur={() => setFocusedField(null)}
               error={errors.lastName}
@@ -210,7 +258,10 @@ export default function SignUpScreen() {
               label="Email Address"
               placeholder="you@example.com"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => {
+                setEmail(text);
+                validateEmail(text);
+              }}
               onFocus={() => setFocusedField("email")}
               onBlur={() => setFocusedField(null)}
               keyboardType="email-address"
@@ -251,6 +302,7 @@ export default function SignUpScreen() {
                       const numeric = text.replace(/[^0-9]/g, "");
                       if (numeric.length <= 10) {
                         setPhone(numeric);
+                        validatePhone(numeric);
                       }
                     }}
                     onFocus={() => setFocusedField("phone")}
@@ -272,7 +324,21 @@ export default function SignUpScreen() {
               label="Password"
               placeholder="••••••••"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                validatePassword(text);
+                // Re-validate confirm password if it has a value
+                if (confirmPassword) {
+                  if (confirmPassword.length >= 6 && confirmPassword === text) {
+                    setErrors(prev => ({ ...prev, confirmPassword: undefined }));
+                  } else if (errors.confirmPassword === undefined) {
+                    // Only set error if passwords don't match and no error exists
+                    if (confirmPassword !== text) {
+                      setErrors(prev => ({ ...prev, confirmPassword: "Passwords do not match" }));
+                    }
+                  }
+                }
+              }}
               onFocus={() => setFocusedField("password")}
               onBlur={() => setFocusedField(null)}
               secureTextEntry={true}
@@ -291,7 +357,10 @@ export default function SignUpScreen() {
               label="Confirm Password"
               placeholder="••••••••"
               value={confirmPassword}
-              onChangeText={setConfirmPassword}
+              onChangeText={(text) => {
+                setConfirmPassword(text);
+                validateConfirmPassword(text);
+              }}
               onFocus={() => setFocusedField("confirmPassword")}
               onBlur={() => setFocusedField(null)}
               secureTextEntry={true}

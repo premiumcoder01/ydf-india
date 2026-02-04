@@ -3,17 +3,17 @@ import { sendOtp, verifyOtp } from "@/utils/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { OtpInput } from "react-native-otp-entry";
 
 export default function OtpScreen() {
   const params = useLocalSearchParams<{
@@ -22,7 +22,7 @@ export default function OtpScreen() {
     fromForgotPassword?: string;
   }>();
 
-  const [otp, setOtp] = useState("");
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [email, setEmail] = useState<string>("");
   const [receivedOtp, setReceivedOtp] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -31,6 +31,9 @@ export default function OtpScreen() {
   const [showToast, setShowToast] = useState(false);
   const [toastType, setToastType] = useState<"error" | "success" | "info">("error");
   const [fromForgotPassword, setFromForgotPassword] = useState(false);
+
+  // Refs for OTP input boxes
+  const inputRefs = useRef<(TextInput | null)[]>([]);
 
   // Function to send OTP
   const handleSendOtp = async (userEmail?: string) => {
@@ -118,6 +121,49 @@ export default function OtpScreen() {
     initializeData();
   }, []);
 
+  // Handle OTP input change
+  const handleOtpChange = (value: string, index: number) => {
+    // Only allow single digit
+    if (value.length > 1) {
+      value = value.charAt(value.length - 1);
+    }
+
+    // Only allow numbers
+    if (value && !/^\d$/.test(value)) {
+      return;
+    }
+
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+
+    // Auto-focus next input if value is entered
+    if (value && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  // Handle backspace/delete with improved logic
+  const handleKeyPress = (e: any, index: number) => {
+    if (e.nativeEvent.key === 'Backspace') {
+      // If current box has value, clear it (don't move focus)
+      if (otp[index]) {
+        const newOtp = [...otp];
+        newOtp[index] = "";
+        setOtp(newOtp);
+        // Don't move focus, stay on current box
+      } else if (index > 0) {
+        // If current box is empty, move to previous box and clear it
+        const newOtp = [...otp];
+        newOtp[index - 1] = "";
+        setOtp(newOtp);
+        inputRefs.current[index - 1]?.focus();
+      }
+      // Prevent default backspace behavior
+      e.preventDefault();
+    }
+  };
+
   // Handle resend OTP
   const handleResend = async () => {
     setResending(true);
@@ -127,7 +173,9 @@ export default function OtpScreen() {
 
   // Handle OTP verification
   const handleVerify = async () => {
-    if (otp.length !== 6) {
+    const otpString = otp.join("");
+
+    if (otpString.length !== 6) {
       setToastMessage("Please enter a valid 6-digit OTP.");
       setToastType("error");
       setShowToast(true);
@@ -145,7 +193,7 @@ export default function OtpScreen() {
 
     // If we have the OTP locally (frontend verification)
     if (receivedOtp) {
-      if (otp === receivedOtp) {
+      if (otpString === receivedOtp) {
         handleVerificationSuccess();
       } else {
         setToastMessage("Invalid OTP. Please try again.");
@@ -162,7 +210,7 @@ export default function OtpScreen() {
     }
 
     try {
-      const response = await verifyOtp(otp, email);
+      const response = await verifyOtp(otpString, email);
       console.log(JSON.stringify(response), "verify otp response");
       if (response.success) {
         handleVerificationSuccess(response.data);
@@ -194,7 +242,7 @@ export default function OtpScreen() {
           pathname: "/(auth)/reset",
           params: {
             email: email,
-            otp: otp,
+            otp: otp.join(""),
           },
         });
       } else {
@@ -250,25 +298,43 @@ export default function OtpScreen() {
 
           {/* Card */}
           <View style={styles.card}>
-            {/* OTP Input */}
-            <OtpInput
-              numberOfDigits={6}
-              focusColor="#fff"
-              onTextChange={(text) => setOtp(text)}
-              theme={{
-                containerStyle: styles.otpContainer,
-                pinCodeContainerStyle: styles.otpBox,
-                focusedPinCodeContainerStyle: styles.otpBoxFocused,
-                pinCodeTextStyle: styles.otpText,
-              }}
-            />
+            {/* Custom OTP Input */}
+            <View style={styles.otpContainer}>
+              {otp.map((digit, index) => (
+                <TextInput
+                  key={index}
+                  ref={(ref) => {
+                    inputRefs.current[index] = ref;
+                  }}
+                  style={[
+                    styles.otpBox,
+                    digit && styles.otpBoxFilled,
+                  ]}
+                  value={digit}
+                  onChangeText={(value) => handleOtpChange(value, index)}
+                  onKeyPress={(e) => handleKeyPress(e, index)}
+                  onFocus={() => {
+                    // Select text when box is focused (for easy replacement)
+                    if (digit) {
+                      inputRefs.current[index]?.setNativeProps({
+                        selection: { start: 0, end: 1 }
+                      });
+                    }
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={1}
+                  selectTextOnFocus
+                  textAlign="center"
+                />
+              ))}
+            </View>
 
             {/* Verify Button */}
             <Button
               title={loading ? "Verifying..." : "Verify"}
               onPress={handleVerify}
               variant="primary"
-              disabled={loading || otp.length !== 6}
+              disabled={loading || otp.join("").length !== 6}
               forceLight={true}
             />
 
@@ -371,7 +437,8 @@ const styles = StyleSheet.create({
     gap: 36,
   },
   otpContainer: {
-    gap: 5,
+    flexDirection: "row",
+    gap: 8,
     justifyContent: "center",
     alignItems: "center",
     paddingVertical: 8,
@@ -381,15 +448,26 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "rgba(51, 51, 51, 0.25)",
     backgroundColor: "#FFFFFF",
-    width: 40,
-    height: 50,
-    justifyContent: "center",
-    alignItems: "center",
+    width: 48,
+    height: 56,
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#333",
     shadowColor: "rgba(0, 0, 0, 0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
+  },
+  otpBoxFilled: {
+    borderColor: "#f2c44d",
+    backgroundColor: "#FFFEF5",
+    borderWidth: 2.5,
+    shadowColor: "#f2c44d",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
   },
   otpBoxFocused: {
     borderColor: "#f2c44d",
