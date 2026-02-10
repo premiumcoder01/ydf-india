@@ -638,7 +638,7 @@ export default function StudentProfilePersonalScreen() {
                 value={personalInfo.username}
                 onChangeText={(val) => handlePersonalInfoChange("username", val)}
                 style={styles.input}
-                editable={false}
+                autoCapitalize="none"
               />
 
               <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -685,35 +685,35 @@ export default function StudentProfilePersonalScreen() {
                     validationErrors.phone && styles.phoneError,
                   ]}
                 >
-                <View style={{ flexDirection: "row", alignItems: "center", height: 48 }}>
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      marginRight: 10,
-                      paddingRight: 10,
-                      borderRightWidth: 1,
-                      borderRightColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(51, 51, 51, 0.1)",
-                    }}
-                  >
-                    <Text style={{ fontSize: 20 }}>🇮🇳</Text>
-                    <Text style={{ fontSize: 16, fontWeight: "600", color: colors.text, marginLeft: 8 }}>+91</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", height: 48 }}>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        marginRight: 10,
+                        paddingRight: 10,
+                        borderRightWidth: 1,
+                        borderRightColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(51, 51, 51, 0.1)",
+                      }}
+                    >
+                      <Text style={{ fontSize: 20 }}>🇮🇳</Text>
+                      <Text style={{ fontSize: 16, fontWeight: "600", color: colors.text, marginLeft: 8 }}>+91</Text>
+                    </View>
+                    <TextInput
+                      style={[styles.phoneTextInput, { flex: 1, color: colors.text }]}
+                      value={personalInfo.phone}
+                      onChangeText={(text) => {
+                        const numeric = text.replace(/[^0-9]/g, "");
+                        if (numeric.length <= 10) {
+                          handlePersonalInfoChange("phone", numeric);
+                        }
+                      }}
+                      placeholder="Mobile Number"
+                      placeholderTextColor={isDark ? "rgba(255,255,255,0.4)" : "rgba(51, 51, 51, 0.4)"}
+                      keyboardType="number-pad"
+                      maxLength={10}
+                    />
                   </View>
-                  <TextInput
-                    style={[styles.phoneTextInput, { flex: 1, color: colors.text }]}
-                    value={personalInfo.phone}
-                    onChangeText={(text) => {
-                      const numeric = text.replace(/[^0-9]/g, "");
-                      if (numeric.length <= 10) {
-                        handlePersonalInfoChange("phone", numeric);
-                      }
-                    }}
-                    placeholder="Mobile Number"
-                    placeholderTextColor={isDark ? "rgba(255,255,255,0.4)" : "rgba(51, 51, 51, 0.4)"}
-                    keyboardType="number-pad"
-                    maxLength={10}
-                  />
-                </View>
                 </View>
                 {validationErrors.phone && (
                   <Text style={styles.errorText}>{validationErrors.phone}</Text>
