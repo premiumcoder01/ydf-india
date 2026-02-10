@@ -103,7 +103,7 @@ const PASSING_YEAR_12TH_OPTIONS = ["2024", "2025", "Not Applicable"];
 
 const APPLICATION_YEAR_OPTIONS = ["20-21", "21-22", "22-23", "23-24", "24-25", "25-26"];
 
-export default function StudentProfilePersonalScreen() {
+export default function ReviewerEditProfileScreen() {
   const { isDark, colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [personalInfo, setPersonalInfo] = useState({
@@ -162,6 +162,7 @@ export default function StudentProfilePersonalScreen() {
   const [showStream12thPicker, setShowStream12thPicker] = useState(false);
   const [showPassingYear12thPicker, setShowPassingYear12thPicker] = useState(false);
   const [showApplicationYearPicker, setShowApplicationYearPicker] = useState(false);
+
 
 
 
@@ -758,6 +759,9 @@ export default function StudentProfilePersonalScreen() {
               </View>
             </View>
           </View>
+
+          {/* Section: Educational & Application Details */}
+        
 
           {/* Section 2: Basic Details */}
           <View style={styles.section}>
