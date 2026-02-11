@@ -1,6 +1,6 @@
 import { AppHeader, Button, CustomTextInput, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { getScholarshipDetails, getUserProfile, submitApplication } from "@/utils/api";
+import { getAcademicDetails, getScholarshipDetails, getUserProfile, submitApplication, type AcademicDetailItem } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -181,6 +181,11 @@ export default function ApplyFormScreen() {
     onSelect: (val: string) => void;
   }>({ visible: false, title: "", options: [], onSelect: () => { } });
 
+  const [academicDetailsList, setAcademicDetailsList] = useState<AcademicDetailItem[]>([]);
+  const [loadingAcademicDetails, setLoadingAcademicDetails] = useState(false);
+  const [academicDataModalVisible, setAcademicDataModalVisible] = useState(false);
+  const [academicModalSearch, setAcademicModalSearch] = useState("");
+
   const [searchQuery, setSearchQuery] = useState("");
 
   // Filter options based on search query
@@ -190,6 +195,18 @@ export default function ApplyFormScreen() {
       option.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [optionPickerState.options, searchQuery]);
+
+  const filteredAcademicList = useMemo(() => {
+    if (!academicModalSearch.trim()) return academicDetailsList;
+    const q = academicModalSearch.toLowerCase().trim();
+    return academicDetailsList.filter(
+      (item) =>
+        (item.course_name || "").toLowerCase().includes(q) ||
+        (item.institution || "").toLowerCase().includes(q) ||
+        (item.major || "").toLowerCase().includes(q) ||
+        (item.category || "").toLowerCase().includes(q)
+    );
+  }, [academicDetailsList, academicModalSearch]);
 
   const openPicker = (field: keyof FormValues, mode: "date" | "time" | "datetime") => {
     setPickerState({ show: true, mode, field });
@@ -377,6 +394,38 @@ export default function ApplyFormScreen() {
   };
 
   const currentStepKey = useMemo(() => STEPS[stepIndex].key, [stepIndex]);
+
+  // Fetch academic details when user enters Academic Info step (for "Fill from your academic data")
+  useEffect(() => {
+    if (currentStepKey !== "academic") return;
+
+    const fetchAcademicDetails = async () => {
+      setLoadingAcademicDetails(true);
+      setAcademicDetailsList([]);
+      try {
+        const authDataStr = await AsyncStorage.getItem("authData");
+        if (!authDataStr) {
+          setLoadingAcademicDetails(false);
+          return;
+        }
+        const authData = JSON.parse(authDataStr);
+        if (!authData?.token) {
+          setLoadingAcademicDetails(false);
+          return;
+        }
+        const res = await getAcademicDetails(authData.token);
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          setAcademicDetailsList(res.data);
+        }
+      } catch (e) {
+        console.error("Failed to fetch academic details", e);
+      } finally {
+        setLoadingAcademicDetails(false);
+      }
+    };
+
+    fetchAcademicDetails();
+  }, [currentStepKey]);
 
   const next = async () => {
     // Validate only fields relevant to current step
@@ -771,6 +820,124 @@ export default function ApplyFormScreen() {
 
             {currentStepKey === "academic" && (
               <Section>
+                {loadingAcademicDetails && (
+                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16, paddingVertical: 8 }}>
+                    <ActivityIndicator size="small" color="#8B5CF6" />
+                    <Text style={{ marginLeft: 10, fontSize: 14, color: colors.textSecondary }}>Loading your academic data...</Text>
+                  </View>
+                )}
+                {!loadingAcademicDetails && academicDetailsList.length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setAcademicModalSearch("");
+                      setAcademicDataModalVisible(true);
+                    }}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginBottom: 20,
+                      paddingVertical: 14,
+                      paddingHorizontal: 16,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: isDark ? "rgba(139, 92, 246, 0.4)" : "#C4B5FD",
+                      backgroundColor: isDark ? "rgba(139, 92, 246, 0.12)" : "#EDE9FE",
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="document-text" size={20} color="#8B5CF6" style={{ marginRight: 8 }} />
+                    <Text style={{ fontSize: 15, fontWeight: "600", color: "#8B5CF6" }}>Fill from your academic data</Text>
+                  </TouchableOpacity>
+                )}
+
+                <Modal
+                  visible={academicDataModalVisible}
+                  animationType="slide"
+                  transparent
+                  onRequestClose={() => setAcademicDataModalVisible(false)}
+                >
+                  <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" }}>
+                    <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setAcademicDataModalVisible(false)} />
+                    <View style={{
+                      height: Dimensions.get("window").height * 0.7,
+                      borderTopLeftRadius: 20,
+                      borderTopRightRadius: 20,
+                      backgroundColor: colors.background,
+                      paddingTop: 16,
+                      paddingBottom: insets.bottom + 16,
+                    }}>
+                      <View style={{ paddingHorizontal: 20, marginBottom: 12 }}>
+                        <Text style={{ fontSize: 18, fontWeight: "700", color: colors.text, marginBottom: 8 }}>Your academic data</Text>
+                        {/* <TextInput
+                          placeholder="Search course, institution, major..."
+                          placeholderTextColor={colors.textSecondary}
+                          value={academicModalSearch}
+                          onChangeText={setAcademicModalSearch}
+                          style={{
+                            height: 44,
+                            borderRadius: 10,
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                            paddingHorizontal: 14,
+                            fontSize: 15,
+                            color: colors.text,
+                            backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#f8f8f8",
+                          }}
+                        /> */}
+                      </View>
+                      <FlatList
+                        data={filteredAcademicList}
+                        keyExtractor={(item) => String(item.id)}
+                        style={{ flex: 1 }}
+                        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 8 }}
+                        ListEmptyComponent={
+                          <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: "center", paddingVertical: 24 }}>
+                            {academicModalSearch.trim() ? "No matching record" : "No academic data"}
+                          </Text>
+                        }
+                        renderItem={({ item }) => (
+                          <TouchableOpacity
+                            onPress={() => {
+                              setValue("institution", item.institution || "");
+                              setValue("major", item.major || "");
+                              setValue("gradDate", String(item.graduation_year || ""));
+                              setValue("currentYear", item.academic_year ? String(item.academic_year) : "");
+                              setValue("gpa", item.percentage != null ? String(item.percentage) : (item.cgpa ? String(item.cgpa) : ""));
+                              clearErrors(["institution", "major", "gradDate", "currentYear", "gpa"]);
+                              setAcademicDataModalVisible(false);
+                              setAcademicModalSearch("");
+                              setToast({ visible: true, message: "Academic details filled from your data", type: "success" });
+                            }}
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              paddingVertical: 14,
+                              paddingHorizontal: 12,
+                              marginBottom: 8,
+                              borderRadius: 10,
+                              backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#f5f5f5",
+                              borderWidth: 1,
+                              borderColor: isDark ? colors.border : "rgba(0,0,0,0.06)",
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ fontSize: 15, fontWeight: "600", color: colors.text }} numberOfLines={1}>
+                                {item.course_name}{item.major ? ` · ${item.major}` : ""}
+                              </Text>
+                              <Text style={{ fontSize: 13, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>
+                                {item.institution || "—"} · Grad {item.graduation_year}
+                              </Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                          </TouchableOpacity>
+                        )}
+                      />
+                    </View>
+                  </View>
+                </Modal>
+
                 <Controller control={control} name="institution" render={({ field: { onChange, value, onBlur } }) => (
                   <CustomTextInput label="Institution Name" placeholder="Enter your institution" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.institution?.message} required />
                 )} />

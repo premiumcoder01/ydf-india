@@ -7,7 +7,9 @@ import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -90,7 +92,19 @@ export default function ReviewerApplicationDetailsScreen() {
     try {
       setLoading(true);
       setError(null);
-      const appId = params.id ? Number(params.id) : 12212;
+      
+      // Validate application ID
+      if (!params.id) {
+        throw new Error("Application ID is required");
+      }
+      
+      const appId = Number(params.id);
+      
+      // Check if appId is a valid number
+      if (isNaN(appId) || appId <= 0) {
+        throw new Error("Invalid application ID");
+      }
+      
       const authDataStr = await AsyncStorage.getItem("authData");
       const authData = authDataStr ? JSON.parse(authDataStr) : null;
       const token = authData?.token;
@@ -160,7 +174,15 @@ export default function ReviewerApplicationDetailsScreen() {
   };
 
   const submitReview = async (action: "approve" | "reject" | "waitlist", notes?: string) => {
-    if (!application) return;
+    if (!application) {
+      Alert.alert("Error", "Application data not found");
+      return;
+    }
+
+    if (!application.id || application.id <= 0) {
+      Alert.alert("Error", "Invalid application ID");
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -170,8 +192,12 @@ export default function ReviewerApplicationDetailsScreen() {
       const token = authData?.token;
 
       if (!token) {
-        throw new Error("No authentication token found");
+        Alert.alert("Error", "Authentication token not found. Please login again.");
+        setSubmitting(false);
+        return;
       }
+
+      console.log("Submitting review for application:", application, "Action:", action);
 
       const response = await donorReviewApplication(
         token,
@@ -198,9 +224,12 @@ export default function ReviewerApplicationDetailsScreen() {
         );
         setRejectionReason("");
       } else {
-        Alert.alert("Error", response.error || "Failed to submit review");
+        const errorMessage = response.error || "Failed to submit review";
+        console.error("Review submission failed:", errorMessage);
+        Alert.alert("Error", errorMessage);
       }
     } catch (error: any) {
+      console.error("Review submission error:", error);
       Alert.alert("Error", error.message || "Failed to submit review");
     } finally {
       setSubmitting(false);
@@ -558,7 +587,10 @@ export default function ReviewerApplicationDetailsScreen() {
         animationType="slide"
         onRequestClose={() => setShowRejectModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalOverlay}
+        >
           <TouchableOpacity
             style={styles.modalBackdrop}
             activeOpacity={1}
@@ -618,7 +650,7 @@ export default function ReviewerApplicationDetailsScreen() {
               </View>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

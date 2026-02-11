@@ -7,6 +7,7 @@ import React, { useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    KeyboardAvoidingView,
     Linking,
     Modal,
     Platform,
@@ -37,6 +38,9 @@ export default function DocumentViewScreen() {
     const [newRejectionReason, setNewRejectionReason] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
+    // Log params for debugging
+    console.log("Document View Params:", { id, title, fileName, filesize, mimetype, url: url ? "present" : "missing", verified, rejectionReason });
+
     const formatFileSize = (bytes: number) => {
         if (!bytes) return "Unknown size";
         if (bytes < 1024) return bytes + " B";
@@ -45,6 +49,18 @@ export default function DocumentViewScreen() {
     };
 
     const handleApprove = async () => {
+        // Validate document ID before showing confirmation
+        if (!id) {
+            Alert.alert("Error", "Document ID not found. Please try again.");
+            return;
+        }
+
+        const documentId = Number(id);
+        if (isNaN(documentId) || documentId <= 0) {
+            Alert.alert("Error", "Invalid document ID");
+            return;
+        }
+
         Alert.alert(
             "Approve Document",
             "Are you sure you want to approve this document?",
@@ -63,19 +79,15 @@ export default function DocumentViewScreen() {
                             const token = authData?.token;
 
                             if (!token) {
-                                Alert.alert("Error", "Authentication token not found");
+                                Alert.alert("Error", "Authentication token not found. Please login again.");
                                 setSubmitting(false);
                                 return;
                             }
 
-                            if (!id) {
-                                Alert.alert("Error", "Document ID not found");
-                                setSubmitting(false);
-                                return;
-                            }
+                            console.log("Approving document:", documentId);
 
                             // Call API to verify document
-                            const response = await verifyDocument(token, Number(id), "verify");
+                            const response = await verifyDocument(token, documentId, "verify");
 
                             setSubmitting(false);
 
@@ -84,10 +96,12 @@ export default function DocumentViewScreen() {
                                     { text: "OK", onPress: () => router.back() }
                                 ]);
                             } else {
+                                console.error("Document verification failed:", response.error);
                                 Alert.alert("Error", response.error || "Failed to verify document");
                             }
                         } catch (error: any) {
                             setSubmitting(false);
+                            console.error("Document verification error:", error);
                             Alert.alert("Error", error.message || "Something went wrong");
                         }
                     }
@@ -102,6 +116,19 @@ export default function DocumentViewScreen() {
             return;
         }
 
+        if (!id) {
+            Alert.alert("Error", "Document ID not found. Please try again.");
+            setShowRejectModal(false);
+            return;
+        }
+
+        const documentId = Number(id);
+        if (isNaN(documentId) || documentId <= 0) {
+            Alert.alert("Error", "Invalid document ID");
+            setShowRejectModal(false);
+            return;
+        }
+
         try {
             setSubmitting(true);
 
@@ -111,34 +138,32 @@ export default function DocumentViewScreen() {
             const token = authData?.token;
 
             if (!token) {
-                Alert.alert("Error", "Authentication token not found");
+                Alert.alert("Error", "Authentication token not found. Please login again.");
                 setSubmitting(false);
                 return;
             }
 
-            if (!id) {
-                Alert.alert("Error", "Document ID not found");
-                setSubmitting(false);
-                return;
-            }
+            console.log("Rejecting document:", documentId, "Reason:", newRejectionReason);
 
             // Call API to reject document with reason
-            const response = await verifyDocument(token, Number(id), "reject", newRejectionReason);
+            const response = await verifyDocument(token, documentId, "reject", newRejectionReason);
 
             setSubmitting(false);
             setShowRejectModal(false);
-            setNewRejectionReason("");
 
             if (response.success) {
+                setNewRejectionReason("");
                 Alert.alert("Success", response.message || "Document rejected successfully", [
                     { text: "OK", onPress: () => router.back() }
                 ]);
             } else {
+                console.error("Document rejection failed:", response.error);
                 Alert.alert("Error", response.error || "Failed to reject document");
             }
         } catch (error: any) {
             setSubmitting(false);
             setShowRejectModal(false);
+            console.error("Document rejection error:", error);
             Alert.alert("Error", error.message || "Something went wrong");
         }
     };
@@ -412,7 +437,18 @@ export default function DocumentViewScreen() {
                 animationType="fade"
                 onRequestClose={() => setShowRejectModal(false)}
             >
-                <View style={styles.modalBackdrop}>
+                <KeyboardAvoidingView 
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={styles.modalBackdrop}
+                >
+                    <TouchableOpacity 
+                        style={styles.modalBackdropTouchable}
+                        activeOpacity={1}
+                        onPress={() => {
+                            setShowRejectModal(false);
+                            setNewRejectionReason("");
+                        }}
+                    />
                     <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
                         <View style={styles.modalHeader}>
                             <View style={[styles.modalIconContainer, { backgroundColor: "#FFEBEE" }]}>
@@ -455,7 +491,7 @@ export default function DocumentViewScreen() {
                             </TouchableOpacity>
                         </View>
                     </View>
-                </View>
+                </KeyboardAvoidingView>
             </Modal>
         </View>
     );
@@ -742,6 +778,13 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         padding: 20,
+    },
+    modalBackdropTouchable: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
     },
     modalCard: {
         width: "100%",
