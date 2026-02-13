@@ -2,13 +2,27 @@ import { AppHeader, Button } from "@/components";
 import Toast from "@/components/Toast";
 import { useTheme } from "@/context/ThemeContext";
 import { bookmarkScholarship, getScholarshipDetails } from "@/utils/api";
+import { API_CONFIG } from "@/utils/apiConfig";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as DocumentPicker from "expo-document-picker";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Image, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, UIManager, View } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    Alert,
+    Modal,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    UIManager,
+    View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -58,55 +72,70 @@ export default function MobilizerScholarshipDetailsScreen() {
     const [toastMessage, setToastMessage] = useState("");
     const [toastType, setToastType] = useState<"success" | "error" | "info">("success");
 
+    // Document upload modal (mobilizer has no separate upload screen)
+    const [docModalVisible, setDocModalVisible] = useState(false);
+    const [docModalDoc, setDocModalDoc] = useState<{ cmid: string; label: string; mode: string } | null>(null);
+    const [docModalFile, setDocModalFile] = useState<any>(null);
+    const [docModalUploading, setDocModalUploading] = useState(false);
+
+    const refetchScholarshipDetails = useCallback(async () => {
+        if (!scholarshipId) return;
+        try {
+            const authDataString = await AsyncStorage.getItem("authData");
+            if (!authDataString) return;
+            const authData = JSON.parse(authDataString);
+            const token = authData?.token;
+            if (!token) return;
+            const response = await getScholarshipDetails(token, scholarshipId);
+            if (response.success && response.data) {
+                const raw = response.data;
+                const apiData = raw?.data?.data || raw?.data || raw;
+                setScholarship(apiData);
+            }
+        } catch (e) {
+            console.error("Refetch scholarship details:", e);
+        }
+    }, [scholarshipId]);
+
     // Fetch scholarship details from API
     useEffect(() => {
-        const fetchScholarshipDetails = async () => {
+        const run = async () => {
             if (!scholarshipId) {
                 setError("Scholarship ID is missing");
                 setLoading(false);
                 return;
             }
-
             try {
                 setLoading(true);
                 setError(null);
-
-                // Get token from AsyncStorage
                 const authDataString = await AsyncStorage.getItem("authData");
                 if (!authDataString) {
                     setError("Authentication token not found. Please login again.");
                     setLoading(false);
                     return;
                 }
-
                 const authData = JSON.parse(authDataString);
                 const token = authData?.token;
-
                 if (!token) {
                     setError("Authentication token not found. Please login again.");
                     setLoading(false);
                     return;
                 }
-
-                // Call getScholarshipDetails API
                 const response = await getScholarshipDetails(token, scholarshipId);
-                console.log("Response:", JSON.stringify(response));
-
                 if (response.success && response.data) {
-                    const apiData = response.data?.data?.data || response.data?.data || response.data;
+                    const raw = response.data;
+                    const apiData = raw?.data?.data || raw?.data || raw;
                     setScholarship(apiData);
                 } else {
                     setError(response.error || response.message || "Failed to load scholarship details");
                 }
             } catch (err: any) {
-                console.error("Error fetching scholarship details:", err);
                 setError(err.message || "Failed to load scholarship details");
             } finally {
                 setLoading(false);
             }
         };
-
-        fetchScholarshipDetails();
+        run();
     }, [scholarshipId]);
 
     // Update saved state when scholarship data changes
@@ -121,6 +150,104 @@ export default function MobilizerScholarshipDetailsScreen() {
         setToastMessage(message);
         setToastType(type);
         setToastVisible(true);
+    };
+
+    const openDocModal = (doc: { cmid: string | number; label: string; mode?: string }) => {
+        setDocModalDoc({
+            cmid: String(doc.cmid),
+            label: doc.label || "Document",
+            mode: doc.mode || "scheme",
+        });
+        setDocModalFile(null);
+        setDocModalVisible(true);
+    };
+
+    const closeDocModal = () => {
+        setDocModalVisible(false);
+        setDocModalDoc(null);
+        setDocModalFile(null);
+        refetchScholarshipDetails();
+    };
+
+    const pickDocModalFile = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: ["application/pdf", "image/*"],
+                multiple: false,
+            });
+            if (result.assets && result.assets.length > 0) {
+                const asset = result.assets[0];
+                const fileSizeInBytes = asset.size;
+                const maxSizeInBytes = 10 * 1024 * 1024;
+                if (fileSizeInBytes && fileSizeInBytes > maxSizeInBytes) {
+                    showToast("File size exceeds 10MB limit.", "error");
+                    return;
+                }
+                setDocModalFile({
+                    uri: asset.uri,
+                    name: asset.name,
+                    mimeType: asset.mimeType || "application/unknown",
+                    size: asset.size || 0,
+                });
+            }
+        } catch (err) {
+            showToast("Failed to pick document", "error");
+        }
+    };
+
+    const performDocModalUpload = async () => {
+        if (!docModalFile || !docModalDoc) return;
+        setDocModalUploading(true);
+        try {
+            const authDataStr = await AsyncStorage.getItem("authData");
+            const authData = authDataStr ? JSON.parse(authDataStr) : null;
+            const token = authData?.token;
+            if (!token) {
+                showToast("Please login again.", "error");
+                setDocModalUploading(false);
+                return;
+            }
+            const uploadUrl = `${API_CONFIG.BASE_URL}local/mobileapi/upload_document.php?wstoken=${token}`;
+            const formData = new FormData();
+            formData.append("file", { uri: docModalFile.uri, name: docModalFile.name, type: docModalFile.mimeType } as any);
+            formData.append("mode", docModalDoc.mode || "scheme");
+            formData.append("cmid", docModalDoc.cmid);
+
+            const response = await fetch(uploadUrl, {
+                method: "POST",
+                headers: { "Content-Type": "multipart/form-data" },
+                body: formData,
+            });
+            const result = await response.json();
+            if (response.ok && (result.success || result.status === true || result[0]?.status === true)) {
+                showToast("Document uploaded successfully!", "success");
+                closeDocModal();
+            } else {
+                closeDocModal();
+                showToast(result.message || "Upload failed.", "error");
+               
+            }
+        } catch (e) {
+            showToast("Failed to upload. Try again.", "error");
+            closeDocModal();
+        } finally {
+            setDocModalUploading(false);
+        }
+    };
+
+    const handleDocModalUploadPress = () => {
+        if (!docModalFile) {
+            showToast("Please select a document first", "error");
+            return;
+        }
+        Alert.alert(
+            "Confirm Upload",
+            `Upload "${docModalFile.name}" for ${docModalDoc?.label || "this document"}?`,
+            [
+                { text: "Cancel", style: "cancel" },
+                { text: "Upload", onPress: performDocModalUpload },
+            ]
+        );
     };
 
     // Handle bookmark/unbookmark with API
@@ -214,30 +341,9 @@ export default function MobilizerScholarshipDetailsScreen() {
         }
     };
 
-    const getDaysRemaining = (deadline: string | null, isExpired: boolean = false) => {
-        if (isExpired) return { text: "Expired", color: "#F44336" };
-        if (!deadline) return { text: "Open", color: "#4CAF50" };
-        const today = new Date();
-        const deadlineDate = new Date(deadline);
-        const diffTime = deadlineDate.getTime() - today.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        if (diffDays < 0) return { text: "Expired", color: "#F44336" };
-        if (diffDays === 0) return { text: "Today", color: "#FF9800" };
-        if (diffDays === 1) return { text: "1 day left", color: "#FF9800" };
-        if (diffDays <= 7) return { text: `${diffDays} days left`, color: "#FF9800" };
-        return { text: `${diffDays} days left`, color: "#666" };
-    };
-
     const deadline = scholarship ? (scholarship.application_deadline || scholarship.end_date || scholarship.start_date) : null;
 
-    // Calculate expiry based on date
-    const isDeadlinePassed = React.useMemo(() => {
-        if (!deadline) return false;
-        const today = new Date();
-        const deadlineDate = new Date(deadline);
-        // If deadline is passed (yesterday or before)
-        return deadlineDate.getTime() < today.setHours(0, 0, 0, 0);
-    }, [deadline]);
+    const isApplicationClosed = scholarship?.expired === true;
 
     if (loading) {
         return (
@@ -272,319 +378,328 @@ export default function MobilizerScholarshipDetailsScreen() {
     const categoryColor = getCategoryColor(scholarship.category || "");
     const description = stripHtml(scholarship.description || "");
 
-    const daysInfo = getDaysRemaining(deadline, scholarship.expired);
-    const isApplicationClosed = scholarship.expired || isDeadlinePassed || description.toLowerCase().includes("closed") || description.toLowerCase().includes("applications closed");
-
     return (
-        <View style={[styles.container, { backgroundColor: isDark ? "#121212" : "#FFF9EC" }]}>
-            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#121212" : "#fff"} />
-            {/* Gradient Background */}
-            <LinearGradient
-                colors={isDark ? ["#121212", "#121212", "#1e1e1e"] : ["#FFFFFF", "#F8F9FA", "#F0F4F8"]}
-                style={styles.background}
-                locations={[0, 0.5, 1]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
-            />
-            {/* App Header Replacement */}
+        <View style={[styles.container, { backgroundColor: isDark ? "#0f0f0f" : "#F8F9FA" }]}>
+            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#0f0f0f" : "#F8F9FA"} />
             <AppHeader title="Scholarship Details" onBack={() => router.back()} />
-            {/* Title and Category Section */}
-            <View style={styles.titleSection}>
-                <View style={styles.titleHeader}>
-                    <Text style={[styles.mainTitle, { color: colors.text }]}>{scholarship.title}</Text>
-                    <TouchableOpacity
-                        onPress={handleBookmark}
-                        disabled={bookmarking}
-                        activeOpacity={0.7}
-                        style={[styles.bookmarkButton, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5", borderRadius: 12 }]}
+
+            <ScrollView
+                style={styles.scrollView}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 150 }}
+            >
+                {/* HERO CARD - same as student */}
+                <View style={styles.heroContainer}>
+                    <LinearGradient
+                        colors={["#2563EB", "#1D4ED8", "#1E40AF"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.heroCard}
                     >
-                        <Ionicons
-                            name={scholarship?.bookmarked || saved ? "bookmark" : "bookmark-outline"}
-                            size={24}
-                            color={scholarship?.bookmarked || saved ? "#FFB400" : (isDark ? colors.textSecondary : "#999")}
-                        />
-                    </TouchableOpacity>
-                </View>
-
-                <View style={styles.categoryRow}>
-                    <View style={[styles.categoryBadgeLarge, { backgroundColor: `${categoryColor}15` }]}>
-                        <Ionicons name="location" size={16} color={categoryColor} />
-                        <Text style={[styles.categoryTextLarge, { color: categoryColor }]}>
-                            {scholarship.category || "General"}
-                        </Text>
-                    </View>
-                    {scholarship.shortname && (
-                        <View style={[styles.shortnameBadge, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f0f0f0" }]}>
-                            <Text style={[styles.shortnameText, { color: colors.textSecondary }]}>{scholarship.shortname}</Text>
-                        </View>
-                    )}
-                </View>
-            </View>
-            <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-
-                {/* Hero Image Section */}
-                {scholarship.image && (
-                    <View style={styles.heroImageContainer}>
-                        <Image source={{ uri: scholarship.image }} style={styles.heroImage} />
-                        <LinearGradient
-                            colors={["transparent", "rgba(0,0,0,0.3)"]}
-                            style={styles.heroGradient}
-                        />
-                        <View style={styles.heroOverlay}>
-                            <View style={styles.statusBadgesRow}>
-                                {scholarship.has_applied && (
-                                    <View style={[styles.statusBadge, styles.appliedBadge, { backgroundColor: isDark ? "rgba(76, 175, 80, 0.2)" : "rgba(76, 175, 80, 0.15)" }]}>
-                                        <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
-                                        <Text style={[styles.statusBadgeText, { color: isDark ? "#81c784" : "#333" }]}>Applied</Text>
-                                    </View>
-                                )}
-                                {scholarship.expired && (
-                                    <View style={[styles.statusBadge, styles.closedBadge, { backgroundColor: isDark ? "rgba(244, 67, 54, 0.2)" : "rgba(244, 67, 54, 0.15)" }]}>
-                                        <Ionicons name="hourglass-outline" size={16} color="#F44336" />
-                                        <Text style={[styles.statusBadgeText, { color: isDark ? "#ff6b6b" : "#333" }]}>Expired</Text>
-                                    </View>
-                                )}
-                                {!scholarship.expired && isApplicationClosed && (
-                                    <View style={[styles.statusBadge, styles.closedBadge, { backgroundColor: isDark ? "rgba(244, 67, 54, 0.2)" : "rgba(244, 67, 54, 0.15)" }]}>
-                                        <Ionicons name="close-circle" size={16} color="#F44336" />
-                                        <Text style={[styles.statusBadgeText, { color: isDark ? "#ff6b6b" : "#333" }]}>Closed</Text>
-                                    </View>
-                                )}
-                                {!isApplicationClosed && !scholarship.has_applied && (
-                                    <View style={[styles.statusBadge, styles.openBadge, { backgroundColor: isDark ? "rgba(255, 152, 0, 0.2)" : "rgba(255, 152, 0, 0.15)" }]}>
-                                        <Ionicons name="time" size={16} color="#FF9800" />
-                                        <Text style={[styles.statusBadgeText, { color: isDark ? "#ffb74d" : "#333" }]}>Open</Text>
-                                    </View>
-                                )}
+                        <View style={styles.decorativeCircle1} />
+                        <View style={styles.decorativeCircle2} />
+                        <View style={styles.heroHeaderRow}>
+                            <View style={styles.categoryPill}>
+                                <Ionicons name="location" size={12} color="#FFF" />
+                                <Text style={styles.categoryPillText}>{scholarship.category || "General"}</Text>
                             </View>
-                        </View>
-                    </View>
-                )}
-
-
-
-                {/* Key Information Cards */}
-                <View style={styles.infoCardsContainer}>
-                    {/* Deadline Card */}
-                    <View style={[styles.infoCard, { borderTopColor: categoryColor, backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
-                        <View style={[styles.infoIconContainer, { backgroundColor: `${categoryColor}15` }]}>
-                            <Ionicons name="calendar" size={24} color={categoryColor} />
-                        </View>
-                        <View style={styles.infoContent}>
-                            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Application Deadline</Text>
-                            <Text style={[styles.infoValue, { color: colors.text }]}>
-                                {deadline
-                                    ? new Date(deadline).toLocaleDateString("en-US", {
-                                        month: "short",
-                                        day: "numeric",
-                                        year: "numeric",
-                                    })
-                                    : "No deadline"}
-                            </Text>
-                            {deadline && (
-                                <Text style={[styles.infoSubtext, { color: daysInfo.color }]}>
-                                    {daysInfo.text}
-                                </Text>
-                            )}
-                        </View>
-                    </View>
-
-                    {/* Start Date Card */}
-                    {scholarship.start_date && (
-                        <View style={[styles.infoCard, { borderTopColor: "#2196F3", backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
-                            <View style={[styles.infoIconContainer, { backgroundColor: "#2196F315" }]}>
-                                <Ionicons name="play-circle" size={24} color="#2196F3" />
-                            </View>
-                            <View style={styles.infoContent}>
-                                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Application Starts</Text>
-                                <Text style={[styles.infoValue, { color: colors.text }]}>
-                                    {new Date(scholarship.start_date).toLocaleDateString("en-US", {
-                                        month: "short",
-                                        day: "numeric",
-                                        year: "numeric",
-                                    })}
+                            <View style={[
+                                styles.statusPill,
+                                scholarship.has_applied ? { backgroundColor: "#4CAF50" } : scholarship.expired ? { backgroundColor: "#EF4444" } : { backgroundColor: "#F59E0B" },
+                            ]}>
+                                <Text style={styles.statusPillText}>
+                                    {scholarship.has_applied ? "Applied" : scholarship.expired ? "Expired" : "Open"}
                                 </Text>
                             </View>
                         </View>
-                    )}
-
-                    {/* End Date Card */}
-                    {scholarship.end_date && (
-                        <View style={[styles.infoCard, { borderTopColor: "#FF9800", backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
-                            <View style={[styles.infoIconContainer, { backgroundColor: "#FF980015" }]}>
-                                <Ionicons name="stop-circle" size={24} color="#FF9800" />
-                            </View>
-                            <View style={styles.infoContent}>
-                                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Application Ends</Text>
-                                <Text style={[styles.infoValue, { color: colors.text }]}>
-                                    {new Date(scholarship.end_date).toLocaleDateString("en-US", {
-                                        month: "short",
-                                        day: "numeric",
-                                        year: "numeric",
-                                    })}
-                                </Text>
-                            </View>
-                        </View>
-                    )}
-                </View>
-
-                {/* Description Section */}
-                {description && (
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <Ionicons name="document-text" size={20} color={categoryColor} />
-                            <Text style={[styles.sectionTitle, { color: colors.text }]}>About This Scholarship</Text>
-                        </View>
-                        <View style={[styles.descriptionCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
-                            <Text style={[styles.descriptionText, { color: colors.textSecondary }]}>{description}</Text>
-                        </View>
-                    </View>
-                )}
-
-                {/* Eligibility Criteria */}
-                {scholarship.eligibility_criteria && (
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <Ionicons name="shield-checkmark" size={20} color={categoryColor} />
-                            <Text style={[styles.sectionTitle, { color: colors.text }]}>Eligibility Criteria</Text>
-                        </View>
-                        <View style={[styles.eligibilityCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
-                            <Text style={[styles.eligibilityText, { color: colors.textSecondary }]}>{scholarship.eligibility_criteria}</Text>
-                        </View>
-                    </View>
-                )}
-
-                {/* Application Process */}
-                <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <Ionicons name="list" size={20} color={categoryColor} />
-                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Application Process</Text>
-                    </View>
-                    <View style={[styles.processCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
-                        {[
-                            { icon: "document-text", text: "Submit Application" },
-                            { icon: "analytics", text: "Need Assessment" },
-                            { icon: "people", text: "Interview Round" },
-                            { icon: "home", text: "Home Verification" },
-                            { icon: "trophy", text: "Scholarship Awarded" },
-                        ].map((step, idx) => (
-                            <View key={idx} style={styles.processItem}>
-                                <View style={[styles.processIconContainer, { backgroundColor: `${categoryColor}15` }]}>
-                                    <Ionicons name={step.icon as any} size={20} color={categoryColor} />
+                        <Text style={styles.heroTitle}>{scholarship.title}</Text>
+                        {scholarship.shortname && <Text style={styles.heroSubtitle}>{scholarship.shortname}</Text>}
+                        <View style={styles.heroDivider} />
+                        <View style={styles.heroFooterRow}>
+                            <View style={styles.deadlineInfo}>
+                                <Text style={styles.deadlineLabel}>Deadline</Text>
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                                    <Ionicons name="calendar-outline" size={16} color="rgba(255,255,255,0.9)" />
+                                    <Text style={styles.deadlineValue}>
+                                        {deadline ? new Date(deadline).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "No Deadline"}
+                                    </Text>
                                 </View>
-                                <View style={styles.processContent}>
-                                    <Text style={[styles.processStepNumber, { color: categoryColor }]}>Stage {idx + 1}</Text>
-                                    <Text style={[styles.processText, { color: colors.textSecondary }]}>{step.text}</Text>
+                            </View>
+                            <TouchableOpacity onPress={handleBookmark} style={styles.heroBookmarkBtn} activeOpacity={0.8} disabled={bookmarking}>
+                                <Ionicons name={saved || scholarship?.bookmarked ? "bookmark" : "bookmark-outline"} size={22} color={saved || scholarship?.bookmarked ? "#FFC107" : "#FFF"} />
+                            </TouchableOpacity>
+                        </View>
+                    </LinearGradient>
+                </View>
+
+                {/* Application Progress - same as student */}
+                {scholarship.progress_percent !== undefined && (
+                    <View style={styles.sectionContainer}>
+                        <View style={[styles.progressCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
+                            <View style={styles.progressHeader}>
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                                    <View style={[styles.progressIconBox, { backgroundColor: isDark ? "#333" : "#eff6ff" }]}>
+                                        <Ionicons name="pie-chart" size={20} color={colors.primary} />
+                                    </View>
+                                    <Text style={[styles.cardTitle, { color: colors.text }]}>Application Progress</Text>
+                                </View>
+                                <Text style={[styles.progressPercent, { color: colors.primary }]}>{scholarship.progress_percent}%</Text>
+                            </View>
+                            <View style={styles.progressBarBg}>
+                                <View style={[styles.progressBarFill, { width: `${scholarship.progress_percent}%`, backgroundColor: scholarship.progress_percent === 100 ? "#10B981" : colors.primary }]} />
+                            </View>
+                            <Text style={[styles.progressMessage, { color: colors.textSecondary }]}>
+                                {scholarship.progress_percent === 100 ? "Everything looks good! You have completed the application." : "Complete all required steps to submit your application securely."}
+                            </Text>
+                        </View>
+                    </View>
+                )}
+
+                {/* Timeline - same as student */}
+                <View style={styles.sectionContainer}>
+                    <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>Timeline</Text>
+                    <View style={[styles.datesCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
+                        {scholarship.start_date && (
+                            <View style={styles.dateRow}>
+                                <View style={[styles.dateIconBox, { backgroundColor: "#DBEAFE" }]}>
+                                    <Ionicons name="play" size={18} color="#2563EB" />
+                                </View>
+                                <View style={styles.dateInfo}>
+                                    <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>Application Opens</Text>
+                                    <Text style={[styles.dateValue, { color: colors.text }]}>
+                                        {new Date(scholarship.start_date).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
+                        {scholarship.start_date && (scholarship.end_date || scholarship.application_deadline) && (
+                            <View style={[styles.horizontalLine, { backgroundColor: isDark ? "#333" : "#F3F4F6" }]} />
+                        )}
+                        {(scholarship.end_date || scholarship.application_deadline) && (
+                            <View style={styles.dateRow}>
+                                <View style={[styles.dateIconBox, { backgroundColor: "#FEE2E2" }]}>
+                                    <Ionicons name="stop" size={18} color="#DC2626" />
+                                </View>
+                                <View style={styles.dateInfo}>
+                                    <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>Application Closes</Text>
+                                    <Text style={[styles.dateValue, { color: colors.text }]}>
+                                        {new Date(scholarship.end_date || scholarship.application_deadline).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
+                    </View>
+                </View>
+
+                {/* About Scholarship */}
+                {description ? (
+                    <View style={styles.sectionContainer}>
+                        <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>About Scholarship</Text>
+                        <View style={[styles.contentCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
+                            <Text style={[styles.bodyText, { color: colors.textSecondary }]}>{description}</Text>
+                        </View>
+                    </View>
+                ) : null}
+
+                {/* Eligibility */}
+                {scholarship.eligibility_criteria ? (
+                    <View style={styles.sectionContainer}>
+                        <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>Eligibility</Text>
+                        <View style={[styles.contentCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
+                            <View style={{ flexDirection: "row", gap: 12 }}>
+                                <Ionicons name="school" size={24} color={colors.primary} style={{ marginTop: 2 }} />
+                                <Text style={[styles.bodyText, { color: colors.textSecondary, flex: 1 }]}>{scholarship.eligibility_criteria}</Text>
+                            </View>
+                        </View>
+                    </View>
+                ) : null}
+
+                {/* Required Documents - same as student */}
+                {scholarship.documents && scholarship.documents.length > 0 && !scholarship.expired && (
+                    <View style={styles.sectionContainer}>
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                            <Text style={[styles.sectionHeaderTitle, { color: colors.text, marginBottom: 0 }]}>Required Documents</Text>
+                            <View style={[styles.countBadge, { backgroundColor: isDark ? "#333" : "#F3F4F6" }]}>
+                                <Text style={[styles.countText, { color: isDark ? "#fff" : "#374151" }]}>{scholarship.documents.length} Items</Text>
+                            </View>
+                        </View>
+                        <View style={{ gap: 12 }}>
+                            {scholarship.documents.map((doc: any, index: number) => {
+                                const isCompleted = doc.uploaded || doc.status !== "todo";
+                                return (
+                                    <TouchableOpacity
+                                        key={doc.id ?? index}
+                                        activeOpacity={isCompleted ? 1 : 0.7}
+                                        onPress={() => {
+                                            if (!isCompleted) {
+                                                openDocModal({
+                                                    cmid: doc.cmid,
+                                                    label: doc.label,
+                                                    mode: doc.mode || "scheme",
+                                                });
+                                            } else {
+                                                showToast("Document already uploaded", "info");
+                                            }
+                                        }}
+                                        style={[styles.docRow, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}
+                                    >
+                                        <View style={[styles.docIcon, { backgroundColor: isCompleted ? "#DCFCE7" : "#EFF6FF" }]}>
+                                            <Ionicons name={isCompleted ? "checkmark" : "document-text"} size={20} color={isCompleted ? "#166534" : "#3B82F6"} />
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={[styles.docLabel, { color: colors.text }]}>{doc.label}</Text>
+                                            <Text style={[styles.docSub, { color: isCompleted ? "#166534" : "#6B7280" }]}>
+                                                {isCompleted ? "Verified & Attached" : "Tap to upload document"}
+                                            </Text>
+                                        </View>
+                                        {!isCompleted && (
+                                            <View style={[styles.uploadActionBtn, { backgroundColor: colors.primary }]}>
+                                                <Ionicons name="arrow-up" size={14} color="#FFF" />
+                                            </View>
+                                        )}
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    </View>
+                )}
+
+                {/* Application Process - same as student */}
+                <View style={styles.sectionContainer}>
+                    <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>Application Process</Text>
+                    <View style={{ paddingLeft: 10 }}>
+                        {[
+                            { icon: "document-text", title: "Apply Online", desc: "Fill out the application form with accurate details." },
+                            { icon: "search", title: "Application Review", desc: "Our team validates your details and documents." },
+                            { icon: "people", title: "Interview Round", desc: "Shortlisted candidates will be invited for a personal interview." },
+                            { icon: "home", title: "Home Verification", desc: "A field officer may visit your residence for verification." },
+                            { icon: "gift", title: "Scholarship Awarded", desc: "Successful applicants receive the scholarship funds." },
+                        ].map((step, idx, arr) => (
+                            <View key={idx} style={styles.timelineItem}>
+                                {idx !== arr.length - 1 && <View style={[styles.timelineLine, { backgroundColor: isDark ? "#333" : "#E5E7EB" }]} />}
+                                <View style={[styles.timelineIconBox, { backgroundColor: isDark ? "#333" : "#FFF", borderColor: isDark ? "#444" : "#E5E7EB" }]}>
+                                    <Text style={[styles.timelineStepNum, { color: colors.primary }]}>{idx + 1}</Text>
+                                </View>
+                                <View style={[styles.timelineContent, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
+                                    <Text style={[styles.timelineTitle, { color: colors.text }]}>{step.title}</Text>
+                                    <Text style={styles.timelineDesc}>{step.desc}</Text>
                                 </View>
                             </View>
                         ))}
                     </View>
                 </View>
 
-                {/* Important Notes */}
-                <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <Ionicons name="information-circle" size={20} color="#FF9800" />
-                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Important Information</Text>
-                    </View>
-                    <View style={[styles.notesCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
-                        <View style={styles.noteItem}>
-                            <View style={[styles.noteIconContainer, { backgroundColor: "#FF980015" }]}>
-                                <Ionicons name="time" size={18} color="#FF9800" />
-                            </View>
-                            <Text style={[styles.noteText, { color: colors.textSecondary }]}>
-                                Applications must be submitted before the deadline. Late submissions will not be considered.
-                            </Text>
-                        </View>
-                        <View style={styles.noteItem}>
-                            <View style={[styles.noteIconContainer, { backgroundColor: "#2196F315" }]}>
-                                <Ionicons name="hourglass" size={18} color="#2196F3" />
-                            </View>
-                            <Text style={[styles.noteText, { color: colors.textSecondary }]}>
-                                Processing time is typically 4-6 weeks after the deadline.
-                            </Text>
-                        </View>
-                        <View style={styles.noteItem}>
-                            <View style={[styles.noteIconContainer, { backgroundColor: "#4CAF5015" }]}>
-                                <Ionicons name="mail" size={18} color="#4CAF50" />
-                            </View>
-                            <Text style={[styles.noteText, { color: colors.textSecondary }]}>
-                                You will receive email notifications about your application status.
-                            </Text>
-                        </View>
+                {/* Notes - same as student */}
+                <View style={[styles.sectionContainer, { marginBottom: 40 }]}>
+                    <View style={[styles.noteBox, { backgroundColor: "#FFFBEB", borderColor: "#FCD34D" }]}>
+                        <Ionicons name="bulb" size={20} color="#D97706" />
+                        <Text style={[styles.noteText, { color: "#92400E" }]}>
+                            Make sure to double check all your documents before submission to avoid rejection.
+                        </Text>
                     </View>
                 </View>
-
-                {/* Actions */}
-                <View style={[styles.applyContainer, { paddingBottom: insets.bottom + 20 }]}>
-                    <View style={styles.actionsRow}>
-                        <TouchableOpacity
-                            onPress={handleBookmark}
-                            disabled={bookmarking}
-                            activeOpacity={0.7}
-                            style={[
-                                styles.saveButton,
-                                { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#fff", borderColor: colors.border },
-                                (saved || scholarship?.bookmarked) && [styles.saveButtonActive, { backgroundColor: isDark ? "rgba(255, 180, 0, 0.1)" : "#fff" }],
-                                bookmarking && styles.saveButtonDisabled,
-                            ]}
-                        >
-                            <Ionicons
-                                name={saved || scholarship?.bookmarked ? "bookmark" : "bookmark-outline"}
-                                size={20}
-                                color={saved || scholarship?.bookmarked ? "#FFB400" : (isDark ? colors.textSecondary : "#666")}
-                            />
-                            <Text
-                                style={[
-                                    styles.saveButtonText,
-                                    { color: isDark ? colors.textSecondary : "#666" },
-                                    (saved || scholarship?.bookmarked) && [styles.saveButtonTextActive, { color: "#FFB400" }],
-                                ]}
-                            >
-                                {bookmarking
-                                    ? "Saving..."
-                                    : saved || scholarship?.bookmarked
-                                        ? "Saved"
-                                        : "Saved"}
-                            </Text>
-                        </TouchableOpacity>
-
-                        {(!scholarship.expired && !scholarship.has_applied && !isApplicationClosed) && (
-                            <TouchableOpacity
-                                onPress={() =>
-                                    router.push({
-                                        pathname: "/(dashboard)/mobilizer/mobilizer-apply-form",
-                                        params: { scholarshipId: scholarship.id },
-                                    })
-                                }
-                                style={[
-                                    styles.applyButton,
-                                    { backgroundColor: categoryColor },
-                                ]}
-                            >
-                                <Ionicons
-                                    name="paper-plane"
-                                    size={20}
-                                    color="#fff"
-                                />
-                                <Text style={styles.applyButtonText}>
-                                    Apply Now
-                                </Text>
-                            </TouchableOpacity>
-                        )}
-                    </View>
-                </View>
-
             </ScrollView>
 
-            {/* Toast Notification */}
-            <Toast
-                message={toastMessage}
-                type={toastType}
-                visible={toastVisible}
-                onHide={() => setToastVisible(false)}
-                duration={3000}
-            />
+            {/* Fixed footer - same as student */}
+            <View style={[styles.floatFooter, { paddingBottom: insets.bottom + 12, backgroundColor: isDark ? "#0f0f0f" : "#FFF", borderTopWidth: 1, borderTopColor: isDark ? "#333" : "#E5E7EB" }]}>
+                <TouchableOpacity
+                    style={[styles.fullWidthButton, { backgroundColor: colors.primary }, (isApplicationClosed || scholarship.has_applied) && styles.disabledBtn]}
+                    disabled={isApplicationClosed || scholarship.has_applied}
+                    onPress={() => router.push({ pathname: "/(dashboard)/mobilizer/mobilizer-apply-form", params: { scholarshipId: scholarship.id } })}
+                >
+                    <Text style={styles.fullWidthButtonText}>
+                        {scholarship.has_applied ? "Application Submitted" : scholarship.expired ? "Scholarship Expired" : "Apply for Student"}
+                    </Text>
+                    {!scholarship.has_applied && !scholarship.expired && <Ionicons name="arrow-forward" size={20} color="#FFF" />}
+                </TouchableOpacity>
+            </View>
+
+            {/* Full-page document upload modal (mobilizer has no separate upload screen) */}
+            <Modal
+                visible={docModalVisible}
+                animationType="slide"
+                presentationStyle="fullScreen"
+                onRequestClose={closeDocModal}
+            >
+                <View style={[styles.docModalContainer, { backgroundColor: isDark ? "#121212" : "#f8f9fa", paddingTop: insets.top + 8 }]}>
+                    <View style={[styles.docModalHeader, { borderBottomColor: colors.border }]}>
+                        <Text style={[styles.docModalTitle, { color: colors.text }]}>Upload Document</Text>
+                        <TouchableOpacity onPress={closeDocModal} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                            <Ionicons name="close" size={28} color={colors.text} />
+                        </TouchableOpacity>
+                    </View>
+                    <ScrollView contentContainerStyle={styles.docModalContent}>
+                        <View style={styles.docModalIconWrap}>
+                            <View style={[styles.docModalIconBox, { backgroundColor: isDark ? "rgba(76, 175, 80, 0.2)" : "rgba(76, 175, 80, 0.1)" }]}>
+                                <Ionicons name="cloud-upload" size={40} color="#4CAF50" />
+                            </View>
+                            <Text style={[styles.docModalHeading, { color: colors.text }]}>Upload Required Document</Text>
+                            <Text style={[styles.docModalSub, { color: colors.textSecondary }]}>Document:</Text>
+                            <Text style={styles.docModalLabel}>{docModalDoc?.label || "—"}</Text>
+                        </View>
+
+                        <View style={[styles.docModalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                            {!docModalFile ? (
+                                <TouchableOpacity
+                                    style={[styles.docModalPlaceholder, { borderColor: colors.border }]}
+                                    onPress={pickDocModalFile}
+                                    activeOpacity={0.7}
+                                >
+                                    <Ionicons name="document-text-outline" size={48} color={colors.textSecondary} />
+                                    <Text style={[styles.docModalPlaceholderText, { color: colors.text }]}>Tap to select a file</Text>
+                                    <Text style={[styles.docModalPlaceholderSub, { color: colors.textSecondary }]}>PDF, JPG, PNG (Max 10MB)</Text>
+                                    <View style={[styles.docModalSelectBtn, { backgroundColor: colors.primary }]}>
+                                        <Text style={styles.docModalSelectBtnText}>Select File</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            ) : (
+                                <View style={styles.docModalFileWrap}>
+                                    <View style={[styles.docModalFileRow, { backgroundColor: isDark ? colors.background : "#f8f9fa" }]}>
+                                        <View style={[styles.docModalFileIcon, { backgroundColor: "rgba(76, 175, 80, 0.2)" }]}>
+                                            <Ionicons name="document" size={24} color="#4CAF50" />
+                                        </View>
+                                        <View style={styles.docModalFileDetails}>
+                                            <Text style={[styles.docModalFileName, { color: colors.text }]} numberOfLines={1}>{docModalFile.name}</Text>
+                                            <Text style={[styles.docModalFileSize, { color: colors.textSecondary }]}>
+                                                {(docModalFile.size / 1024 / 1024).toFixed(2)} MB
+                                            </Text>
+                                        </View>
+                                        <TouchableOpacity onPress={() => setDocModalFile(null)} disabled={docModalUploading}>
+                                            <Ionicons name="close-circle" size={24} color="#F44336" />
+                                        </TouchableOpacity>
+                                    </View>
+                                    <View style={styles.docModalSuccessRow}>
+                                        <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                                        <Text style={styles.docModalSuccessText}>File selected — tap Upload below</Text>
+                                    </View>
+                                </View>
+                            )}
+                        </View>
+
+                        <View style={styles.docModalActions}>
+                            <Button
+                                title={docModalUploading ? "Uploading..." : "Upload"}
+                                onPress={handleDocModalUploadPress}
+                                variant="primary"
+                                disabled={!docModalFile || docModalUploading}
+                                style={[styles.docModalUploadBtn, (!docModalFile || docModalUploading) && { opacity: 0.6 }]}
+                            />
+                            <TouchableOpacity style={styles.docModalCancelBtn} onPress={closeDocModal} disabled={docModalUploading}>
+                                <Text style={[styles.docModalCancelText, { color: colors.textSecondary }]}>Cancel</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </ScrollView>
+
+                    {docModalUploading && (
+                        <View style={styles.docModalLoading}>
+                            <ActivityIndicator size="large" color={colors.primary} />
+                            <Text style={[styles.docModalLoadingText, { color: colors.text }]}>Uploading...</Text>
+                        </View>
+                    )}
+                </View>
+            </Modal>
+
+            <Toast message={toastMessage} type={toastType} visible={toastVisible} onHide={() => setToastVisible(false)} duration={3000} />
         </View>
     );
 }
@@ -602,6 +717,337 @@ const styles = StyleSheet.create({
     },
     scrollView: {
         flex: 1,
+    },
+    heroContainer: {
+        padding: 20,
+        marginBottom: 10,
+    },
+    heroCard: {
+        borderRadius: 24,
+        padding: 24,
+        position: "relative",
+        overflow: "hidden",
+        shadowColor: "#2563EB",
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        elevation: 10,
+        minHeight: 220,
+        justifyContent: "space-between",
+    },
+    decorativeCircle1: {
+        position: "absolute",
+        top: -50,
+        right: -50,
+        width: 200,
+        height: 200,
+        borderRadius: 100,
+        backgroundColor: "rgba(255,255,255,0.1)",
+    },
+    decorativeCircle2: {
+        position: "absolute",
+        bottom: -60,
+        left: -20,
+        width: 140,
+        height: 140,
+        borderRadius: 70,
+        backgroundColor: "rgba(255,255,255,0.05)",
+    },
+    heroHeaderRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 16,
+    },
+    categoryPill: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "rgba(255,255,255,0.2)",
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 20,
+        gap: 6,
+    },
+    categoryPillText: {
+        color: "#FFF",
+        fontSize: 12,
+        fontWeight: "600",
+    },
+    statusPill: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 20,
+    },
+    statusPillText: {
+        color: "#FFF",
+        fontSize: 12,
+        fontWeight: "700",
+        textTransform: "uppercase",
+    },
+    heroTitle: {
+        fontSize: 26,
+        fontWeight: "800",
+        color: "#FFF",
+        lineHeight: 34,
+        marginBottom: 4,
+        textShadowColor: "rgba(0,0,0,0.1)",
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 2,
+    },
+    heroSubtitle: {
+        fontSize: 14,
+        color: "rgba(255,255,255,0.8)",
+        marginBottom: 16,
+        fontWeight: "500",
+    },
+    heroDivider: {
+        height: 1,
+        backgroundColor: "rgba(255,255,255,0.2)",
+        marginVertical: 16,
+    },
+    heroFooterRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
+    deadlineInfo: {
+        gap: 4,
+    },
+    deadlineLabel: {
+        fontSize: 11,
+        color: "rgba(255,255,255,0.6)",
+        textTransform: "uppercase",
+        letterSpacing: 0.5,
+    },
+    deadlineValue: {
+        fontSize: 14,
+        color: "#FFF",
+        fontWeight: "700",
+    },
+    heroBookmarkBtn: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: "rgba(255,255,255,0.15)",
+        justifyContent: "center",
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.3)",
+    },
+    sectionContainer: {
+        paddingHorizontal: 20,
+        marginBottom: 24,
+    },
+    sectionHeaderTitle: {
+        fontSize: 18,
+        fontWeight: "700",
+        marginBottom: 12,
+    },
+    progressCard: {
+        padding: 20,
+        borderRadius: 20,
+        borderWidth: 1,
+    },
+    progressHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 16,
+    },
+    progressIconBox: {
+        width: 36,
+        height: 36,
+        borderRadius: 12,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    cardTitle: {
+        fontSize: 16,
+        fontWeight: "700",
+    },
+    progressPercent: {
+        fontSize: 20,
+        fontWeight: "800",
+    },
+    progressBarBg: {
+        height: 10,
+        backgroundColor: "rgba(0,0,0,0.05)",
+        borderRadius: 5,
+        overflow: "hidden",
+        marginBottom: 12,
+    },
+    progressBarFill: {
+        height: "100%",
+        borderRadius: 5,
+    },
+    progressMessage: {
+        fontSize: 13,
+        lineHeight: 18,
+    },
+    datesCard: {
+        flexDirection: "column",
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        gap: 16,
+    },
+    dateRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+    },
+    dateIconBox: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    dateInfo: {
+        flex: 1,
+    },
+    dateLabel: {
+        fontSize: 11,
+        fontWeight: "600",
+        textTransform: "uppercase",
+        marginBottom: 2,
+    },
+    dateValue: {
+        fontSize: 13,
+        fontWeight: "700",
+    },
+    horizontalLine: {
+        width: "100%",
+        height: 1,
+    },
+    contentCard: {
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+    },
+    bodyText: {
+        fontSize: 15,
+        lineHeight: 24,
+    },
+    countBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 8,
+    },
+    countText: {
+        fontSize: 12,
+        fontWeight: "700",
+    },
+    docRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        padding: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        gap: 12,
+    },
+    docIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 10,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    docLabel: {
+        fontSize: 15,
+        fontWeight: "600",
+    },
+    docSub: {
+        fontSize: 12,
+    },
+    uploadActionBtn: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    timelineItem: {
+        flexDirection: "row",
+        marginBottom: 24,
+        position: "relative",
+    },
+    timelineLine: {
+        position: "absolute",
+        left: 17,
+        top: 36,
+        bottom: -24,
+        width: 2,
+    },
+    timelineIconBox: {
+        width: 36,
+        height: 36,
+        borderRadius: 12,
+        justifyContent: "center",
+        alignItems: "center",
+        borderWidth: 1,
+        zIndex: 2,
+        marginRight: 16,
+    },
+    timelineStepNum: {
+        fontSize: 14,
+        fontWeight: "800",
+    },
+    timelineContent: {
+        flex: 1,
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+    },
+    timelineTitle: {
+        fontSize: 15,
+        fontWeight: "700",
+        marginBottom: 4,
+    },
+    timelineDesc: {
+        fontSize: 13,
+        color: "#6B7280",
+        lineHeight: 18,
+    },
+    noteBox: {
+        flexDirection: "row",
+        gap: 12,
+        padding: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        alignItems: "flex-start",
+    },
+    floatFooter: {
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        paddingTop: 12,
+        paddingHorizontal: 20,
+        backgroundColor: "transparent",
+    },
+    fullWidthButton: {
+        width: "100%",
+        paddingVertical: 16,
+        borderRadius: 16,
+        flexDirection: "row",
+        justifyContent: "center",
+        alignItems: "center",
+        gap: 8,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 10,
+        elevation: 8,
+    },
+    fullWidthButtonText: {
+        color: "#FFF",
+        fontSize: 16,
+        fontWeight: "700",
+    },
+    disabledBtn: {
+        opacity: 0.7,
+        backgroundColor: "#9CA3AF",
     },
     heroImageContainer: {
         width: "100%",
@@ -967,5 +1413,153 @@ const styles = StyleSheet.create({
     },
     errorButton: {
         minWidth: 120,
+    },
+    docModalContainer: {
+        flex: 1,
+    },
+    docModalHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+    },
+    docModalTitle: {
+        fontSize: 18,
+        fontWeight: "700",
+    },
+    docModalContent: {
+        padding: 24,
+        paddingBottom: 48,
+    },
+    docModalIconWrap: {
+        alignItems: "center",
+        marginBottom: 28,
+    },
+    docModalIconBox: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        justifyContent: "center",
+        alignItems: "center",
+        marginBottom: 16,
+    },
+    docModalHeading: {
+        fontSize: 20,
+        fontWeight: "700",
+        marginBottom: 8,
+        textAlign: "center",
+    },
+    docModalSub: {
+        fontSize: 14,
+        marginBottom: 4,
+    },
+    docModalLabel: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: "#4CAF50",
+        textAlign: "center",
+    },
+    docModalCard: {
+        borderRadius: 20,
+        borderWidth: 1,
+        overflow: "hidden",
+        marginBottom: 24,
+    },
+    docModalPlaceholder: {
+        padding: 32,
+        alignItems: "center",
+        borderWidth: 2,
+        borderStyle: "dashed",
+        margin: 12,
+        borderRadius: 16,
+    },
+    docModalPlaceholderText: {
+        fontSize: 16,
+        fontWeight: "600",
+        marginTop: 12,
+    },
+    docModalPlaceholderSub: {
+        fontSize: 13,
+        marginTop: 4,
+    },
+    docModalSelectBtn: {
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 12,
+        marginTop: 20,
+    },
+    docModalSelectBtnText: {
+        color: "#fff",
+        fontSize: 14,
+        fontWeight: "700",
+    },
+    docModalFileWrap: {
+        padding: 20,
+    },
+    docModalFileRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        padding: 12,
+        borderRadius: 12,
+        marginBottom: 12,
+    },
+    docModalFileIcon: {
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        justifyContent: "center",
+        alignItems: "center",
+        marginRight: 12,
+    },
+    docModalFileDetails: {
+        flex: 1,
+    },
+    docModalFileName: {
+        fontSize: 15,
+        fontWeight: "600",
+    },
+    docModalFileSize: {
+        fontSize: 12,
+        marginTop: 2,
+    },
+    docModalSuccessRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+    },
+    docModalSuccessText: {
+        fontSize: 14,
+        fontWeight: "500",
+        color: "#4CAF50",
+    },
+    docModalActions: {
+        gap: 16,
+    },
+    docModalUploadBtn: {
+        borderRadius: 14,
+        paddingVertical: 16,
+    },
+    docModalCancelBtn: {
+        paddingVertical: 16,
+        alignItems: "center",
+    },
+    docModalCancelText: {
+        fontSize: 16,
+        fontWeight: "600",
+    },
+    docModalLoading: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: "rgba(0,0,0,0.5)",
+        justifyContent: "center",
+        alignItems: "center",
+        zIndex: 1000,
+    },
+    docModalLoadingText: {
+        marginTop: 12,
+        fontSize: 16,
+        fontWeight: "600",
     },
 });

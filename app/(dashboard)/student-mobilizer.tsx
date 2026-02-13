@@ -179,10 +179,6 @@ export default function StudentMobilizerDashboard() {
                 const recRes = await getMobilizerRecommendedScholarships(token, targetId);
                 if (recRes.success) {
                   const recs = recRes.data?.students || recRes.data?.data || recRes.data?.scholarships || [];
-                  // Note: The structure might be different based on the API response provided by user
-                  // User provided example shows { success: true, students: [...] } for get_my_students
-                  // But for recommended scholarships, we expect a list of scholarships.
-                  // Let's assume standard response structure for now.
                   if (Array.isArray(recs)) {
                     setRecommendedScholarships(recs);
                   }
@@ -257,21 +253,10 @@ export default function StudentMobilizerDashboard() {
       const { token } = JSON.parse(authDataStr);
 
       const action = !currentStatus ? "bookmark" : "unbookmark";
-      // Note: The bookmark API might need student_id if it's bookmarking FOR a student, 
-      // but based on standard API it seems to be for the logged-in user.
-      // If the requirement is to bookmark for the student, the API would need student_id.
-      // Assuming it uses the context of the logged-in mobilizer for now, or the API handles it.
-      // Re-reading user request: "in recommeded scholarship please apply bookmar feature"
-      // The provided API signature only takes scholarship_id and action.
-      // It likely bookmarks for the user (mobilizer)?? Or maybe there's a different API for students.
-      // Let's use the existing API for now.
-
       const response = await bookmarkScholarship(token, scholarshipId, action);
-
       if (!response.success) {
         throw new Error(response.message || "Failed to update bookmark");
       }
-
       setToast({ visible: true, message: response.message || `Scholarship ${action === "bookmark" ? "bookmarked" : "removed from bookmarks"}`, type: "success" });
     } catch (error: any) {
       // Revert
@@ -351,62 +336,118 @@ export default function StudentMobilizerDashboard() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
 
-        {/* Mobilizer Statistics Cards */}
+        {/* Mobilizer Statistics - same design as student dashboard */}
         <View style={styles.statsContainer}>
-          <TouchableOpacity
-            style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.total_students_added}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Students Added</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.total_applications_created}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Applications Created</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.applications_in_progress}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>In Progress</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.applications_approved}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Approved</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.applications_rejected}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Rejected</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.statNumber, { color: colors.text }]}>{stats.scholarships_bookmarked}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Bookmarked</Text>
-          </TouchableOpacity>
+          <View style={[styles.applicationStatusCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBox, { backgroundColor: "#673AB715" }]}>
+                <Ionicons name="analytics-outline" size={20} color="#673AB7" />
+              </View>
+              <Text style={[styles.cardHeaderTitle, { color: colors.text }]}>Mobilizer Overview</Text>
+            </View>
+
+            <View style={styles.statusGrid}>
+              {/* Row 1: Students Added, Applications Created */}
+              <View style={styles.statusRow}>
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIconBox, { backgroundColor: "#2196F315" }]}>
+                    <Ionicons name="people-outline" size={20} color="#2196F3" />
+                  </View>
+                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                    {stats.total_students_added.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Students Added</Text>
+                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#2196F330" : "#2196F320" }]}>
+                    <View style={[styles.statusBarFill, { width: stats.total_students_added > 0 ? "100%" : "0%", backgroundColor: "#2196F3" }]} />
+                  </View>
+                </View>
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIconBox, { backgroundColor: "#673AB715" }]}>
+                    <Ionicons name="document-text-outline" size={20} color="#673AB7" />
+                  </View>
+                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                    {stats.total_applications_created.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Applications</Text>
+                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#673AB730" : "#673AB720" }]}>
+                    <View style={[styles.statusBarFill, { width: stats.total_applications_created > 0 ? "100%" : "0%", backgroundColor: "#673AB7" }]} />
+                  </View>
+                </View>
+              </View>
+
+              {/* Row 2: In Progress, Approved */}
+              <View style={styles.statusRow}>
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIconBox, { backgroundColor: "#FF980015" }]}>
+                    <Ionicons name="time-outline" size={20} color="#FF9800" />
+                  </View>
+                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                    {stats.applications_in_progress.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>In Progress</Text>
+                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#FF980030" : "#FF980020" }]}>
+                    <View style={[styles.statusBarFill, {
+                      width: stats.total_applications_created > 0 ? `${(stats.applications_in_progress / stats.total_applications_created) * 100}%` : "0%",
+                      backgroundColor: "#FF9800"
+                    }]} />
+                  </View>
+                </View>
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIconBox, { backgroundColor: "#4CAF5015" }]}>
+                    <Ionicons name="checkmark-circle-outline" size={20} color="#4CAF50" />
+                  </View>
+                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                    {stats.applications_approved.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Approved</Text>
+                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#4CAF5030" : "#4CAF5020" }]}>
+                    <View style={[styles.statusBarFill, {
+                      width: stats.total_applications_created > 0 ? `${(stats.applications_approved / stats.total_applications_created) * 100}%` : "0%",
+                      backgroundColor: "#4CAF50"
+                    }]} />
+                  </View>
+                </View>
+              </View>
+
+              {/* Row 3: Rejected, Bookmarked */}
+              <View style={styles.statusRow}>
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIconBox, { backgroundColor: "#F4433615" }]}>
+                    <Ionicons name="close-circle-outline" size={20} color="#F44336" />
+                  </View>
+                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                    {stats.applications_rejected.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Rejected</Text>
+                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#F4433630" : "#F4433620" }]}>
+                    <View style={[styles.statusBarFill, {
+                      width: stats.total_applications_created > 0 ? `${(stats.applications_rejected / stats.total_applications_created) * 100}%` : "0%",
+                      backgroundColor: "#F44336"
+                    }]} />
+                  </View>
+                </View>
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIconBox, { backgroundColor: "#FFB40015" }]}>
+                    <Ionicons name="bookmark" size={20} color="#FFB400" />
+                  </View>
+                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                    {stats.scholarships_bookmarked.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Bookmarked</Text>
+                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#FFB40030" : "#FFB40020" }]}>
+                    <View style={[styles.statusBarFill, { width: stats.scholarships_bookmarked > 0 ? "100%" : "0%", backgroundColor: "#FFB400" }]} />
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
         </View>
 
         {/* Upcoming Deadlines */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeaderRow}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Upcoming Deadlines</Text>
-            <TouchableOpacity
-              onPress={() => router.push("/(dashboard)/mobilizer/mobilizer-scholarship-listing")}
-              accessibilityRole="button"
-            >
-              <Text style={[styles.viewAllText, { color: colors.text }]}>View All</Text>
-            </TouchableOpacity>
+           
           </View>
           <View style={[styles.cardList, { backgroundColor: colors.card, borderColor: colors.border, overflow: 'hidden' }]}>
             {upcomingDeadlines.map((item, index) => {
@@ -468,19 +509,35 @@ export default function StudentMobilizerDashboard() {
 
         {/* Recommended Scholarships */}
         <View style={styles.sectionContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Recommended Scholarships</Text>
+          <View style={styles.recommendedHeader}>
+            <View>
+              <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 4 }]}>Recommended Scholarships</Text>
+              {students.length > 0 && selectedStudentId && (() => {
+                const selected = students.find((s) => s.id === selectedStudentId);
+                const name = selected?.fullname || (selected ? `${selected.firstname || ""} ${selected.lastname || ""}`.trim() : "");
+                return name ? (
+                  <Text style={[styles.recommendedSubtitle, { color: colors.textSecondary }]}>
+                    Matching scholarships for {name}
+                  </Text>
+                ) : null;
+              })()}
+            </View>
+          </View>
 
           {students.length > 0 ? (
             <View>
-              {/* Student Tabs */}
+              {/* Student selector */}
+              <Text style={[styles.studentSelectorLabel, { color: colors.textSecondary }]}>Select student</Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.studentTabsContainer}
-                style={{ marginBottom: 16 }}
+                style={styles.studentTabsScroll}
               >
                 {students.map((student) => {
                   const isSelected = selectedStudentId === student.id;
+                  const appCount = student.applications_count ?? 0;
+                  const displayName = student.fullname || `${student.firstname || ""} ${student.lastname || ""}`.trim() || "Student";
                   return (
                     <TouchableOpacity
                       key={student.id}
@@ -488,23 +545,25 @@ export default function StudentMobilizerDashboard() {
                         styles.studentTab,
                         {
                           borderColor: isSelected ? colors.primary : colors.border,
-                          backgroundColor: isSelected ? colors.primary + "15" : colors.card
+                          backgroundColor: isSelected ? colors.primary + "18" : (isDark ? colors.card : "#f8f8f8"),
+                          shadowColor: isSelected ? colors.primary : "#000",
+                          shadowOpacity: isSelected ? 0.15 : 0.04,
                         }
                       ]}
                       onPress={() => handleStudentSelect(student.id)}
                       activeOpacity={0.7}
                     >
-                      <View style={[styles.studentTabAvatar, { backgroundColor: isSelected ? colors.primary : "#ccc" }]}>
-                        <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>
-                          {(student.firstname || "S").charAt(0).toUpperCase()}
+                      <View style={[styles.studentTabAvatar, { backgroundColor: isSelected ? colors.primary : (isDark ? "#555" : "#ccc") }]}>
+                        <Text style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}>
+                          {(student.firstname || displayName).charAt(0).toUpperCase()}
                         </Text>
                       </View>
-                      <Text style={[
-                        styles.studentTabText,
-                        { color: isSelected ? colors.primary : colors.text, fontWeight: isSelected ? "700" : "400" }
-                      ]}>
-                        {student.firstname}
-                      </Text>
+                      <View style={styles.studentTabTextWrap}>
+                        <Text style={[styles.studentTabText, { color: isSelected ? colors.primary : colors.text, fontWeight: isSelected ? "700" : "500" }]} numberOfLines={1}>
+                          {displayName}
+                        </Text>
+                       
+                      </View>
                     </TouchableOpacity>
                   );
                 })}
@@ -514,127 +573,121 @@ export default function StudentMobilizerDashboard() {
               {loadingRecommendations ? (
                 <View style={[styles.loadingContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                   <ActivityIndicator size="small" color={colors.primary} />
-                  <Text style={{ marginTop: 8, color: colors.textSecondary, fontSize: 12 }}>Loading recommendations...</Text>
+                  <Text style={{ marginTop: 10, color: colors.textSecondary, fontSize: 13 }}>Loading recommendations for this student...</Text>
                 </View>
               ) : (
                 <View style={styles.cardGrid}>
                   {recommendedScholarships.map((item, index) => {
-                    const isClosed = item.status === 'closed';
-                    const isActive = item.status === 'active';
-                    // Simple HTML strip for summary preview if needed
-                    const summaryText = item.summary ? item.summary.replace(/<[^>]+>/g, '') : '';
+                    const isActive = item.status === "active" && !item.expired;
+                    const summaryText = item.summary ? item.summary.replace(/<[^>]+>/g, "").trim() : "";
+                    const categoryColor = item.category ? (isDark ? "#5C6BC0" : "#5C6BC0") : colors.primary;
 
                     return (
-                      <View
+                      <TouchableOpacity
                         key={item.id || item.scholarship_id || index}
+                        activeOpacity={0.95}
+                        onPress={() => router.push({ pathname: "/(dashboard)/mobilizer/mobilizer-scholarship-details", params: { scholarshipId: item.id || item.scholarship_id } })}
                         style={[
                           styles.scholarshipCard,
                           {
                             backgroundColor: colors.card,
-                            borderColor: colors.border,
+                            borderColor: item.expired ? (isDark ? "#444" : "#e0e0e0") : colors.border,
                             borderLeftWidth: 4,
-                            borderLeftColor: isActive ? colors.primary : colors.border
+                            borderLeftColor: item.has_applied ? "#4CAF50" : item.expired ? "#9E9E9E" : categoryColor,
+                            opacity: item.expired ? 0.85 : 1,
                           }
                         ]}
                       >
-                        <View style={styles.cardHeader}>
-                          <View style={{ flex: 1, marginRight: 12 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 8 }}>
-                              {item.category && (
-                                <View style={[styles.categoryBadge, { backgroundColor: isDark ? '#333' : '#f0f0f0' }]}>
-                                  <Text style={[styles.categoryText, { color: colors.textSecondary }]}>
-                                    {item.category}
-                                  </Text>
-                                </View>
-                              )}
-                              <View style={[
-                                styles.statusDot,
-                                { backgroundColor: isActive ? '#4CAF50' : '#9E9E9E' }
-                              ]} />
-                            </View>
-
-                            <Text style={[styles.scholarshipDetailTitle, { color: colors.text }]} numberOfLines={2}>
-                              {item.name || item.scholarship_name}
-                            </Text>
-
-                            {item.provider && (
-                              <Text style={[styles.providerName, { color: colors.textSecondary }]} numberOfLines={1}>
-                                by {item.provider}
-                              </Text>
-                            )}
+                        <View style={styles.recCardTop}>
+                          <View style={styles.recCardTitleRow}>
+                            {item.category ? (
+                              <View style={[styles.recCategoryPill, { backgroundColor: categoryColor + "22" }]}>
+                                <View style={[styles.recCategoryDot, { backgroundColor: categoryColor }]} />
+                                <Text style={[styles.recCategoryText, { color: categoryColor }]} numberOfLines={1}>
+                                  {item.category}
+                                </Text>
+                              </View>
+                            ) : null}
+                            <View style={{ flex: 1 }} />
+                            <TouchableOpacity
+                              onPress={(e) => { e?.stopPropagation?.(); handleBookmark(item.id || item.scholarship_id, item.bookmarked, selectedStudentId || 0); }}
+                              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                              style={styles.recBookmarkWrap}
+                            >
+                              <Ionicons name={item.bookmarked ? "bookmark" : "bookmark-outline"} size={22} color={item.bookmarked ? colors.primary : colors.textSecondary} />
+                            </TouchableOpacity>
                           </View>
-
-                          <TouchableOpacity
-                            onPress={() => handleBookmark(item.id || item.scholarship_id, item.bookmarked, selectedStudentId || 0)}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                            style={{ padding: 4 }}
-                          >
-                            <Ionicons
-                              name={item.bookmarked ? "bookmark" : "bookmark-outline"}
-                              size={24}
-                              color={item.bookmarked ? colors.primary : colors.textSecondary}
-                            />
-                          </TouchableOpacity>
+                          <Text style={[styles.recCardTitle, { color: colors.text }]} numberOfLines={2}>
+                            {item.name || item.scholarship_name}
+                          </Text>
+                          {item.provider ? (
+                            <Text style={[styles.recCardProvider, { color: colors.textSecondary }]} numberOfLines={1}>
+                              by {item.provider}
+                            </Text>
+                          ) : null}
                         </View>
 
-                        {/* Summary Preview */}
                         {summaryText ? (
-                          <Text style={[styles.summaryText, { color: colors.textSecondary }]} numberOfLines={2}>
+                          <Text style={[styles.recCardSummary, { color: colors.textSecondary }]} numberOfLines={2}>
                             {summaryText}
                           </Text>
                         ) : null}
 
-                        <View style={styles.cardDivider} />
+                        <View style={[styles.recCardDivider, { backgroundColor: colors.border }]} />
 
-                        <View style={styles.cardFooter}>
-                          <View style={styles.deadlineInfo}>
-                            {item.deadline ? (
+                        <View style={styles.recCardFooter}>
+                          <View style={styles.recDeadlineWrap}>
+                            {item.expired ? (
+                              <>
+                                <Ionicons name="close-circle-outline" size={16} color="#F44336" />
+                                <Text style={[styles.recDeadlineText, { color: "#F44336" }]}>Expired</Text>
+                              </>
+                            ) : item.has_applied ? (
+                              <>
+                                <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                                <Text style={[styles.recDeadlineText, { color: "#4CAF50" }]}>Applied</Text>
+                              </>
+                            ) : item.deadline ? (
                               <>
                                 <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
-                                <Text style={[styles.deadlineText, { color: colors.textSecondary }]}>
-                                  Due {new Date(item.deadline).toLocaleDateString()}
+                                <Text style={[styles.recDeadlineText, { color: colors.textSecondary }]}>
+                                  Due {new Date(item.deadline).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
                                 </Text>
                               </>
                             ) : (
                               <>
-                                <Ionicons name="infinite-outline" size={18} color={colors.textSecondary} />
-                                <Text style={[styles.deadlineText, { color: colors.textSecondary }]}>
-                                  Always Open
-                                </Text>
+                                <Ionicons name="infinite-outline" size={16} color={colors.textSecondary} />
+                                <Text style={[styles.recDeadlineText, { color: colors.textSecondary }]}>Always open</Text>
                               </>
                             )}
                           </View>
-
-                          <TouchableOpacity
-                            style={[styles.viewDetailsBtn, { backgroundColor: colors.primary }]}
-                            onPress={() => router.push({ pathname: "/(dashboard)/mobilizer/mobilizer-scholarship-details", params: { scholarshipId: item.id || item.scholarship_id } })}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={styles.viewDetailsText}>View Details</Text>
-                            <Ionicons name="arrow-forward" size={16} color="#fff" />
-                          </TouchableOpacity>
-                        </View>
-
-                        {(item.has_applied) && (
-                          <View style={styles.appliedBadge}>
-                            <Ionicons name="checkmark-circle" size={14} color="#fff" />
-                            <Text style={styles.appliedText}>Applied</Text>
+                          <View style={[styles.recViewBtn, { backgroundColor: colors.primary }]}>
+                            <Text style={styles.recViewBtnText}>View Details</Text>
+                            <Ionicons name="arrow-forward" size={14} color="#fff" />
                           </View>
-                        )}
-                      </View>
+                        </View>
+                      </TouchableOpacity>
                     );
                   })}
                   {recommendedScholarships.length === 0 && (
-                    <View style={[styles.emptyState, { backgroundColor: colors.card, borderRadius: 16, borderColor: colors.border, borderWidth: 1 }]}>
-                      <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No recommendations for this student</Text>
+                    <View style={[styles.recEmptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                      <Ionicons name="school-outline" size={48} color={colors.textSecondary} style={{ opacity: 0.5 }} />
+                      <Text style={[styles.recEmptyTitle, { color: colors.text }]}>No recommendations yet</Text>
+                      <Text style={[styles.recEmptySub, { color: colors.textSecondary }]}>
+                        Recommendations are based on this student&apos;s profile. Add more students or try another.
+                      </Text>
                     </View>
                   )}
                 </View>
               )}
             </View>
           ) : (
-            <View style={styles.emptyState}>
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Add students to see recommendations</Text>
+            <View style={[styles.recEmptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Ionicons name="people-outline" size={48} color={colors.textSecondary} style={{ opacity: 0.5 }} />
+              <Text style={[styles.recEmptyTitle, { color: colors.text }]}>Add students first</Text>
+              <Text style={[styles.recEmptySub, { color: colors.textSecondary }]}>
+                Add students from My Students to see personalized scholarship recommendations here.
+              </Text>
             </View>
           )}
         </View>
@@ -779,34 +832,79 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   statsContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
     paddingHorizontal: 20,
+    marginTop: 10,
     marginBottom: 24,
-    gap: 12,
   },
-  statCard: {
-    width: "48%",
+  applicationStatusCard: {
     borderRadius: 16,
     padding: 16,
-    alignItems: "center",
     borderWidth: 1,
-    shadowColor: "#000",
+    shadowColor: "#333",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
   },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: "800",
-    marginBottom: 4,
+  cardHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
   },
-  statLabel: {
-    fontSize: 12,
+  cardIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  cardHeaderTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  statusGrid: {
+    flexDirection: "column",
+    gap: 12,
+  },
+  statusRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  statusItem: {
+    flex: 1,
+    alignItems: "center",
+    gap: 5,
+    minWidth: 0,
+  },
+  statusIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  statusNumber: {
+    fontSize: 22,
+    fontWeight: "800",
+    lineHeight: 26,
+  },
+  statusLabel: {
+    fontSize: 11,
+    fontWeight: "500",
     textAlign: "center",
-    lineHeight: 16,
+  },
+  statusBar: {
+    width: "100%",
+    height: 4,
+    borderRadius: 2,
+    overflow: "hidden",
+    marginTop: 4,
+  },
+  statusBarFill: {
+    height: "100%",
+    borderRadius: 2,
   },
   featuresContainer: {
     paddingHorizontal: 20,
@@ -950,36 +1048,159 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 18,
   },
+  recommendedHeader: {
+    marginBottom: 12,
+  },
+  recommendedSubtitle: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  studentSelectorLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 8,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
   studentTabsContainer: {
     paddingRight: 20,
-    gap: 12,
+    gap: 10,
+  },
+  studentTabsScroll: {
+    marginBottom: 20,
   },
   studentTab: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 8,
-    paddingRight: 16,
-    borderRadius: 24,
-    borderWidth: 1,
-    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    gap: 10,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
   },
   studentTabAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
+  studentTabTextWrap: {
+    flex: 0,
+    maxWidth: 140,
+  },
   studentTabText: {
     fontSize: 14,
-    fontWeight: "500",
+  },
+  studentTabMeta: {
+    fontSize: 11,
+    marginTop: 2,
   },
   loadingContainer: {
-    padding: 32,
+    padding: 36,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 16,
     borderWidth: 1,
+  },
+  recCardTop: {
+    marginBottom: 10,
+  },
+  recCardTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  recCategoryPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    gap: 6,
+    alignSelf: "flex-start",
+  },
+  recCategoryDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  recCategoryText: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
+  recBookmarkWrap: {
+    padding: 4,
+  },
+  recCardTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    lineHeight: 22,
+  },
+  recCardProvider: {
+    fontSize: 13,
+    fontWeight: "500",
+    marginTop: 4,
+  },
+  recCardSummary: {
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 12,
+  },
+  recCardDivider: {
+    height: 1,
+    marginBottom: 12,
+  },
+  recCardFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  recDeadlineWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  recDeadlineText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  recViewBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    gap: 6,
+  },
+  recViewBtnText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  recEmptyCard: {
+    padding: 28,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  recEmptyTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  recEmptySub: {
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 19,
+    paddingHorizontal: 16,
   },
   cardHeader: {
     flexDirection: 'row',

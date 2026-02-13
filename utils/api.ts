@@ -4603,7 +4603,7 @@ export const getMobilizerRecommendedScholarships = async (
   token: string,
   studentId: number,
   page: number = 1,
-  perPage: number = 20
+  perPage: number = 5
 ): Promise<ApiResponse> => {
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
