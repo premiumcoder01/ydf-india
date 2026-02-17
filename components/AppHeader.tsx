@@ -33,9 +33,13 @@ export default function AppHeader({ title, onBack, rightIcon, rightElement }: Pr
       <Text style={{ fontSize: 22, fontWeight: "700", color: isDark ? colors.text : "#333", letterSpacing: -0.5 }}>
         {title}
       </Text>
-      <View style={{ padding: 8, marginRight: -8 }}>{rightElement || rightIcon}</View>
+      {!rightElement || !rightIcon ? (
+        <TouchableOpacity style={{ padding: 8, marginLeft: -8 }}>
+          <Ionicons name="arrow-back" size={24} color={isDark ? colors.background : "#fff"} />
+        </TouchableOpacity>
+      ) : (
+        <View style={{ padding: 8, marginRight: -8, borderWidth: 1, borderColor: "#fff" }}>{rightElement || rightIcon}</View>
+      )}
     </View>
   );
 }
-
-

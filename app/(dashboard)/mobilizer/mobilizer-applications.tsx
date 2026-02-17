@@ -309,12 +309,13 @@ export default function MobilizerApplicationsScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    content: { flex: 1, paddingHorizontal: 16 },
+    content: { flex: 1 },
     searchSection: {
         marginBottom: 10,
     },
     listContent: {
         paddingBottom: 40,
+        paddingHorizontal: 16,
     },
     centerContainer: {
         flex: 1,

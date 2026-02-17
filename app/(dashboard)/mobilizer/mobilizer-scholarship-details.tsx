@@ -770,8 +770,7 @@ export default function MobilizerScholarshipDetailsScreen() {
                             onChangeText={setStudentSearchQuery}
                             placeholder="Search student..."
                             onClear={() => setStudentSearchQuery("")}
-                            style={{ paddingHorizontal: 0, marginTop: 10 }}
-                        />
+                            style={{ paddingHorizontal: 0, marginTop: 10, paddingVertical: 0, borderRadius: 12 }} />
                     </View>
 
                     {loadingStudents ? (
