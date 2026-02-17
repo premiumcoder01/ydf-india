@@ -100,16 +100,16 @@ export const apiRequest = async (
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {
@@ -194,16 +194,16 @@ export const registerUser = async (userData: {
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {
@@ -276,16 +276,16 @@ export const loginUser = async (email: string, password: string): Promise<ApiRes
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {
@@ -362,16 +362,16 @@ export const sendOtp = async (email: string): Promise<ApiResponse> => {
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {
@@ -447,16 +447,16 @@ export const verifyOtp = async (otp: string, email: string): Promise<ApiResponse
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {
@@ -530,16 +530,16 @@ export const forgotPassword = async (email: string): Promise<ApiResponse> => {
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {
@@ -629,16 +629,16 @@ export const resetPassword = async (
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {
@@ -714,16 +714,16 @@ export const getUserProfile = async (token: string): Promise<ApiResponse> => {
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {
@@ -950,16 +950,16 @@ export const updatePassword = async (
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {
@@ -1054,16 +1054,16 @@ export const getReviewerSchemes = async (
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {
@@ -1156,16 +1156,16 @@ export const getAllScholarships = async (
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {
@@ -1244,16 +1244,16 @@ export const getScholarshipDetails = async (
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {
@@ -1334,16 +1334,16 @@ export const bookmarkScholarship = async (
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {
@@ -1432,16 +1432,16 @@ export const getBookmarkedScholarships = async (
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {
@@ -1534,16 +1534,16 @@ export const getMyApplications = async (
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {
@@ -1725,16 +1725,16 @@ export const uploadDocument = async (
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {
@@ -1983,16 +1983,16 @@ export const getNotifications = async (
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {
@@ -2905,16 +2905,16 @@ export const getReviewerApplications = async (
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {
@@ -3852,16 +3852,16 @@ export const createScholarship = async (
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {
@@ -3976,16 +3976,16 @@ export const getMyScholarships = async (
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {
@@ -4087,16 +4087,16 @@ export const getScholarshipApplicants = async (
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {
@@ -4294,16 +4294,16 @@ export const getDonorAnalytics = async (
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {
@@ -5057,7 +5057,7 @@ export const addMobilizerStudent = async (
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
 
-    // Build query string manually to avoid encoding brackets
+    // Prepare parameters for x-www-form-urlencoded body
     const params: string[] = [];
     params.push(`wsfunction=local_mobileapi_mobilizer_add_student`);
     params.push(`moodlewsrestformat=json`);
@@ -5066,18 +5066,25 @@ export const addMobilizerStudent = async (
     // Add all fields from studentData
     Object.keys(studentData).forEach(key => {
       if (studentData[key] !== undefined && studentData[key] !== null && studentData[key] !== '') {
-        // Only encode the value, keep brackets in key as-is
+        // Encode both key and value to ensure safety, although Moodle accepts raw brackets in keys too,
+        // it is safer to send as standard form-data where browser/client libraries handle it.
+        // However, since we are building standard x-www-form-urlencoded string manually:
+        const encodedKey = encodeURIComponent(key);
         const encodedValue = encodeURIComponent(String(studentData[key]));
-        params.push(`${key}=${encodedValue}`);
+        params.push(`${encodedKey}=${encodedValue}`);
       }
     });
 
-    const finalUrl = `${baseUrl}?${params.join('&')}`;
-    console.log("Add Mobilizer Student URL:", finalUrl);
+    const bodyContent = params.join('&');
 
-    const response = await fetch(finalUrl, {
+    console.log("Add Mobilizer Student Body:", bodyContent);
+
+    const response = await fetch(baseUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: bodyContent
     });
 
     const responseText = await response.text();
@@ -5190,16 +5197,16 @@ export const getMobilizerScholarships = async (
       if (shouldLogout) {
         return {
           success: false,
-          error: data?.errorcode === "invalidtoken" 
-            ? "Invalid token" 
-            : data?.errorcode === "accountinactive" 
-            ? "Account inactive" 
-            : "User profile incomplete",
+          error: data?.errorcode === "invalidtoken"
+            ? "Invalid token"
+            : data?.errorcode === "accountinactive"
+              ? "Account inactive"
+              : "User profile incomplete",
           message: data?.errorcode === "invalidtoken"
             ? "Your session has expired. Please login again."
             : data?.errorcode === "accountinactive"
-            ? "Your account is inactive."
-            : "Please complete your profile setup.",
+              ? "Your account is inactive."
+              : "Please complete your profile setup.",
         };
       }
     } catch (e) {

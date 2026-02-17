@@ -4,22 +4,22 @@ import { useTheme } from "@/context/ThemeContext";
 import { bookmarkScholarship, getMobilizerScholarships } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
     Animated,
     FlatList,
     Modal,
-    Platform,
+    ScrollView,
     StatusBar,
     StyleSheet,
+    Switch,
     Text,
     TextInput,
     TouchableOpacity,
-    View,
+    View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -38,19 +38,59 @@ const stripHtml = (html: string): string => {
         .trim();
 };
 
+const normalizeText = (value: string): string =>
+    value
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim();
+
+const getScholarshipSearchText = (scholarship: any): string => {
+    const descriptionText = stripHtml(scholarship?.summary || scholarship?.description || "");
+    const tagsText = Array.isArray(scholarship?.tags)
+        ? scholarship.tags.join(" ")
+        : scholarship?.tags || "";
+    const keywordsText = Array.isArray(scholarship?.keywords)
+        ? scholarship.keywords.join(" ")
+        : scholarship?.keywords || "";
+
+    return normalizeText(
+        [
+            scholarship?.name, // Adjusted for 'name'
+            scholarship?.title,
+            scholarship?.shortname,
+            scholarship?.category,
+            scholarship?.state,
+            scholarship?.location,
+            scholarship?.provider_name,
+            scholarship?.provider,
+            scholarship?.organization,
+            scholarship?.department,
+            scholarship?.eligibility,
+            scholarship?.type,
+            tagsText,
+            keywordsText,
+            descriptionText,
+        ]
+            .filter(Boolean)
+            .join(" ")
+    );
+};
+
 // Helper function to get category color
 const getCategoryColor = (category: string): string => {
     const colors: Record<string, string> = {
-        Gujarat: "#4CAF50",
-        Bihar: "#2196F3",
-        "All India": "#FF9800",
-        Punjab: "#9C27B0",
-        Rajasthan: "#E91E63",
-        Maharashtra: "#00BCD4",
-        Delhi: "#795548",
-        Sikar: "#607D8B",
+        "All India": "#F59E0B", // Amber
+        Bihar: "#3B82F6",       // Blue
+        Delhi: "#6366F1",       // Indigo
+        Gujarat: "#10B981",     // Emerald
+        Maharashtra: "#06B6D4", // Cyan
+        Punjab: "#8B5CF6",      // Violet
+        Rajasthan: "#F43F5E",   // Rose
+        Sikar: "#64748B",       // Slate
+        // Fallbacks/General
+        General: "#6B7280",
     };
-    return colors[category] || "#666";
+    return colors[category] || colors["General"];
 };
 
 export default function MobilizerScholarshipListingScreen() {
@@ -59,9 +99,11 @@ export default function MobilizerScholarshipListingScreen() {
     const [selectedCategory, setSelectedCategory] = useState("All");
     const [selectedSort, setSelectedSort] =
         useState<(typeof sortOptions)[number]>("Latest");
-    const [deadlineBefore, setDeadlineBefore] = useState<Date | null>(null);
-    const [showDatePicker, setShowDatePicker] = useState(false);
     const [eligibility, setEligibility] = useState("");
+    const [showExpired, setShowExpired] = useState(false);
+    const [showApplied, setShowApplied] = useState(false);
+    const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
+
     const [bookmarks, setBookmarks] = useState<Record<number, boolean>>({});
     const [page, setPage] = useState(1);
     const [showFilters, setShowFilters] = useState(false);
@@ -92,87 +134,93 @@ export default function MobilizerScholarshipListingScreen() {
     }, [query]);
 
     // Fetch scholarships from API
-    useEffect(() => {
-        const fetchScholarships = async () => {
-            try {
-                setLoading(true);
-                // Get token from AsyncStorage
-                const authDataString = await AsyncStorage.getItem("authData");
-                if (!authDataString) {
-                    console.log("No auth data found");
-                    setLoading(false);
-                    return;
-                }
+    const fetchScholarships = useCallback(async () => {
+        try {
+            setLoading(true);
+            // Get token from AsyncStorage
+            const authDataString = await AsyncStorage.getItem("authData");
+            if (!authDataString) {
+                console.log("No auth data found");
+                setLoading(false);
+                return;
+            }
 
-                const authData = JSON.parse(authDataString);
-                const token = authData?.token;
+            const authData = JSON.parse(authDataString);
+            const token = authData?.token;
 
-                if (!token) {
-                    console.log("No token found in auth data");
-                    setLoading(false);
-                    return;
-                }
+            if (!token) {
+                console.log("No token found in auth data");
+                setLoading(false);
+                return;
+            }
 
-                // Call getMobilizerScholarships API with search query
-                const deadlineTimestamp = deadlineBefore ? Math.floor(deadlineBefore.getTime() / 1000) : undefined;
+            // Call getMobilizerScholarships API with search query
+            const response = await getMobilizerScholarships(token, {
+                search: searchQuery || undefined,
+                page: page,
+                per_page: 100,
+            });
+            if (response.success && response.data) {
+                const apiData = response.data.data || response.data;
 
-                const response = await getMobilizerScholarships(token, {
-                    search: searchQuery || undefined,
-                    page: page,
-                    per_page: 20,
-                    deadline_before: deadlineTimestamp
-                });
+                // Extract scholarships array
+                const scholarshipsList = Array.isArray(apiData)
+                    ? apiData
+                    : apiData?.data || apiData?.scholarships || [];
 
-                if (response.success && response.data) {
-                    const apiData = response.data.data || response.data;
-
-                    // Extract scholarships array
-                    const scholarshipsList = Array.isArray(apiData)
-                        ? apiData
-                        : apiData?.data || apiData?.scholarships || [];
-
-                    if (page === 1) {
-                        setApiScholarships(scholarshipsList);
-                        const bookmarksMap: Record<number, boolean> = {};
-                        scholarshipsList.forEach((scholarship: any) => {
-                            if (scholarship.bookmarked !== undefined) {
-                                bookmarksMap[scholarship.id] = scholarship.bookmarked;
-                            }
-                        });
-                        setBookmarks(bookmarksMap);
-                    } else {
-                        setApiScholarships((prev) => [...prev, ...scholarshipsList]);
-                        const newBookmarks: Record<number, boolean> = {};
-                        scholarshipsList.forEach((scholarship: any) => {
-                            if (scholarship.bookmarked !== undefined) {
-                                newBookmarks[scholarship.id] = scholarship.bookmarked;
-                            }
-                        });
-                        setBookmarks((prev) => ({ ...prev, ...newBookmarks }));
-                    }
-
-                    // Store pagination info
-                    if (apiData?.pagination) {
-                        setPagination(apiData.pagination);
-                    }
+                if (page === 1) {
+                    setApiScholarships(scholarshipsList);
+                    const bookmarksMap: Record<number, boolean> = {};
+                    scholarshipsList.forEach((scholarship: any) => {
+                        if (scholarship.bookmarked !== undefined) {
+                            bookmarksMap[scholarship.id] = scholarship.bookmarked;
+                        }
+                    });
+                    setBookmarks(bookmarksMap);
                 } else {
-                    console.log("API call failed:", response.error || response.message);
-                    if (page === 1) {
-                        setApiScholarships([]);
-                    }
+                    setApiScholarships((prev) => [...prev, ...scholarshipsList]);
+                    const newBookmarks: Record<number, boolean> = {};
+                    scholarshipsList.forEach((scholarship: any) => {
+                        if (scholarship.bookmarked !== undefined) {
+                            newBookmarks[scholarship.id] = scholarship.bookmarked;
+                        }
+                    });
+                    setBookmarks((prev) => ({ ...prev, ...newBookmarks }));
                 }
-            } catch (error) {
-                console.error("Error fetching scholarships:", error);
+
+                // Store pagination info
+                if (apiData?.pagination) {
+                    setPagination(apiData.pagination);
+                }
+            } else {
+                console.log("API call failed:", response.error || response.message);
                 if (page === 1) {
                     setApiScholarships([]);
                 }
-            } finally {
-                setLoading(false);
             }
-        };
+        } catch (error) {
+            console.error("Error fetching scholarships:", error);
+            if (page === 1) {
+                setApiScholarships([]);
+            }
+        } finally {
+            setLoading(false);
+        }
+    }, [searchQuery, page]);
 
+    // Refresh data when screen comes into focus
+    useFocusEffect(
+        useCallback(() => {
+            // Reset to page 1 and fetch fresh data
+            setPage(1);
+            fetchScholarships();
+        }, [fetchScholarships])
+    );
+
+    // Fetch when searchQuery or page changes
+    useEffect(() => {
         fetchScholarships();
-    }, [searchQuery, page, deadlineBefore]);
+    }, [searchQuery, page]);
 
 
     // Extract unique categories from API data
@@ -186,11 +234,25 @@ export default function MobilizerScholarshipListingScreen() {
         return Array.from(cats);
     }, [apiScholarships]);
 
+    const searchIndex = useMemo(() => {
+        const index = new Map<number, string>();
+        apiScholarships.forEach((scholarship) => {
+            if (scholarship?.id != null) {
+                index.set(scholarship.id, getScholarshipSearchText(scholarship));
+            }
+        });
+        return index;
+    }, [apiScholarships]);
+
     // Filter and sort API data
     const data = useMemo(() => {
         if (apiScholarships.length === 0) return [];
 
         let list = [...apiScholarships];
+        const keywordQuery = normalizeText(
+            [searchQuery, eligibility].filter(Boolean).join(" ")
+        );
+        const keywordTokens = keywordQuery ? keywordQuery.split(" ") : [];
 
         // Client-side filtering
         list = list.filter((s) => {
@@ -198,22 +260,30 @@ export default function MobilizerScholarshipListingScreen() {
             const catMatch =
                 selectedCategory === "All" || s.category === selectedCategory;
 
-            // Deadline filter (use end_date or start_date)
-            const deadlineDate = s.end_date ? new Date(s.end_date) : null;
-            const deadlineMatch =
-                !deadlineBefore || !deadlineDate || deadlineDate <= deadlineBefore;
+            // Expired Filter
+            const isExpired = s.expired === true;
+            const expiredMatch = showExpired ? isExpired : !isExpired;
 
-            // Eligibility filter (search in description)
-            const descriptionText = stripHtml(s.description || "").toLowerCase();
-            const eligMatch =
-                !eligibility ||
-                descriptionText.includes(eligibility.trim().toLowerCase()) ||
-                (s.category && s.category.toLowerCase().includes(eligibility.trim().toLowerCase()));
+            // Applied Filter
+            const appliedMatch = showApplied ? s.has_applied === true : true;
 
-            // Amount filter - Note: API doesn't provide amount, so we skip this
-            // If you need amount filtering, you'll need to add it to the API response
+            // Bookmarked Filter
+            const isBookmarked = s.bookmarked || bookmarks[s.id];
+            const bookmarkMatch = showBookmarkedOnly ? isBookmarked : true;
 
-            return catMatch && deadlineMatch && eligMatch;
+            // Keyword filter across multiple fields
+            const searchText = searchIndex.get(s.id) || "";
+            const keywordMatch =
+                keywordTokens.length === 0 ||
+                keywordTokens.every((token) => searchText.includes(token));
+
+            return (
+                catMatch &&
+                expiredMatch &&
+                appliedMatch &&
+                bookmarkMatch &&
+                keywordMatch
+            );
         });
 
         // Sorting
@@ -225,11 +295,11 @@ export default function MobilizerScholarshipListingScreen() {
             });
         } else if (selectedSort === "Ending Soon") {
             list = list.sort((a, b) => {
-                const dateA = a.end_date
-                    ? new Date(a.end_date).getTime()
+                const dateA = a.end_date || a.deadline
+                    ? new Date(a.end_date || a.deadline).getTime()
                     : Number.MAX_SAFE_INTEGER;
-                const dateB = b.end_date
-                    ? new Date(b.end_date).getTime()
+                const dateB = b.end_date || b.deadline
+                    ? new Date(b.end_date || b.deadline).getTime()
                     : Number.MAX_SAFE_INTEGER;
                 return dateA - dateB;
             });
@@ -241,8 +311,13 @@ export default function MobilizerScholarshipListingScreen() {
         apiScholarships,
         selectedCategory,
         selectedSort,
-        deadlineBefore,
         eligibility,
+        searchQuery,
+        showExpired,
+        showApplied,
+        showBookmarkedOnly,
+        bookmarks,
+        searchIndex
     ]);
 
     const loadMore = useCallback(() => {
@@ -269,7 +344,7 @@ export default function MobilizerScholarshipListingScreen() {
 
         const newBookmarkState = !currentBookmarkState;
 
-        // Optimistic UI update
+        // Optimistic UI update - update immediately
         setBookmarks((b) => ({ ...b, [id]: newBookmarkState }));
         setApiScholarships((prev) =>
             prev.map((item) =>
@@ -287,15 +362,14 @@ export default function MobilizerScholarshipListingScreen() {
             const authDataString = await AsyncStorage.getItem("authData");
             if (!authDataString) {
                 // Revert on error
-                // Similar logic for revert: if removed, add back (though we don't have the full item easily unless we stored it)
-                // For simplicity, just invalidating the list refetch might be safer, but let's try to revert state locally
-                // Ideally we should just trigger a refetch or keep a backup.
-                // Since this is rare, let's just show error and maybe refresh.
-
+                setBookmarks((b) => ({ ...b, [id]: !newBookmarkState }));
+                setApiScholarships((prev) =>
+                    prev.map((item) =>
+                        item.id === id ? { ...item, bookmarked: !newBookmarkState } : item
+                    )
+                );
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
                 showToast("Authentication failed. Please login again.", "error");
-                // Force refresh to restore state
-                setPage(1);
                 return;
             }
 
@@ -303,9 +377,15 @@ export default function MobilizerScholarshipListingScreen() {
             const token = authData?.token;
 
             if (!token) {
+                // Revert on error
+                setBookmarks((b) => ({ ...b, [id]: !newBookmarkState }));
+                setApiScholarships((prev) =>
+                    prev.map((item) =>
+                        item.id === id ? { ...item, bookmarked: !newBookmarkState } : item
+                    )
+                );
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
                 showToast("Authentication failed. Please login again.", "error");
-                setPage(1);
                 return;
             }
 
@@ -325,25 +405,30 @@ export default function MobilizerScholarshipListingScreen() {
                 );
             } else {
                 // Revert on error
-                // Since complex to revert deletion, best to just re-fetch or reload
+                setBookmarks((b) => ({ ...b, [id]: !newBookmarkState }));
+                setApiScholarships((prev) =>
+                    prev.map((item) =>
+                        item.id === id ? { ...item, bookmarked: !newBookmarkState } : item
+                    )
+                );
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
                 showToast(
                     response.error || response.message || "Failed to update bookmark",
                     "error"
                 );
                 console.error("Bookmark error:", response.error);
-                // Reload list to restore state
-                setPage(1);
-                // Trigger re-fetch logic if needed
-                setSearchQuery(prev => prev); // dummy update to trigger effect
             }
         } catch (err: any) {
+            // Revert on error
+            setBookmarks((b) => ({ ...b, [id]: !newBookmarkState }));
+            setApiScholarships((prev) =>
+                prev.map((item) =>
+                    item.id === id ? { ...item, bookmarked: !newBookmarkState } : item
+                )
+            );
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
             showToast("Network error. Please try again.", "error");
             console.error("Bookmark error:", err);
-            // Reload list to restore state
-            setPage(1);
-            setSearchQuery(prev => prev); // dummy update
         } finally {
             setBookmarking((prev) => ({ ...prev, [id]: false }));
         }
@@ -369,212 +454,144 @@ export default function MobilizerScholarshipListingScreen() {
 
     const clearFilters = useCallback(() => {
         setSelectedCategory("All");
-        setDeadlineBefore(null);
         setEligibility("");
         setSelectedSort("Latest");
+        setShowExpired(false);
+        setShowApplied(false);
+        setShowBookmarkedOnly(false);
     }, []);
 
     const applyFilters = useCallback(() => {
-        setPage(1);
         closeFilters();
     }, [closeFilters]);
 
-    const formatDate = (date: Date | null) => {
-        if (!date) return "Select date";
-        return date.toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-        });
-    };
 
-    const getDaysRemaining = (deadline: string | null, isExpired: boolean = false) => {
-        if (isExpired) return { text: "Expired", color: "#F44336" };
-        if (!deadline) return { text: "Open", color: "#4CAF50" };
-
-        const today = new Date();
-        const deadlineDate = new Date(deadline);
-        const diffTime = deadlineDate.getTime() - today.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        if (diffDays < 0) return { text: "Expired", color: "#F44336" };
-        if (diffDays === 0) return { text: "Today", color: "#FF9800" };
-        if (diffDays === 1) return { text: "1 day left", color: "#FF9800" };
-        if (diffDays <= 7)
-            return { text: `${diffDays} days left`, color: "#FF9800" };
-        return { text: `${diffDays} days left`, color: "#666" };
-    };
 
     const activeFiltersCount = useMemo(() => {
         let count = 0;
         if (selectedCategory !== "All") count++;
-        if (deadlineBefore) count++;
         if (eligibility) count++;
         if (selectedSort !== "Latest") count++;
+        if (showExpired) count++;
+        if (showApplied) count++;
+        if (showBookmarkedOnly) count++;
         return count;
-    }, [selectedCategory, deadlineBefore, eligibility, selectedSort]);
+    }, [selectedCategory, eligibility, selectedSort, showExpired, showApplied, showBookmarkedOnly]);
 
-    const Header = (
-        <View style={{ marginBottom: 20 }}>
-            <AppHeader
-                title="Scholarships"
-                onBack={() => router.back()}
-                rightIcon={
-                    <TouchableOpacity onPress={openFilters} style={[styles.filterIconBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" }]}>
-                        <Ionicons name="options-outline" size={22} color={colors.text} />
-                        {activeFiltersCount > 0 && (
-                            <View style={styles.filterBadge}>
-                                <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
-                            </View>
-                        )}
-                    </TouchableOpacity>
-                }
-            />
-            <SearchBar
-                value={query}
-                onChangeText={setQuery}
-                onClear={() => setQuery("")}
-                placeholder="Search scholarships..."
-            />
-        </View>
-    );
+
 
     const renderItem = useCallback(
         ({ item }: { item: any }) => {
             const categoryColor = getCategoryColor(item.category || "");
-            const deadline = item.deadline || item.end_date; // Handle both new and old fields
-            const daysInfo = getDaysRemaining(deadline, item.expired);
-            const description = stripHtml(item.summary || item.description || "");
-            const title = item.name || item.title || "Scholarship";
             const isBookmarked = item.bookmarked || bookmarks[item.id];
-
-            // Status logic
-            const isExpired = item.expired === true || daysInfo.text === "Expired";
+            const isExpired = item.expired;
             const hasApplied = item.has_applied === true;
-            const isClosed = item.status === 'closed';
-            const isActive = item.status === 'active';
+            const deadline = item.deadline || item.end_date;
+            const summaryText = stripHtml(item.summary || item.description || "");
+            const shortDescription = summaryText.length > 100 ? summaryText.substring(0, 100) + "..." : summaryText;
+            const title = item.name || item.title || "Scholarship";
+
+            // Default to 0 if progress is missing
+            const progressPercent = item.progress_percent !== undefined ? item.progress_percent : 0;
+
+            // Status Configuration
+            let statusConfig = { text: "Open", color: "#10B981", bg: "rgba(16, 185, 129, 0.1)" };
+            if (isExpired) {
+                statusConfig = { text: "Expired", color: "#EF4444", bg: "rgba(239, 68, 68, 0.1)" };
+            } else if (hasApplied) {
+                statusConfig = { text: "Applied", color: "#3B82F6", bg: "rgba(59, 130, 246, 0.1)" };
+            }
 
             return (
                 <View
                     style={[
-                        styles.scholarshipCard,
-                        { borderLeftColor: categoryColor, backgroundColor: colors.card, borderColor: colors.border },
+                        styles.cardContainer,
+                        {
+                            backgroundColor: colors.card,
+                            borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB",
+                            borderLeftWidth: 4,
+                            borderLeftColor: isExpired ? "#9CA3AF" : categoryColor
+                        }
                     ]}
                 >
-                    <View style={styles.scholarshipHeader}>
-                        <View style={styles.scholarshipInfo}>
-                            <View style={styles.titleRow}>
-                                <View style={{ flex: 1, marginRight: 8 }}>
-                                    <Text style={[styles.scholarshipTitle, { color: colors.text }]} numberOfLines={2}>
-                                        {title}
-                                    </Text>
-                                    {item.provider && (
-                                        <Text style={[styles.providerText, { color: colors.textSecondary }]}>
-                                            by {item.provider}
-                                        </Text>
-                                    )}
-                                </View>
-                                <View style={{ flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                                    <View
-                                        style={[
-                                            styles.categoryBadge,
-                                            { backgroundColor: `${categoryColor}15` },
-                                        ]}
-                                    >
-                                        <Text
-                                            style={[styles.categoryBadgeText, { color: categoryColor }]}
-                                        >
-                                            {item.category || "General"}
-                                        </Text>
-                                    </View>
-
-                                    {hasApplied && (
-                                        <View style={[styles.statusBadge, { backgroundColor: 'rgba(76, 175, 80, 0.1)' }]}>
-                                            <Ionicons name="checkmark-circle" size={10} color="#4CAF50" />
-                                            <Text style={[styles.statusBadgeText, { color: '#4CAF50' }]}>Applied</Text>
-                                        </View>
-                                    )}
-                                    {!hasApplied && isExpired && (
-                                        <View style={[styles.statusBadge, { backgroundColor: 'rgba(244, 67, 54, 0.1)' }]}>
-                                            <Text style={[styles.statusBadgeText, { color: '#F44336' }]}>Expired</Text>
-                                        </View>
-                                    )}
-                                </View>
-                            </View>
-                            {description ? (
-                                <Text style={[styles.scholarshipDescription, { color: colors.textSecondary }]} numberOfLines={2}>
-                                    {description}
-                                </Text>
-                            ) : null}
-                        </View>
-                    </View>
-
-                    <View style={[styles.amountRow, { borderBottomColor: colors.border }]}>
-                        <View style={styles.amountContainer}>
-                            <Text style={[styles.amountLabel, { color: colors.textSecondary }]}>Application Period</Text>
-                            <Text style={[styles.amountText, { color: isExpired || isClosed ? '#F44336' : '#4CAF50' }]}>
-                                {isExpired ? "Expired" : isClosed ? "Closed" : isActive ? "Open" : "Open"}
+                    {/* Header */}
+                    <View style={styles.cardHeader}>
+                        <View style={[styles.cardPill, { backgroundColor: isExpired ? "#F3F4F6" : `${categoryColor}15` }]}>
+                            <Ionicons name="location-sharp" size={10} color={isExpired ? "#6B7280" : categoryColor} />
+                            <Text style={[styles.cardPillText, { color: isExpired ? "#6B7280" : categoryColor }]}>
+                                {item.category || "General"}
                             </Text>
                         </View>
-                        <TouchableOpacity
-                            onPress={() => toggleBookmark(item.id, isBookmarked)}
-                            disabled={bookmarking[item.id]}
-                            style={[styles.bookmarkBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9" }]}
-                            activeOpacity={0.7}
-                        >
-                            <Ionicons
-                                name={isBookmarked ? "bookmark" : "bookmark-outline"}
-                                size={22}
-                                color={isBookmarked ? "#FFB400" : (isDark ? colors.textSecondary : "#999")}
-                            />
-                        </TouchableOpacity>
+
+                        <View style={[styles.cardPill, { backgroundColor: statusConfig.bg }]}>
+                            <Text style={[styles.cardPillText, { color: statusConfig.color, fontWeight: '700' }]}>
+                                {statusConfig.text}
+                            </Text>
+                        </View>
                     </View>
 
-                    <View style={styles.scholarshipDetails}>
-                        <View style={styles.detailRow}>
-                            <View style={[styles.detailIcon, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" }]}>
-                                <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
-                            </View>
-                            <View style={styles.detailContent}>
-                                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Deadline</Text>
-                                <View style={styles.deadlineRow}>
-                                    <Text style={[styles.detailText, { color: colors.text }]}>
-                                        {deadline
-                                            ? new Date(deadline).toLocaleDateString("en-US", {
-                                                month: "short",
-                                                day: "numeric",
-                                                year: "numeric",
-                                            })
-                                            : "No deadline"}
-                                    </Text>
-                                    {deadline && !isExpired && (
-                                        <Text
-                                            style={[styles.daysRemaining, { color: daysInfo.color }]}
-                                        >
-                                            • {daysInfo.text}
-                                        </Text>
-                                    )}
-                                </View>
-                            </View>
+                    {/* Content */}
+                    <View style={styles.cardContent}>
+                        <Text style={[styles.cardTitle, { color: isExpired ? colors.textSecondary : colors.text }]} numberOfLines={2}>
+                            {title}
+                        </Text>
+                        {item.provider && (
+                            <Text style={[styles.providerText, { color: colors.textSecondary }]}>
+                                by {item.provider}
+                            </Text>
+                        )}
+                        {shortDescription ? (
+                            <Text style={[styles.cardSubtitle, { color: colors.textSecondary, marginTop: 4 }]} numberOfLines={2}>
+                                {shortDescription}
+                            </Text>
+                        ) : null}
+                    </View>
+
+                    {/* Dates Row */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15, paddingHorizontal: 16, marginBottom: 16 }}>
+                        <View>
+                            <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>Opens</Text>
+                            <Text style={[styles.dateValue, { color: colors.text }]}>
+                                TBA
+                            </Text>
                         </View>
 
-                        {(item.category || item.location) && (
-                            <View style={styles.detailRow}>
-                                <View style={[styles.detailIcon, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" }]}>
-                                    <Ionicons
-                                        name="location-outline"
-                                        size={16}
-                                        color={colors.textSecondary}
-                                    />
-                                </View>
-                                <View style={styles.detailContent}>
-                                    <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Location</Text>
-                                    <Text style={[styles.detailText, { color: colors.text }]}>{item.category || item.location}</Text>
-                                </View>
-                            </View>
-                        )}
+                        <View style={[styles.verticalSep, { backgroundColor: isDark ? "rgba(255,255,255,0.2)" : "#E5E7EB" }]} />
+
+                        <View>
+                            <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>Closes</Text>
+                            <Text style={[styles.dateValue, { color: colors.text }]}>
+                                {deadline ? new Date(deadline).toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' }) : "No Deadline"}
+                            </Text>
+                        </View>
                     </View>
 
+                    {/* Application Progress Bar */}
+
+                    <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6, alignItems: 'center' }}>
+                            <Text style={{ fontSize: 11, fontWeight: '600', color: colors.textSecondary, textTransform: 'uppercase' }}>Application Progress</Text>
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: progressPercent === 100 ? "#10B981" : categoryColor }}>
+                                {progressPercent}%
+                            </Text>
+                        </View>
+                        <View style={{ height: 6, backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : '#F3F4F6', borderRadius: 3, overflow: 'hidden' }}>
+                            <View
+                                style={{
+                                    height: '100%',
+                                    width: `${progressPercent}%`,
+                                    backgroundColor: progressPercent === 100 ? '#10B981' : categoryColor,
+                                    borderRadius: 3
+                                }}
+                            />
+                        </View>
+                    </View>
+
+
+                    {/* Divider */}
+                    <View style={[styles.cardDivider, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "#F3F4F6", marginBottom: 12 }]} />
+
+                    {/* Actions Footer */}
                     <View style={styles.cardActionsRow}>
                         <TouchableOpacity
                             onPress={() =>
@@ -583,58 +600,63 @@ export default function MobilizerScholarshipListingScreen() {
                                     params: { scholarshipId: item.id },
                                 })
                             }
-                            style={[
-                                styles.viewBtn,
-                                {
-                                    backgroundColor: 'transparent',
-                                    borderWidth: 1,
-                                    borderColor: colors.border
-                                }
-                            ]}
+                            style={[styles.viewBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#F9FAFB", borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB" }]}
                         >
-                            <Ionicons name="eye-outline" size={18} color={colors.text} />
+                            <Ionicons name="eye-outline" size={16} color={colors.text} />
                             <Text style={[styles.viewBtnText, { color: colors.text }]}>Details</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity
-                            onPress={() =>
-                                router.push({
-                                    pathname: "/(dashboard)/mobilizer/mobilizer-apply-form",
-                                    params: { scholarshipId: item.id },
-                                })
-                            }
-                            disabled={isExpired || hasApplied || isClosed}
-                            style={[
-                                styles.applyBtn,
-                                { backgroundColor: categoryColor },
-                                (isExpired || hasApplied || isClosed) && {
-                                    backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "#e0e0e0",
-                                    opacity: 1 // Keep opacity high for readability, control via color
+
+                        {!isExpired && !hasApplied ? (
+                            <TouchableOpacity
+                                onPress={() =>
+                                    router.push({
+                                        pathname: "/(dashboard)/mobilizer/mobilizer-apply-form",
+                                        params: { scholarshipId: item.id },
+                                    })
                                 }
-                            ]}
+                                style={[
+                                    styles.applyBtn,
+                                    { backgroundColor: categoryColor }
+                                ]}
+                            >
+                                <Text style={[styles.applyBtnText, { color: "#FFF" }]}>Apply Now</Text>
+                                <Ionicons name="arrow-forward" size={16} color="#FFF" />
+                            </TouchableOpacity>
+                        ) : (
+                            <View
+                                style={[
+                                    styles.applyBtn,
+                                    hasApplied
+                                        ? { backgroundColor: isDark ? "rgba(16, 185, 129, 0.2)" : "#DCFCE7", borderWidth: 1, borderColor: isDark ? "#065F46" : "#86EFAC" }
+                                        : { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#F3F4F6", opacity: 0.8 }
+                                ]}
+                            >
+                                <Text style={[styles.applyBtnText, { color: hasApplied ? (isDark ? "#34D399" : "#166534") : colors.textSecondary }]}>
+                                    {hasApplied ? "Applied" : "Closed"}
+                                </Text>
+                                <Ionicons
+                                    name={hasApplied ? "checkmark-circle" : "lock-closed"}
+                                    size={16}
+                                    color={hasApplied ? (isDark ? "#34D399" : "#166534") : colors.textSecondary}
+                                />
+                            </View>
+                        )}
+
+                        <TouchableOpacity
+                            activeOpacity={0.7}
+                            onPress={() => toggleBookmark(item.id, isBookmarked)}
+                            style={[styles.bookmarkIconBtn]}
                         >
-                            <Ionicons
-                                name={hasApplied ? "checkmark-circle" : (isExpired || isClosed) ? "close-circle" : "paper-plane"}
-                                size={18}
-                                color={(isExpired || hasApplied || isClosed) ? (isDark ? colors.textSecondary : "#666") : "#fff"}
-                            />
-                            <Text style={[
-                                styles.applyBtnText,
-                                (isExpired || hasApplied || isClosed) && { color: isDark ? colors.textSecondary : "#666" }
-                            ]}>
-                                {hasApplied ? "Applied" : isExpired ? "Expired" : isClosed ? "Closed" : "Apply Now"}
-                            </Text>
+                            <Ionicons name={isBookmarked ? "bookmark" : "bookmark-outline"} size={22} color={isBookmarked ? "#F59E0B" : colors.textSecondary} />
                         </TouchableOpacity>
                     </View>
                 </View>
             );
         },
-        [bookmarks, toggleBookmark, colors, isDark]
+        [bookmarks, toggleBookmark, isDark, colors]
     );
 
-    const modalTranslateY = slideAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [600, 0],
-    });
+
 
     return (
         <View style={[styles.container, { backgroundColor: isDark ? "#121212" : "#f2c44d" }]}>
@@ -644,13 +666,47 @@ export default function MobilizerScholarshipListingScreen() {
                 style={styles.background}
                 locations={[0, 0.4, 1]}
             />
+
+            {/* Fixed Header Outside FlatList */}
+            <View style={styles.fixedHeader}>
+                <AppHeader
+                    title="Scholarships"
+                    onBack={() => router.back()}
+                    rightIcon={
+                        <TouchableOpacity
+                            onPress={openFilters}
+                            style={[
+                                styles.filterIconBtn,
+                                { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" }
+                            ]}
+                        >
+                            <Ionicons
+                                name="filter-circle-outline"
+                                size={28}
+                                color={activeFiltersCount > 0 ? colors.primary : colors.text}
+                            />
+                            {activeFiltersCount > 0 && (
+                                <View style={styles.filterBadge}>
+                                    <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
+                                </View>
+                            )}
+                        </TouchableOpacity>
+                    }
+                />
+                <SearchBar
+                    value={query}
+                    onChangeText={setQuery}
+                    onClear={() => setQuery("")}
+                    placeholder="Search scholarships..."
+                />
+            </View>
+
+            {/* Scrollable Content */}
             <FlatList
                 data={data}
                 keyExtractor={(item) => String(item.id)}
                 renderItem={renderItem}
                 contentContainerStyle={styles.listContent}
-                ListHeaderComponent={Header}
-                stickyHeaderIndices={[0]}
                 onEndReached={loadMore}
                 onEndReachedThreshold={0.5}
                 showsVerticalScrollIndicator={false}
@@ -666,7 +722,9 @@ export default function MobilizerScholarshipListingScreen() {
                             {loading ? "Loading scholarships..." : "No scholarships found"}
                         </Text>
                         <Text style={styles.emptyStateSubtext}>
-                            {loading ? "Please wait..." : "Try adjusting your filters or search"}
+                            {loading
+                                ? "Please wait..."
+                                : "Try adjusting your filters or search"}
                         </Text>
                     </View>
                 }
@@ -681,246 +739,179 @@ export default function MobilizerScholarshipListingScreen() {
 
             <Modal
                 visible={showFilters}
-                animationType="fade"
-                transparent
+                animationType="slide"
+                presentationStyle="fullScreen"
                 onRequestClose={closeFilters}
-                statusBarTranslucent
             >
-                <View style={styles.modalBackdrop}>
-                    <TouchableOpacity
-                        style={styles.backdropTouchable}
-                        activeOpacity={1}
-                        onPress={closeFilters}
-                    />
-                    <Animated.View
-                        style={[
-                            styles.modalSheet,
-                            { transform: [{ translateY: modalTranslateY }], backgroundColor: colors.surface },
-                        ]}
-                    >
-                        <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
-                        <View style={styles.sheetHeader}>
-                            <Text style={[styles.sheetTitle, { color: colors.text }]}>Filters & Sorting</Text>
-                            {activeFiltersCount > 0 && (
-                                <View style={styles.activeFiltersBadge}>
-                                    <Text style={styles.activeFiltersText}>
-                                        {activeFiltersCount} active
-                                    </Text>
-                                </View>
-                            )}
-                        </View>
-
-                        <View style={styles.filterSection}>
-                            <View style={styles.sectionHeaderRow}>
-                                <Ionicons name="grid-outline" size={18} color={colors.textSecondary} />
-                                <Text style={[styles.sectionLabel, { color: colors.text }]}>Category</Text>
-                            </View>
-                            <FlatList
-                                data={categories}
-                                keyExtractor={(item) => item}
-                                renderItem={({ item }) => (
-                                    <TouchableOpacity
-                                        onPress={() => setSelectedCategory(item)}
-                                        style={[
-                                            styles.categoryChip,
-                                            { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" },
-                                            selectedCategory === item && [styles.categoryChipActive, { backgroundColor: colors.primary }],
-                                        ]}
-                                    >
-                                        <Text
-                                            style={[
-                                                styles.categoryText,
-                                                { color: colors.textSecondary },
-                                                selectedCategory === item && [styles.categoryTextActive, { color: "#fff" }],
-                                            ]}
-                                        >
-                                            {item}
-                                        </Text>
-                                    </TouchableOpacity>
-                                )}
-                                horizontal
-                                showsHorizontalScrollIndicator={false}
-                                contentContainerStyle={styles.categoryScroll}
-                            />
-                        </View>
-
-                        <View style={styles.filterSection}>
-                            <View style={styles.sectionHeaderRow}>
-                                <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
-                                <Text style={[styles.sectionLabel, { color: colors.text }]}>Deadline</Text>
-                            </View>
-                            <TouchableOpacity
-                                onPress={() => setShowDatePicker(true)}
-                                style={[styles.datePickerButton, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5", borderColor: colors.border }]}
-                            >
-                                <Ionicons
-                                    name="calendar-outline"
-                                    size={20}
-                                    color={deadlineBefore ? colors.text : colors.textSecondary}
-                                />
-                                <Text
-                                    style={[
-                                        styles.datePickerText,
-                                        { color: colors.textSecondary },
-                                        deadlineBefore && [styles.datePickerTextActive, { color: colors.text }],
-                                    ]}
-                                >
-                                    {formatDate(deadlineBefore)}
-                                </Text>
-                                {deadlineBefore && (
-                                    <TouchableOpacity
-                                        onPress={(e) => {
-                                            e.stopPropagation();
-                                            setDeadlineBefore(null);
-                                        }}
-                                        style={styles.clearDateBtn}
-                                    >
-                                        <Ionicons name="close-circle" size={20} color="#999" />
-                                    </TouchableOpacity>
-                                )}
+                <View style={[styles.fullScreenModal, { backgroundColor: colors.surface }]}>
+                    {/* Header */}
+                    <View style={[styles.modalHeader, { paddingTop: inset.top + 10, backgroundColor: isDark ? "#1E1E1E" : "#fff", borderBottomColor: colors.border }]}>
+                        <View style={styles.modalHeaderTop}>
+                            <TouchableOpacity onPress={closeFilters} style={styles.closeBtn}>
+                                <Ionicons name="close" size={24} color={colors.text} />
+                            </TouchableOpacity>
+                            <Text style={[styles.modalTitle, { color: colors.text }]}>Filters</Text>
+                            <TouchableOpacity onPress={clearFilters}>
+                                <Text style={[styles.resetText, { color: colors.primary }]}>Reset</Text>
                             </TouchableOpacity>
                         </View>
+                    </View>
 
-                        <View style={styles.filterSection}>
-                            <View style={styles.sectionHeaderRow}>
-                                <Ionicons
-                                    name="shield-checkmark-outline"
-                                    size={18}
-                                    color={colors.textSecondary}
-                                />
-                                <Text style={[styles.sectionLabel, { color: colors.text }]}>Eligibility Keywords</Text>
-                            </View>
-                            <View style={[styles.inputContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5", borderColor: colors.border }]}>
-                                <Ionicons
-                                    name="search-outline"
-                                    size={18}
-                                    color={colors.textSecondary}
-                                    style={styles.inputIcon}
-                                />
+                    <ScrollView
+                        contentContainerStyle={[styles.modalScrollContent, { paddingBottom: inset.bottom + 100 }]}
+                        showsVerticalScrollIndicator={false}
+                    >
+
+                        {/* Keywords Section */}
+                        <View style={[styles.filterSection, { borderBottomColor: colors.border }]}>
+                            <Text style={[styles.filterSectionTitle, { color: colors.text }]}>Keywords</Text>
+                            <View style={[styles.inputContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f9fa", borderColor: colors.border }]}>
+                                <Ionicons name="search-outline" size={20} color={colors.textSecondary} style={{ marginRight: 10 }} />
                                 <TextInput
                                     value={eligibility}
                                     onChangeText={setEligibility}
-                                    placeholder="e.g., STEM, GPA, Female"
-                                    style={[styles.filterInput, styles.fullWidthInput, { color: colors.text }]}
+                                    placeholder="e.g. Merit, Sports, 10th Pass"
                                     placeholderTextColor={colors.textSecondary}
+                                    style={[styles.filterInput, { color: colors.text }]}
                                 />
                             </View>
                         </View>
 
-                        <View style={styles.filterSection}>
-                            <View style={styles.sectionHeaderRow}>
-                                <Ionicons name="swap-vertical-outline" size={18} color={colors.textSecondary} />
-                                <Text style={[styles.sectionLabel, { color: colors.text }]}>Sort By</Text>
-                            </View>
-                            <View style={styles.sortRow}>
-                                {sortOptions.map((opt) => (
+                        {/* Category Section */}
+                        <View style={[styles.filterSection, { borderBottomColor: colors.border }]}>
+                            <Text style={[styles.filterSectionTitle, { color: colors.text }]}>State / Category</Text>
+                            <View style={styles.chipContainer}>
+                                {categories.map((cat) => (
                                     <TouchableOpacity
-                                        key={opt}
-                                        onPress={() => setSelectedSort(opt)}
+                                        key={cat}
+                                        onPress={() => setSelectedCategory(cat)}
                                         style={[
-                                            styles.sortChip,
-                                            { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" },
-                                            selectedSort === opt && [styles.sortChipActive, { backgroundColor: colors.primary }],
+                                            styles.filterChip,
+                                            { borderColor: colors.border, backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f9fa" },
+                                            selectedCategory === cat && { backgroundColor: colors.primary, borderColor: colors.primary }
                                         ]}
                                     >
-                                        <Text
-                                            style={[
-                                                styles.sortText,
-                                                { color: colors.textSecondary },
-                                                selectedSort === opt && [styles.sortTextActive, { color: "#fff" }],
-                                            ]}
-                                        >
-                                            {opt}
+                                        <Text style={[
+                                            styles.filterChipText,
+                                            { color: isDark ? colors.text : "#555" },
+                                            selectedCategory === cat && { color: "#fff", fontWeight: "700" }
+                                        ]}>
+                                            {cat}
                                         </Text>
                                     </TouchableOpacity>
                                 ))}
                             </View>
                         </View>
 
-                        <View style={[styles.sheetActions, { borderTopColor: colors.border }]}>
-                            <TouchableOpacity onPress={clearFilters} style={[styles.clearBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" }]}>
-                                <Ionicons name="refresh-outline" size={20} color={colors.textSecondary} />
-                                <Text style={[styles.clearBtnText, { color: colors.textSecondary }]}>Clear All</Text>
-                            </TouchableOpacity>
+                        {/* Status Section */}
+                        <View style={[styles.filterSection, { borderBottomWidth: 0 }]}>
+                            <Text style={[styles.filterSectionTitle, { color: colors.text, marginBottom: 16 }]}>Status & Availability</Text>
+
+                            {/* Show Expired Checkbox */}
                             <TouchableOpacity
-                                onPress={applyFilters}
-                                style={styles.applyBtnSheet}
+                                onPress={() => setShowExpired(!showExpired)}
+                                style={[styles.checkboxRow, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f9fa", borderColor: colors.border }]}
                             >
-                                <Text style={styles.applyBtnSheetText}>Apply Filters</Text>
-                                <Ionicons name="checkmark-outline" size={20} color="#fff" />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>Show Expired</Text>
+                                    <Text style={[styles.checkboxSublabel, { color: colors.textSecondary }]}>Include closed scholarships</Text>
+                                </View>
+                                <Switch
+                                    trackColor={{ false: "#767577", true: `${colors.primary}66` }}
+                                    thumbColor={showExpired ? colors.primary : "#f4f3f4"}
+                                    ios_backgroundColor="#3e3e3e"
+                                    onValueChange={setShowExpired}
+                                    value={showExpired}
+                                />
+                            </TouchableOpacity>
+
+                            {/* Show Applied Checkbox */}
+                            <TouchableOpacity
+                                onPress={() => setShowApplied(!showApplied)}
+                                style={[styles.checkboxRow, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f9fa", borderColor: colors.border }]}
+                            >
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>Applied Only</Text>
+                                    <Text style={[styles.checkboxSublabel, { color: colors.textSecondary }]}>Show scholarships I applied to</Text>
+                                </View>
+                                <Switch
+                                    trackColor={{ false: "#767577", true: `${colors.primary}66` }}
+                                    thumbColor={showApplied ? colors.primary : "#f4f3f4"}
+                                    ios_backgroundColor="#3e3e3e"
+                                    onValueChange={setShowApplied}
+                                    value={showApplied}
+                                />
+                            </TouchableOpacity>
+
+                            {/* Show Bookmarked Checkbox */}
+                            <TouchableOpacity
+                                onPress={() => setShowBookmarkedOnly(!showBookmarkedOnly)}
+                                style={[styles.checkboxRow, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f9fa", borderColor: colors.border }]}
+                            >
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>Bookmarked Only</Text>
+                                    <Text style={[styles.checkboxSublabel, { color: colors.textSecondary }]}>Show my saved scholarships</Text>
+                                </View>
+                                <Switch
+                                    trackColor={{ false: "#767577", true: `${colors.primary}66` }}
+                                    thumbColor={showBookmarkedOnly ? colors.primary : "#f4f3f4"}
+                                    ios_backgroundColor="#3e3e3e"
+                                    onValueChange={setShowBookmarkedOnly}
+                                    value={showBookmarkedOnly}
+                                />
                             </TouchableOpacity>
                         </View>
-                    </Animated.View>
-                </View>
 
-                {/* Date Picker Handling */}
-                {showDatePicker && (
-                    Platform.OS === 'ios' ? (
-                        <Modal
-                            transparent
-                            animationType="fade"
-                            visible={showDatePicker}
-                            onRequestClose={() => setShowDatePicker(false)}
-                        >
-                            <View style={styles.iosDatePickerModalOverlay}>
-                                <TouchableOpacity
-                                    style={styles.iosDatePickerBackdrop}
-                                    activeOpacity={1}
-                                    onPress={() => setShowDatePicker(false)}
-                                />
-                                <View style={[styles.iosDatePickerContainer, { backgroundColor: isDark ? "#1e1e1e" : "#fff" }]}>
-                                    <View style={[styles.iosDatePickerHeader, { borderBottomColor: isDark ? "#333" : "#f0f0f0" }]}>
-                                        <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                                            <Text style={styles.iosDatePickerCancelText}>Cancel</Text>
-                                        </TouchableOpacity>
-                                        <Text style={[styles.iosDatePickerTitle, { color: colors.text }]}>Select Deadline</Text>
-                                        <TouchableOpacity
-                                            onPress={() => setShowDatePicker(false)}
-                                            style={styles.iosDatePickerDoneBtn}
-                                        >
-                                            <Text style={styles.iosDatePickerDoneText}>Done</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                    <DateTimePicker
-                                        value={deadlineBefore || new Date()}
-                                        mode="date"
-                                        display="spinner"
-                                        onChange={(event, selectedDate) => {
-                                            if (selectedDate) {
-                                                setDeadlineBefore(selectedDate);
-                                            }
-                                        }}
-                                        style={[styles.iosDatePicker, { backgroundColor: isDark ? "#1e1e1e" : "#fff" }]}
-                                        textColor={colors.text}
-                                        minimumDate={new Date()}
-                                    />
-                                </View>
+                        {/* Sort Section */}
+                        <View style={[styles.filterSection, { borderBottomColor: colors.border }]}>
+                            <Text style={[styles.filterSectionTitle, { color: colors.text }]}>Sort By</Text>
+                            <View style={styles.sortContainer}>
+                                {sortOptions.map((option) => (
+                                    <TouchableOpacity
+                                        key={option}
+                                        onPress={() => setSelectedSort(option)}
+                                        style={[
+                                            styles.sortOption,
+                                            { borderColor: colors.border },
+                                            selectedSort === option && { backgroundColor: `${colors.primary}15`, borderColor: colors.primary }
+                                        ]}
+                                    >
+                                        <Ionicons
+                                            name={option === "Latest" ? "time-outline" : "hourglass-outline"}
+                                            size={18}
+                                            color={selectedSort === option ? colors.primary : colors.textSecondary}
+                                        />
+                                        <Text style={[
+                                            styles.sortOptionText,
+                                            { color: isDark ? colors.text : "#555" },
+                                            selectedSort === option && { color: colors.primary, fontWeight: "700" }
+                                        ]}>
+                                            {option}
+                                        </Text>
+                                        {selectedSort === option && (
+                                            <Ionicons name="checkmark-circle" size={18} color={colors.primary} style={{ marginLeft: "auto" }} />
+                                        )}
+                                    </TouchableOpacity>
+                                ))}
                             </View>
-                        </Modal>
-                    ) : (
-                        <DateTimePicker
-                            value={deadlineBefore || new Date()}
-                            mode="date"
-                            display="default"
-                            onChange={(event, selectedDate) => {
-                                setShowDatePicker(false);
-                                if (event.type === "set" && selectedDate) {
-                                    setDeadlineBefore(selectedDate);
-                                }
-                            }}
-                            minimumDate={new Date()}
-                        />
-                    )
-                )}
+                        </View>
+
+                    </ScrollView>
+
+                    {/* Footer Actions */}
+                    <View style={[styles.modalFooter, { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom: inset.bottom + 20 }]}>
+                        <TouchableOpacity onPress={applyFilters} style={[styles.applyFilterBtn, { backgroundColor: colors.primary }]}>
+                            <Text style={styles.applyFilterText}>Show {data.length} Results</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
             </Modal>
 
-            {/* Toast Notification */}
             <Toast
+                visible={toastVisible}
                 message={toastMessage}
                 type={toastType}
-                visible={toastVisible}
                 onHide={() => setToastVisible(false)}
-                duration={3000}
             />
         </View>
     );
@@ -930,6 +921,9 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
+    fixedHeader: {
+        backgroundColor: "transparent",
+    },
     background: {
         position: "absolute",
         top: 0,
@@ -937,551 +931,284 @@ const styles = StyleSheet.create({
         bottom: 0,
         right: 0,
     },
-    listContent: {
-        paddingBottom: 40,
-    },
-    header: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: 20,
-        backgroundColor: "#fff",
-        borderBottomWidth: 1,
-        borderColor: "#f0f0f0",
-    },
-    backButton: {
-        padding: 8,
-        marginLeft: -8,
-    },
-    headerTitle: {
-        fontSize: 22,
-        fontWeight: "700",
-        color: "#333",
-        letterSpacing: -0.5,
-    },
     filterIconBtn: {
-        padding: 8,
-        marginRight: -8,
-        position: "relative",
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        justifyContent: "center",
+        alignItems: "center",
     },
     filterBadge: {
         position: "absolute",
-        top: 4,
-        right: 4,
-        backgroundColor: "#4CAF50",
-        borderRadius: 10,
-        minWidth: 18,
+        top: 0,
+        right: 0,
+        backgroundColor: "#F44336",
+        width: 18,
         height: 18,
+        borderRadius: 9,
         justifyContent: "center",
         alignItems: "center",
-        paddingHorizontal: 4,
+        borderWidth: 1.5,
+        borderColor: "#fff",
     },
     filterBadgeText: {
         color: "#fff",
-        fontSize: 11,
-        fontWeight: "700",
+        fontSize: 10,
+        fontWeight: "bold",
     },
-    searchContainer: {
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        backgroundColor: "#fff",
-    },
-    searchBar: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: "#f8f8f8",
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        borderWidth: 1,
-        borderColor: "#f0f0f0",
-    },
-    searchInput: {
-        flex: 1,
-        marginLeft: 12,
-        fontSize: 16,
-        color: "#333",
-    },
-    clearSearchBtn: {
-        padding: 4,
-    },
-    scholarshipsHeader: {
-        paddingHorizontal: 20,
+    listContent: {
         paddingTop: 20,
-        paddingBottom: 12,
+        paddingBottom: 40,
     },
-    sectionTitle: {
-        fontSize: 20,
-        fontWeight: "700",
-        color: "#333",
-        marginBottom: 4,
-    },
-    sectionSubtitle: {
-        fontSize: 14,
-        color: "#999",
-    },
-    scholarshipCard: {
-        backgroundColor: "#fff",
-        borderRadius: 16,
-        padding: 20,
+    cardContainer: {
+        borderRadius: 20,
+        borderWidth: 1,
         marginHorizontal: 20,
-        marginBottom: 16,
-        borderLeftWidth: 4,
+        marginBottom: 20,
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-        elevation: 2,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 4,
+        overflow: 'hidden',
     },
-    scholarshipHeader: {
-        marginBottom: 16,
+    cardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 16,
     },
-    scholarshipInfo: {
-        flex: 1,
-    },
-    titleRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        marginBottom: 8,
-        flexWrap: "wrap",
-        gap: 8,
-    },
-    scholarshipTitle: {
-        fontSize: 18,
-        fontWeight: "700",
-        color: "#333",
-        flex: 1,
-    },
-    categoryBadge: {
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 8,
-    },
-    categoryBadgeText: {
-        fontSize: 11,
-        fontWeight: "600",
-        textTransform: "uppercase",
-        letterSpacing: 0.5,
-    },
-    scholarshipDescription: {
-        fontSize: 14,
-        color: "#666",
-        lineHeight: 20,
-    },
-    amountRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingVertical: 16,
-        borderTopWidth: 1,
-        borderBottomWidth: 1,
-        borderColor: "#f5f5f5",
-        marginBottom: 16,
-    },
-    amountContainer: {
-        flex: 1,
-    },
-    amountLabel: {
-        fontSize: 12,
-        color: "#999",
-        marginBottom: 4,
-        textTransform: "uppercase",
-        letterSpacing: 0.5,
-    },
-    amountText: {
-        fontSize: 28,
-        fontWeight: "800",
-        letterSpacing: -1,
-    },
-    bookmarkBtn: {
-        padding: 8,
-    },
-    scholarshipDetails: {
-        gap: 12,
-        marginBottom: 16,
-    },
-    detailRow: {
-        flexDirection: "row",
-        alignItems: "flex-start",
-    },
-    detailIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 8,
-        backgroundColor: "#f8f8f8",
-        justifyContent: "center",
-        alignItems: "center",
-        marginRight: 12,
-    },
-    detailContent: {
-        flex: 1,
-    },
-    detailLabel: {
-        fontSize: 12,
-        color: "#999",
-        marginBottom: 2,
-        textTransform: "uppercase",
-        letterSpacing: 0.5,
-    },
-    detailText: {
-        fontSize: 14,
-        color: "#333",
-        fontWeight: "500",
-    },
-    deadlineRow: {
-        flexDirection: "row",
-        alignItems: "center",
+    cardPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
         gap: 6,
     },
-    daysRemaining: {
+    cardPillText: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    cardContent: {
+        paddingHorizontal: 16,
+        paddingBottom: 16,
+        gap: 4,
+    },
+    cardTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        lineHeight: 26,
+    },
+    providerText: {
         fontSize: 13,
-        fontWeight: "600",
+        marginBottom: 4,
+    },
+    cardSubtitle: {
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    cardDivider: {
+        height: 1,
+        width: '100%',
+    },
+    dateLabel: {
+        fontSize: 11,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        marginBottom: 2,
+        opacity: 0.7,
+    },
+    dateValue: {
+        fontSize: 13,
+        fontWeight: '700',
+    },
+    verticalSep: {
+        width: 1,
+        height: 24,
+    },
+    bookmarkIconBtn: {
+        width: 44,
+        height: 48,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     cardActionsRow: {
         flexDirection: "row",
         gap: 12,
+        paddingHorizontal: 16,
+        paddingBottom: 16,
     },
     viewBtn: {
         flex: 1,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        gap: 8,
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: 12,
-        // backgroundColor set inline
+        gap: 6,
+        paddingVertical: 14,
+        borderRadius: 14,
+        borderWidth: 1,
     },
     viewBtnText: {
+        fontWeight: "700",
         fontSize: 14,
-        fontWeight: "600",
     },
     applyBtn: {
-        flex: 2,
+        flex: 1,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        gap: 8,
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: 12,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
+        gap: 6,
+        paddingVertical: 14,
+        borderRadius: 14,
     },
     applyBtnText: {
-        fontSize: 14,
         fontWeight: "700",
-        color: "#fff",
+        fontSize: 14,
     },
     emptyState: {
         alignItems: "center",
         justifyContent: "center",
-        padding: 40,
-        marginTop: 40,
+        paddingVertical: 100,
+        paddingHorizontal: 30,
     },
     emptyStateText: {
         fontSize: 18,
-        fontWeight: "700",
-        color: "#999",
+        fontWeight: "600",
         marginTop: 16,
         marginBottom: 8,
+        color: "#666",
     },
     emptyStateSubtext: {
         fontSize: 14,
         color: "#999",
         textAlign: "center",
     },
-    modalBackdrop: {
+    loadingFooter: {
+        paddingVertical: 24,
+        alignItems: "center",
+    },
+    loadingText: {
+        fontSize: 14,
+        color: "#999",
+    },
+
+    // Modal Styles
+    fullScreenModal: {
         flex: 1,
-        backgroundColor: "rgba(0,0,0,0.5)",
-        justifyContent: "flex-end",
     },
-    backdropTouchable: {
-        flex: 1,
+    modalHeader: {
+        paddingHorizontal: 20,
+        paddingBottom: 20,
+        borderBottomWidth: 1,
     },
-    modalSheet: {
-        backgroundColor: "#fff",
-        paddingTop: 12,
-        paddingBottom: Platform.OS === "ios" ? 34 : 24,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        maxHeight: "90%",
-    },
-    sheetHandle: {
-        alignSelf: "center",
-        width: 40,
-        height: 4,
-        borderRadius: 2,
-        backgroundColor: "#ddd",
-        marginBottom: 16,
-    },
-    sheetHeader: {
+    modalHeaderTop: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        paddingHorizontal: 20,
-        marginBottom: 20,
     },
-    sheetTitle: {
-        fontSize: 24,
+    closeBtn: {
+        padding: 4,
+    },
+    modalTitle: {
+        fontSize: 18,
         fontWeight: "700",
-        color: "#333",
     },
-    activeFiltersBadge: {
-        backgroundColor: "#4CAF50",
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 12,
+    resetText: {
+        fontSize: 16,
+        fontWeight: "600",
     },
-    activeFiltersText: {
-        color: "#fff",
-        fontSize: 12,
-        fontWeight: "700",
+    modalScrollContent: {
+        padding: 20,
     },
     filterSection: {
         marginBottom: 24,
+        paddingBottom: 24,
+        borderBottomWidth: 1,
     },
-    sectionHeaderRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        paddingHorizontal: 20,
-        marginBottom: 12,
-    },
-    sectionLabel: {
-        fontSize: 14,
-        color: "#666",
-        fontWeight: "600",
-        textTransform: "uppercase",
-        letterSpacing: 0.5,
-    },
-    categoryScroll: {
-        paddingHorizontal: 20,
-        gap: 8,
-    },
-    categoryChip: {
-        backgroundColor: "#f8f8f8",
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 20,
-        borderWidth: 1.5,
-        borderColor: "#f0f0f0",
-    },
-    categoryChipActive: {
-        backgroundColor: "#333",
-        borderColor: "#333",
-    },
-    categoryText: {
-        fontSize: 14,
-        color: "#666",
-        fontWeight: "600",
-    },
-    categoryTextActive: {
-        color: "#fff",
-    },
-    advancedFiltersRow: {
-        flexDirection: "row",
-        gap: 12,
-        paddingHorizontal: 20,
-    },
-    filterField: {
-        flex: 1,
-    },
-    filterLabel: {
-        fontSize: 13,
-        color: "#666",
-        marginBottom: 8,
-        fontWeight: "500",
+    filterSectionTitle: {
+        fontSize: 16,
+        fontWeight: "700",
+        marginBottom: 16,
     },
     inputContainer: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#f8f8f8",
         borderRadius: 12,
-        paddingHorizontal: 14,
-        borderWidth: 1.5,
-        borderColor: "#f0f0f0",
-        marginHorizontal: 20,
-    },
-    currencySymbol: {
-        fontSize: 16,
-        color: "#999",
-        marginRight: 8,
-        fontWeight: "600",
-    },
-    inputIcon: {
-        marginRight: 10,
+        paddingHorizontal: 12,
+        borderWidth: 1,
+        height: 50,
     },
     filterInput: {
         flex: 1,
-        paddingVertical: 12,
-        fontSize: 15,
-        color: "#333",
-        fontWeight: "500",
+        fontSize: 16,
+        height: "100%",
     },
-    fullWidthInput: {
-        paddingLeft: 0,
-    },
-    datePickerButton: {
+    chipContainer: {
         flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: "#f8f8f8",
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-        marginHorizontal: 20,
-        borderWidth: 1.5,
-        borderColor: "#f0f0f0",
-    },
-    datePickerText: {
-        flex: 1,
-        marginLeft: 12,
-        fontSize: 15,
-        color: "#999",
-        fontWeight: "500",
-    },
-    datePickerTextActive: {
-        color: "#333",
-    },
-    clearDateBtn: {
-        padding: 4,
-    },
-    sortRow: {
-        flexDirection: "row",
+        flexWrap: "wrap",
         gap: 10,
-        paddingHorizontal: 20,
     },
-    sortChip: {
-        flex: 1,
-        paddingVertical: 12,
-        backgroundColor: "#f8f8f8",
-        borderRadius: 12,
-        borderWidth: 1.5,
-        borderColor: "#f0f0f0",
-        alignItems: "center",
+    filterChip: {
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 20,
+        borderWidth: 1,
     },
-    sortChipActive: {
-        backgroundColor: "#333",
-        borderColor: "#333",
-    },
-    sortText: {
-        color: "#666",
-        fontSize: 13,
-        fontWeight: "700",
-    },
-    sortTextActive: {
-        color: "#fff",
-    },
-    sheetActions: {
-        flexDirection: "row",
-        gap: 12,
-        paddingHorizontal: 20,
-        marginTop: 8,
-    },
-    clearBtn: {
-        flex: 1,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 8,
-        paddingVertical: 16,
-        borderRadius: 12,
-        backgroundColor: "#f8f8f8",
-        borderWidth: 1.5,
-        borderColor: "#f0f0f0",
-    },
-    clearBtnText: {
-        color: "#666",
-        fontWeight: "700",
-        fontSize: 15,
-    },
-    applyBtnSheet: {
-        flex: 2,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 8,
-        paddingVertical: 16,
-        borderRadius: 12,
-        backgroundColor: "#4CAF50",
-    },
-    applyBtnSheetText: {
-        color: "#fff",
-        fontWeight: "700",
-        fontSize: 15,
-    },
-    loadingFooter: {
-        paddingVertical: 20,
-        alignItems: "center",
-    },
-    loadingText: {
-        color: "#999",
+    filterChipText: {
         fontSize: 14,
+        fontWeight: "500",
     },
-    providerText: {
-        fontSize: 12,
-        marginTop: 2,
-    },
-    statusBadge: {
+
+    // Checkbox Row
+    checkboxRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 4,
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 4,
-        marginTop: 4,
-    },
-    statusBadgeText: {
-        fontSize: 10,
-        fontWeight: "700",
-    },
-    // iOS Date Picker Styles
-    iosDatePickerModalOverlay: {
-        flex: 1,
-        justifyContent: "flex-end",
-        backgroundColor: "rgba(0,0,0,0.5)",
-    },
-    iosDatePickerBackdrop: {
-        flex: 1,
-    },
-    iosDatePickerContainer: {
-        backgroundColor: "#fff",
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        paddingBottom: Platform.OS === "ios" ? 34 : 20,
-        overflow: "hidden",
-    },
-    iosDatePickerHeader: {
-        flexDirection: "row",
         justifyContent: "space-between",
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        marginBottom: 12,
+    },
+    checkboxLabel: {
+        fontSize: 16,
+        fontWeight: "600",
+        marginBottom: 4,
+    },
+    checkboxSublabel: {
+        fontSize: 13,
+    },
+
+    // Sort Styles
+    sortContainer: {
+        gap: 12,
+    },
+    sortOption: {
+        flexDirection: "row",
         alignItems: "center",
         padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: "#f0f0f0",
+        borderRadius: 16,
+        borderWidth: 1,
+        gap: 12,
     },
-    iosDatePickerCancelText: {
-        color: "#666",
+    sortOptionText: {
         fontSize: 16,
+        fontWeight: "500",
     },
-    iosDatePickerTitle: {
+
+    modalFooter: {
+        paddingHorizontal: 20,
+        paddingTop: 20,
+        borderTopWidth: 1,
+    },
+    applyFilterBtn: {
+        paddingVertical: 16,
+        borderRadius: 16,
+        alignItems: "center",
+    },
+    applyFilterText: {
+        color: "#fff",
         fontSize: 16,
-        fontWeight: "600",
-        color: "#333",
-    },
-    iosDatePickerDoneBtn: {
-        paddingHorizontal: 8,
-    },
-    iosDatePickerDoneText: {
-        color: "#007AFF",
-        fontSize: 16,
-        fontWeight: "600",
-    },
-    iosDatePicker: {
-        height: 200,
-        width: "100%",
-        backgroundColor: "#fff",
+        fontWeight: "700",
     },
 });

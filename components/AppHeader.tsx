@@ -8,9 +8,10 @@ type Props = {
   title: string;
   onBack?: () => void;
   rightIcon?: React.ReactNode;
+  rightElement?: React.ReactNode;
 };
 
-export default function AppHeader({ title, onBack, rightIcon }: Props) {
+export default function AppHeader({ title, onBack, rightIcon, rightElement }: Props) {
   const inset = useSafeAreaInsets();
   const { isDark, colors } = useTheme();
   return (
@@ -32,7 +33,7 @@ export default function AppHeader({ title, onBack, rightIcon }: Props) {
       <Text style={{ fontSize: 22, fontWeight: "700", color: isDark ? colors.text : "#333", letterSpacing: -0.5 }}>
         {title}
       </Text>
-      <View style={{ padding: 8, marginRight: -8 }}>{rightIcon}</View>
+      <View style={{ padding: 8, marginRight: -8 }}>{rightElement || rightIcon}</View>
     </View>
   );
 }

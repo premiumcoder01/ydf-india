@@ -108,6 +108,22 @@ export default function MobilizerStudentsScreen() {
         const avatarColor = getAvatarColor(item.id);
         const initials = getInitials(item.firstname, item.lastname);
 
+        let customFields: any = {};
+        try {
+            if (typeof item.custom_fields === 'string') {
+                customFields = JSON.parse(item.custom_fields);
+            } else if (typeof item.custom_fields === 'object') {
+                customFields = item.custom_fields;
+            }
+        } catch (e) {
+            console.log("Error parsing custom fields", e);
+        }
+
+        const course = customFields?.course || customFields?.stream_in_12th || item.academic_level || "N/A";
+        const phone = item.phone1 || customFields?.phone_number || "N/A";
+        const gender = customFields?.Gender || "Student";
+        const location = item.city || customFields?.district || "N/A";
+
         return (
             <TouchableOpacity
                 style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -117,117 +133,79 @@ export default function MobilizerStudentsScreen() {
                         params: { studentId: item.id }
                     });
                 }}
-                activeOpacity={0.7}
+                activeOpacity={0.9}
             >
-                <LinearGradient
-                    colors={isDark ? ['rgba(255,255,255,0.03)', 'rgba(255,255,255,0.01)'] : ['rgba(0,0,0,0.01)', 'rgba(0,0,0,0.02)']}
-                    style={styles.cardGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                />
-
-                <View style={styles.cardContent}>
-                    {/* Header Section */}
-                    <View style={styles.cardHeader}>
-                        <View style={styles.avatarSection}>
-                            <LinearGradient
-                                colors={[avatarColor, `${avatarColor}CC`]}
-                                style={styles.avatar}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                            >
-                                <Text style={styles.avatarText}>{initials}</Text>
-                            </LinearGradient>
-                            <View style={styles.studentInfo}>
-                                <Text style={[styles.studentName, { color: colors.text }]} numberOfLines={1}>
-                                    {item.fullname || `${item.firstname} ${item.lastname}`}
-                                </Text>
-                                <View style={styles.metaRow}>
-                                    <Ionicons name="mail-outline" size={12} color={colors.textSecondary} />
-                                    <Text style={[styles.metaText, { color: colors.textSecondary }]} numberOfLines={1}>
-                                        {item.email}
-                                    </Text>
+                <View style={styles.cardHeader}>
+                    <View style={[styles.avatarContainer, { backgroundColor: avatarColor }]}>
+                        <Text style={styles.avatarText}>{initials}</Text>
+                    </View>
+                    <View style={styles.headerInfo}>
+                        <Text style={[styles.studentName, { color: colors.text }]} numberOfLines={1}>
+                            {item.fullname || `${item.firstname} ${item.lastname}`}
+                        </Text>
+                        <Text style={[styles.studentEmail, { color: colors.textSecondary }]} numberOfLines={1}>
+                            {item.email}
+                        </Text>
+                        <View style={styles.badgesRow}>
+                            <View style={[styles.badge, { backgroundColor: isDark ? 'rgba(33, 150, 243, 0.2)' : '#E3F2FD' }]}>
+                                <Text style={[styles.badgeText, { color: '#2196F3' }]}>{gender}</Text>
+                            </View>
+                            {customFields?.Category && (
+                                <View style={[styles.badge, { backgroundColor: isDark ? 'rgba(255, 152, 0, 0.2)' : '#FFF3E0' }]}>
+                                    <Text style={[styles.badgeText, { color: '#FF9800' }]}>{customFields.Category}</Text>
                                 </View>
-                            </View>
+                            )}
                         </View>
-                        <View style={[styles.statusBadge, { backgroundColor: isDark ? 'rgba(76, 175, 80, 0.15)' : '#E8F5E9' }]}>
-                            <View style={styles.statusDot} />
-                            <Text style={styles.statusText}>Active</Text>
+                    </View>
+                    <TouchableOpacity
+                        style={[styles.arrowButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : '#f0f0f0' }]}
+                        onPress={() => {
+                            router.push({
+                                pathname: "/(dashboard)/mobilizer/mobilizer-student-profile",
+                                params: { studentId: item.id }
+                            });
+                        }}
+                    >
+                        <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                </View>
+
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+                <View style={styles.cardBody}>
+                    <View style={styles.infoRow}>
+                        <View style={styles.infoItem}>
+                            <Ionicons name="school-outline" size={16} color={colors.textSecondary} style={styles.infoIcon} />
+                            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Course</Text>
+                            <Text style={[styles.infoValue, { color: colors.text }]} numberOfLines={1}>{course}</Text>
+                        </View>
+                        <View style={styles.infoItem}>
+                            <Ionicons name="call-outline" size={16} color={colors.textSecondary} style={styles.infoIcon} />
+                            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Phone</Text>
+                            <Text style={[styles.infoValue, { color: colors.text }]} numberOfLines={1}>{phone}</Text>
                         </View>
                     </View>
 
-                    {/* Details Grid */}
-                    <View style={[styles.detailsGrid, { borderTopColor: colors.border }]}>
-                        <View style={styles.detailItem}>
-                            <View style={[styles.detailIconContainer, { backgroundColor: isDark ? 'rgba(33, 150, 243, 0.1)' : '#E3F2FD' }]}>
-                                <Ionicons name="school-outline" size={16} color="#2196F3" />
-                            </View>
-                            <View style={styles.detailContent}>
-                                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Institution</Text>
-                                <Text style={[styles.detailValue, { color: colors.text }]} numberOfLines={1}>
-                                    {item.institution || "Not specified"}
-                                </Text>
-                            </View>
+                    <View style={[styles.infoRow, { marginTop: 12 }]}>
+                        <View style={styles.infoItem}>
+                            <Ionicons name="location-outline" size={16} color={colors.textSecondary} style={styles.infoIcon} />
+                            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>City</Text>
+                            <Text style={[styles.infoValue, { color: colors.text }]} numberOfLines={1}>{location}</Text>
                         </View>
-
-                        <View style={styles.detailItem}>
-                            <View style={[styles.detailIconContainer, { backgroundColor: isDark ? 'rgba(156, 39, 176, 0.1)' : '#F3E5F5' }]}>
-                                <Ionicons name="location-outline" size={16} color="#9C27B0" />
-                            </View>
-                            <View style={styles.detailContent}>
-                                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Location</Text>
-                                <Text style={[styles.detailValue, { color: colors.text }]} numberOfLines={1}>
-                                    {item.city || "Not specified"}
-                                </Text>
-                            </View>
-                        </View>
-
-                        <View style={styles.detailItem}>
-                            <View style={[styles.detailIconContainer, { backgroundColor: isDark ? 'rgba(255, 152, 0, 0.1)' : '#FFF3E0' }]}>
-                                <Ionicons name="call-outline" size={16} color="#FF9800" />
-                            </View>
-                            <View style={styles.detailContent}>
-                                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Phone</Text>
-                                <Text style={[styles.detailValue, { color: colors.text }]} numberOfLines={1}>
-                                    {item.phone1 || "Not provided"}
-                                </Text>
-                            </View>
-                        </View>
-
-                        <View style={styles.detailItem}>
-                            <View style={[styles.detailIconContainer, { backgroundColor: isDark ? 'rgba(76, 175, 80, 0.1)' : '#E8F5E9' }]}>
-                                <Ionicons name="document-text-outline" size={16} color="#4CAF50" />
-                            </View>
-                            <View style={styles.detailContent}>
-                                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Applications</Text>
-                                <Text style={[styles.detailValue, { color: colors.text }]}>
-                                    {item.applications_count || 0}
-                                </Text>
-                            </View>
+                        <View style={styles.infoItem}>
+                            <Ionicons name="document-text-outline" size={16} color={colors.textSecondary} style={styles.infoIcon} />
+                            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Applications</Text>
+                            <Text style={[styles.infoValue, { color: colors.text }]}>{item.applications_count || 0}</Text>
                         </View>
                     </View>
+                </View>
 
-                    {/* Footer Section */}
-                    <View style={styles.cardFooter}>
-                        <View style={styles.joinedInfo}>
-                            <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
-                            <Text style={[styles.joinedText, { color: colors.textSecondary }]}>
-                                Joined {formatDate(item.created_at)}
-                            </Text>
-                        </View>
-                        <TouchableOpacity
-                            style={[styles.viewProfileBtn, { backgroundColor: colors.primary }]}
-                            onPress={() => {
-                                router.push({
-                                    pathname: "/(dashboard)/mobilizer/mobilizer-student-profile",
-                                    params: { studentId: item.id }
-                                });
-                            }}
-                        >
-                            <Text style={styles.viewProfileText}>View Profile</Text>
-                            <Ionicons name="arrow-forward" size={14} color="#fff" />
-                        </TouchableOpacity>
-                    </View>
+                <View style={[styles.cardFooter, { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#fafafa', borderTopColor: colors.border }]}>
+                    <Text style={[styles.joinedText, { color: colors.textSecondary }]}>
+                        Joined {formatDate(item.created_at)}
+                    </Text>
+                    <View style={[styles.statusIndicator, { backgroundColor: '#4CAF50' }]} />
+                    <Text style={[styles.statusLabel, { color: '#4CAF50' }]}>Active</Text>
                 </View>
             </TouchableOpacity>
         );
@@ -242,7 +220,15 @@ export default function MobilizerStudentsScreen() {
                 locations={[0, 0.4, 1]}
             />
 
-            <AppHeader title="My Students" onBack={() => router.back()} />
+            <AppHeader
+                title="My Students"
+                onBack={() => router.back()}
+                rightElement={
+                    <TouchableOpacity onPress={() => router.push("/(dashboard)/mobilizer/mobilizer-add-student")}>
+                        <Ionicons name="add-circle" size={32} color={colors.primary} />
+                    </TouchableOpacity>
+                }
+            />
 
             <View style={styles.headerSection}>
                 <SearchBar
@@ -251,16 +237,7 @@ export default function MobilizerStudentsScreen() {
                     placeholder="Search students..."
                     onClear={() => setSearchQuery("")}
                 />
-                {pagination && (
-                    <View style={styles.statsRow}>
-                        <View style={[styles.statChip, { backgroundColor: isDark ? 'rgba(33, 150, 243, 0.1)' : '#E3F2FD' }]}>
-                            <Ionicons name="people" size={16} color="#2196F3" />
-                            <Text style={[styles.statText, { color: colors.text }]}>
-                                {pagination.total} {pagination.total === 1 ? 'Student' : 'Students'}
-                            </Text>
-                        </View>
-                    </View>
-                )}
+
             </View>
 
             {loading && !refreshing ? (
@@ -306,7 +283,7 @@ const styles = StyleSheet.create({
     headerSection: {
         paddingHorizontal: 16,
         paddingTop: 8,
-        paddingBottom: 12,
+        // paddingBottom: 12,
     },
     statsRow: {
         flexDirection: 'row',
@@ -341,179 +318,154 @@ const styles = StyleSheet.create({
         paddingBottom: 20,
     },
     card: {
-        borderRadius: 20,
+        borderRadius: 16,
         marginBottom: 16,
         borderWidth: 1,
-        overflow: 'hidden',
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 5,
-    },
-    cardGradient: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-    },
-    cardContent: {
-        padding: 16,
+        shadowOpacity: 0.08,
+        shadowRadius: 10,
+        elevation: 4,
+        overflow: 'hidden'
     },
     cardHeader: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 16,
-    },
-    avatarSection: {
-        flexDirection: 'row',
         alignItems: 'center',
-        flex: 1,
-        marginRight: 12,
+        padding: 16,
     },
-    avatar: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
+    avatarContainer: {
+        width: 54,
+        height: 54,
+        borderRadius: 27,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 12,
+        marginRight: 14,
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.15,
-        shadowRadius: 4,
+        shadowRadius: 5,
         elevation: 3,
     },
     avatarText: {
         fontSize: 20,
-        fontWeight: '700',
+        fontWeight: 'bold',
         color: '#fff',
     },
-    studentInfo: {
+    headerInfo: {
         flex: 1,
         gap: 4,
     },
     studentName: {
-        fontSize: 18,
+        fontSize: 17,
         fontWeight: '700',
-        letterSpacing: -0.3,
     },
-    metaRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-    metaText: {
+    studentEmail: {
         fontSize: 13,
-        flex: 1,
     },
-    statusBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 12,
-        gap: 6,
-    },
-    statusDot: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: '#4CAF50',
-    },
-    statusText: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: '#4CAF50',
-    },
-    detailsGrid: {
+    badgesRow: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 12,
-        paddingTop: 16,
-        borderTopWidth: 1,
-        marginBottom: 16,
+        gap: 8,
+        marginTop: 4,
     },
-    detailItem: {
-        width: '48%',
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
+    badge: {
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 6,
     },
-    detailIconContainer: {
+    badgeText: {
+        fontSize: 11,
+        fontWeight: '600',
+        textTransform: 'capitalize',
+    },
+    arrowButton: {
         width: 36,
         height: 36,
-        borderRadius: 10,
+        borderRadius: 18,
         justifyContent: 'center',
         alignItems: 'center',
+        marginLeft: 8,
     },
-    detailContent: {
+    divider: {
+        height: 1,
+        width: '100%',
+        opacity: 0.5,
+    },
+    cardBody: {
+        padding: 16,
+        paddingTop: 12,
+        paddingBottom: 16,
+    },
+    infoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    infoItem: {
         flex: 1,
-        gap: 2,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
-    detailLabel: {
-        fontSize: 11,
+    infoIcon: {
+        opacity: 0.7,
+    },
+    infoLabel: {
+        fontSize: 12,
         fontWeight: '500',
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
+        width: 50,
+        display: 'none' // Hidden for cleaner look, icons serve as labels
     },
-    detailValue: {
+    infoValue: {
         fontSize: 14,
-        fontWeight: '600',
+        fontWeight: '500',
+        flex: 1,
     },
     cardFooter: {
         flexDirection: 'row',
+        alignItems: 'center',
         justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    joinedInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderTopWidth: 1,
     },
     joinedText: {
         fontSize: 12,
         fontWeight: '500',
     },
-    viewProfileBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 12,
-        gap: 6,
+    statusIndicator: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginLeft: 'auto',
+        marginRight: 6,
     },
-    viewProfileText: {
-        fontSize: 13,
+    statusLabel: {
+        fontSize: 12,
         fontWeight: '600',
-        color: '#fff',
     },
     emptyContainer: {
-        flex: 1,
-        justifyContent: 'center',
         alignItems: 'center',
-        paddingVertical: 60,
-        paddingHorizontal: 32,
+        justifyContent: 'center',
+        marginTop: 60,
+        paddingHorizontal: 20,
     },
     emptyIconContainer: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
+        width: 100,
+        height: 100,
+        borderRadius: 50,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 16,
     },
     emptyTitle: {
-        fontSize: 20,
-        fontWeight: '700',
+        fontSize: 18,
+        fontWeight: 'bold',
         marginBottom: 8,
         textAlign: 'center',
     },
     emptySubtitle: {
         fontSize: 14,
         textAlign: 'center',
-        lineHeight: 20,
     },
 });

@@ -1,4 +1,4 @@
-import { AppHeader, Button, CustomTextInput } from "@/components";
+import { AppHeader, Button, CustomTextInput, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
 import { addMobilizerStudent, uploadProfileImage } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
@@ -130,6 +130,11 @@ export default function MobilizerAddStudentScreen() {
     });
 
     const [datePickerVisible, setDatePickerVisible] = useState(false);
+    const [toast, setToast] = useState<{ visible: boolean; message: string; type: "success" | "error" | "info" }>({
+        visible: false,
+        message: "",
+        type: "info",
+    });
 
     const {
         control,
@@ -298,19 +303,18 @@ export default function MobilizerAddStudentScreen() {
                 payload[`customfields[${index}][value]`] = ["gender", "religion", "caste"].includes(field.shortname) ? val.toLowerCase() : val;
             });
 
-            
+
 
             const response = await addMobilizerStudent(token, payload);
 
             if (response.success) {
-                Alert.alert("Success", "Student added successfully!", [
-                    { text: "OK", onPress: () => router.back() }
-                ]);
+                setToast({ visible: true, message: "Student added successfully!", type: "success" });
+                setTimeout(() => router.back(), 1500);
             } else {
-                Alert.alert("Error", response.message || "Failed to add student");
+                setToast({ visible: true, message: response.message || "Failed to add student", type: "error" });
             }
         } catch (error: any) {
-            Alert.alert("Error", error.message || "Something went wrong");
+            setToast({ visible: true, message: error.message || "Something went wrong", type: "error" });
         } finally {
             setLoading(false);
         }
@@ -323,27 +327,33 @@ export default function MobilizerAddStudentScreen() {
                 style={styles.background}
             />
             <AppHeader title="Add New Student" onBack={() => router.back()} />
+            <Toast
+                visible={toast.visible}
+                message={toast.message}
+                type={toast.type}
+                onHide={() => setToast((prev) => ({ ...prev, visible: false }))}
+            />
 
             <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
                     {/* Student Photo */}
-                    <View style={[styles.formCard, { backgroundColor: isDark ? colors.card : "rgba(255,255,255,0.9)", borderColor: colors.border }]}>
-                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Student Photo</Text>
-                        <View style={styles.photoRow}>
-                            <TouchableOpacity onPress={pickImage} style={[styles.photoCircle, { backgroundColor: isDark ? colors.border : "#eee" }]}>
+                    <View style={[styles.formCard, { backgroundColor: isDark ? colors.card : "rgba(255,255,255,0.9)", borderColor: colors.border, alignItems: 'center' }]}>
+                        <Text style={[styles.sectionTitle, { color: colors.text, textAlign: 'center' }]}>Student Photo</Text>
+                        <View style={styles.photoContainer}>
+                            <TouchableOpacity onPress={pickImage} style={[styles.photoCircle, { backgroundColor: isDark ? colors.border : "#f0f0f0", borderColor: colors.primary, borderWidth: 1 }]}>
                                 {profileImageUri ? (
                                     <Image source={{ uri: profileImageUri }} style={styles.photoImage} />
                                 ) : (
                                     <View style={styles.photoPlaceholder}>
-                                        <Ionicons name="camera-outline" size={32} color={colors.textSecondary} />
-                                        <Text style={[styles.photoHint, { color: colors.textSecondary }]}>Tap to upload</Text>
+                                        <Ionicons name="camera" size={36} color={colors.primary} />
+                                        <Text style={[styles.photoHint, { color: colors.textSecondary }]}>Upload Photo</Text>
                                     </View>
                                 )}
                             </TouchableOpacity>
                             {profileImageUri && (
-                                <TouchableOpacity onPress={removeImage} style={[styles.removePhotoBtn, { backgroundColor: colors.primary }]}>
-                                    <Ionicons name="trash-outline" size={18} color="#fff" />
+                                <TouchableOpacity onPress={removeImage} style={[styles.removePhotoBtn, { backgroundColor: '#ff4d4d' }]}>
+                                    <Ionicons name="trash-outline" size={16} color="#fff" />
                                     <Text style={styles.removePhotoText}>Remove</Text>
                                 </TouchableOpacity>
                             )}
@@ -353,23 +363,23 @@ export default function MobilizerAddStudentScreen() {
                     <View style={[styles.formCard, { backgroundColor: isDark ? colors.card : "rgba(255,255,255,0.9)", borderColor: colors.border }]}>
                         <Text style={[styles.sectionTitle, { color: colors.text }]}>Account Details</Text>
                         <Controller control={control} name="username" render={({ field: { onChange, value, onBlur } }) => (
-                            <CustomTextInput label="Username *" placeholder="Unique username" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.username?.message} />
+                            <CustomTextInput icon="person-outline" label="Username *" placeholder="Unique username" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.username?.message} />
                         )} />
                         <Controller control={control} name="password" render={({ field: { onChange, value, onBlur } }) => (
-                            <CustomTextInput label="Password *" placeholder="Strong password" value={value} onChangeText={onChange} onBlur={onBlur} secureTextEntry showPasswordToggle error={errors.password?.message} />
+                            <CustomTextInput icon="lock-closed-outline" label="Password *" placeholder="Strong password" value={value} onChangeText={onChange} onBlur={onBlur} secureTextEntry showPasswordToggle error={errors.password?.message} />
                         )} />
                         <Controller control={control} name="email" render={({ field: { onChange, value, onBlur } }) => (
-                            <CustomTextInput label="Email *" placeholder="Student email" value={value} onChangeText={onChange} onBlur={onBlur} keyboardType="email-address" error={errors.email?.message} />
+                            <CustomTextInput icon="mail-outline" label="Email *" placeholder="Student email" value={value} onChangeText={onChange} onBlur={onBlur} keyboardType="email-address" error={errors.email?.message} />
                         )} />
                     </View>
 
                     <View style={[styles.formCard, { backgroundColor: isDark ? colors.card : "rgba(255,255,255,0.9)", borderColor: colors.border }]}>
                         <Text style={[styles.sectionTitle, { color: colors.text }]}>Personal Information</Text>
                         <Controller control={control} name="firstname" render={({ field: { onChange, value, onBlur } }) => (
-                            <CustomTextInput label="First Name *" placeholder="Student first name" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.firstname?.message} />
+                            <CustomTextInput icon="person-outline" label="First Name *" placeholder="Student first name" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.firstname?.message} />
                         )} />
                         <Controller control={control} name="lastname" render={({ field: { onChange, value, onBlur } }) => (
-                            <CustomTextInput label="Last Name *" placeholder="Student last name" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.lastname?.message} />
+                            <CustomTextInput icon="person-outline" label="Last Name *" placeholder="Student last name" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.lastname?.message} />
                         )} />
                         <Controller
                             control={control}
@@ -421,16 +431,14 @@ export default function MobilizerAddStudentScreen() {
                         <Controller control={control} name="gender" render={({ field: { value } }) => (
                             <TouchableOpacity onPress={() => openPicker("gender", "Select Gender", GENDER_OPTIONS)}>
                                 <View pointerEvents="none">
-                                    <CustomTextInput label="Gender" placeholder="Select Gender" value={value || ""} editable={false} onChangeText={() => { }} />
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} style={styles.dropdownIcon} />
+                                    <CustomTextInput icon="male-female-outline" label="Gender" placeholder="Select Gender" value={value || ""} editable={false} onChangeText={() => { }} inputStyle={{ opacity: 1, fontWeight: "400" }} rightIcon="chevron-down" />
                                 </View>
                             </TouchableOpacity>
                         )} />
                         <Controller control={control} name="date_of_birth" render={({ field: { value } }) => (
                             <TouchableOpacity onPress={openDatePicker}>
                                 <View pointerEvents="none">
-                                    <CustomTextInput label="Date of Birth" placeholder="Select DOB" value={value || ""} editable={false} onChangeText={() => { }} />
-                                    <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} style={styles.dropdownIcon} />
+                                    <CustomTextInput icon="calendar-outline" label="Date of Birth" placeholder="Select DOB" value={value || ""} editable={false} onChangeText={() => { }} inputStyle={{ opacity: 1, fontWeight: "400" }} />
                                 </View>
                             </TouchableOpacity>
                         )} />
@@ -442,45 +450,42 @@ export default function MobilizerAddStudentScreen() {
                             <CustomTextInput label="Address" placeholder="Full address" value={value || ""} onChangeText={onChange} onBlur={onBlur} multiline />
                         )} />
                         <Controller control={control} name="city" render={({ field: { onChange, value, onBlur } }) => (
-                            <CustomTextInput label="City" placeholder="City" value={value || ""} onChangeText={onChange} onBlur={onBlur} />
+                            <CustomTextInput icon="business-outline" label="City" placeholder="City" value={value || ""} onChangeText={onChange} onBlur={onBlur} />
                         )} />
                         <Controller control={control} name="state" render={({ field: { onChange, value, onBlur } }) => (
-                            <CustomTextInput label="State" placeholder="State" value={value || ""} onChangeText={onChange} onBlur={onBlur} />
+                            <CustomTextInput icon="map-outline" label="State" placeholder="State" value={value || ""} onChangeText={onChange} onBlur={onBlur} />
                         )} />
                         <Controller control={control} name="domicile_state" render={({ field: { onChange, value, onBlur } }) => (
-                            <CustomTextInput label="Domicile State" placeholder="e.g. Uttar Pradesh, Bihar" value={value || ""} onChangeText={onChange} onBlur={onBlur} />
+                            <CustomTextInput icon="flag-outline" label="Domicile State" placeholder="e.g. Uttar Pradesh, Bihar" value={value || ""} onChangeText={onChange} onBlur={onBlur} />
                         )} />
                     </View>
 
                     <View style={[styles.formCard, { backgroundColor: isDark ? colors.card : "rgba(255,255,255,0.9)", borderColor: colors.border }]}>
                         <Text style={[styles.sectionTitle, { color: colors.text }]}>Institution</Text>
                         <Controller control={control} name="institution" render={({ field: { onChange, value, onBlur } }) => (
-                            <CustomTextInput label="College Name" placeholder="College name" value={value || ""} onChangeText={onChange} onBlur={onBlur} />
+                            <CustomTextInput icon="school-outline" label="College Name" placeholder="College name" value={value || ""} onChangeText={onChange} onBlur={onBlur} />
                         )} />
                         <Controller control={control} name="university" render={({ field: { onChange, value, onBlur } }) => (
-                            <CustomTextInput label="University Name" placeholder="University name" value={value || ""} onChangeText={onChange} onBlur={onBlur} />
+                            <CustomTextInput icon="business-outline" label="University Name" placeholder="University name" value={value || ""} onChangeText={onChange} onBlur={onBlur} />
                         )} />
                         <Controller control={control} name="academic_level" render={({ field: { value } }) => (
                             <TouchableOpacity onPress={() => openPicker("academic_level", "Academic Level", ACADEMIC_LEVEL_OPTIONS)}>
                                 <View pointerEvents="none">
-                                    <CustomTextInput label="Academic Level" placeholder="e.g. UG, PG" value={value || ""} editable={false} onChangeText={() => { }} />
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} style={styles.dropdownIcon} />
+                                    <CustomTextInput icon="school-outline" label="Academic Level" placeholder="e.g. UG, PG" value={value || ""} editable={false} onChangeText={() => { }} inputStyle={{ opacity: 1, fontWeight: "400" }} rightIcon="chevron-down" />
                                 </View>
                             </TouchableOpacity>
                         )} />
                         <Controller control={control} name="stream" render={({ field: { value } }) => (
                             <TouchableOpacity onPress={() => openPicker("stream", "Stream", STREAM_OPTIONS)}>
                                 <View pointerEvents="none">
-                                    <CustomTextInput label="Stream" placeholder="Select stream" value={value || ""} editable={false} onChangeText={() => { }} />
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} style={styles.dropdownIcon} />
+                                    <CustomTextInput icon="book-outline" label="Stream" placeholder="Select stream" value={value || ""} editable={false} onChangeText={() => { }} inputStyle={{ opacity: 1, fontWeight: "400" }} rightIcon="chevron-down" />
                                 </View>
                             </TouchableOpacity>
                         )} />
                         <Controller control={control} name="year" render={({ field: { value } }) => (
                             <TouchableOpacity onPress={() => openPicker("year", "Current Year", YEAR_OPTIONS)}>
                                 <View pointerEvents="none">
-                                    <CustomTextInput label="Current Year" placeholder="e.g. 2nd Year" value={value || ""} editable={false} onChangeText={() => { }} />
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} style={styles.dropdownIcon} />
+                                    <CustomTextInput icon="time-outline" label="Current Year" placeholder="e.g. 2nd Year" value={value || ""} editable={false} onChangeText={() => { }} inputStyle={{ opacity: 1, fontWeight: "400" }} rightIcon="chevron-down" />
                                 </View>
                             </TouchableOpacity>
                         )} />
@@ -574,32 +579,29 @@ export default function MobilizerAddStudentScreen() {
                     <View style={[styles.formCard, { backgroundColor: isDark ? colors.card : "rgba(255,255,255,0.9)", borderColor: colors.border }]}>
                         <Text style={[styles.sectionTitle, { color: colors.text }]}>Family & Category</Text>
                         <Controller control={control} name="father_name" render={({ field: { onChange, value, onBlur } }) => (
-                            <CustomTextInput label="Father's Name" placeholder="Father's name" value={value || ""} onChangeText={onChange} onBlur={onBlur} />
+                            <CustomTextInput icon="person-outline" label="Father's Name" placeholder="Father's name" value={value || ""} onChangeText={onChange} onBlur={onBlur} />
                         )} />
                         <Controller control={control} name="mother_name" render={({ field: { onChange, value, onBlur } }) => (
-                            <CustomTextInput label="Mother's Name" placeholder="Mother's name" value={value || ""} onChangeText={onChange} onBlur={onBlur} />
+                            <CustomTextInput icon="person-outline" label="Mother's Name" placeholder="Mother's name" value={value || ""} onChangeText={onChange} onBlur={onBlur} />
                         )} />
                         <Controller control={control} name="family_annual_income" render={({ field: { value } }) => (
                             <TouchableOpacity onPress={() => openPicker("family_annual_income", "Family Annual Income", ANNUAL_INCOME_OPTIONS)}>
                                 <View pointerEvents="none">
-                                    <CustomTextInput label="Family Annual Income (₹)" placeholder="Select income range" value={value || ""} editable={false} onChangeText={() => { }} />
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} style={styles.dropdownIcon} />
+                                    <CustomTextInput icon="cash-outline" label="Family Annual Income (₹)" placeholder="Select income range" value={value || ""} editable={false} onChangeText={() => { }} inputStyle={{ opacity: 1, fontWeight: "400" }} rightIcon="chevron-down" />
                                 </View>
                             </TouchableOpacity>
                         )} />
                         <Controller control={control} name="religion" render={({ field: { value } }) => (
                             <TouchableOpacity onPress={() => openPicker("religion", "Select Religion", RELIGION_OPTIONS)}>
                                 <View pointerEvents="none">
-                                    <CustomTextInput label="Religion" placeholder="Select Religion" value={value || ""} editable={false} onChangeText={() => { }} />
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} style={styles.dropdownIcon} />
+                                    <CustomTextInput icon="people-outline" label="Religion" placeholder="Select Religion" value={value || ""} editable={false} onChangeText={() => { }} inputStyle={{ opacity: 1, fontWeight: "400" }} rightIcon="chevron-down" />
                                 </View>
                             </TouchableOpacity>
                         )} />
                         <Controller control={control} name="caste" render={({ field: { value } }) => (
                             <TouchableOpacity onPress={() => openPicker("caste", "Select Caste", CASTE_OPTIONS)}>
                                 <View pointerEvents="none">
-                                    <CustomTextInput label="Caste" placeholder="Select Caste" value={value || ""} editable={false} onChangeText={() => { }} />
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} style={styles.dropdownIcon} />
+                                    <CustomTextInput icon="people-outline" label="Caste" placeholder="Select Caste" value={value || ""} editable={false} onChangeText={() => { }} inputStyle={{ opacity: 1, fontWeight: "400" }} rightIcon="chevron-down" />
                                 </View>
                             </TouchableOpacity>
                         )} />
@@ -668,23 +670,33 @@ const styles = StyleSheet.create({
     container: { flex: 1 },
     background: { position: "absolute", top: 0, left: 0, bottom: 0, right: 0 },
     scrollContent: { padding: 20, paddingBottom: 100 },
-    formCard: { borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1 },
-    sectionTitle: { fontSize: 16, fontWeight: "700", marginBottom: 16 },
-    footer: { padding: 20, borderTopWidth: 1, borderTopColor: "rgba(0,0,0,0.05)" },
+    formCard: {
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 20,
+        borderWidth: 1,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 3
+    },
+    sectionTitle: { fontSize: 18, fontWeight: "700", marginBottom: 20, letterSpacing: 0.5 },
+    footer: { padding: 20, borderTopWidth: 1, borderTopColor: "rgba(0,0,0,0.05)", elevation: 10, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 10 },
     dropdownIcon: { position: "absolute", right: 12, top: 40 },
     modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: 20 },
-    modalContent: { borderRadius: 12, maxHeight: "50%", padding: 0, overflow: "hidden" },
-    modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: "rgba(0,0,0,0.1)" },
+    modalContent: { borderRadius: 16, maxHeight: "60%", padding: 0, overflow: "hidden" },
+    modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20, borderBottomWidth: 1, borderBottomColor: "rgba(0,0,0,0.1)" },
     modalTitle: { fontSize: 18, fontWeight: "700" },
-    optionItem: { padding: 16, borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-    optionText: { fontSize: 16 },
+    optionItem: { padding: 18, borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    optionText: { fontSize: 16, fontWeight: "500" },
     loaderOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
-    photoRow: { flexDirection: "row", alignItems: "center", gap: 16 },
-    photoCircle: { width: 100, height: 100, borderRadius: 50, overflow: "hidden", justifyContent: "center", alignItems: "center" },
-    photoImage: { width: 100, height: 100, borderRadius: 50 },
-    photoPlaceholder: { alignItems: "center", justifyContent: "center", gap: 4 },
-    photoHint: { fontSize: 11 },
-    removePhotoBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+    photoContainer: { alignItems: "center", justifyContent: "center", paddingVertical: 10 },
+    photoCircle: { width: 120, height: 120, borderRadius: 60, overflow: "hidden", justifyContent: "center", alignItems: "center", marginBottom: 12 },
+    photoImage: { width: 120, height: 120, borderRadius: 60 },
+    photoPlaceholder: { alignItems: "center", justifyContent: "center", gap: 8 },
+    photoHint: { fontSize: 12, fontWeight: "500" },
+    removePhotoBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
     removePhotoText: { color: "#fff", fontSize: 14, fontWeight: "600" },
     phoneFieldWrap: { marginBottom: 16 },
     phoneLabel: { fontSize: 14, fontWeight: "600", marginBottom: 8 },
