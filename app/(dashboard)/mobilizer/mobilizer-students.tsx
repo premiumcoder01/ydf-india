@@ -3,6 +3,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { getMobilizerStudents } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
@@ -120,9 +121,12 @@ export default function MobilizerStudentsScreen() {
         }
 
         const course = customFields?.course || customFields?.stream_in_12th || item.academic_level || "N/A";
-        const phone = item.phone1 || customFields?.phone_number || "N/A";
+        // Ensure phone doesn't just display "IN" or weird data if phone1 is bad
+        const phone = (item.phone1 && item.phone1.length > 5) ? item.phone1 : (customFields?.phone_number || "N/A");
         const gender = customFields?.Gender || "Student";
         const location = item.city || customFields?.district || "N/A";
+        const applicationStatus = customFields?.appl_status || "Not Applied";
+        const category = customFields?.Category || customFields?.category;
 
         return (
             <TouchableOpacity
@@ -136,9 +140,19 @@ export default function MobilizerStudentsScreen() {
                 activeOpacity={0.9}
             >
                 <View style={styles.cardHeader}>
-                    <View style={[styles.avatarContainer, { backgroundColor: avatarColor }]}>
-                        <Text style={styles.avatarText}>{initials}</Text>
-                    </View>
+                    {item.picture && !item.picture.includes("gravatar.com/avatar/default") ? (
+                        <Image
+                            source={{ uri: item.picture }}
+                            style={styles.avatarImage}
+                            contentFit="cover"
+                            transition={500}
+                        />
+                    ) : (
+                        <View style={[styles.avatarContainer, { backgroundColor: avatarColor }]}>
+                            <Text style={styles.avatarText}>{initials}</Text>
+                        </View>
+                    )}
+
                     <View style={styles.headerInfo}>
                         <Text style={[styles.studentName, { color: colors.text }]} numberOfLines={1}>
                             {item.fullname || `${item.firstname} ${item.lastname}`}
@@ -150,11 +164,26 @@ export default function MobilizerStudentsScreen() {
                             <View style={[styles.badge, { backgroundColor: isDark ? 'rgba(33, 150, 243, 0.2)' : '#E3F2FD' }]}>
                                 <Text style={[styles.badgeText, { color: '#2196F3' }]}>{gender}</Text>
                             </View>
-                            {customFields?.Category && (
+                            {category && (
                                 <View style={[styles.badge, { backgroundColor: isDark ? 'rgba(255, 152, 0, 0.2)' : '#FFF3E0' }]}>
-                                    <Text style={[styles.badgeText, { color: '#FF9800' }]}>{customFields.Category}</Text>
+                                    <Text style={[styles.badgeText, { color: '#FF9800' }]}>{category}</Text>
                                 </View>
                             )}
+                            <View style={[
+                                styles.badge,
+                                {
+                                    backgroundColor: applicationStatus === "Applied"
+                                        ? (isDark ? 'rgba(76, 175, 80, 0.2)' : '#E8F5E9')
+                                        : (isDark ? 'rgba(158, 158, 158, 0.2)' : '#F5F5F5')
+                                }
+                            ]}>
+                                <Text style={[
+                                    styles.badgeText,
+                                    {
+                                        color: applicationStatus === "Applied" ? '#4CAF50' : '#9E9E9E'
+                                    }
+                                ]}>{applicationStatus}</Text>
+                            </View>
                         </View>
                     </View>
                     <TouchableOpacity
@@ -204,8 +233,10 @@ export default function MobilizerStudentsScreen() {
                     <Text style={[styles.joinedText, { color: colors.textSecondary }]}>
                         Joined {formatDate(item.created_at)}
                     </Text>
-                    <View style={[styles.statusIndicator, { backgroundColor: '#4CAF50' }]} />
-                    <Text style={[styles.statusLabel, { color: '#4CAF50' }]}>Active</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={[styles.statusIndicator, { backgroundColor: '#4CAF50' }]} />
+                        <Text style={[styles.statusLabel, { color: '#4CAF50' }]}>Active</Text>
+                    </View>
                 </View>
             </TouchableOpacity>
         );
@@ -237,7 +268,6 @@ export default function MobilizerStudentsScreen() {
                     placeholder="Search students..."
                     onClear={() => setSearchQuery("")}
                 />
-
             </View>
 
             {loading && !refreshing ? (
@@ -346,6 +376,12 @@ const styles = StyleSheet.create({
         shadowRadius: 5,
         elevation: 3,
     },
+    avatarImage: {
+        width: 54,
+        height: 54,
+        borderRadius: 27,
+        marginRight: 14,
+    },
     avatarText: {
         fontSize: 20,
         fontWeight: 'bold',
@@ -437,7 +473,6 @@ const styles = StyleSheet.create({
         width: 8,
         height: 8,
         borderRadius: 4,
-        marginLeft: 'auto',
         marginRight: 6,
     },
     statusLabel: {

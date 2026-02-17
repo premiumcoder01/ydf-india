@@ -1,7 +1,7 @@
 import { AppHeader, Button, CustomTextInput } from "@/components";
 import Toast from "@/components/Toast";
 import { useTheme } from "@/context/ThemeContext";
-import { getMobilizerStudents, getScholarshipDetails, mobilizerApplyForStudent } from "@/utils/api";
+import { getMobilizerStudentProfile, getScholarshipDetails, mobilizerApplyForStudent } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -15,7 +15,6 @@ import {
     ActivityIndicator,
     Alert,
     Dimensions,
-    FlatList,
     KeyboardAvoidingView,
     Modal,
     Platform,
@@ -24,7 +23,7 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -74,7 +73,6 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 const STEPS = [
-    { key: "student", title: "Select Student" },
     { key: "personal", title: "Personal" },
     { key: "academic", title: "Academic" },
     { key: "narrative", title: "Narrative" },
@@ -85,7 +83,6 @@ const STEPS = [
 ] as const;
 
 const FIELDS_BY_STEP: Record<string, (keyof FormValues)[]> = {
-    student: [],
     personal: ["fullName", "email", "phone", "studentId"],
     academic: ["institution", "major", "gradDate", "currentYear", "gpa"],
     narrative: ["financial", "activities", "statement"],
@@ -101,12 +98,15 @@ export default function MobilizerApplyFormScreen() {
     const [stepIndex, setStepIndex] = useState(0);
     const scrollRef = useRef<ScrollView | null>(null);
     const stepperScrollRef = useRef<ScrollView | null>(null);
-    const { scholarshipId } = useLocalSearchParams();
+    const params = useLocalSearchParams();
+    const scholarshipId = params.scholarshipId;
+    const studentId = params.studentId;
+
     const [loading, setLoading] = useState(true);
     const [scholarship, setScholarship] = useState<any>(null);
     const [selectedStudent, setSelectedStudent] = useState<any>(null);
-    const [showStudentPicker, setShowStudentPicker] = useState(true);
-    const [students, setStudents] = useState<any[]>([]);
+
+    // Toast State
     const [toastVisible, setToastVisible] = useState(false);
     const [toastMessage, setToastMessage] = useState("");
     const [toastType, setToastType] = useState<"success" | "error" | "info">("success");
@@ -184,6 +184,7 @@ export default function MobilizerApplyFormScreen() {
                 if (authDataStr) {
                     const authData = JSON.parse(authDataStr);
                     if (authData.token) {
+                        // Fetch Scholarship Details
                         if (scholarshipId) {
                             const scholarResponse = await getScholarshipDetails(authData.token, Number(scholarshipId));
                             if (scholarResponse.success) {
@@ -196,9 +197,38 @@ export default function MobilizerApplyFormScreen() {
                                 }
                             }
                         }
-                        const studentsResponse = await getMobilizerStudents(authData.token, 1, 100);
-                        if (studentsResponse.success && studentsResponse.data?.students) {
-                            setStudents(studentsResponse.data.students);
+
+                        // Fetch Student Profile
+                        if (studentId) {
+                            const profileResponse = await getMobilizerStudentProfile(authData.token, Number(studentId));
+                            if (profileResponse.success && profileResponse.data) {
+                                const studentData = profileResponse.data.student || profileResponse.data;
+                                // Parse custom fields if string
+                                let cf = studentData.custom_fields || {};
+                                if (typeof cf === 'string') {
+                                    try { cf = JSON.parse(cf); } catch (e) { cf = {}; }
+                                }
+                                studentData.parsed_custom_fields = cf;
+
+                                setSelectedStudent(studentData);
+
+                                // Pre-fill form
+                                reset({
+                                    ...getValues(),
+                                    fullName: studentData.fullname || `${studentData.firstname} ${studentData.lastname}`,
+                                    email: studentData.email,
+                                    phone: studentData.phone1 || studentData.phone || cf.phone_number || "",
+                                    studentId: String(studentData.id),
+                                    institution: studentData.institution || studentData.academic_details?.[0]?.institution || "",
+                                    major: studentData.major || studentData.academic_details?.[0]?.major || "",
+                                    gradDate: studentData.gradDate || studentData.academic_details?.[0]?.graduation_year || "",
+                                    currentYear: studentData.currentYear || studentData.current_year || studentData.academic_details?.[0]?.academic_year || "",
+                                    gpa: studentData.gpa || studentData.academic_details?.[0]?.cgpa || "",
+                                    financial: cf.Family_income || "",
+                                });
+                            } else {
+                                Alert.alert("Error", "Failed to load student details");
+                            }
                         }
                     }
                 }
@@ -210,42 +240,19 @@ export default function MobilizerApplyFormScreen() {
             }
         };
         fetchRequiredData();
-    }, [scholarshipId]);
-
-    const selectStudent = (student: any) => {
-        setSelectedStudent(student);
-        setShowStudentPicker(false);
-        reset({
-            ...getValues(),
-            fullName: student.fullname || `${student.firstname} ${student.lastname}`,
-            email: student.email,
-            phone: student.phone1 || student.phone || "",
-            studentId: String(student.id),
-            institution: student.institution || "",
-            major: student.major || "",
-            gradDate: student.gradDate || "",
-            currentYear: student.currentYear || student.current_year || "",
-            gpa: student.gpa || "",
-        });
-        if (stepIndex === 0) {
-            setStepIndex(1);
-        }
-    };
-
+    }, [scholarshipId, studentId]);
 
     const next = async () => {
-        if (currentStepKey === 'student' && !selectedStudent) {
-            Alert.alert("Selection Required", "Please select a student to proceed.");
-            setShowStudentPicker(true);
-            return;
-        }
         const fields = FIELDS_BY_STEP[currentStepKey];
-        if (fields.length) {
+        if (fields && fields.length) {
             const ok = await trigger(fields as any);
             if (!ok) return;
         }
         setStepIndex((i) => Math.min(i + 1, STEPS.length - 1));
     };
+
+
+
 
     const back = () => setStepIndex((i) => Math.max(0, i - 1));
 
@@ -481,44 +488,21 @@ export default function MobilizerApplyFormScreen() {
                     <Stepper />
 
                     <View style={styles.formContainer}>
-                        {/* STEP 0: Student Selection */}
-                        {currentStepKey === "student" && (
-                            <Section title="Select Student">
-                                <View style={{ alignItems: 'center', paddingVertical: 20 }}>
-                                    <View style={[styles.illustrationBox, { backgroundColor: `${colors.primary}10` }]}>
-                                        <Ionicons name="people" size={48} color={colors.primary} />
-                                    </View>
-                                    <Text style={[styles.stepDescription, { color: colors.text }]}>
-                                        Choose the student you're applying for
-                                    </Text>
-                                    {selectedStudent ? (
-                                        <View style={[styles.selectedStudentCard, { backgroundColor: isDark ? colors.surface : '#F0F9FF', borderColor: colors.primary }]}>
-                                            <View style={[styles.studentAvatar, { backgroundColor: colors.primary }]}>
-                                                <Text style={styles.avatarText}>
-                                                    {(selectedStudent.fullname || selectedStudent.firstname || "S").charAt(0).toUpperCase()}
-                                                </Text>
-                                            </View>
-                                            <View style={{ flex: 1, marginLeft: 12 }}>
-                                                <Text style={[styles.selectedStudentName, { color: colors.text }]}>
-                                                    {selectedStudent.fullname || `${selectedStudent.firstname} ${selectedStudent.lastname}`}
-                                                </Text>
-                                                <Text style={[styles.selectedStudentInfo, { color: colors.textSecondary }]}>
-                                                    {selectedStudent.email}
-                                                </Text>
-                                                <Text style={[styles.selectedStudentInfo, { color: colors.textSecondary }]}>
-                                                    {selectedStudent.institution || "N/A"}
-                                                </Text>
-                                            </View>
-                                            <TouchableOpacity onPress={() => setShowStudentPicker(true)} style={[styles.changeButton, { backgroundColor: colors.primary }]}>
-                                                <Ionicons name="swap-horizontal" size={18} color="#fff" />
-                                            </TouchableOpacity>
-                                        </View>
-                                    ) : (
-                                        <Button title="Choose Student" onPress={() => setShowStudentPicker(true)} variant="primary" style={{ marginTop: 20, minWidth: 200 }} />
-                                    )}
-                                </View>
-                            </Section>
-                        )}
+                        {/* Header Info - Student Being Applied For */}
+                        <View style={{ marginBottom: 20, padding: 16, backgroundColor: isDark ? colors.card : '#E0F2FE', borderRadius: 12, flexDirection: 'row', alignItems: 'center' }}>
+                            <View style={{
+                                width: 40, height: 40, borderRadius: 20,
+                                backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', marginRight: 12
+                            }}>
+                                <Ionicons name="person" size={20} color="#fff" />
+                            </View>
+                            <View>
+                                <Text style={{ fontSize: 13, color: colors.textSecondary }}>Applying for</Text>
+                                <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>
+                                    {selectedStudent?.fullname || `${selectedStudent?.firstname || ''} ${selectedStudent?.lastname || ''}`}
+                                </Text>
+                            </View>
+                        </View>
 
                         {/* STEP 1: Personal Details */}
                         {currentStepKey === "personal" && (
@@ -881,62 +865,6 @@ export default function MobilizerApplyFormScreen() {
                 </View>
             </KeyboardAvoidingView>
 
-            {/* Student Selection Modal */}
-            <Modal visible={showStudentPicker} animationType="slide" transparent>
-                <View style={styles.modalBackdrop}>
-                    <View style={[styles.modalContent, { backgroundColor: isDark ? colors.card : '#fff' }]}>
-                        <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: colors.text }]}>Select Student</Text>
-                            <TouchableOpacity
-                                onPress={() => {
-                                    if (selectedStudent) {
-                                        // If student is already selected, just close the modal
-                                        setShowStudentPicker(false);
-                                    } else {
-                                        // If no student selected, go back to previous screen
-                                        router.back();
-                                    }
-                                }}
-                                style={{ padding: 4 }}
-                            >
-                                <Ionicons name="close" size={26} color={colors.text} />
-                            </TouchableOpacity>
-                        </View>
-                        {students.length === 0 ? (
-                            <View style={styles.emptyState}>
-                                <Ionicons name="people-outline" size={64} color={colors.textSecondary} />
-                                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No students found</Text>
-                            </View>
-                        ) : (
-                            <FlatList
-                                data={students}
-                                keyExtractor={(item) => String(item.id)}
-                                renderItem={({ item }) => (
-                                    <TouchableOpacity onPress={() => selectStudent(item)} style={[styles.studentItem, { borderBottomColor: colors.border }]}>
-                                        <View style={[styles.studentItemAvatar, { backgroundColor: colors.primary }]}>
-                                            <Text style={styles.studentItemAvatarText}>
-                                                {(item.fullname || item.firstname || "S").charAt(0).toUpperCase()}
-                                            </Text>
-                                        </View>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={[styles.studentItemName, { color: colors.text }]}>
-                                                {item.fullname || `${item.firstname} ${item.lastname}`}
-                                            </Text>
-                                            <Text style={[styles.studentItemInfo, { color: colors.textSecondary }]}>
-                                                {item.email}
-                                            </Text>
-                                            <Text style={[styles.studentItemInfo, { color: colors.textSecondary }]}>
-                                                {item.institution || "N/A"}
-                                            </Text>
-                                        </View>
-                                        <Ionicons name="chevron-forward" size={22} color={colors.textSecondary} />
-                                    </TouchableOpacity>
-                                )}
-                            />
-                        )}
-                    </View>
-                </View>
-            </Modal>
 
             {/* Date Picker Modal */}
             <DateTimePickerModal
@@ -999,12 +927,7 @@ const styles = StyleSheet.create({
     sectionSubtitle: { fontSize: 14, fontWeight: '600', marginBottom: 12 },
     illustrationBox: { width: 100, height: 100, borderRadius: 50, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
     stepDescription: { fontSize: 16, fontWeight: '500', textAlign: 'center', marginBottom: 16, paddingHorizontal: 20 },
-    selectedStudentCard: { width: '100%', flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, borderWidth: 2, marginTop: 16 },
-    studentAvatar: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center' },
-    avatarText: { color: '#fff', fontSize: 22, fontWeight: '700' },
-    selectedStudentName: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
-    selectedStudentInfo: { fontSize: 13, marginBottom: 2 },
-    changeButton: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
+
     helperText: { fontSize: 13, marginBottom: 16, lineHeight: 20 },
     inputLabel: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
     chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
@@ -1032,16 +955,7 @@ const styles = StyleSheet.create({
     footerInner: { flexDirection: 'row', padding: 16, gap: 12 },
     footerBtn: { flex: 1 },
     modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-    modalContent: { height: '75%', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.1)' },
     modalTitle: { fontSize: 22, fontWeight: '700' },
-    emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
-    emptyText: { fontSize: 16, marginTop: 16 },
-    studentItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1 },
-    studentItemAvatar: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
-    studentItemAvatarText: { color: '#fff', fontSize: 20, fontWeight: '700' },
-    studentItemName: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
-    studentItemInfo: { fontSize: 13, marginBottom: 2 },
     optionModalContent: { margin: 20, borderRadius: 20, padding: 24, maxHeight: '60%' },
     optionItem: { paddingVertical: 16, borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     optionText: { fontSize: 16, fontWeight: '500' },

@@ -1,14 +1,16 @@
 import { AppHeader, SearchBar } from "@/components";
 import Toast from "@/components/Toast";
 import { useTheme } from "@/context/ThemeContext";
-import { bookmarkScholarship, getMobilizerScholarships } from "@/utils/api";
+import { bookmarkScholarship, getMobilizerScholarships, getMobilizerStudents } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+    ActivityIndicator,
     Animated,
     FlatList,
     Modal,
@@ -110,6 +112,14 @@ export default function MobilizerScholarshipListingScreen() {
     const [slideAnim] = useState(new Animated.Value(0));
     const [apiScholarships, setApiScholarships] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+
+    // Student Selection Modal State
+    const [showStudentModal, setShowStudentModal] = useState(false);
+    const [selectedScholarshipForApply, setSelectedScholarshipForApply] = useState<number | null>(null);
+    const [students, setStudents] = useState<any[]>([]);
+    const [studentSearchQuery, setStudentSearchQuery] = useState("");
+    const [loadingStudents, setLoadingStudents] = useState(false);
+    const [selectedStudent, setSelectedStudent] = useState<number | null>(null);
     const [pagination, setPagination] = useState<{
         page: number;
         per_page: number;
@@ -207,6 +217,36 @@ export default function MobilizerScholarshipListingScreen() {
             setLoading(false);
         }
     }, [searchQuery, page]);
+
+
+    // Fetch Students for Selection Modal
+    const fetchStudents = async () => {
+        try {
+            setLoadingStudents(true);
+            const authDataStr = await AsyncStorage.getItem("authData");
+            if (!authDataStr) return;
+            const { token } = JSON.parse(authDataStr);
+
+            const response = await getMobilizerStudents(token, 1, 100, studentSearchQuery);
+            if (response.success && response.data?.students) {
+                setStudents(response.data.students);
+            } else {
+                setStudents([]);
+            }
+        } catch (error) {
+            console.error("Error fetching students:", error);
+        } finally {
+            setLoadingStudents(false);
+        }
+    };
+
+    // Effect to fetch students when modal opens or search changes
+    useEffect(() => {
+        if (showStudentModal) {
+            fetchStudents();
+        }
+    }, [showStudentModal, studentSearchQuery]);
+
 
     // Refresh data when screen comes into focus
     useFocusEffect(
@@ -608,18 +648,16 @@ export default function MobilizerScholarshipListingScreen() {
 
                         {!isExpired && !hasApplied ? (
                             <TouchableOpacity
-                                onPress={() =>
-                                    router.push({
-                                        pathname: "/(dashboard)/mobilizer/mobilizer-apply-form",
-                                        params: { scholarshipId: item.id },
-                                    })
-                                }
+                                onPress={() => {
+                                    setSelectedScholarshipForApply(item.id);
+                                    setShowStudentModal(true);
+                                }}
                                 style={[
                                     styles.applyBtn,
                                     { backgroundColor: categoryColor }
                                 ]}
                             >
-                                <Text style={[styles.applyBtnText, { color: "#FFF" }]}>Apply Now</Text>
+                                <Text style={[styles.applyBtnText, { color: "#FFF" }]}>Apply For</Text>
                                 <Ionicons name="arrow-forward" size={16} color="#FFF" />
                             </TouchableOpacity>
                         ) : (
@@ -913,6 +951,124 @@ export default function MobilizerScholarshipListingScreen() {
                 type={toastType}
                 onHide={() => setToastVisible(false)}
             />
+
+            {/* Student Selection Modal */}
+            <Modal
+                visible={showStudentModal}
+                animationType="slide"
+                presentationStyle="pageSheet"
+                onRequestClose={() => setShowStudentModal(false)}
+            >
+                <View style={[styles.fullScreenModal, { backgroundColor: isDark ? "#121212" : "#f5f5f5" }]}>
+                    <View style={[styles.modalHeader, { paddingTop: 20, backgroundColor: isDark ? "#1E1E1E" : "#fff", borderBottomColor: colors.border }]}>
+                        <View style={styles.modalHeaderTop}>
+                            <TouchableOpacity onPress={() => setShowStudentModal(false)} style={styles.closeBtn}>
+                                <Ionicons name="close" size={24} color={colors.text} />
+                            </TouchableOpacity>
+                            <Text style={[styles.modalTitle, { color: colors.text }]}>Select Student</Text>
+                            <View style={{ width: 24 }} />
+                        </View>
+                        <SearchBar
+                            value={studentSearchQuery}
+                            onChangeText={setStudentSearchQuery}
+                            placeholder="Search student..."
+                            onClear={() => setStudentSearchQuery("")}
+                            style={{ paddingHorizontal: 0, marginTop: 10 }}
+                        />
+                    </View>
+
+                    {loadingStudents ? (
+                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                            <ActivityIndicator size="large" color={colors.primary} />
+                        </View>
+                    ) : (
+                        <FlatList
+                            data={students}
+                            keyExtractor={(item) => String(item.id)}
+                            contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+                            renderItem={({ item }) => {
+                                const isSelected = selectedStudent === item.id;
+                                const avatarColor = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8"][item.id % 5];
+                                const initials = ((item.firstname || "S").charAt(0) + (item.lastname || "").charAt(0)).toUpperCase();
+
+                                return (
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.studentCard,
+                                            {
+                                                backgroundColor: isDark ? colors.card : "#fff",
+                                                borderColor: isSelected ? colors.primary : isDark ? colors.border : 'transparent',
+                                                borderWidth: isSelected ? 2 : 1
+                                            }
+                                        ]}
+                                        onPress={() => setSelectedStudent(item.id)}
+                                    >
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                                            {item.picture && !item.picture.includes("gravatar.com/avatar/default") ? (
+                                                <Image
+                                                    source={{ uri: item.picture }}
+                                                    style={styles.studentAvatar}
+                                                    contentFit="cover"
+                                                />
+                                            ) : (
+                                                <View style={[styles.studentAvatarPlaceholder, { backgroundColor: avatarColor }]}>
+                                                    <Text style={styles.studentInitials}>{initials}</Text>
+                                                </View>
+                                            )}
+                                            <View style={{ marginLeft: 12, flex: 1 }}>
+                                                <Text style={[styles.studentName, { color: colors.text }]} numberOfLines={1}>
+                                                    {item.fullname || `${item.firstname} ${item.lastname}`}
+                                                </Text>
+                                                <Text style={[styles.studentDetail, { color: colors.textSecondary }]} numberOfLines={1}>
+                                                    {item.email}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                        <View style={{
+                                            width: 24, height: 24, borderRadius: 12, borderWidth: 2,
+                                            borderColor: isSelected ? colors.primary : colors.textSecondary,
+                                            justifyContent: 'center', alignItems: 'center'
+                                        }}>
+                                            {isSelected && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.primary }} />}
+                                        </View>
+                                    </TouchableOpacity>
+                                );
+                            }}
+                            ListEmptyComponent={
+                                <View style={{ alignItems: 'center', marginTop: 50 }}>
+                                    <Text style={{ color: colors.textSecondary }}>No students found</Text>
+                                </View>
+                            }
+                        />
+                    )}
+
+                    <View style={[styles.modalFooter, { backgroundColor: isDark ? "#1E1E1E" : "#fff", borderTopColor: colors.border, paddingBottom: inset.bottom + 20 }]}>
+                        <TouchableOpacity
+                            style={[
+                                styles.applyFilterBtn,
+                                { backgroundColor: selectedStudent ? colors.primary : (isDark ? "#333" : "#ccc"), opacity: selectedStudent ? 1 : 0.7 }
+                            ]}
+                            disabled={!selectedStudent}
+                            onPress={() => {
+                                if (selectedStudent && selectedScholarshipForApply) {
+                                    setShowStudentModal(false);
+                                    router.push({
+                                        pathname: "/(dashboard)/mobilizer/mobilizer-apply-form",
+                                        params: {
+                                            scholarshipId: selectedScholarshipForApply,
+                                            studentId: selectedStudent
+                                        },
+                                    });
+                                    // Reset selection slightly after navigation
+                                    setTimeout(() => setSelectedStudent(null), 500);
+                                }
+                            }}
+                        >
+                            <Text style={styles.applyFilterText}>Proceed to Apply</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -1210,5 +1366,44 @@ const styles = StyleSheet.create({
         color: "#fff",
         fontSize: 16,
         fontWeight: "700",
+    },
+    // Student Modal Styles
+    studentCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 16,
+        marginBottom: 12,
+        justifyContent: 'space-between',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    studentAvatar: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+    },
+    studentAvatarPlaceholder: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    studentInitials: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 18,
+    },
+    studentName: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 2,
+    },
+    studentDetail: {
+        fontSize: 12,
     },
 });

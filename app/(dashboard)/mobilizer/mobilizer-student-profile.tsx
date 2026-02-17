@@ -3,6 +3,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { getMobilizerStudentProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
@@ -98,7 +99,7 @@ export default function MobilizerStudentProfileScreen() {
             personal: [
                 { label: "Gender", value: cf.Gender, icon: "person-outline" },
                 { label: "Date of Birth", value: cf.DOB !== "0" && cf.DOB !== 0 ? cf.DOB : null, icon: "calendar-outline" },
-                { label: "Category", value: cf.category, icon: "bookmark-outline" },
+                { label: "Category", value: cf.Category || cf.category, icon: "bookmark-outline" },
                 { label: "Religion", value: cf.Religion, icon: "moon-outline" },
                 { label: "Caste", value: cf.Caste, icon: "people-outline" },
                 { label: "Father's Name", value: cf.father, icon: "male-outline" },
@@ -196,6 +197,61 @@ export default function MobilizerStudentProfileScreen() {
         </View>
     );
 
+    const ApplicationsList = ({ applications }: { applications: any[] }) => {
+        if (!applications || applications.length === 0) return null;
+
+        return (
+            <View style={styles.sectionWrapper}>
+                <Text style={[styles.sectionHeading, { color: colors.text }]}>Recent Applications</Text>
+                <View style={[styles.cardContainer, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
+                    {applications.map((app, index) => {
+                        const scholarshipName = app.scholarship?.name || "Unknown Scholarship";
+                        const statusColor = app.status === 'approved' ? '#4CAF50' :
+                            app.status === 'rejected' ? '#F44336' : '#FF9800';
+                        const statusBg = app.status === 'approved' ? 'rgba(76, 175, 80, 0.1)' :
+                            app.status === 'rejected' ? 'rgba(244, 67, 54, 0.1)' : 'rgba(255, 152, 0, 0.1)';
+
+                        return (
+                            <View
+                                key={app.id}
+                                style={[
+                                    styles.infoRow,
+                                    index === applications.length - 1 && styles.lastInfoRow,
+                                    { borderBottomColor: isDark ? 'rgba(255,255,255,0.05)' : '#f0f0f0' }
+                                ]}
+                            >
+                                <View style={[styles.iconBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#F5F7FA' }]}>
+                                    <Ionicons name="document-text-outline" size={18} color={colors.textSecondary} />
+                                </View>
+                                <View style={styles.infoTextBox}>
+                                    <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
+                                        {new Date(app.created_at).toLocaleDateString()}
+                                    </Text>
+                                    <Text style={[styles.infoValue, { color: colors.text }]} numberOfLines={1}>
+                                        {scholarshipName}
+                                    </Text>
+                                </View>
+                                <View style={{
+                                    backgroundColor: statusBg,
+                                    paddingHorizontal: 8,
+                                    paddingVertical: 4,
+                                    borderRadius: 4
+                                }}>
+                                    <Text style={{
+                                        color: statusColor,
+                                        fontSize: 10,
+                                        fontWeight: '600',
+                                        textTransform: 'uppercase'
+                                    }}>{app.status}</Text>
+                                </View>
+                            </View>
+                        );
+                    })}
+                </View>
+            </View>
+        );
+    };
+
     return (
         <View style={[styles.container, { backgroundColor: isDark ? colors.background : "#F8F9FA" }]}>
             <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
@@ -232,12 +288,21 @@ export default function MobilizerStudentProfileScreen() {
                     {/* Header Profile Card */}
                     <View style={[styles.profileCard, { backgroundColor: isDark ? colors.card : "#fff", shadowColor: colors.shadow }]}>
                         <View style={styles.profileHeader}>
-                            <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-                                <Text style={styles.avatarText}>
-                                    {(student.firstname || "S").charAt(0).toUpperCase()}
-                                    {(student.lastname || "").charAt(0).toUpperCase()}
-                                </Text>
-                            </View>
+                            {student.picture && !student.picture.includes("gravatar.com/avatar/default") ? (
+                                <Image
+                                    source={{ uri: student.picture }}
+                                    style={styles.avatar}
+                                    contentFit="cover"
+                                    transition={500}
+                                />
+                            ) : (
+                                <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+                                    <Text style={styles.avatarText}>
+                                        {(student.firstname || "S").charAt(0).toUpperCase()}
+                                        {(student.lastname || "").charAt(0).toUpperCase()}
+                                    </Text>
+                                </View>
+                            )}
                             <View style={styles.profileMainInfo}>
                                 <Text style={[styles.studentName, { color: colors.text }]} numberOfLines={2}>
                                     {student.fullname || `${student.firstname} ${student.lastname}`}
@@ -285,6 +350,8 @@ export default function MobilizerStudentProfileScreen() {
                             />
                         </View>
                     </View>
+
+                    <ApplicationsList applications={student.recent_applications} />
 
                     {/* Information Sections */}
                     {studentDetails && (
