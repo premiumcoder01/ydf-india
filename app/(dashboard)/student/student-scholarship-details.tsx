@@ -49,9 +49,7 @@ export default function ScholarshipDetailsScreen() {
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const scholarshipId = params.scholarshipId ? Number(params.scholarshipId) : null;
-
   const [saved, setSaved] = useState(false);
-  const [faqOpenIndex, setFaqOpenIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [scholarship, setScholarship] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -89,11 +87,7 @@ export default function ScholarshipDetailsScreen() {
           setLoading(false);
           return;
         }
-
-        // Call getScholarshipDetails API
         const response = await getScholarshipDetails(token, scholarshipId);
-        console.log("Response:", JSON.stringify(response));
-
         if (response.success && response.data) {
           const apiData = response.data?.data?.data || response.data?.data || response.data;
           setScholarship(apiData);
@@ -216,37 +210,7 @@ export default function ScholarshipDetailsScreen() {
     }
   };
 
-
-
-  const getDaysRemaining = (deadline: string | null, isExpired: boolean = false) => {
-    if (isExpired) return { text: "Expired", color: "#F44336" };
-    if (!deadline) return { text: "Open", color: "#4CAF50" };
-    const today = new Date();
-    const deadlineDate = new Date(deadline);
-    const diffTime = deadlineDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    if (diffDays < 0) {
-      // If API says not expired, but date passed, don't show "Expired" text based on date logic
-      // User requested to rely strictly on API key for expiry
-      return { text: "", color: "transparent" };
-    }
-    if (diffDays === 0) return { text: "Today", color: "#FF9800" };
-    if (diffDays === 1) return { text: "1 day left", color: "#FF9800" };
-    if (diffDays <= 7) return { text: `${diffDays} days left`, color: "#FF9800" };
-    return { text: `${diffDays} days left`, color: "#666" };
-  };
-
   const deadline = scholarship ? (scholarship.application_deadline || scholarship.end_date || scholarship.start_date) : null;
-
-  // Calculate expiry based on date
-  const isDeadlinePassed = React.useMemo(() => {
-    if (!deadline) return false;
-    const today = new Date();
-    const deadlineDate = new Date(deadline);
-    // If deadline is passed (yesterday or before)
-    return deadlineDate.getTime() < today.setHours(0, 0, 0, 0);
-  }, [deadline]);
-
   // Simplify application closed logic: rely on API 'expired' flag primarily
   const isApplicationClosed = scholarship?.expired === true;
 
@@ -280,11 +244,9 @@ export default function ScholarshipDetailsScreen() {
     );
   }
 
-  const categoryColor = getCategoryColor(scholarship.category || "");
+
   const description = stripHtml(scholarship.description || "");
 
-  /* Removed old logic to avoid overwriting API status */
-  const daysInfo = getDaysRemaining(deadline, scholarship.expired);
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? "#0f0f0f" : "#F8F9FA" }]}>
@@ -300,29 +262,36 @@ export default function ScholarshipDetailsScreen() {
         {/* HERO CARD (Replaces Image) */}
         <View style={styles.heroContainer}>
           <LinearGradient
-            colors={['#2563EB', '#1D4ED8', '#1E40AF']}
+            colors={[
+              getCategoryColor(scholarship.category || "General"),
+              getCategoryColor(scholarship.category || "General") + "DD",
+              getCategoryColor(scholarship.category || "General") + "BB"
+            ]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.heroCard}
           >
             {/* Decorative Elements */}
-            <View style={styles.decorativeCircle1} />
-            <View style={styles.decorativeCircle2} />
+            <View style={[styles.decorativeCircle1, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
+            <View style={[styles.decorativeCircle2, { backgroundColor: 'rgba(255,255,255,0.08)' }]} />
 
             <View style={styles.heroHeaderRow}>
-              <View style={styles.categoryPill}>
-                <Ionicons name="location" size={12} color="#FFF" />
+              <View style={[styles.categoryPill, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
+                <Ionicons name="location" size={14} color="#FFF" />
                 <Text style={styles.categoryPillText}>{scholarship.category || "General"}</Text>
               </View>
 
               <View style={[
                 styles.statusPill,
-                scholarship.has_applied ? { backgroundColor: '#4CAF50' } :
-                  scholarship.expired ? { backgroundColor: '#EF4444' } :
-                    { backgroundColor: '#F59E0B' }
+                { backgroundColor: 'rgba(255,255,255,0.95)' }
               ]}>
-                <Text style={styles.statusPillText}>
-                  {scholarship.has_applied ? "Applied" : scholarship.expired ? "Expired" : "Open"}
+                <Text style={[
+                  styles.statusPillText,
+                  {
+                    color: scholarship.has_applied ? "#4CAF50" : scholarship.expired ? "#EF4444" : getCategoryColor(scholarship.category || "General")
+                  }
+                ]}>
+                  {scholarship.has_applied ? "APPLIED" : scholarship.expired ? "EXPIRED" : "OPEN"}
                 </Text>
               </View>
             </View>
@@ -339,7 +308,7 @@ export default function ScholarshipDetailsScreen() {
 
             <View style={styles.heroFooterRow}>
               <View style={styles.deadlineInfo}>
-                <Text style={styles.deadlineLabel}>Deadline</Text>
+                <Text style={styles.deadlineLabel}>DEADLINE</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Ionicons name="calendar-outline" size={16} color="rgba(255,255,255,0.9)" />
                   <Text style={styles.deadlineValue}>
@@ -350,14 +319,14 @@ export default function ScholarshipDetailsScreen() {
 
               <TouchableOpacity
                 onPress={handleBookmark}
-                style={styles.heroBookmarkBtn}
+                style={[styles.heroBookmarkBtn, { backgroundColor: 'rgba(255,255,255,0.2)' }]}
                 activeOpacity={0.8}
                 disabled={bookmarking}
               >
                 <Ionicons
                   name={saved || scholarship?.bookmarked ? "bookmark" : "bookmark-outline"}
-                  size={22}
-                  color={saved || scholarship?.bookmarked ? "#FFC107" : "#FFF"}
+                  size={24}
+                  color="#FFF"
                 />
               </TouchableOpacity>
             </View>
@@ -370,12 +339,12 @@ export default function ScholarshipDetailsScreen() {
             <View style={[styles.progressCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
               <View style={styles.progressHeader}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <View style={[styles.progressIconBox, { backgroundColor: isDark ? "#333" : "#eff6ff" }]}>
-                    <Ionicons name="pie-chart" size={20} color={colors.primary} />
+                  <View style={[styles.progressIconBox, { backgroundColor: getCategoryColor(scholarship.category || "General") + "20" }]}>
+                    <Ionicons name="pie-chart" size={20} color={getCategoryColor(scholarship.category || "General")} />
                   </View>
                   <Text style={[styles.cardTitle, { color: colors.text }]}>Application Progress</Text>
                 </View>
-                <Text style={[styles.progressPercent, { color: colors.primary }]}>
+                <Text style={[styles.progressPercent, { color: getCategoryColor(scholarship.category || "General") }]}>
                   {scholarship.progress_percent}%
                 </Text>
               </View>
@@ -386,7 +355,7 @@ export default function ScholarshipDetailsScreen() {
                     styles.progressBarFill,
                     {
                       width: `${scholarship.progress_percent}%`,
-                      backgroundColor: scholarship.progress_percent === 100 ? '#10B981' : colors.primary
+                      backgroundColor: scholarship.progress_percent === 100 ? '#10B981' : getCategoryColor(scholarship.category || "General")
                     }
                   ]}
                 />
@@ -406,11 +375,11 @@ export default function ScholarshipDetailsScreen() {
           <View style={[styles.datesCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
             {scholarship.start_date && (
               <View style={styles.dateRow}>
-                <View style={[styles.dateIconBox, { backgroundColor: "#DBEAFE" }]}>
-                  <Ionicons name="play" size={18} color="#2563EB" />
+                <View style={[styles.dateIconBox, { backgroundColor: getCategoryColor(scholarship.category || "General") + "20" }]}>
+                  <Ionicons name="play" size={18} color={getCategoryColor(scholarship.category || "General")} />
                 </View>
                 <View style={styles.dateInfo}>
-                  <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>Application Opens</Text>
+                  <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>APPLICATION OPENS</Text>
                   <Text style={[styles.dateValue, { color: colors.text }]}>
                     {new Date(scholarship.start_date).toLocaleDateString("en-US", { day: 'numeric', month: 'long', year: 'numeric' })}
                   </Text>
@@ -424,11 +393,11 @@ export default function ScholarshipDetailsScreen() {
 
             {(scholarship.end_date || scholarship.application_deadline) && (
               <View style={styles.dateRow}>
-                <View style={[styles.dateIconBox, { backgroundColor: "#FEE2E2" }]}>
-                  <Ionicons name="stop" size={18} color="#DC2626" />
+                <View style={[styles.dateIconBox, { backgroundColor: getCategoryColor(scholarship.category || "General") + "20" }]}>
+                  <Ionicons name="stop" size={18} color={getCategoryColor(scholarship.category || "General")} />
                 </View>
                 <View style={styles.dateInfo}>
-                  <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>Application Closes</Text>
+                  <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>APPLICATION CLOSES</Text>
                   <Text style={[styles.dateValue, { color: colors.text }]}>
                     {new Date(scholarship.end_date || scholarship.application_deadline).toLocaleDateString("en-US", { day: 'numeric', month: 'long', year: 'numeric' })}
                   </Text>
@@ -454,7 +423,7 @@ export default function ScholarshipDetailsScreen() {
             <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>Eligibility</Text>
             <View style={[styles.contentCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
               <View style={{ flexDirection: 'row', gap: 12 }}>
-                <Ionicons name="school" size={24} color={colors.primary} style={{ marginTop: 2 }} />
+                <Ionicons name="school" size={24} color={getCategoryColor(scholarship.category || "General")} style={{ marginTop: 2 }} />
                 <Text style={[styles.bodyText, { color: colors.textSecondary, flex: 1 }]}>{scholarship.eligibility_criteria}</Text>
               </View>
             </View>
@@ -500,7 +469,7 @@ export default function ScholarshipDetailsScreen() {
                       </Text>
                     </View>
                     {!isCompleted && (
-                      <View style={[styles.uploadActionBtn, { backgroundColor: colors.primary }]}>
+                      <View style={[styles.uploadActionBtn, { backgroundColor: getCategoryColor(scholarship.category || "General") }]}>
                         <Ionicons name="arrow-up" size={14} color="#FFF" />
                       </View>
                     )}
@@ -529,7 +498,7 @@ export default function ScholarshipDetailsScreen() {
                 )}
 
                 <View style={[styles.timelineIconBox, { backgroundColor: isDark ? "#333" : "#FFF", borderColor: isDark ? "#444" : "#E5E7EB" }]}>
-                  <Text style={[styles.timelineStepNum, { color: colors.primary }]}>{idx + 1}</Text>
+                  <Text style={[styles.timelineStepNum, { color: getCategoryColor(scholarship.category || "General") }]}>{idx + 1}</Text>
                 </View>
 
                 <View style={[styles.timelineContent, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
@@ -559,7 +528,7 @@ export default function ScholarshipDetailsScreen() {
         borderTopColor: isDark ? "#333" : "#E5E7EB"
       }]}>
         <TouchableOpacity
-          style={[styles.fullWidthButton, { backgroundColor: colors.primary }, (isApplicationClosed || scholarship.has_applied) && styles.disabledBtn]}
+          style={[styles.fullWidthButton, { backgroundColor: getCategoryColor(scholarship.category || "General") }, (isApplicationClosed || scholarship.has_applied) && styles.disabledBtn]}
           disabled={isApplicationClosed || scholarship.has_applied}
           onPress={() => router.push({
             pathname: "/(dashboard)/student/student-apply-form",

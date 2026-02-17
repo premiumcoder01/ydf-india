@@ -1,18 +1,20 @@
-import { AppHeader, Button } from "@/components";
+import { AppHeader, Button, SearchBar } from "@/components";
 import Toast from "@/components/Toast";
 import { useTheme } from "@/context/ThemeContext";
-import { bookmarkScholarship, getScholarshipDetails } from "@/utils/api";
+import { bookmarkScholarship, getMobilizerStudents, getScholarshipDetails } from "@/utils/api";
 import { API_CONFIG } from "@/utils/apiConfig";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from "expo-document-picker";
 import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    FlatList,
     Modal,
     Platform,
     ScrollView,
@@ -21,7 +23,7 @@ import {
     Text,
     TouchableOpacity,
     UIManager,
-    View,
+    View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -77,6 +79,13 @@ export default function MobilizerScholarshipDetailsScreen() {
     const [docModalDoc, setDocModalDoc] = useState<{ cmid: string; label: string; mode: string } | null>(null);
     const [docModalFile, setDocModalFile] = useState<any>(null);
     const [docModalUploading, setDocModalUploading] = useState(false);
+
+    // Student Selection Modal State
+    const [showStudentModal, setShowStudentModal] = useState(false);
+    const [students, setStudents] = useState<any[]>([]);
+    const [studentSearchQuery, setStudentSearchQuery] = useState("");
+    const [loadingStudents, setLoadingStudents] = useState(false);
+    const [selectedStudent, setSelectedStudent] = useState<number | null>(null);
 
     const refetchScholarshipDetails = useCallback(async () => {
         if (!scholarshipId) return;
@@ -152,6 +161,34 @@ export default function MobilizerScholarshipDetailsScreen() {
         setToastVisible(true);
     };
 
+    // Fetch Students for Selection Modal
+    const fetchStudents = async () => {
+        try {
+            setLoadingStudents(true);
+            const authDataStr = await AsyncStorage.getItem("authData");
+            if (!authDataStr) return;
+            const { token } = JSON.parse(authDataStr);
+
+            const response = await getMobilizerStudents(token, 1, 100, studentSearchQuery);
+            if (response.success && response.data?.students) {
+                setStudents(response.data.students);
+            } else {
+                setStudents([]);
+            }
+        } catch (error) {
+            console.error("Error fetching students:", error);
+        } finally {
+            setLoadingStudents(false);
+        }
+    };
+
+    // Effect to fetch students when modal opens or search changes
+    useEffect(() => {
+        if (showStudentModal) {
+            fetchStudents();
+        }
+    }, [showStudentModal, studentSearchQuery]);
+
     const openDocModal = (doc: { cmid: string | number; label: string; mode?: string }) => {
         setDocModalDoc({
             cmid: String(doc.cmid),
@@ -225,7 +262,7 @@ export default function MobilizerScholarshipDetailsScreen() {
             } else {
                 closeDocModal();
                 showToast(result.message || "Upload failed.", "error");
-               
+
             }
         } catch (e) {
             showToast("Failed to upload. Try again.", "error");
@@ -391,24 +428,33 @@ export default function MobilizerScholarshipDetailsScreen() {
                 {/* HERO CARD - same as student */}
                 <View style={styles.heroContainer}>
                     <LinearGradient
-                        colors={["#2563EB", "#1D4ED8", "#1E40AF"]}
+                        colors={[
+                            getCategoryColor(scholarship.category || "General"),
+                            getCategoryColor(scholarship.category || "General") + "DD",
+                            getCategoryColor(scholarship.category || "General") + "BB"
+                        ]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={styles.heroCard}
                     >
-                        <View style={styles.decorativeCircle1} />
-                        <View style={styles.decorativeCircle2} />
+                        <View style={[styles.decorativeCircle1, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
+                        <View style={[styles.decorativeCircle2, { backgroundColor: 'rgba(255,255,255,0.08)' }]} />
                         <View style={styles.heroHeaderRow}>
-                            <View style={styles.categoryPill}>
-                                <Ionicons name="location" size={12} color="#FFF" />
+                            <View style={[styles.categoryPill, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
+                                <Ionicons name="location" size={14} color="#FFF" />
                                 <Text style={styles.categoryPillText}>{scholarship.category || "General"}</Text>
                             </View>
                             <View style={[
                                 styles.statusPill,
-                                scholarship.has_applied ? { backgroundColor: "#4CAF50" } : scholarship.expired ? { backgroundColor: "#EF4444" } : { backgroundColor: "#F59E0B" },
+                                { backgroundColor: 'rgba(255,255,255,0.95)' }
                             ]}>
-                                <Text style={styles.statusPillText}>
-                                    {scholarship.has_applied ? "Applied" : scholarship.expired ? "Expired" : "Open"}
+                                <Text style={[
+                                    styles.statusPillText,
+                                    {
+                                        color: scholarship.has_applied ? "#4CAF50" : scholarship.expired ? "#EF4444" : getCategoryColor(scholarship.category || "General")
+                                    }
+                                ]}>
+                                    {scholarship.has_applied ? "APPLIED" : scholarship.expired ? "EXPIRED" : "OPEN"}
                                 </Text>
                             </View>
                         </View>
@@ -417,7 +463,7 @@ export default function MobilizerScholarshipDetailsScreen() {
                         <View style={styles.heroDivider} />
                         <View style={styles.heroFooterRow}>
                             <View style={styles.deadlineInfo}>
-                                <Text style={styles.deadlineLabel}>Deadline</Text>
+                                <Text style={styles.deadlineLabel}>DEADLINE</Text>
                                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                                     <Ionicons name="calendar-outline" size={16} color="rgba(255,255,255,0.9)" />
                                     <Text style={styles.deadlineValue}>
@@ -425,8 +471,8 @@ export default function MobilizerScholarshipDetailsScreen() {
                                     </Text>
                                 </View>
                             </View>
-                            <TouchableOpacity onPress={handleBookmark} style={styles.heroBookmarkBtn} activeOpacity={0.8} disabled={bookmarking}>
-                                <Ionicons name={saved || scholarship?.bookmarked ? "bookmark" : "bookmark-outline"} size={22} color={saved || scholarship?.bookmarked ? "#FFC107" : "#FFF"} />
+                            <TouchableOpacity onPress={handleBookmark} style={[styles.heroBookmarkBtn, { backgroundColor: 'rgba(255,255,255,0.2)' }]} activeOpacity={0.8} disabled={bookmarking}>
+                                <Ionicons name={saved || scholarship?.bookmarked ? "bookmark" : "bookmark-outline"} size={24} color="#FFF" />
                             </TouchableOpacity>
                         </View>
                     </LinearGradient>
@@ -438,15 +484,15 @@ export default function MobilizerScholarshipDetailsScreen() {
                         <View style={[styles.progressCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
                             <View style={styles.progressHeader}>
                                 <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                                    <View style={[styles.progressIconBox, { backgroundColor: isDark ? "#333" : "#eff6ff" }]}>
-                                        <Ionicons name="pie-chart" size={20} color={colors.primary} />
+                                    <View style={[styles.progressIconBox, { backgroundColor: getCategoryColor(scholarship.category || "General") + "20" }]}>
+                                        <Ionicons name="pie-chart" size={20} color={getCategoryColor(scholarship.category || "General")} />
                                     </View>
                                     <Text style={[styles.cardTitle, { color: colors.text }]}>Application Progress</Text>
                                 </View>
-                                <Text style={[styles.progressPercent, { color: colors.primary }]}>{scholarship.progress_percent}%</Text>
+                                <Text style={[styles.progressPercent, { color: getCategoryColor(scholarship.category || "General") }]}>{scholarship.progress_percent}%</Text>
                             </View>
                             <View style={styles.progressBarBg}>
-                                <View style={[styles.progressBarFill, { width: `${scholarship.progress_percent}%`, backgroundColor: scholarship.progress_percent === 100 ? "#10B981" : colors.primary }]} />
+                                <View style={[styles.progressBarFill, { width: `${scholarship.progress_percent}%`, backgroundColor: scholarship.progress_percent === 100 ? "#10B981" : getCategoryColor(scholarship.category || "General") }]} />
                             </View>
                             <Text style={[styles.progressMessage, { color: colors.textSecondary }]}>
                                 {scholarship.progress_percent === 100 ? "Everything looks good! You have completed the application." : "Complete all required steps to submit your application securely."}
@@ -461,11 +507,11 @@ export default function MobilizerScholarshipDetailsScreen() {
                     <View style={[styles.datesCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
                         {scholarship.start_date && (
                             <View style={styles.dateRow}>
-                                <View style={[styles.dateIconBox, { backgroundColor: "#DBEAFE" }]}>
-                                    <Ionicons name="play" size={18} color="#2563EB" />
+                                <View style={[styles.dateIconBox, { backgroundColor: getCategoryColor(scholarship.category || "General") + "20" }]}>
+                                    <Ionicons name="play" size={18} color={getCategoryColor(scholarship.category || "General")} />
                                 </View>
                                 <View style={styles.dateInfo}>
-                                    <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>Application Opens</Text>
+                                    <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>APPLICATION OPENS</Text>
                                     <Text style={[styles.dateValue, { color: colors.text }]}>
                                         {new Date(scholarship.start_date).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}
                                     </Text>
@@ -477,11 +523,11 @@ export default function MobilizerScholarshipDetailsScreen() {
                         )}
                         {(scholarship.end_date || scholarship.application_deadline) && (
                             <View style={styles.dateRow}>
-                                <View style={[styles.dateIconBox, { backgroundColor: "#FEE2E2" }]}>
-                                    <Ionicons name="stop" size={18} color="#DC2626" />
+                                <View style={[styles.dateIconBox, { backgroundColor: getCategoryColor(scholarship.category || "General") + "20" }]}>
+                                    <Ionicons name="stop" size={18} color={getCategoryColor(scholarship.category || "General")} />
                                 </View>
                                 <View style={styles.dateInfo}>
-                                    <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>Application Closes</Text>
+                                    <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>APPLICATION CLOSES</Text>
                                     <Text style={[styles.dateValue, { color: colors.text }]}>
                                         {new Date(scholarship.end_date || scholarship.application_deadline).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}
                                     </Text>
@@ -603,12 +649,16 @@ export default function MobilizerScholarshipDetailsScreen() {
             {/* Fixed footer - same as student */}
             <View style={[styles.floatFooter, { paddingBottom: insets.bottom + 12, backgroundColor: isDark ? "#0f0f0f" : "#FFF", borderTopWidth: 1, borderTopColor: isDark ? "#333" : "#E5E7EB" }]}>
                 <TouchableOpacity
-                    style={[styles.fullWidthButton, { backgroundColor: colors.primary }, (isApplicationClosed || scholarship.has_applied) && styles.disabledBtn]}
+                    style={[
+                        styles.fullWidthButton,
+                        { backgroundColor: getCategoryColor(scholarship.category || "General") },
+                        (isApplicationClosed || scholarship.has_applied) && styles.disabledBtn
+                    ]}
                     disabled={isApplicationClosed || scholarship.has_applied}
-                    onPress={() => router.push({ pathname: "/(dashboard)/mobilizer/mobilizer-apply-form", params: { scholarshipId: scholarship.id } })}
+                    onPress={() => setShowStudentModal(true)}
                 >
                     <Text style={styles.fullWidthButtonText}>
-                        {scholarship.has_applied ? "Application Submitted" : scholarship.expired ? "Scholarship Expired" : "Apply for Student"}
+                        {scholarship.has_applied ? "Application Submitted" : scholarship.expired ? "Scholarship Expired" : "Apply for"}
                     </Text>
                     {!scholarship.has_applied && !scholarship.expired && <Ionicons name="arrow-forward" size={20} color="#FFF" />}
                 </TouchableOpacity>
@@ -696,6 +746,124 @@ export default function MobilizerScholarshipDetailsScreen() {
                             <Text style={[styles.docModalLoadingText, { color: colors.text }]}>Uploading...</Text>
                         </View>
                     )}
+                </View>
+            </Modal>
+
+            {/* Student Selection Modal */}
+            <Modal
+                visible={showStudentModal}
+                animationType="slide"
+                presentationStyle="pageSheet"
+                onRequestClose={() => setShowStudentModal(false)}
+            >
+                <View style={[styles.fullScreenModal, { backgroundColor: isDark ? "#121212" : "#f5f5f5" }]}>
+                    <View style={[styles.modalHeader, { paddingTop: 20, backgroundColor: isDark ? "#1E1E1E" : "#fff", borderBottomColor: colors.border }]}>
+                        <View style={styles.modalHeaderTop}>
+                            <TouchableOpacity onPress={() => setShowStudentModal(false)} style={styles.closeBtn}>
+                                <Ionicons name="close" size={24} color={colors.text} />
+                            </TouchableOpacity>
+                            <Text style={[styles.modalTitle, { color: colors.text }]}>Select Student</Text>
+                            <View style={{ width: 24 }} />
+                        </View>
+                        <SearchBar
+                            value={studentSearchQuery}
+                            onChangeText={setStudentSearchQuery}
+                            placeholder="Search student..."
+                            onClear={() => setStudentSearchQuery("")}
+                            style={{ paddingHorizontal: 0, marginTop: 10 }}
+                        />
+                    </View>
+
+                    {loadingStudents ? (
+                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                            <ActivityIndicator size="large" color={colors.primary} />
+                        </View>
+                    ) : (
+                        <FlatList
+                            data={students}
+                            keyExtractor={(item) => String(item.id)}
+                            contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+                            renderItem={({ item }) => {
+                                const isSelected = selectedStudent === item.id;
+                                const avatarColor = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8"][item.id % 5];
+                                const initials = ((item.firstname || "S").charAt(0) + (item.lastname || "").charAt(0)).toUpperCase();
+
+                                return (
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.studentCard,
+                                            {
+                                                backgroundColor: isDark ? colors.card : "#fff",
+                                                borderColor: isSelected ? getCategoryColor(scholarship.category || "General") : isDark ? colors.border : 'transparent',
+                                                borderWidth: isSelected ? 2 : 1
+                                            }
+                                        ]}
+                                        onPress={() => setSelectedStudent(item.id)}
+                                    >
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                                            {item.picture && !item.picture.includes("gravatar.com/avatar/default") ? (
+                                                <Image
+                                                    source={{ uri: item.picture }}
+                                                    style={styles.studentAvatar}
+                                                    contentFit="cover"
+                                                />
+                                            ) : (
+                                                <View style={[styles.studentAvatarPlaceholder, { backgroundColor: avatarColor }]}>
+                                                    <Text style={styles.studentInitials}>{initials}</Text>
+                                                </View>
+                                            )}
+                                            <View style={{ marginLeft: 12, flex: 1 }}>
+                                                <Text style={[styles.studentName, { color: colors.text }]} numberOfLines={1}>
+                                                    {item.fullname || `${item.firstname} ${item.lastname}`}
+                                                </Text>
+                                                <Text style={[styles.studentDetail, { color: colors.textSecondary }]} numberOfLines={1}>
+                                                    {item.email}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                        <View style={{
+                                            width: 24, height: 24, borderRadius: 12, borderWidth: 2,
+                                            borderColor: isSelected ? getCategoryColor(scholarship.category || "General") : colors.textSecondary,
+                                            justifyContent: 'center', alignItems: 'center'
+                                        }}>
+                                            {isSelected && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: getCategoryColor(scholarship.category || "General") }} />}
+                                        </View>
+                                    </TouchableOpacity>
+                                );
+                            }}
+                            ListEmptyComponent={
+                                <View style={{ alignItems: 'center', marginTop: 50 }}>
+                                    <Text style={{ color: colors.textSecondary }}>No students found</Text>
+                                </View>
+                            }
+                        />
+                    )}
+
+                    <View style={[styles.modalFooter, { backgroundColor: isDark ? "#1E1E1E" : "#fff", borderTopColor: colors.border, paddingBottom: insets.bottom + 20 }]}>
+                        <TouchableOpacity
+                            style={[
+                                styles.applyFilterBtn,
+                                { backgroundColor: selectedStudent ? getCategoryColor(scholarship.category || "General") : (isDark ? "#333" : "#ccc"), opacity: selectedStudent ? 1 : 0.7 }
+                            ]}
+                            disabled={!selectedStudent}
+                            onPress={() => {
+                                if (selectedStudent && scholarship?.id) {
+                                    setShowStudentModal(false);
+                                    router.push({
+                                        pathname: "/(dashboard)/mobilizer/mobilizer-apply-form",
+                                        params: {
+                                            scholarshipId: scholarship.id,
+                                            studentId: selectedStudent
+                                        },
+                                    });
+                                    // Reset selection slightly after navigation
+                                    setTimeout(() => setSelectedStudent(null), 500);
+                                }
+                            }}
+                        >
+                            <Text style={styles.applyFilterText}>Proceed to Apply</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </Modal>
 
@@ -1561,5 +1729,83 @@ const styles = StyleSheet.create({
         marginTop: 12,
         fontSize: 16,
         fontWeight: "600",
+    },
+    // Student Selection Modal Styles
+    fullScreenModal: {
+        flex: 1,
+    },
+    modalHeader: {
+        paddingHorizontal: 20,
+        paddingBottom: 16,
+        borderBottomWidth: 1,
+    },
+    modalHeaderTop: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
+    closeBtn: {
+        width: 40,
+        height: 40,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: "700",
+        flex: 1,
+        textAlign: "center",
+    },
+    studentCard: {
+        flexDirection: "row",
+        alignItems: "center",
+        padding: 16,
+        borderRadius: 12,
+        marginBottom: 12,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    studentAvatar: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+    },
+    studentAvatarPlaceholder: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    studentInitials: {
+        color: "#fff",
+        fontSize: 18,
+        fontWeight: "700",
+    },
+    studentName: {
+        fontSize: 16,
+        fontWeight: "600",
+        marginBottom: 2,
+    },
+    studentDetail: {
+        fontSize: 13,
+    },
+    modalFooter: {
+        padding: 20,
+        borderTopWidth: 1,
+    },
+    applyFilterBtn: {
+        paddingVertical: 16,
+        borderRadius: 12,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    applyFilterText: {
+        color: "#fff",
+        fontSize: 16,
+        fontWeight: "700",
     },
 });
