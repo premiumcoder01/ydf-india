@@ -10,11 +10,10 @@ import {
     ActivityIndicator,
     FlatList,
     RefreshControl,
-    StatusBar,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from "react-native";
 
 export default function MobilizerNotificationsScreen() {
@@ -107,7 +106,6 @@ export default function MobilizerNotificationsScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: isDark ? colors.background : "#f5f5f5" }]}>
-            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
             <AppHeader title="Notifications" onBack={() => router.back()} />
 
             <View style={styles.headerActions}>

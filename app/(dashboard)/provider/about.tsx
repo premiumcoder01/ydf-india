@@ -61,7 +61,7 @@ export default function ProviderAboutScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={isDark ? ["#121212", "#1e1e1e"] : ["#fff", "#f8f9fa"]}
+        colors={isDark ? ["#000", "#000"] : ["#fff", "#f8f9fa"]}
         style={styles.background}
       />
 

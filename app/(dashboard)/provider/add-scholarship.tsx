@@ -370,16 +370,7 @@ export default function ProviderAddScholarshipScreen() {
     updateField("stages", formData.stages.filter(s => s.id !== id));
   };
 
-  // --- Render Helpers ---
 
-  const SectionHeader = ({ title, icon }: { title: string; icon: string }) => (
-    <View style={styles.sectionHeader}>
-      <View style={[styles.iconContainer, { backgroundColor: colors.primary + "15" }]}>
-        <Ionicons name={icon as any} size={20} color={colors.primary} />
-      </View>
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>{title}</Text>
-    </View>
-  );
 
   const StepIndicator = () => (
     <View style={[styles.stepIndicatorContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
@@ -1213,7 +1204,7 @@ export default function ProviderAddScholarshipScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={[styles.container, { backgroundColor: isDark ? colors.shadow : colors.background }]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
 

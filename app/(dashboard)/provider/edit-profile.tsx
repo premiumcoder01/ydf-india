@@ -1,6 +1,6 @@
 import { AppHeader, Button, CustomTextInput, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { getUserProfile, updateUserProfile } from "@/utils/api";
+import { getUserProfile, updateUserProfile, uploadProfileImage } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -9,6 +9,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
+    ActivityIndicator,
     Image,
     KeyboardAvoidingView,
     Modal,
@@ -16,6 +17,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View
 } from "react-native";
@@ -73,7 +75,7 @@ const SCHEME_OPTIONS = [
 
 const REGISTERING_AS_OPTIONS = ["New Applicant", "Renew Applicant"];
 
-const YEAR_OF_COURSE_OPTIONS = ["23-24", "24-25", "25-26"];
+const YEAR_OF_COURSE_OPTIONS = ["20-21", "21-22", "22-23", "23-24", "24-25", "25-26"];
 
 const BOARD_12TH_OPTIONS = [
     "BSEB(BR)",
@@ -97,27 +99,26 @@ const STREAM_12TH_OPTIONS = [
 
 const PASSING_YEAR_12TH_OPTIONS = ["2024", "2025", "Not Applicable"];
 
+const APPLICATION_YEAR_OPTIONS = ["20-21", "21-22", "22-23", "23-24", "24-25", "25-26"];
+
 export default function ProviderEditProfileScreen() {
     const { isDark, colors } = useTheme();
     const insets = useSafeAreaInsets();
     const [personalInfo, setPersonalInfo] = useState({
-        // General / Personal
         username: "",
-        fullName: "",
         firstName: "",
         lastName: "",
         email: "",
+        phone: "",
         dob: "",
         gender: "",
         religion: "",
         caste: "",
         city: "",
         profileImageUrl: "",
-        // Family
         fatherName: "",
         motherName: "",
         annualIncome: "",
-        // New Fields
         session: "",
         yearOfCourse: "",
         passing10th: "",
@@ -133,15 +134,17 @@ export default function ProviderEditProfileScreen() {
     const [isSaving, setIsSaving] = useState(false);
     const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [focusedField, setFocusedField] = useState<string | null>(null);
+    const [selectedImageFile, setSelectedImageFile] = useState<any>(null);
+    const [originalProfileImageUrl, setOriginalProfileImageUrl] = useState("");
+    const [isProfileLoading, setIsProfileLoading] = useState(true);
 
-    // Toast State
     const [showToast, setShowToast] = useState(false);
     const [toastMessage, setToastMessage] = useState("");
     const [toastType, setToastType] = useState<"success" | "error" | "info">("error");
 
     const [showReligionPicker, setShowReligionPicker] = useState(false);
     const [showCastePicker, setShowCastePicker] = useState(false);
-
     const [showGenderPicker, setShowGenderPicker] = useState(false);
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showIncomePicker, setShowIncomePicker] = useState(false);
@@ -151,19 +154,16 @@ export default function ProviderEditProfileScreen() {
     const [showBoard12thPicker, setShowBoard12thPicker] = useState(false);
     const [showStream12thPicker, setShowStream12thPicker] = useState(false);
     const [showPassingYear12thPicker, setShowPassingYear12thPicker] = useState(false);
+    const [showApplicationYearPicker, setShowApplicationYearPicker] = useState(false);
 
-
-
-    // Validation Functions
     const validateEmail = (email: string): boolean => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);
     };
 
-
-
     useEffect(() => {
         const fetchUserProfile = async () => {
+            setIsProfileLoading(true);
             try {
                 const authDataStr = await AsyncStorage.getItem("authData");
                 if (authDataStr) {
@@ -175,11 +175,16 @@ export default function ProviderEditProfileScreen() {
                             setPersonalInfo((prev) => ({
                                 ...prev,
                                 username: user.username || prev.username,
-                                fullName: user.fullname || `${user.firstname} ${user.lastname}` || prev.fullName,
                                 firstName: user.firstname || prev.firstName,
                                 lastName: user.lastname || prev.lastName,
                                 email: user.email || prev.email,
-
+                                phone: (() => {
+                                    let p = user.phone1 || user.phone || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'phone_number')?.value || "";
+                                    if (p === "N/A") return "";
+                                    if (p && p.startsWith('+91')) return p.substring(3);
+                                    if (p && p.startsWith('91') && p.length === 12) return p.substring(2);
+                                    return p || prev.phone;
+                                })(),
                                 address: user.address || prev.address,
                                 city: user.city || prev.city,
                                 dob: user.dob
@@ -192,12 +197,9 @@ export default function ProviderEditProfileScreen() {
                                 gender: user.gender || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'gender')?.value || prev.gender,
                                 religion: user.religion || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'religion')?.value || prev.religion,
                                 caste: user.caste || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'caste')?.value || prev.caste,
-
                                 fatherName: user.fathername || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'fathername')?.value || prev.fatherName,
                                 motherName: user.mothername || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'mothername')?.value || prev.motherName,
                                 annualIncome: user.annualincome || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'family_income' || f.shortname.toLowerCase() === 'annualincome')?.value || prev.annualIncome,
-
-                                // New Fields Mapping
                                 session: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'session')?.value || prev.session,
                                 yearOfCourse: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'year_of_course')?.value || prev.yearOfCourse,
                                 passing10th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'passing_10th')?.value || prev.passing10th,
@@ -207,7 +209,6 @@ export default function ProviderEditProfileScreen() {
                                 registeringAs: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'registering_as')?.value || prev.registeringAs,
                                 schemeName: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'schemename')?.value || prev.schemeName,
                                 passingYear12th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === '12th_passing_year')?.value || prev.passingYear12th,
-
                                 profileImageUrl: user?.profileimageurl || prev?.profileImageUrl,
                             }));
                         }
@@ -215,18 +216,17 @@ export default function ProviderEditProfileScreen() {
                 }
             } catch (error) {
                 console.error("Failed to fetch user profile:", error);
+            } finally {
+                setIsProfileLoading(false);
             }
         };
-
         fetchUserProfile();
     }, []);
 
-    // Handlers
     const handlePersonalInfoChange = useCallback(
         (field: keyof typeof personalInfo, value: string) => {
             setPersonalInfo((prev) => ({ ...prev, [field]: value }));
             setHasUnsavedChanges(true);
-
             if (validationErrors[field]) {
                 setValidationErrors((prev) => {
                     const newErrors = { ...prev };
@@ -240,59 +240,147 @@ export default function ProviderEditProfileScreen() {
 
     const validatePersonalInfo = (): boolean => {
         const errors: ValidationErrors = {};
-
-        if (!personalInfo.fullName.trim()) {
-            errors.fullName = "Full name is required";
+        if (!personalInfo.firstName.trim()) errors.firstName = "First name is required";
+        if (!personalInfo.lastName.trim()) errors.lastName = "Last name is required";
+        if (!validateEmail(personalInfo.email)) errors.email = "Please enter a valid email address";
+        if (personalInfo.phone) {
+            const cleanPhone = personalInfo.phone.replace(/\D/g, '');
+            if (cleanPhone.length !== 10) errors.phone = "Enter a valid 10-digit number";
         }
-        if (!validateEmail(personalInfo.email)) {
-            errors.email = "Please enter a valid email address";
-        }
-
         if (!personalInfo.annualIncome.trim()) errors.annualIncome = "Annual income is required";
-
-        if (!personalInfo.gender) {
-            errors.gender = "Gender is required";
-        }
-        if (!personalInfo.dob) {
-            errors.dob = "Date of birth is required";
-        }
-        if (!personalInfo.religion) {
-            errors.religion = "Religion is required";
-        }
-        if (!personalInfo.caste) {
-            errors.caste = "Caste is required";
-        }
-
-
-
+        if (!personalInfo.gender) errors.gender = "Gender is required";
+        if (!personalInfo.dob) errors.dob = "Date of birth is required";
+        if (!personalInfo.religion) errors.religion = "Religion is required";
+        if (!personalInfo.caste) errors.caste = "Caste is required";
         setValidationErrors(errors);
         return Object.keys(errors).length === 0;
     };
 
-    const handleImagePick = async () => {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const [showImageOptions, setShowImageOptions] = useState(false);
+    const [showImagePreview, setShowImagePreview] = useState(false);
+    const [previewImageUri, setPreviewImageUri] = useState("");
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const [isRemovingImage, setIsRemovingImage] = useState(false);
 
+    const handleImageOptions = () => setShowImageOptions(true);
+
+    const handleTakePhoto = async () => {
+        setShowImageOptions(false);
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+            setToastMessage("Camera permission is required to take photos");
+            setToastType("error");
+            setShowToast(true);
+            return;
+        }
+        const result = await ImagePicker.launchCameraAsync({
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+            cameraType: ImagePicker.CameraType.front,
+        });
+        if (!result.canceled && result.assets && result.assets.length > 0) {
+            const asset = result.assets[0];
+            setPreviewImageUri(asset.uri);
+            setSelectedImageFile({
+                uri: asset.uri,
+                name: asset.fileName || `photo_${Date.now()}.jpg`,
+                type: asset.type || 'image/jpeg',
+                mimeType: asset.type || 'image/jpeg',
+            });
+            setShowImagePreview(true);
+        }
+    };
+
+    const handlePickFromGallery = async () => {
+        setShowImageOptions(false);
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
             setToastMessage("Permission to access gallery is required");
             setToastType("error");
             setShowToast(true);
             return;
         }
-
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
             aspect: [1, 1],
             quality: 0.8,
         });
-
         if (!result.canceled && result.assets && result.assets.length > 0) {
-            setPersonalInfo(prev => ({ ...prev, profileImageUrl: result.assets[0].uri }));
-            setHasUnsavedChanges(true);
+            const asset = result.assets[0];
+            setPreviewImageUri(asset.uri);
+            setSelectedImageFile({
+                uri: asset.uri,
+                name: asset.fileName || `image_${Date.now()}.jpg`,
+                type: asset.type || 'image/jpeg',
+                mimeType: asset.type || 'image/jpeg',
+            });
+            setShowImagePreview(true);
         }
     };
 
+    const handleUpdateProfileImage = async () => {
+        if (!selectedImageFile) return;
+        setIsUploadingImage(true);
+        try {
+            const authDataStr = await AsyncStorage.getItem("authData");
+            if (!authDataStr) throw new Error("Authentication session expired");
+            const authData = JSON.parse(authDataStr);
+            if (!authData.token) throw new Error("Invalid session token");
+            const uploadResponse = await uploadProfileImage(authData.token, selectedImageFile);
+            if (uploadResponse.success && uploadResponse.data?.id) {
+                const profileImageFileId = uploadResponse.data.id;
+                const payload = { profileImageFileId };
+                const response = await updateUserProfile(authData.token, payload);
+                if (response.success) {
+                    setPersonalInfo(prev => ({ ...prev, profileImageUrl: previewImageUri }));
+                    setSelectedImageFile(null);
+                    setShowImagePreview(false);
+                    setToastMessage("Profile image updated successfully");
+                    setToastType("success");
+                    setShowToast(true);
+                } else {
+                    throw new Error(response.error || "Failed to update profile");
+                }
+            } else {
+                throw new Error(uploadResponse.error || uploadResponse.message || "Failed to upload profile image");
+            }
+        } catch (error: any) {
+            setToastMessage(error.message || "Failed to update profile image");
+            setToastType("error");
+            setShowToast(true);
+        } finally {
+            setIsUploadingImage(false);
+        }
+    };
 
+    const handleRemoveProfileImage = async () => {
+        if (!personalInfo.profileImageUrl || isRemovingImage) return;
+        setIsRemovingImage(true);
+        setShowImageOptions(false);
+        try {
+            const authDataStr = await AsyncStorage.getItem("authData");
+            if (!authDataStr) throw new Error("Authentication session expired");
+            const authData = JSON.parse(authDataStr);
+            if (!authData.token) throw new Error("Invalid session token");
+            const response = await updateUserProfile(authData.token, { profileImageFileId: null });
+            if (response.success) {
+                setPersonalInfo(prev => ({ ...prev, profileImageUrl: "" }));
+                setToastMessage("Profile image removed successfully");
+                setToastType("success");
+                setShowToast(true);
+            } else {
+                throw new Error(response.error || "Failed to remove profile image");
+            }
+        } catch (error: any) {
+            setToastMessage(error.message || "Failed to remove profile image");
+            setToastType("error");
+            setShowToast(true);
+        } finally {
+            setIsRemovingImage(false);
+        }
+    };
 
     const handleSavePersonal = async () => {
         if (!validatePersonalInfo()) {
@@ -305,11 +393,18 @@ export default function ProviderEditProfileScreen() {
         try {
             const authDataStr = await AsyncStorage.getItem("authData");
             if (!authDataStr) throw new Error("Authentication session expired");
-
             const authData = JSON.parse(authDataStr);
             if (!authData.token) throw new Error("Invalid session token");
 
-            const payload = { ...personalInfo, phone: "" };
+            let finalPhone = personalInfo.phone;
+            if (finalPhone && finalPhone.replace(/\D/g, '').length === 10 && !finalPhone.startsWith('+')) {
+                finalPhone = `91${finalPhone.replace(/\D/g, '')}`;
+            } else if (finalPhone && finalPhone.startsWith('+91')) {
+                finalPhone = finalPhone.replace('+91', '91');
+            }
+
+            const { ...rest } = personalInfo;
+            const payload = { ...rest, phone: finalPhone };
             const response = await updateUserProfile(authData.token, payload);
 
             if (response.success) {
@@ -317,11 +412,7 @@ export default function ProviderEditProfileScreen() {
                 setToastMessage("Personal information updated successfully");
                 setToastType("success");
                 setShowToast(true);
-
-                // Navigate back to dashboard after a delay
-                setTimeout(() => {
-                    router.back();
-                }, 1500);
+                setTimeout(() => { router.back(); }, 1500);
             } else {
                 setToastMessage(response.error || "Failed to update profile");
                 setToastType("error");
@@ -336,34 +427,24 @@ export default function ProviderEditProfileScreen() {
         }
     };
 
-    // Handler for iOS Modal Picker
     const onConfirmDate = (date: Date) => {
-        const formattedDate = date.toLocaleDateString('en-GB'); // DD/MM/YYYY
-        handlePersonalInfoChange("dob", formattedDate);
+        handlePersonalInfoChange("dob", date.toLocaleDateString('en-GB'));
         setShowDatePicker(false);
     };
 
-    const onCancelDate = () => {
-        setShowDatePicker(false);
-    };
+    const onCancelDate = () => setShowDatePicker(false);
 
-    // Handler for Android Picker
     const onAndroidDateChange = (event: any, selectedDate?: Date) => {
         setShowDatePicker(false);
         if (selectedDate) {
-            const formattedDate = selectedDate.toLocaleDateString('en-GB'); // DD/MM/YYYY
-            handlePersonalInfoChange("dob", formattedDate);
+            handlePersonalInfoChange("dob", selectedDate.toLocaleDateString('en-GB'));
         }
     };
 
     const SelectionModal = ({ visible, onClose, title, options, selected, onSelect }: any) => (
         <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
             <View style={styles.modalOverlay}>
-                <TouchableOpacity
-                    style={styles.modalBackdrop}
-                    onPress={onClose}
-                    activeOpacity={1}
-                />
+                <TouchableOpacity style={styles.modalBackdrop} onPress={onClose} activeOpacity={1} />
                 <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20, backgroundColor: colors.surface }]}>
                     <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                         <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
@@ -376,19 +457,13 @@ export default function ProviderEditProfileScreen() {
                             <TouchableOpacity
                                 key={opt}
                                 style={[styles.optionRow, selected === opt && styles.optionSelected, { borderBottomColor: colors.border }]}
-                                onPress={() => {
-                                    onSelect(opt);
-                                }}
+                                onPress={() => onSelect(opt)}
                                 activeOpacity={0.7}
                             >
-                                <Text
-                                    style={[styles.optionText, { color: colors.text }, selected === opt && styles.optionTextSelected]}
-                                >
+                                <Text style={[styles.optionText, { color: colors.text }, selected === opt && styles.optionTextSelected]}>
                                     {opt}
                                 </Text>
-                                {selected === opt && (
-                                    <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
-                                )}
+                                {selected === opt && <Ionicons name="checkmark-circle" size={22} color={colors.primary} />}
                             </TouchableOpacity>
                         ))}
                     </ScrollView>
@@ -396,7 +471,6 @@ export default function ProviderEditProfileScreen() {
             </View>
         </Modal>
     );
-
 
     return (
         <View style={styles.container}>
@@ -408,10 +482,7 @@ export default function ProviderEditProfileScreen() {
 
             <AppHeader title="Edit Profile" onBack={() => router.back()} />
 
-            <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
-                style={{ flex: 1 }}
-            >
+            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
                 <ScrollView
                     style={styles.scrollView}
                     contentContainerStyle={{ paddingBottom: 40 }}
@@ -420,16 +491,13 @@ export default function ProviderEditProfileScreen() {
                 >
                     {/* Profile Picture Section */}
                     <View style={styles.profileSection}>
-                        <TouchableOpacity
-                            style={styles.imageContainer}
-                            onPress={handleImagePick}
-                            activeOpacity={0.8}
-                        >
-                            {personalInfo?.profileImageUrl !== "" ? (
-                                <Image
-                                    source={{ uri: personalInfo?.profileImageUrl }}
-                                    style={[styles.profileImage, { borderColor: isDark ? colors.card : "#fff" }]}
-                                />
+                        <TouchableOpacity style={styles.imageContainer} onPress={handleImageOptions} activeOpacity={0.8}>
+                            {isProfileLoading ? (
+                                <View style={[styles.placeholderContainer, { backgroundColor: isDark ? colors.surface : "#F0F0F0", borderColor: isDark ? colors.card : "#fff" }]}>
+                                    <ActivityIndicator size="small" color={isDark ? "#9CA3AF" : "#6B7280"} />
+                                </View>
+                            ) : personalInfo?.profileImageUrl !== "" ? (
+                                <Image source={{ uri: personalInfo?.profileImageUrl }} style={[styles.profileImage, { borderColor: isDark ? colors.card : "#fff" }]} />
                             ) : (
                                 <View style={[styles.placeholderContainer, { backgroundColor: isDark ? colors.surface : "#F0F0F0", borderColor: isDark ? colors.card : "#fff" }]}>
                                     <Ionicons name="person" size={50} color={isDark ? "#666" : "#999"} />
@@ -439,7 +507,6 @@ export default function ProviderEditProfileScreen() {
                                 <Ionicons name="camera" size={16} color="#fff" />
                             </View>
                         </TouchableOpacity>
-
                     </View>
 
                     {/* Section 1: Personal Details */}
@@ -458,27 +525,29 @@ export default function ProviderEditProfileScreen() {
                                 value={personalInfo.username}
                                 onChangeText={(val) => handlePersonalInfoChange("username", val)}
                                 style={styles.input}
-                            />
-                            <CustomTextInput
-                                label="Full Name *"
-                                value={personalInfo.fullName}
-                                onChangeText={(val) => handlePersonalInfoChange("fullName", val)}
-                                style={styles.input}
-                                error={validationErrors.fullName}
+                                autoCapitalize="none"
                             />
 
-                            <CustomTextInput
-                                label="First Name"
-                                value={personalInfo.firstName}
-                                onChangeText={(val) => handlePersonalInfoChange("firstName", val)}
-                                style={[styles.input, { flex: 1, marginRight: 8 }]}
-                            />
-                            <CustomTextInput
-                                label="Last Name"
-                                value={personalInfo.lastName}
-                                onChangeText={(val) => handlePersonalInfoChange("lastName", val)}
-                                style={[styles.input, { flex: 1 }]}
-                            />
+                            <View style={{ flexDirection: 'row', gap: 10 }}>
+                                <View style={{ flex: 1 }}>
+                                    <CustomTextInput
+                                        label="First Name"
+                                        value={personalInfo.firstName}
+                                        onChangeText={(val) => handlePersonalInfoChange("firstName", val)}
+                                        style={styles.input}
+                                        error={validationErrors.firstName}
+                                    />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <CustomTextInput
+                                        label="Last Name"
+                                        value={personalInfo.lastName}
+                                        onChangeText={(val) => handlePersonalInfoChange("lastName", val)}
+                                        style={styles.input}
+                                        error={validationErrors.lastName}
+                                    />
+                                </View>
+                            </View>
 
                             <CustomTextInput
                                 label="Email Address *"
@@ -488,8 +557,33 @@ export default function ProviderEditProfileScreen() {
                                 autoCapitalize="none"
                                 style={styles.input}
                                 error={validationErrors.email}
+                                editable={false}
                             />
 
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.label, { color: colors.textSecondary }]}>Phone Number</Text>
+                                <View style={[styles.phoneContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.phone && styles.phoneError]}>
+                                    <View style={{ flexDirection: "row", alignItems: "center", height: 48 }}>
+                                        <View style={{ flexDirection: "row", alignItems: "center", marginRight: 10, paddingRight: 10, borderRightWidth: 1, borderRightColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(51, 51, 51, 0.1)" }}>
+                                            <Text style={{ fontSize: 20 }}>🇮🇳</Text>
+                                            <Text style={{ fontSize: 16, fontWeight: "600", color: colors.text, marginLeft: 8 }}>+91</Text>
+                                        </View>
+                                        <TextInput
+                                            style={[styles.phoneTextInput, { flex: 1, color: colors.text }]}
+                                            value={personalInfo.phone}
+                                            onChangeText={(text) => {
+                                                const numeric = text.replace(/[^0-9]/g, "");
+                                                if (numeric.length <= 10) handlePersonalInfoChange("phone", numeric);
+                                            }}
+                                            placeholder="Mobile Number"
+                                            placeholderTextColor={isDark ? "rgba(255,255,255,0.4)" : "rgba(51, 51, 51, 0.4)"}
+                                            keyboardType="number-pad"
+                                            maxLength={10}
+                                        />
+                                    </View>
+                                </View>
+                                {validationErrors.phone && <Text style={styles.errorText}>{validationErrors.phone}</Text>}
+                            </View>
                         </View>
                     </View>
 
@@ -497,7 +591,6 @@ export default function ProviderEditProfileScreen() {
                     <View style={styles.section}>
                         <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 10 }]}>Family Details</Text>
                         <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-
                             <View style={styles.inputGroup}>
                                 <Text style={[styles.label, { color: colors.textSecondary }]}>Annual Income *</Text>
                                 <TouchableOpacity
@@ -509,40 +602,28 @@ export default function ProviderEditProfileScreen() {
                                     </Text>
                                     <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
                                 </TouchableOpacity>
-                                {validationErrors.annualIncome && (
-                                    <Text style={styles.errorText}>{validationErrors.annualIncome}</Text>
-                                )}
+                                {validationErrors.annualIncome && <Text style={styles.errorText}>{validationErrors.annualIncome}</Text>}
                             </View>
                         </View>
                     </View>
 
-                    {/* Section: Educational & Application Details */}
+                    {/* Section: Education & Application */}
                     <View style={styles.section}>
                         <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 10 }]}>Education & Application</Text>
                         <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
 
                             <View style={styles.inputGroup}>
                                 <Text style={[styles.label, { color: colors.textSecondary }]}>Scheme Name</Text>
-                                <TouchableOpacity
-                                    style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
-                                    onPress={() => setShowSchemePicker(true)}
-                                >
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.schemeName && styles.placeholderText]}>
-                                        {personalInfo.schemeName || "Select Scheme"}
-                                    </Text>
+                                <TouchableOpacity style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]} onPress={() => setShowSchemePicker(true)}>
+                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.schemeName && styles.placeholderText]}>{personalInfo.schemeName || "Select Scheme"}</Text>
                                     <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
                                 </TouchableOpacity>
                             </View>
 
                             <View style={styles.inputGroup}>
                                 <Text style={[styles.label, { color: colors.textSecondary }]}>Registering As</Text>
-                                <TouchableOpacity
-                                    style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
-                                    onPress={() => setShowRegisteringAsPicker(true)}
-                                >
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.registeringAs && styles.placeholderText]}>
-                                        {personalInfo.registeringAs || "Select Type"}
-                                    </Text>
+                                <TouchableOpacity style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]} onPress={() => setShowRegisteringAsPicker(true)}>
+                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.registeringAs && styles.placeholderText]}>{personalInfo.registeringAs || "Select Type"}</Text>
                                     <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
                                 </TouchableOpacity>
                             </View>
@@ -558,51 +639,36 @@ export default function ProviderEditProfileScreen() {
                                     />
                                 </View>
                                 <View style={{ flex: 1 }}>
-                                    <CustomTextInput
-                                        label="Application Year"
-                                        value={personalInfo.applicationYear}
-                                        onChangeText={(val) => handlePersonalInfoChange("applicationYear", val)}
-                                        style={styles.input}
-                                        placeholder="e.g. 25-26"
-                                    />
+                                    <View style={styles.inputGroup}>
+                                        <Text style={[styles.label, { color: colors.textSecondary }]}>Application Year</Text>
+                                        <TouchableOpacity style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]} onPress={() => setShowApplicationYearPicker(true)}>
+                                            <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.applicationYear && styles.placeholderText]}>{personalInfo.applicationYear || "Select Year"}</Text>
+                                            <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
                             </View>
 
                             <View style={styles.inputGroup}>
                                 <Text style={[styles.label, { color: colors.textSecondary }]}>Year of Course</Text>
-                                <TouchableOpacity
-                                    style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
-                                    onPress={() => setShowYearOfCoursePicker(true)}
-                                >
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.yearOfCourse && styles.placeholderText]}>
-                                        {personalInfo.yearOfCourse || "Select Year"}
-                                    </Text>
+                                <TouchableOpacity style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]} onPress={() => setShowYearOfCoursePicker(true)}>
+                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.yearOfCourse && styles.placeholderText]}>{personalInfo.yearOfCourse || "Select Year"}</Text>
                                     <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
                                 </TouchableOpacity>
                             </View>
 
                             <View style={styles.inputGroup}>
                                 <Text style={[styles.label, { color: colors.textSecondary }]}>12th Board</Text>
-                                <TouchableOpacity
-                                    style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
-                                    onPress={() => setShowBoard12thPicker(true)}
-                                >
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.board12th && styles.placeholderText]}>
-                                        {personalInfo.board12th || "Select Board"}
-                                    </Text>
+                                <TouchableOpacity style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]} onPress={() => setShowBoard12thPicker(true)}>
+                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.board12th && styles.placeholderText]}>{personalInfo.board12th || "Select Board"}</Text>
                                     <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
                                 </TouchableOpacity>
                             </View>
 
                             <View style={styles.inputGroup}>
                                 <Text style={[styles.label, { color: colors.textSecondary }]}>Stream in 12th</Text>
-                                <TouchableOpacity
-                                    style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
-                                    onPress={() => setShowStream12thPicker(true)}
-                                >
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.stream12th && styles.placeholderText]}>
-                                        {personalInfo.stream12th || "Select Stream"}
-                                    </Text>
+                                <TouchableOpacity style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]} onPress={() => setShowStream12thPicker(true)}>
+                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.stream12th && styles.placeholderText]}>{personalInfo.stream12th || "Select Stream"}</Text>
                                     <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
                                 </TouchableOpacity>
                             </View>
@@ -620,60 +686,37 @@ export default function ProviderEditProfileScreen() {
                                 <View style={{ flex: 1 }}>
                                     <View style={styles.inputGroup}>
                                         <Text style={[styles.label, { color: colors.textSecondary }]}>12th Passing Year</Text>
-                                        <TouchableOpacity
-                                            style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
-                                            onPress={() => setShowPassingYear12thPicker(true)}
-                                        >
-                                            <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.passingYear12th && styles.placeholderText]}>
-                                                {personalInfo.passingYear12th || "Select Year"}
-                                            </Text>
+                                        <TouchableOpacity style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]} onPress={() => setShowPassingYear12thPicker(true)}>
+                                            <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.passingYear12th && styles.placeholderText]}>{personalInfo.passingYear12th || "Select Year"}</Text>
                                             <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
                                         </TouchableOpacity>
                                     </View>
                                 </View>
                             </View>
-
-
                         </View>
                     </View>
 
-                    {/* Section 2: Basic Details */}
+                    {/* Section: Basic Details */}
                     <View style={styles.section}>
                         <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 10 }]}>Basic Details</Text>
                         <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                             <View style={styles.inputGroup}>
                                 <Text style={[styles.label, { color: colors.textSecondary }]}>Gender *</Text>
-                                <TouchableOpacity
-                                    style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.gender && styles.selectorError]}
-                                    onPress={() => setShowGenderPicker(true)}
-                                >
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.gender && styles.placeholderText]}>
-                                        {personalInfo.gender || "Choose..."}
-                                    </Text>
+                                <TouchableOpacity style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.gender && styles.selectorError]} onPress={() => setShowGenderPicker(true)}>
+                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.gender && styles.placeholderText]}>{personalInfo.gender || "Choose..."}</Text>
                                     <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
                                 </TouchableOpacity>
-                                {validationErrors.gender && (
-                                    <Text style={styles.errorText}>{validationErrors.gender}</Text>
-                                )}
+                                {validationErrors.gender && <Text style={styles.errorText}>{validationErrors.gender}</Text>}
                             </View>
 
                             <View style={styles.inputGroup}>
                                 <Text style={[styles.label, { color: colors.textSecondary }]}>Date of Birth *</Text>
-                                <TouchableOpacity
-                                    style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.dob && styles.selectorError]}
-                                    onPress={() => setShowDatePicker(true)}
-                                >
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.dob && styles.placeholderText]}>
-                                        {personalInfo.dob || "DD/MM/YYYY"}
-                                    </Text>
+                                <TouchableOpacity style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.dob && styles.selectorError]} onPress={() => setShowDatePicker(true)}>
+                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.dob && styles.placeholderText]}>{personalInfo.dob || "DD/MM/YYYY"}</Text>
                                     <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} />
                                 </TouchableOpacity>
-                                {validationErrors.dob && (
-                                    <Text style={styles.errorText}>{validationErrors.dob}</Text>
-                                )}
+                                {validationErrors.dob && <Text style={styles.errorText}>{validationErrors.dob}</Text>}
                             </View>
-
-
 
                             {Platform.OS === 'ios' ? (
                                 <DateTimePickerModal
@@ -686,7 +729,6 @@ export default function ProviderEditProfileScreen() {
                                     date={personalInfo.dob ? new Date(personalInfo.dob.split('/').reverse().join('-')) : new Date()}
                                     maximumDate={new Date()}
                                     fullscreen={true}
-
                                 />
                             ) : (
                                 showDatePicker && (
@@ -703,37 +745,21 @@ export default function ProviderEditProfileScreen() {
 
                             <View style={styles.inputGroup}>
                                 <Text style={[styles.label, { color: colors.textSecondary }]}>Religion *</Text>
-                                <TouchableOpacity
-                                    style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.religion && styles.selectorError]}
-                                    onPress={() => setShowReligionPicker(true)}
-                                >
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.religion && styles.placeholderText]}>
-                                        {personalInfo.religion || "Choose..."}
-                                    </Text>
+                                <TouchableOpacity style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.religion && styles.selectorError]} onPress={() => setShowReligionPicker(true)}>
+                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.religion && styles.placeholderText]}>{personalInfo.religion || "Choose..."}</Text>
                                     <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
                                 </TouchableOpacity>
-                                {validationErrors.religion && (
-                                    <Text style={styles.errorText}>{validationErrors.religion}</Text>
-                                )}
+                                {validationErrors.religion && <Text style={styles.errorText}>{validationErrors.religion}</Text>}
                             </View>
 
                             <View style={styles.inputGroup}>
                                 <Text style={[styles.label, { color: colors.textSecondary }]}>Caste *</Text>
-                                <TouchableOpacity
-                                    style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.caste && styles.selectorError]}
-                                    onPress={() => setShowCastePicker(true)}
-                                >
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.caste && styles.placeholderText]}>
-                                        {personalInfo.caste || "Choose..."}
-                                    </Text>
+                                <TouchableOpacity style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.caste && styles.selectorError]} onPress={() => setShowCastePicker(true)}>
+                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.caste && styles.placeholderText]}>{personalInfo.caste || "Choose..."}</Text>
                                     <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
                                 </TouchableOpacity>
-                                {validationErrors.caste && (
-                                    <Text style={styles.errorText}>{validationErrors.caste}</Text>
-                                )}
+                                {validationErrors.caste && <Text style={styles.errorText}>{validationErrors.caste}</Text>}
                             </View>
-
-
 
                             <CustomTextInput
                                 label="Address"
@@ -751,10 +777,6 @@ export default function ProviderEditProfileScreen() {
                         </View>
                     </View>
 
-
-
-
-
                     {/* Save Button */}
                     <View style={[styles.section, { marginTop: 0 }]}>
                         <Button
@@ -770,178 +792,94 @@ export default function ProviderEditProfileScreen() {
                 </ScrollView>
             </KeyboardAvoidingView>
 
-            <Toast
-                message={toastMessage}
-                type={toastType}
-                visible={showToast}
-                onHide={() => setShowToast(false)}
-                duration={3000}
-            />
+            <Toast message={toastMessage} type={toastType} visible={showToast} onHide={() => setShowToast(false)} duration={3000} />
 
-            <SelectionModal
-                visible={showReligionPicker}
-                onClose={() => setShowReligionPicker(false)}
-                title="Select Religion"
-                options={RELIGION_OPTIONS}
-                selected={personalInfo.religion}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("religion", val);
-                    setShowReligionPicker(false);
-                }}
-            />
+            <SelectionModal visible={showReligionPicker} onClose={() => setShowReligionPicker(false)} title="Select Religion" options={RELIGION_OPTIONS} selected={personalInfo.religion} onSelect={(val: string) => { handlePersonalInfoChange("religion", val); setShowReligionPicker(false); }} />
+            <SelectionModal visible={showIncomePicker} onClose={() => setShowIncomePicker(false)} title="Select Annual Income" options={ANNUAL_INCOME_OPTIONS} selected={personalInfo.annualIncome} onSelect={(val: string) => { handlePersonalInfoChange("annualIncome", val); setShowIncomePicker(false); }} />
+            <SelectionModal visible={showSchemePicker} onClose={() => setShowSchemePicker(false)} title="Select Scheme" options={SCHEME_OPTIONS} selected={personalInfo.schemeName} onSelect={(val: string) => { handlePersonalInfoChange("schemeName", val); setShowSchemePicker(false); }} />
+            <SelectionModal visible={showRegisteringAsPicker} onClose={() => setShowRegisteringAsPicker(false)} title="Registering As" options={REGISTERING_AS_OPTIONS} selected={personalInfo.registeringAs} onSelect={(val: string) => { handlePersonalInfoChange("registeringAs", val); setShowRegisteringAsPicker(false); }} />
+            <SelectionModal visible={showCastePicker} onClose={() => setShowCastePicker(false)} title="Select Caste" options={CASTE_OPTIONS} selected={personalInfo.caste} onSelect={(val: string) => { handlePersonalInfoChange("caste", val); setShowCastePicker(false); }} />
+            <SelectionModal visible={showGenderPicker} onClose={() => setShowGenderPicker(false)} title="Select Gender" options={GENDER_OPTIONS} selected={personalInfo.gender} onSelect={(val: string) => { handlePersonalInfoChange("gender", val); setShowGenderPicker(false); }} />
+            <SelectionModal visible={showYearOfCoursePicker} onClose={() => setShowYearOfCoursePicker(false)} title="Select Year of Course" options={YEAR_OF_COURSE_OPTIONS} selected={personalInfo.yearOfCourse} onSelect={(val: string) => { handlePersonalInfoChange("yearOfCourse", val); setShowYearOfCoursePicker(false); }} />
+            <SelectionModal visible={showBoard12thPicker} onClose={() => setShowBoard12thPicker(false)} title="Select 12th Board" options={BOARD_12TH_OPTIONS} selected={personalInfo.board12th} onSelect={(val: string) => { handlePersonalInfoChange("board12th", val); setShowBoard12thPicker(false); }} />
+            <SelectionModal visible={showStream12thPicker} onClose={() => setShowStream12thPicker(false)} title="Select Stream in 12th" options={STREAM_12TH_OPTIONS} selected={personalInfo.stream12th} onSelect={(val: string) => { handlePersonalInfoChange("stream12th", val); setShowStream12thPicker(false); }} />
+            <SelectionModal visible={showPassingYear12thPicker} onClose={() => setShowPassingYear12thPicker(false)} title="Select 12th Passing Year" options={PASSING_YEAR_12TH_OPTIONS} selected={personalInfo.passingYear12th} onSelect={(val: string) => { handlePersonalInfoChange("passingYear12th", val); setShowPassingYear12thPicker(false); }} />
+            <SelectionModal visible={showApplicationYearPicker} onClose={() => setShowApplicationYearPicker(false)} title="Select Application Year" options={APPLICATION_YEAR_OPTIONS} selected={personalInfo.applicationYear} onSelect={(val: string) => { handlePersonalInfoChange("applicationYear", val); setShowApplicationYearPicker(false); }} />
 
-            <SelectionModal
-                visible={showIncomePicker}
-                onClose={() => setShowIncomePicker(false)}
-                title="Select Annual Income"
-                options={ANNUAL_INCOME_OPTIONS}
-                selected={personalInfo.annualIncome}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("annualIncome", val);
-                    setShowIncomePicker(false);
-                }}
-            />
+            {/* Image Options Modal */}
+            <Modal visible={showImageOptions} transparent animationType="slide" onRequestClose={() => setShowImageOptions(false)}>
+                <View style={styles.modalOverlay}>
+                    <TouchableOpacity style={styles.modalBackdrop} onPress={() => setShowImageOptions(false)} activeOpacity={1} />
+                    <View style={[styles.imageOptionsContent, { backgroundColor: colors.surface, borderColor: colors.border, paddingBottom: insets.bottom || 20 }]}>
+                        <View style={styles.imageOptionsHandle}>
+                            <View style={[styles.handleBar, { backgroundColor: colors.border }]} />
+                        </View>
+                        <Text style={[styles.imageOptionsTitle, { color: colors.text }]}>Change Profile Picture</Text>
+                        <TouchableOpacity style={[styles.imageOptionButton, { borderBottomColor: colors.border }]} onPress={handleTakePhoto} activeOpacity={0.7}>
+                            <Ionicons name="camera" size={24} color={colors.primary} />
+                            <Text style={[styles.imageOptionText, { color: colors.text }]}>Take Photo</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.imageOptionButton, { borderBottomColor: colors.border }]} onPress={handlePickFromGallery} activeOpacity={0.7}>
+                            <Ionicons name="images" size={24} color={colors.primary} />
+                            <Text style={[styles.imageOptionText, { color: colors.text }]}>Choose from Gallery</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.imageOptionButton, { opacity: !personalInfo.profileImageUrl || isRemovingImage ? 0.5 : 1 }]} onPress={handleRemoveProfileImage} activeOpacity={0.7} disabled={!personalInfo.profileImageUrl || isRemovingImage}>
+                            <Ionicons name="trash-outline" size={24} color={colors.textSecondary} />
+                            <Text style={[styles.imageOptionText, { color: colors.textSecondary }]}>{isRemovingImage ? "Removing..." : "Remove Photo"}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.imageOptionButton} onPress={() => setShowImageOptions(false)} activeOpacity={0.7}>
+                            <Ionicons name="close-circle" size={24} color={colors.textSecondary} />
+                            <Text style={[styles.imageOptionText, { color: colors.textSecondary }]}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
 
-            <SelectionModal
-                visible={showSchemePicker}
-                onClose={() => setShowSchemePicker(false)}
-                title="Select Scheme"
-                options={SCHEME_OPTIONS}
-                selected={personalInfo.schemeName}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("schemeName", val);
-                    setShowSchemePicker(false);
-                }}
-            />
+            {/* Image Preview Modal */}
+            <Modal visible={showImagePreview} transparent animationType="slide" onRequestClose={() => !isUploadingImage && setShowImagePreview(false)}>
+                <View style={styles.modalOverlay}>
+                    <TouchableOpacity style={styles.modalBackdrop} onPress={() => !isUploadingImage && setShowImagePreview(false)} activeOpacity={1} disabled={isUploadingImage} />
+                    <View style={[styles.imagePreviewContent, { backgroundColor: colors.surface, paddingBottom: insets.bottom || 20 }]}>
+                        <View style={styles.imageOptionsHandle}>
+                            <View style={[styles.handleBar, { backgroundColor: colors.border }]} />
+                        </View>
+                        <View style={[styles.imagePreviewHeader, { borderBottomColor: colors.border }]}>
+                            <Text style={[styles.imagePreviewTitle, { color: colors.text }]}>Preview</Text>
+                            {!isUploadingImage && (
+                                <TouchableOpacity onPress={() => setShowImagePreview(false)}>
+                                    <Ionicons name="close" size={24} color={colors.textSecondary} />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                        <View style={styles.imagePreviewBody}>
+                            {previewImageUri ? <Image source={{ uri: previewImageUri }} style={styles.previewImage} /> : null}
+                        </View>
+                        <View style={styles.imagePreviewFooter}>
+                            <Button
+                                title={isUploadingImage ? "Uploading..." : "Update Profile Image"}
+                                onPress={handleUpdateProfileImage}
+                                disabled={isUploadingImage}
+                                loading={isUploadingImage}
+                            />
+                        </View>
+                    </View>
+                </View>
+            </Modal>
 
-            <SelectionModal
-                visible={showRegisteringAsPicker}
-                onClose={() => setShowRegisteringAsPicker(false)}
-                title="Registering As"
-                options={REGISTERING_AS_OPTIONS}
-                selected={personalInfo.registeringAs}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("registeringAs", val);
-                    setShowRegisteringAsPicker(false);
-                }}
-            />
-            <SelectionModal
-                visible={showCastePicker}
-                onClose={() => setShowCastePicker(false)}
-                title="Select Caste"
-                options={CASTE_OPTIONS}
-                selected={personalInfo.caste}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("caste", val);
-                    setShowCastePicker(false);
-                }}
-            />
-
-            <SelectionModal
-                visible={showGenderPicker}
-                onClose={() => setShowGenderPicker(false)}
-                title="Select Gender"
-                options={GENDER_OPTIONS}
-                selected={personalInfo.gender}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("gender", val);
-                    setShowGenderPicker(false);
-                }}
-            />
-
-            <SelectionModal
-                visible={showYearOfCoursePicker}
-                onClose={() => setShowYearOfCoursePicker(false)}
-                title="Select Year of Course"
-                options={YEAR_OF_COURSE_OPTIONS}
-                selected={personalInfo.yearOfCourse}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("yearOfCourse", val);
-                    setShowYearOfCoursePicker(false);
-                }}
-            />
-
-            <SelectionModal
-                visible={showBoard12thPicker}
-                onClose={() => setShowBoard12thPicker(false)}
-                title="Select 12th Board"
-                options={BOARD_12TH_OPTIONS}
-                selected={personalInfo.board12th}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("board12th", val);
-                    setShowBoard12thPicker(false);
-                }}
-            />
-
-            <SelectionModal
-                visible={showStream12thPicker}
-                onClose={() => setShowStream12thPicker(false)}
-                title="Select Stream in 12th"
-                options={STREAM_12TH_OPTIONS}
-                selected={personalInfo.stream12th}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("stream12th", val);
-                    setShowStream12thPicker(false);
-                }}
-            />
-
-            <SelectionModal
-                visible={showPassingYear12thPicker}
-                onClose={() => setShowPassingYear12thPicker(false)}
-                title="Select 12th Passing Year"
-                options={PASSING_YEAR_12TH_OPTIONS}
-                selected={personalInfo.passingYear12th}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("passingYear12th", val);
-                    setShowPassingYear12thPicker(false);
-                }}
-            />
-        </View >
+            <Toast visible={showToast} message={toastMessage} type={toastType} onHide={() => setShowToast(false)} />
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    background: {
-        position: "absolute",
-        top: 0,
-        left: 0,
-        bottom: 0,
-        right: 0,
-    },
-    scrollView: {
-        flex: 1,
-    },
-    section: {
-        paddingHorizontal: 20,
-        marginBottom: 24,
-        marginTop: 8,
-    },
-    sectionHeader: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 16,
-    },
-    sectionTitle: {
-        fontSize: 20,
-        fontWeight: "700",
-        letterSpacing: -0.5,
-        color: "#333",
-    },
-    unsavedBadge: {
-        backgroundColor: "#FFE0B2",
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 8,
-    },
-    unsavedText: {
-        fontSize: 12,
-        fontWeight: "700",
-        color: "#E65100",
-    },
+    container: { flex: 1 },
+    background: { position: "absolute", top: 0, left: 0, bottom: 0, right: 0 },
+    scrollView: { flex: 1 },
+    section: { paddingHorizontal: 20, marginBottom: 24, marginTop: 8 },
+    sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
+    sectionTitle: { fontSize: 20, fontWeight: "700", letterSpacing: -0.5, color: "#333" },
+    unsavedBadge: { backgroundColor: "#FFE0B2", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+    unsavedText: { fontSize: 12, fontWeight: "700", color: "#E65100" },
     formCard: {
         backgroundColor: "rgba(255, 255, 255, 0.98)",
         borderRadius: 20,
@@ -954,149 +892,43 @@ const styles = StyleSheet.create({
         shadowRadius: 12,
         elevation: 4,
     },
-    input: {
-        marginBottom: 16,
-    },
-    row: {
-        flexDirection: "row",
-        gap: 12,
-        marginBottom: 16,
-    },
-    saveButton: {
-        marginTop: 8,
-        height: 56,
-        borderRadius: 16,
-    },
-    profileSection: {
-        alignItems: "center",
-        paddingVertical: 32,
-    },
-    imageContainer: {
-        position: "relative",
-        marginBottom: 16,
-    },
-    profileImage: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        borderWidth: 4,
-        borderColor: "#fff",
-    },
-    placeholderContainer: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        backgroundColor: "#F0F0F0",
-        justifyContent: "center",
-        alignItems: "center",
-        borderWidth: 4,
-        borderColor: "#fff",
-    },
-    editBadge: {
-        position: "absolute",
-        bottom: 0,
-        right: 0,
-        backgroundColor: "#4CAF50",
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        justifyContent: "center",
-        alignItems: "center",
-        borderWidth: 3,
-        borderColor: "#fff",
-    },
-    inputGroup: {
-        marginBottom: 16,
-    },
-    label: {
-        fontSize: 14,
-        fontWeight: "600",
-        color: "#333",
-        marginBottom: 8,
-        marginLeft: 4,
-    },
-    selector: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        backgroundColor: "rgba(255, 255, 255, 0.98)",
-        borderWidth: 1.5,
-        borderColor: "rgba(51, 51, 51, 0.15)",
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 12,
-        height: 56,
-    },
-    selectorError: {
-        borderColor: "#EF4444",
-    },
-    selectorText: {
-        fontSize: 16,
-        color: "#333",
-        fontWeight: "500",
-    },
-    placeholderText: {
-        color: "#999",
-    },
-    errorText: {
-        color: "#EF4444",
-        fontSize: 12,
-        marginTop: 6,
-        marginLeft: 4,
-        fontWeight: "500",
-    },
-    modalOverlay: {
-        flex: 1,
-        justifyContent: "flex-end",
-    },
-    modalBackdrop: {
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: "rgba(0,0,0,0.4)",
-    },
-    modalContent: {
-        backgroundColor: "#fff",
-        borderTopLeftRadius: 30,
-        borderTopRightRadius: 30,
-        maxHeight: "60%",
-        paddingTop: 8,
-        borderWidth: 1,
-        borderColor: "#f0f0f0",
-    },
-    modalHeader: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: "#f0f0f0",
-    },
-    modalTitle: {
-        fontSize: 18,
-        fontWeight: "700",
-        color: "#1a1a1a",
-    },
-    optionRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingVertical: 16,
-        paddingHorizontal: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: "#f9f9f9",
-    },
-    optionSelected: {
-        backgroundColor: "rgba(0, 86, 210, 0.05)",
-    },
-    optionText: {
-        fontSize: 15,
-        color: "#222",
-    },
-    optionTextSelected: {
-        color: "#0056D2",
-        fontWeight: "600",
-    },
+    input: { marginBottom: 16 },
+    row: { flexDirection: "row", gap: 12, marginBottom: 16 },
+    saveButton: { marginTop: 8, height: 56, borderRadius: 16 },
+    profileSection: { alignItems: "center", paddingVertical: 32 },
+    imageContainer: { position: "relative", marginBottom: 16 },
+    profileImage: { width: 120, height: 120, borderRadius: 60, borderWidth: 4, borderColor: "#fff" },
+    placeholderContainer: { width: 120, height: 120, borderRadius: 60, backgroundColor: "#F0F0F0", justifyContent: "center", alignItems: "center", borderWidth: 4, borderColor: "#fff" },
+    editBadge: { position: "absolute", bottom: 0, right: 0, backgroundColor: "#4CAF50", width: 36, height: 36, borderRadius: 18, justifyContent: "center", alignItems: "center", borderWidth: 3, borderColor: "#fff" },
+    inputGroup: { marginBottom: 16 },
+    label: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 8, marginLeft: 4 },
+    selector: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(255, 255, 255, 0.98)", borderWidth: 1.5, borderColor: "rgba(51, 51, 51, 0.15)", paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, height: 56 },
+    selectorError: { borderColor: "#EF4444" },
+    selectorText: { fontSize: 16, color: "#333", fontWeight: "500" },
+    placeholderText: { color: "#999" },
+    errorText: { color: "#EF4444", fontSize: 12, marginTop: 6, marginLeft: 4, fontWeight: "500" },
+    phoneContainer: { borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 16, paddingVertical: 4 },
+    phoneError: { borderColor: "#EF4444" },
+    phoneTextInput: { fontSize: 16, paddingVertical: 12, backgroundColor: "transparent", height: 48 },
+    modalOverlay: { flex: 1, justifyContent: "flex-end" },
+    modalBackdrop: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.4)" },
+    modalContent: { backgroundColor: "#fff", borderTopLeftRadius: 30, borderTopRightRadius: 30, maxHeight: "60%", paddingTop: 8, borderWidth: 1, borderColor: "#f0f0f0" },
+    modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 20, borderBottomWidth: 1, borderBottomColor: "#f0f0f0" },
+    modalTitle: { fontSize: 18, fontWeight: "700", color: "#1a1a1a" },
+    optionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 16, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: "#f9f9f9" },
+    optionSelected: { backgroundColor: "rgba(0, 86, 210, 0.05)" },
+    optionText: { fontSize: 15, color: "#222" },
+    optionTextSelected: { color: "#0056D2", fontWeight: "600" },
+    imageOptionsContent: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, width: "100%", position: "absolute", bottom: 0 },
+    imageOptionsHandle: { alignItems: "center", paddingVertical: 12 },
+    handleBar: { width: 40, height: 4, borderRadius: 2, backgroundColor: "#ddd" },
+    imageOptionsTitle: { fontSize: 18, fontWeight: "700", paddingHorizontal: 20, paddingBottom: 16, textAlign: "center" },
+    imageOptionButton: { flexDirection: "row", alignItems: "center", padding: 16, gap: 16, borderBottomWidth: 1 },
+    imageOptionText: { fontSize: 16, fontWeight: "500" },
+    imagePreviewContent: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, width: "100%", position: "absolute", bottom: 0, maxHeight: "90%" },
+    imagePreviewHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: 1 },
+    imagePreviewTitle: { fontSize: 18, fontWeight: "700" },
+    imagePreviewBody: { padding: 20, alignItems: "center", justifyContent: "center" },
+    previewImage: { width: 280, height: 280, borderRadius: 140, borderWidth: 3, borderColor: "#f2c44d" },
+    imagePreviewFooter: { padding: 20, paddingTop: 10 },
 });

@@ -284,7 +284,7 @@ export default function ScholarshipProviderDashboard() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <LinearGradient
-        colors={isDark ? [colors.background, colors.background, colors.surface] : [colors.background, colors.background, colors.accent]}
+        colors={isDark ? [colors.shadow, colors.shadow, colors.shadow] : [colors.background, colors.background, colors.accent]}
         style={styles.background}
         locations={[0, 0.4, 1]}
       />
@@ -344,168 +344,172 @@ export default function ScholarshipProviderDashboard() {
         {/* Dashboard Overview */}
         <View style={styles.statsContainer}>
 
-          {/* Primary Metrics - Unified Group */}
-          <View style={[styles.primaryMetricsGroup, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
+          {/* Top Metric Cards Row */}
+          <View style={styles.topMetricsRow}>
             {/* Total Scholarships */}
-            <View style={styles.metricItem}>
-              <View style={[styles.metricIconBox, { backgroundColor: "#4CAF5015" }]}>
-                <Ionicons name="school-outline" size={24} color="#4CAF50" />
-              </View>
-              <View style={styles.metricContent}>
-                <Text style={[styles.metricNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
-                  {stats.totalScholarshipsCreated.toLocaleString()}
-                </Text>
-                <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Total Scholarships</Text>
-                <View style={styles.metricBadgeRow}>
-                  <View style={[styles.metricBadge, { backgroundColor: "#4CAF5020" }]}>
-                    <Text style={[styles.metricBadgeText, { color: "#4CAF50" }]} numberOfLines={1}>
-                      {stats.activeScholarships.toLocaleString()} Active
-                    </Text>
-                  </View>
-                  {stats.expiredScholarships > 0 && (
-                    <View style={[styles.metricBadge, { backgroundColor: "#FF980020" }]}>
-                      <Text style={[styles.metricBadgeText, { color: "#FF9800" }]} numberOfLines={1}>
-                        {stats.expiredScholarships.toLocaleString()} Expired
-                      </Text>
-                    </View>
-                  )}
+            <LinearGradient
+              colors={['#4CAF50', '#2E7D32']}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={styles.metricGradientCard}
+            >
+              <View style={styles.metricGradientTop}>
+                <View style={styles.metricGradientIcon}>
+                  <Ionicons name="school-outline" size={22} color="rgba(255,255,255,0.9)" />
                 </View>
+                <Text style={styles.metricGradientNumber}>{stats.totalScholarshipsCreated}</Text>
               </View>
-            </View>
-
-            {/* Divider */}
-            <View style={[styles.metricDivider, { backgroundColor: colors.border }]} />
+              <Text style={styles.metricGradientLabel}>Total Scholarships</Text>
+              <View style={styles.metricGradientBadge}>
+                <Text style={styles.metricGradientBadgeText}>{stats.activeScholarships} Active</Text>
+              </View>
+            </LinearGradient>
 
             {/* Total Applications */}
-            <View style={styles.metricItem}>
-              <View style={[styles.metricIconBox, { backgroundColor: "#2196F315" }]}>
-                <Ionicons name="people-outline" size={24} color="#2196F3" />
-              </View>
-              <View style={styles.metricContent}>
-                <Text style={[styles.metricNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
-                  {stats.totalApplicants.toLocaleString()}
-                </Text>
-                <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Total Applications</Text>
-                <View style={styles.metricBadgeRow}>
-                  <View style={[styles.metricBadge, { backgroundColor: "#2196F320" }]}>
-                    <Text style={[styles.metricBadgeText, { color: "#2196F3" }]} numberOfLines={1}>
-                      {stats.approvedStudents.toLocaleString()} Selected
-                    </Text>
-                  </View>
+            <LinearGradient
+              colors={['#2196F3', '#1565C0']}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={styles.metricGradientCard}
+            >
+              <View style={styles.metricGradientTop}>
+                <View style={styles.metricGradientIcon}>
+                  <Ionicons name="people-outline" size={22} color="rgba(255,255,255,0.9)" />
                 </View>
+                <Text style={styles.metricGradientNumber}>{stats.totalApplicants}</Text>
               </View>
-            </View>
+              <Text style={styles.metricGradientLabel}>Total Applications</Text>
+              <View style={styles.metricGradientBadge}>
+                <Text style={styles.metricGradientBadgeText}>{stats.approvedStudents} Selected</Text>
+              </View>
+            </LinearGradient>
           </View>
 
-          {/* Application Status Breakdown */}
-          <View style={[styles.applicationStatusCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
+          {/* Application Status — Vertical List */}
+          <View style={[styles.applicationStatusCard, { backgroundColor: isDark ? colors.card : '#fff', borderColor: isDark ? colors.border : '#eee' }]}>
             <View style={styles.cardHeaderRow}>
-              <View style={[styles.cardIconBox, { backgroundColor: "#673AB715" }]}>
+              <View style={[styles.cardIconBox, { backgroundColor: '#673AB715' }]}>
                 <Ionicons name="analytics-outline" size={20} color="#673AB7" />
               </View>
               <Text style={[styles.cardHeaderTitle, { color: colors.text }]}>Application Status</Text>
+              <Text style={[styles.statusTotalText, { color: colors.textSecondary }]}>{stats.totalApplicants} Total</Text>
             </View>
 
-
-            <View style={styles.statusGrid}>
-              {/* First Row */}
-              <View style={styles.statusRow}>
-                {/* Pending */}
-                <View style={styles.statusItem}>
-                  <View style={[styles.statusIconBox, { backgroundColor: "#FF980015" }]}>
-                    <Ionicons name="time-outline" size={20} color="#FF9800" />
-                  </View>
-                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
-                    {stats.pendingApplications.toLocaleString()}
-                  </Text>
-                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Pending</Text>
-                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#FF980030" : "#FF980020" }]}>
-                    <View style={[styles.statusBarFill, {
-                      width: `${stats.totalApplicants > 0 ? (stats.pendingApplications / stats.totalApplicants * 100) : 0}%`,
-                      backgroundColor: "#FF9800"
-                    }]} />
-                  </View>
+            {/* Pending Row */}
+            <View style={[styles.statusListRow, { borderBottomWidth: 1, borderBottomColor: isDark ? colors.border : '#f3f4f6' }]}>
+              <View style={[styles.statusListIcon, { backgroundColor: '#FF980018' }]}>
+                <Ionicons name="time-outline" size={18} color="#FF9800" />
+              </View>
+              <View style={styles.statusListBody}>
+                <View style={styles.statusListTop}>
+                  <Text style={[styles.statusListLabel, { color: colors.text }]}>Pending</Text>
+                  <Text style={[styles.statusListCount, { color: '#FF9800' }]}>{stats.pendingApplications}</Text>
                 </View>
-
-                {/* Approved */}
-                <View style={styles.statusItem}>
-                  <View style={[styles.statusIconBox, { backgroundColor: "#4CAF5015" }]}>
-                    <Ionicons name="checkmark-circle-outline" size={20} color="#4CAF50" />
-                  </View>
-                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
-                    {stats.approvedApplications.toLocaleString()}
-                  </Text>
-                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Approved</Text>
-                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#4CAF5030" : "#4CAF5020" }]}>
-                    <View style={[styles.statusBarFill, {
-                      width: `${stats.totalApplicants > 0 ? (stats.approvedApplications / stats.totalApplicants * 100) : 0}%`,
-                      backgroundColor: "#4CAF50"
-                    }]} />
-                  </View>
+                <View style={[styles.statusListTrack, { backgroundColor: isDark ? '#FF980020' : '#FFE0B2' }]}>
+                  <View style={[styles.statusListFill, {
+                    width: `${stats.totalApplicants > 0 ? Math.min((stats.pendingApplications / stats.totalApplicants) * 100, 100) : 0}%`,
+                    backgroundColor: '#FF9800',
+                  }]} />
                 </View>
               </View>
+              <Text style={[styles.statusListPct, { color: colors.textSecondary }]}>
+                {stats.totalApplicants > 0 ? `${Math.round((stats.pendingApplications / stats.totalApplicants) * 100)}%` : '0%'}
+              </Text>
+            </View>
 
-
-              {/* Second Row */}
-              <View style={[styles.statusRow, { justifyContent: "center" }]}>
-                {/* Rejected */}
-                <View style={styles.statusItem}>
-                  <View style={[styles.statusIconBox, { backgroundColor: "#F4433615" }]}>
-                    <Ionicons name="close-circle-outline" size={20} color="#F44336" />
-                  </View>
-                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
-                    {stats.rejectedApplications.toLocaleString()}
-                  </Text>
-                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Rejected</Text>
-                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#F4433630" : "#F4433620" }]}>
-                    <View style={[styles.statusBarFill, {
-                      width: `${stats.totalApplicants > 0 ? (stats.rejectedApplications / stats.totalApplicants * 100) : 0}%`,
-                      backgroundColor: "#F44336"
-                    }]} />
-                  </View>
+            {/* Approved Row */}
+            <View style={[styles.statusListRow, { borderBottomWidth: 1, borderBottomColor: isDark ? colors.border : '#f3f4f6' }]}>
+              <View style={[styles.statusListIcon, { backgroundColor: '#4CAF5018' }]}>
+                <Ionicons name="checkmark-circle-outline" size={18} color="#4CAF50" />
+              </View>
+              <View style={styles.statusListBody}>
+                <View style={styles.statusListTop}>
+                  <Text style={[styles.statusListLabel, { color: colors.text }]}>Approved</Text>
+                  <Text style={[styles.statusListCount, { color: '#4CAF50' }]}>{stats.approvedApplications}</Text>
+                </View>
+                <View style={[styles.statusListTrack, { backgroundColor: isDark ? '#4CAF5020' : '#C8E6C9' }]}>
+                  <View style={[styles.statusListFill, {
+                    width: `${stats.totalApplicants > 0 ? Math.min((stats.approvedApplications / stats.totalApplicants) * 100, 100) : 0}%`,
+                    backgroundColor: '#4CAF50',
+                  }]} />
                 </View>
               </View>
+              <Text style={[styles.statusListPct, { color: colors.textSecondary }]}>
+                {stats.totalApplicants > 0 ? `${Math.round((stats.approvedApplications / stats.totalApplicants) * 100)}%` : '0%'}
+              </Text>
+            </View>
+
+            {/* Rejected Row */}
+            <View style={styles.statusListRow}>
+              <View style={[styles.statusListIcon, { backgroundColor: '#F4433618' }]}>
+                <Ionicons name="close-circle-outline" size={18} color="#F44336" />
+              </View>
+              <View style={styles.statusListBody}>
+                <View style={styles.statusListTop}>
+                  <Text style={[styles.statusListLabel, { color: colors.text }]}>Rejected</Text>
+                  <Text style={[styles.statusListCount, { color: '#F44336' }]}>{stats.rejectedApplications}</Text>
+                </View>
+                <View style={[styles.statusListTrack, { backgroundColor: isDark ? '#F4433620' : '#FFCDD2' }]}>
+                  <View style={[styles.statusListFill, {
+                    width: `${stats.totalApplicants > 0 ? Math.min((stats.rejectedApplications / stats.totalApplicants) * 100, 100) : 0}%`,
+                    backgroundColor: '#F44336',
+                  }]} />
+                </View>
+              </View>
+              <Text style={[styles.statusListPct, { color: colors.textSecondary }]}>
+                {stats.totalApplicants > 0 ? `${Math.round((stats.rejectedApplications / stats.totalApplicants) * 100)}%` : '0%'}
+              </Text>
             </View>
           </View>
 
           {/* Financial Overview */}
-          <View style={[styles.financialCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
+          <View style={[styles.financialCard, { backgroundColor: isDark ? colors.card : '#fff', borderColor: isDark ? colors.border : '#eee' }]}>
             <View style={styles.cardHeaderRow}>
-              <View style={[styles.cardIconBox, { backgroundColor: "#10B98115" }]}>
+              <View style={[styles.cardIconBox, { backgroundColor: '#10B98115' }]}>
                 <Ionicons name="wallet-outline" size={20} color="#10B981" />
               </View>
               <Text style={[styles.cardHeaderTitle, { color: colors.text }]}>Financial Overview</Text>
             </View>
 
-            <View style={styles.financialRow}>
-              <View style={styles.financialItem}>
-                <Text style={[styles.financialLabel, { color: colors.textSecondary }]}>Total Allocated</Text>
-                <Text style={[styles.financialAmount, { color: colors.text }]}>{formatCurrency(stats.totalFundAllocated)}</Text>
+            {/* Amount row */}
+            <View style={styles.financialAmountRow}>
+              <View style={styles.financialAmountBlock}>
+                <Text style={[styles.financialAmountLabel, { color: colors.textSecondary }]}>Total Allocated</Text>
+                <Text style={[styles.financialAmountValue, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                  {formatCurrency(stats.totalFundAllocated)}
+                </Text>
               </View>
-              <View style={[styles.financialDivider, { backgroundColor: colors.border }]} />
-              <View style={styles.financialItem}>
-                <Text style={[styles.financialLabel, { color: colors.textSecondary }]}>Disbursed</Text>
-                <Text style={[styles.financialAmount, { color: "#10B981" }]}>{formatCurrency(stats.fundsUtilized)}</Text>
-              </View>
+              <LinearGradient
+                colors={['#10B981', '#059669']}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                style={styles.financialDisbursedBadge}
+              >
+                <Text style={styles.financialDisbursedLabel}>Disbursed</Text>
+                <Text style={styles.financialDisbursedValue} numberOfLines={1} adjustsFontSizeToFit>
+                  {formatCurrency(stats.fundsUtilized)}
+                </Text>
+              </LinearGradient>
             </View>
 
-            <View style={styles.progressSection}>
-              <View style={styles.progressHeader}>
-                <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>Utilization</Text>
-                <Text style={[styles.progressPercentage, { color: colors.text }]}>
+            {/* Progress */}
+            <View style={styles.financialProgressWrap}>
+              <View style={styles.financialProgressHeader}>
+                <Text style={[styles.financialProgressLabel, { color: colors.textSecondary }]}>Fund Utilization</Text>
+                <Text style={[styles.financialProgressPct, { color: '#10B981' }]}>
                   {stats.totalFundAllocated > 0
                     ? `${Math.round((stats.fundsUtilized / stats.totalFundAllocated) * 100)}%`
                     : '0%'}
                 </Text>
               </View>
-              <View style={[styles.progressBarLarge, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.1)" : "#ECFDF5" }]}>
-                <View style={[styles.progressBarLargeFill, {
-                  width: `${stats.totalFundAllocated > 0 ? (stats.fundsUtilized / stats.totalFundAllocated * 100) : 0}%`,
-                  backgroundColor: "#10B981"
-                }]} />
+              <View style={[styles.financialProgressTrack, { backgroundColor: isDark ? 'rgba(16,185,129,0.12)' : '#ECFDF5' }]}>
+                <LinearGradient
+                  colors={['#10B981', '#059669']}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  style={[styles.financialProgressFill, {
+                    width: `${stats.totalFundAllocated > 0 ? Math.min((stats.fundsUtilized / stats.totalFundAllocated) * 100, 100) : 0}%`
+                  }]}
+                />
               </View>
-              <Text style={[styles.remainingText, { color: colors.textSecondary }]}>
-                Remaining: {formatCurrency(stats.totalFundAllocated - stats.fundsUtilized)}
+              <Text style={[styles.financialRemainingText, { color: colors.textSecondary }]}>
+                Remaining: {formatCurrency(Math.max(stats.totalFundAllocated - stats.fundsUtilized, 0))}
               </Text>
             </View>
           </View>
@@ -714,263 +718,224 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginBottom: 16,
   },
-  // Unified Primary Metrics Group
-  primaryMetricsGroup: {
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "rgba(51, 51, 51, 0.1)",
-    shadowColor: "#333",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  metricItem: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-    minWidth: 0, // Allow flex items to shrink below content size
-  },
-  metricIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0, // Prevent icon from shrinking
-  },
-  metricContent: {
-    flex: 1,
-    gap: 3,
-    minWidth: 0, // Allow content to shrink
-  },
-  metricNumber: {
-    fontSize: 28,
-    fontWeight: "800",
-    lineHeight: 32,
-  },
-  metricLabel: {
-    fontSize: 12,
-    fontWeight: "500",
-    marginBottom: 4,
-  },
-  metricBadgeRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 4,
-  },
-  metricBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    flexShrink: 1, // Allow badges to shrink if needed
-  },
-  metricBadgeText: {
-    fontSize: 10,
-    fontWeight: "600",
-  },
-  metricDivider: {
-    width: 1,
-    height: 70,
-    marginHorizontal: 12,
-    flexShrink: 0, // Keep divider size consistent
-  },
-  // New Primary Stats Styles (kept for compatibility)
-  primaryStatsRow: {
-    flexDirection: "row",
+  // ── Top Metric Gradient Cards ──
+  topMetricsRow: {
+    flexDirection: 'row',
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  primaryStatCard: {
+  metricGradientCard: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 16,
-    borderWidth: 1,
-    borderColor: "rgba(51, 51, 51, 0.1)",
-    shadowColor: "#333",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 6,
   },
-  statIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
+  metricGradientTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
-  statContent: {
-    gap: 4,
+  metricGradientIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  primaryStatNumber: {
-    fontSize: 28,
-    fontWeight: "800",
-    marginBottom: 2,
+  metricGradientNumber: {
+    fontSize: 36,
+    fontWeight: '800',
+    color: '#fff',
   },
-  primaryStatLabel: {
+  metricGradientLabel: {
     fontSize: 13,
-    fontWeight: "500",
-    marginBottom: 8,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.85)',
+    lineHeight: 18,
+    marginBottom: 10,
   },
-  statBadgeRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  miniStatBadge: {
-    paddingHorizontal: 8,
+  metricGradientBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: 999,
   },
-  miniStatText: {
+  metricGradientBadgeText: {
     fontSize: 11,
-    fontWeight: "600",
+    fontWeight: '700',
+    color: '#fff',
   },
-  // Application Status Card
+
+  // ── Application Status Card ──
   applicationStatusCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    padding: 18,
     borderWidth: 1,
-    borderColor: "rgba(51, 51, 51, 0.1)",
-    shadowColor: "#333",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    elevation: 4,
+    marginBottom: 14,
   },
   cardHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 16,
   },
   cardIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 10,
   },
   cardHeaderTitle: {
     fontSize: 17,
-    fontWeight: "700",
+    fontWeight: '700',
   },
-  statusGrid: {
-    flexDirection: "column",
+  // ── Application Status Vertical List ──
+  statusTotalText: {
+    marginLeft: 'auto',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  statusListRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
     gap: 12,
   },
-  statusRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  statusItem: {
-    flex: 1,
-    alignItems: "center",
-    gap: 5,
-    minWidth: 0, // Allow items to shrink
-  },
-  statusIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
+  statusListIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
     flexShrink: 0,
   },
-  statusNumber: {
-    fontSize: 22,
-    fontWeight: "800",
-    lineHeight: 26,
-  },
-  statusLabel: {
-    fontSize: 11,
-    fontWeight: "500",
-    textAlign: "center",
-  },
-  statusBar: {
-    width: "100%",
-    height: 4,
-    borderRadius: 2,
-    overflow: "hidden",
-    marginTop: 4,
-  },
-  statusBarFill: {
-    height: "100%",
-    borderRadius: 2,
-  },
-  // Financial Card
-  financialCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "rgba(51, 51, 51, 0.1)",
-    shadowColor: "#333",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  financialRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  financialItem: {
+  statusListBody: {
     flex: 1,
-    alignItems: "center",
+    gap: 6,
   },
-  financialLabel: {
+  statusListTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  statusListLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  statusListCount: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  statusListTrack: {
+    width: '100%',
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  statusListFill: {
+    height: '100%',
+    borderRadius: 3,
+    minWidth: 6,
+  },
+  statusListPct: {
     fontSize: 12,
-    fontWeight: "500",
-    marginBottom: 6,
+    fontWeight: '700',
+    width: 36,
+    textAlign: 'right',
+    flexShrink: 0,
   },
-  financialAmount: {
-    fontSize: 18,
-    fontWeight: "800",
+
+  // ── Financial Card ──
+  financialCard: {
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  financialDivider: {
-    width: 1,
-    height: 40,
-    marginHorizontal: 12,
+  financialAmountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 18,
   },
-  progressSection: {
+  financialAmountBlock: {
+    flex: 1,
+  },
+  financialAmountLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  financialAmountValue: {
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  financialDisbursedBadge: {
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+    minWidth: 110,
+  },
+  financialDisbursedLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.8)',
+    marginBottom: 3,
+  },
+  financialDisbursedValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  financialProgressWrap: {
     gap: 8,
   },
-  progressHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  financialProgressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  progressPercentage: {
-    fontSize: 14,
-    fontWeight: "700",
+  financialProgressLabel: {
+    fontSize: 13,
+    fontWeight: '600',
   },
-  progressBarLarge: {
-    width: "100%",
-    height: 8,
-    borderRadius: 4,
-    overflow: "hidden",
+  financialProgressPct: {
+    fontSize: 15,
+    fontWeight: '800',
   },
-  progressBarLargeFill: {
-    height: "100%",
-    borderRadius: 4,
+  financialProgressTrack: {
+    width: '100%',
+    height: 10,
+    borderRadius: 5,
+    overflow: 'hidden',
   },
-  remainingText: {
-    fontSize: 11,
-    fontWeight: "500",
-    textAlign: "center",
+  financialProgressFill: {
+    height: '100%',
+    borderRadius: 5,
+    minWidth: 8,
+  },
+  financialRemainingText: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
   },
   // Old stat card styles (kept for compatibility)
   statCard: {

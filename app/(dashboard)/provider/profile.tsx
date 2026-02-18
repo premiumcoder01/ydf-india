@@ -3,202 +3,165 @@ import { useTheme } from "@/context/ThemeContext";
 import { getDonorKycStatus, getUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
-import { Animated, Dimensions, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-
-const { width } = Dimensions.get('window');
+import React, { useEffect, useRef, useState } from "react";
+import {
+  Alert,
+  Animated,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ProviderProfileScreen() {
   const { isDark, colors } = useTheme();
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const scrollY = new Animated.Value(0);
-  const [loading, setLoading] = useState(true);
+  const insets = useSafeAreaInsets();
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   const [providerData, setProviderData] = useState({
-    name: "Provider",
+    fullName: "Provider",
+    username: "",
     email: "",
-    contact: "",
-    organization: "Organization",
-    kycStatus: "New", // Default to "New"
+    phone: "",
+    city: "",
+    address: "",
+    kycStatus: "New",
     profilePhoto: null as string | null,
-    bankInfo: { account: "**** 4321", ifsc: "HDFC0001234" },
+    roles: [] as string[],
   });
 
-  // Fetch provider profile
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        setLoading(true);
         const authDataString = await AsyncStorage.getItem("authData");
-        if (!authDataString) {
-          setLoading(false);
-          return;
-        }
-
+        if (!authDataString) return;
         const authData = JSON.parse(authDataString);
         const token = authData?.token;
+        if (!token) return;
 
-        if (!token) {
-          setLoading(false);
-          return;
-        }
-
-        // Fetch User Profile
         const response = await getUserProfile(token);
         if (response.success && response.data?.user) {
           const user = response.data.user;
+
+          // Parse phone — strip country code
+          let phone = user.phone1 || user.phone || "";
+          if (phone === "N/A") phone = "";
+          if (phone.startsWith('+91')) phone = phone.substring(3);
+          else if (phone.startsWith('91') && phone.length === 12) phone = phone.substring(2);
+
           setProviderData(prev => ({
             ...prev,
-            organization: user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || prev.organization,
+            fullName: user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || prev.fullName,
+            username: user.username || "",
             email: user.email || prev.email,
-            contact: user.phone || user.phone1 || prev.contact,
+            phone,
+            city: user.city?.trim() || "",
+            address: user.address?.trim() || "",
             profilePhoto: user.profileimageurl || null,
+            roles: user.roles || [],
           }));
         }
 
-        // Fetch KYC Status
         try {
           const kycResponse = await getDonorKycStatus(token);
           if (kycResponse.success && kycResponse.data) {
-            const kycData = kycResponse.data.data ? kycResponse.data.data : kycResponse.data;
-            const rawStatus = kycData.status || "New";
-            setProviderData(prev => ({ ...prev, kycStatus: rawStatus }));
+            const kycData = kycResponse.data.data ?? kycResponse.data;
+            setProviderData(prev => ({ ...prev, kycStatus: kycData.status || "New" }));
           }
-        } catch (kycError) {
-          console.error("Error fetching KYC status:", kycError);
-        }
-
+        } catch (_) { }
       } catch (error) {
         console.error("Error fetching provider profile:", error);
-      } finally {
-        setLoading(false);
       }
     };
-
     fetchProfile();
   }, []);
 
-  const handleEditProfile = () => router.push("/(dashboard)/provider/edit-profile");
-  const handleLogout = () => setShowLogoutModal(true);
-  const confirmLogout = async () => {
-    try {
-      setShowLogoutModal(false);
-
-      // Clear authData from AsyncStorage
-      await AsyncStorage.removeItem("authData");
-
-      // Navigate to welcome screen
-      router.replace("/(auth)/welcome");
-    } catch (error) {
-      console.error("Error during logout:", error);
-      // Even if there's an error, try to navigate to welcome screen
-      router.replace("/(auth)/welcome");
-    }
+  const handleLogout = () => {
+    Alert.alert(
+      "Confirm Logout",
+      "Are you sure you want to logout?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: async () => {
+            try { await AsyncStorage.removeItem("authData"); } catch (_) { }
+            router.replace("/(auth)/welcome");
+          },
+        },
+      ]
+    );
   };
-  const cancelLogout = () => setShowLogoutModal(false);
 
-  /* 
-   * Updated kycConfig to handle API statuses. 
-   * Maps colloquial statuses to display config.
-   */
   const kycConfig: Record<string, {
-    gradient: readonly [string, string];
+    gradColors: readonly [string, string];
     icon: keyof typeof Ionicons.glyphMap;
-    bg: string;
-    border: string;
-    label: string;
+    bg: string; border: string; label: string;
   }> = {
-    approved: {
-      gradient: ['#10B981', '#059669'],
-      icon: 'shield-checkmark',
-      bg: '#D1FAE5',
-      border: '#10B981',
-      label: 'Verified'
-    },
-    verified: { // Fallback/Legacy
-      gradient: ['#10B981', '#059669'],
-      icon: 'shield-checkmark',
-      bg: '#D1FAE5',
-      border: '#10B981',
-      label: 'Verified'
-    },
-    pending: {
-      gradient: ['#F59E0B', '#D97706'],
-      icon: 'time',
-      bg: '#FEF3C7',
-      border: '#F59E0B',
-      label: 'Under Review'
-    },
-    "under review": { // Legacy
-      gradient: ['#3B82F6', '#2563EB'],
-      icon: 'time',
-      bg: '#DBEAFE',
-      border: '#3B82F6',
-      label: 'Under Review'
-    },
-    rejected: {
-      gradient: ['#EF4444', '#B91C1C'],
-      icon: 'alert-circle',
-      bg: '#FEE2E2',
-      border: '#EF4444',
-      label: 'Rejected'
-    },
-    new: {
-      gradient: ['#6B7280', '#4B5563'],
-      icon: 'ellipse-outline',
-      bg: '#F3F4F6',
-      border: '#9CA3AF',
-      label: 'Not Submitted'
-    }
+    approved: { gradColors: ['#10B981', '#059669'], icon: 'shield-checkmark', bg: '#D1FAE5', border: '#10B981', label: 'Verified' },
+    verified: { gradColors: ['#10B981', '#059669'], icon: 'shield-checkmark', bg: '#D1FAE5', border: '#10B981', label: 'Verified' },
+    pending: { gradColors: ['#F59E0B', '#D97706'], icon: 'time-outline', bg: '#FEF3C7', border: '#F59E0B', label: 'Under Review' },
+    "under review": { gradColors: ['#3B82F6', '#2563EB'], icon: 'time-outline', bg: '#DBEAFE', border: '#3B82F6', label: 'Under Review' },
+    rejected: { gradColors: ['#EF4444', '#B91C1C'], icon: 'alert-circle', bg: '#FEE2E2', border: '#EF4444', label: 'Rejected' },
+    new: { gradColors: ['#6B7280', '#4B5563'], icon: 'ellipse-outline', bg: '#F3F4F6', border: '#9CA3AF', label: 'Not Submitted' },
+  };
+  const kyc = kycConfig[providerData.kycStatus.toLowerCase()] ?? kycConfig['new'];
+
+  const heroScale = scrollY.interpolate({ inputRange: [0, 120], outputRange: [1, 0.94], extrapolate: 'clamp' });
+  const heroOpacity = scrollY.interpolate({ inputRange: [0, 120], outputRange: [1, 0.85], extrapolate: 'clamp' });
+
+  const initials = providerData.fullName.split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase() || "P";
+
+  // ── Sub-components ──────────────────────────────────────────────
+  const InfoRow = ({ icon, label, value, color, isLast = false }: any) => {
+    if (!value) return null;
+    return (
+      <View style={[
+        styles.infoRow,
+        !isLast && { borderBottomWidth: 1, borderBottomColor: isDark ? colors.border : '#f3f4f6' }
+      ]}>
+        <View style={[styles.infoIcon, { backgroundColor: `${color}18` }]}>
+          <Ionicons name={icon} size={18} color={color} />
+        </View>
+        <View style={styles.infoText}>
+          <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{label}</Text>
+          <Text style={[styles.infoValue, { color: colors.text }]}>{value}</Text>
+        </View>
+      </View>
+    );
   };
 
-  // Helper to safely get config
-  const getKycConfig = (status: string) => {
-    const normalized = status.toLowerCase();
-    return kycConfig[normalized] || kycConfig['new'];
-  };
-
-  const currentKyc = getKycConfig(providerData.kycStatus);
-
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 100],
-    outputRange: [1, 0.9],
-    extrapolate: 'clamp',
-  });
-
-  const headerScale = scrollY.interpolate({
-    inputRange: [0, 100],
-    outputRange: [1, 0.95],
-    extrapolate: 'clamp',
-  });
-
-  const ActionButton = ({ icon, label, onPress, color, isLogout = false }: any) => (
+  const ActionItem = ({ icon, label, onPress, color, isLast = false }: any) => (
     <TouchableOpacity
-      style={[styles.modernActionItem, { borderBottomColor: isDark ? colors.border : '#f5f5f5' }]}
+      style={[
+        styles.actionItem,
+        !isLast && { borderBottomWidth: 1, borderBottomColor: isDark ? colors.border : '#f3f4f6' }
+      ]}
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <View style={[styles.modernActionIcon, { backgroundColor: `${color}15` }]}>
-        <Ionicons name={icon} size={22} color={color} />
+      <View style={[styles.actionIcon, { backgroundColor: `${color}18` }]}>
+        <Ionicons name={icon} size={20} color={color} />
       </View>
-      <Text style={[styles.modernActionText, { color: colors.text }, isLogout && { color }]}>{label}</Text>
-      <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+      <Text style={[styles.actionLabel, { color: label === 'Logout' ? color : colors.text }]}>{label}</Text>
+      <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
     </TouchableOpacity>
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: isDark ? colors.shadow : '#f4f6fb' }]}>
       <ReviewerHeader
         title="Profile"
         subtitle="Manage your account"
         rightElement={
           <TouchableOpacity
             onPress={() => router.push("/(dashboard)/provider/settings")}
-            style={[styles.settingsBtn, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.9)" }]}
-            accessibilityRole="button"
+            style={[styles.settingsBtn, { backgroundColor: isDark ? colors.card : "rgba(255,255,255,0.95)" }]}
             activeOpacity={0.8}
           >
             <Ionicons name="settings-outline" size={22} color={colors.text} />
@@ -207,484 +170,194 @@ export default function ProviderProfileScreen() {
       />
 
       <Animated.ScrollView
-        style={styles.content}
+        style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: true }
         )}
         scrollEventThrottle={16}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
       >
-        {/* Premium Profile Header with Gradient */}
-        <Animated.View
-          style={[
-            styles.profileHeader,
-            {
-              opacity: headerOpacity,
-              transform: [{ scale: headerScale }]
-            }
-          ]}
-        >
+        {/* ── Hero Card ── */}
+        <Animated.View style={[
+          styles.heroWrap,
+          { opacity: heroOpacity, transform: [{ scale: heroScale }] }
+        ]}>
           <LinearGradient
             colors={['#667eea', '#764ba2']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.gradientBackground}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={styles.heroGradient}
           >
-            <View style={styles.avatarContainer}>
+            {/* Decorative blobs */}
+            <View style={styles.blob1} />
+            <View style={styles.blob2} />
+
+            {/* Avatar */}
+            <TouchableOpacity
+              style={styles.avatarWrap}
+              onPress={() => router.push("/(dashboard)/provider/edit-profile")}
+              activeOpacity={0.85}
+            >
               {providerData.profilePhoto ? (
                 <Image source={{ uri: providerData.profilePhoto }} style={styles.avatar} />
               ) : (
-                <View style={[styles.avatarPlaceholder, { backgroundColor: isDark ? colors.background : "#fff", borderColor: isDark ? colors.background : "#fff" }]}>
-                  <Ionicons name="business" size={48} color={isDark ? colors.primary : "#667eea"} />
+                <View style={styles.avatarFallback}>
+                  <Text style={styles.avatarInitials}>{initials}</Text>
                 </View>
               )}
-              <View style={styles.editAvatarBadge}>
-                <Ionicons name="camera" size={16} color="#fff" />
+              <View style={styles.cameraBadge}>
+                <Ionicons name="camera" size={13} color="#fff" />
               </View>
-            </View>
+            </TouchableOpacity>
 
-            <Text style={styles.name}>{providerData.organization}</Text>
-            <Text style={styles.email}>{providerData.email}</Text>
-            <Text style={styles.contact}>{providerData.contact}</Text>
+            {/* Name & meta */}
+            <Text style={styles.heroName}>{providerData.fullName}</Text>
+            {providerData.username ? (
+              <Text style={styles.heroUsername}>@{providerData.username}</Text>
+            ) : null}
+            {providerData.email ? (
+              <Text style={styles.heroEmail}>{providerData.email}</Text>
+            ) : null}
+            {(providerData.city) ? (
+              <View style={styles.locationRow}>
+                <Ionicons name="location-outline" size={13} color="rgba(255,255,255,0.75)" />
+                <Text style={styles.locationText}>{providerData.city}</Text>
+              </View>
+            ) : null}
 
-            <View style={[styles.premiumBadge, { backgroundColor: currentKyc.bg, borderColor: currentKyc.border }]}>
-              <Ionicons name={currentKyc.icon} size={16} color={currentKyc.border} />
-              <Text style={[styles.badgeText, { color: currentKyc.border }]}>
-                KYC: {currentKyc.label}
-              </Text>
+
+
+            {/* KYC badge */}
+            <View style={[styles.kycBadge, { backgroundColor: kyc.bg, borderColor: kyc.border }]}>
+              <Ionicons name={kyc.icon} size={14} color={kyc.border} />
+              <Text style={[styles.kycText, { color: kyc.border }]}>KYC: {kyc.label}</Text>
             </View>
           </LinearGradient>
         </Animated.View>
 
-
-
-        {/* Organization Details - Modern Card */}
-        <View style={styles.modernSection}>
+        {/* ── Contact Details ── */}
+        <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Organization Details</Text>
-          </View>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Contact Details</Text>
 
-          <View style={[styles.modernCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
-            <InfoRow icon="business-outline" label="Organization" value={providerData.organization} color="#2196F3" />
-            <InfoRow icon="mail-outline" label="Email Address" value={providerData.email} color="#4CAF50" />
-            <InfoRow icon="call-outline" label="Contact Number" value={providerData.contact} color="#FF9800" />
+          </View>
+          <View style={[styles.card, { backgroundColor: isDark ? colors.card : '#fff', borderColor: isDark ? colors.border : '#eee' }]}>
+            <InfoRow icon="mail-outline" label="Email Address" value={providerData.email} color="#667eea" />
+            <InfoRow icon="call-outline" label="Phone Number" value={providerData.phone ? `+91 ${providerData.phone}` : ""} color="#10B981" />
+            <InfoRow icon="location-outline" label="City" value={providerData.city} color="#F59E0B" />
+            <InfoRow icon="home-outline" label="Address" value={providerData.address} color="#8B5CF6" isLast />
           </View>
         </View>
 
-        {/* Bank Information - Secure Card */}
-        {/* <View style={styles.modernSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Bank Information</Text>
-            <View style={[styles.secureLabel, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#D1FAE5' }]}>
-              <Ionicons name="lock-closed" size={12} color="#10B981" />
-              <Text style={styles.secureLabelText}>Secured</Text>
-            </View>
-          </View>
-
-          <View style={[styles.modernCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
-            <InfoRow icon="card-outline" label="Account Number" value={providerData.bankInfo.account} color="#9C27B0" />
-            <InfoRow icon="key-outline" label="IFSC Code" value={providerData.bankInfo.ifsc} color="#00BFA5" isLast />
-          </View>
-        </View> */}
-
-        {/* Quick Actions - Modern Grid */}
-        <View style={styles.modernSection}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
-          <View style={[styles.modernActionsCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border, marginTop: 15 }]}>
-            <ActionButton icon="create-outline" label="Edit Profile" onPress={handleEditProfile} color="#2196F3" />
-            <ActionButton icon="help-circle-outline" label="Help & Support" onPress={() => router.push("/(dashboard)/provider/help-support")} color="#673AB7" />
-            <ActionButton icon="document-text-outline" label="Terms & Conditions" onPress={() => router.push("/(dashboard)/provider/terms-conditions")} color="#795548" />
-            <ActionButton icon="information-circle-outline" label="About" onPress={() => router.push("/(dashboard)/provider/about")} color="#0091EA" />
-            <ActionButton icon="log-out-outline" label="Logout" onPress={handleLogout} color="#F44336" isLogout />
+        {/* ── Quick Actions ── */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 20 }]}>Quick Actions</Text>
+          <View style={[styles.card, {
+            backgroundColor: isDark ? colors.card : '#fff',
+            borderColor: isDark ? colors.border : '#eee',
+            padding: 0, overflow: 'hidden'
+          }]}>
+            <ActionItem icon="create-outline" label="Edit Profile" onPress={() => router.push("/(dashboard)/provider/edit-profile")} color="#667eea" />
+            <ActionItem icon="help-circle-outline" label="Help & Support" onPress={() => router.push("/(dashboard)/provider/help-support")} color="#8B5CF6" />
+            <ActionItem icon="document-text-outline" label="Terms & Conditions" onPress={() => router.push("/(dashboard)/provider/terms-conditions")} color="#795548" />
+            <ActionItem icon="information-circle-outline" label="About" onPress={() => router.push("/(dashboard)/provider/about")} color="#0EA5E9" />
+            <ActionItem icon="log-out-outline" label="Logout" onPress={handleLogout} color="#EF4444" isLast />
           </View>
         </View>
-
-        <View style={{ height: 40 }} />
       </Animated.ScrollView>
-
-      {/* Premium Logout Modal */}
-      <Modal visible={showLogoutModal} transparent animationType="fade" onRequestClose={cancelLogout}>
-        <BlurView intensity={isDark ? 40 : 80} style={styles.modalOverlay}>
-          <View style={[styles.modernModalContent, { backgroundColor: isDark ? colors.card : "#fff" }]}>
-            <View style={styles.modernModalIcon}>
-              <LinearGradient
-                colors={['#FF6B6B', '#F44336']}
-                style={styles.modalIconGradient}
-              >
-                <Ionicons name="log-out-outline" size={40} color="#fff" />
-              </LinearGradient>
-            </View>
-
-            <Text style={[styles.modernModalTitle, { color: colors.text }]}>Confirm Logout</Text>
-            <Text style={[styles.modernModalMessage, { color: colors.textSecondary }]}>
-              Are you sure you want to logout? You'll need to sign in again to access your account.
-            </Text>
-
-            <View style={styles.modernModalButtons}>
-              <TouchableOpacity
-                style={[styles.modernModalButton, styles.modernCancelButton, { backgroundColor: isDark ? colors.background : '#f5f5f5' }]}
-                onPress={cancelLogout}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.modernCancelButtonText, { color: colors.textSecondary }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modernModalButton, styles.modernLogoutButton]}
-                onPress={confirmLogout}
-                activeOpacity={0.8}
-              >
-                <LinearGradient
-                  colors={['#FF6B6B', '#F44336']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.logoutButtonGradient}
-                >
-                  <Text style={styles.modernLogoutButtonText}>Logout</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </BlurView>
-      </Modal>
     </View>
   );
 }
 
-const InfoRow = ({ icon, label, value, color, isLast = false }: any) => {
-  const { isDark, colors } = useTheme();
-  return (
-    <View style={[styles.infoRow, !isLast && [styles.infoRowBorder, { borderBottomColor: isDark ? colors.border : '#f5f5f5' }]]}>
-      <View style={[styles.infoIconContainer, { backgroundColor: `${color}15` }]}>
-        <Ionicons name={icon} size={20} color={color} />
-      </View>
-      <View style={styles.infoTextContainer}>
-        <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{label}</Text>
-        <Text style={[styles.infoValue, { color: colors.text }]}>{value}</Text>
-      </View>
-    </View>
-  );
-};
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f8f9fa",
-  },
+  container: { flex: 1 },
+
   settingsBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    width: 44, height: 44, borderRadius: 22,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1, shadowRadius: 6, elevation: 3,
   },
-  content: {
-    flex: 1,
+
+  /* Hero */
+  heroWrap: {
+    marginHorizontal: 16, marginTop: 16, marginBottom: 16,
+    borderRadius: 28, overflow: 'hidden',
+    shadowColor: '#667eea', shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35, shadowRadius: 20, elevation: 10,
   },
-  profileHeader: {
-    marginHorizontal: 20,
-    marginTop: 20,
-    marginBottom: 20,
-    borderRadius: 24,
-    overflow: 'hidden',
-    shadowColor: "#667eea",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
+  heroGradient: { paddingTop: 36, paddingBottom: 28, paddingHorizontal: 24, alignItems: 'center' },
+  blob1: {
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.07)', top: -70, right: -50,
   },
-  gradientBackground: {
-    padding: 32,
-    alignItems: "center",
+  blob2: {
+    position: 'absolute', width: 130, height: 130, borderRadius: 65,
+    backgroundColor: 'rgba(255,255,255,0.07)', bottom: -40, left: -30,
   },
-  avatarContainer: {
-    position: 'relative',
-    marginBottom: 20,
+
+  avatarWrap: { position: 'relative', marginBottom: 16 },
+  avatar: { width: 96, height: 96, borderRadius: 48, borderWidth: 4, borderColor: '#fff' },
+  avatarFallback: {
+    width: 96, height: 96, borderRadius: 48,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 4, borderColor: '#fff',
   },
-  avatar: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    borderWidth: 4,
-    borderColor: '#fff',
-  },
-  avatarPlaceholder: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 4,
-    borderColor: '#fff',
-  },
-  editAvatarBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  avatarInitials: { fontSize: 34, fontWeight: '800', color: '#fff' },
+  cameraBadge: {
+    position: 'absolute', bottom: 2, right: 2,
+    width: 28, height: 28, borderRadius: 14,
     backgroundColor: '#667eea',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2.5, borderColor: '#fff',
   },
-  name: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#fff",
-    marginBottom: 4,
-    textAlign: 'center',
+
+  heroName: { fontSize: 24, fontWeight: '800', color: '#fff', textAlign: 'center', marginBottom: 3 },
+  heroUsername: { fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: '500', marginBottom: 4 },
+  heroEmail: { fontSize: 14, color: 'rgba(255,255,255,0.88)', fontWeight: '500', marginBottom: 6 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 },
+  locationText: { fontSize: 13, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
+
+  rolesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 14 },
+  rolePill: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    paddingHorizontal: 12, paddingVertical: 5,
+    borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
   },
-  email: {
-    fontSize: 15,
-    color: "rgba(255, 255, 255, 0.9)",
-    fontWeight: "500",
-    marginBottom: 4,
+  rolePillText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+
+  kycBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingVertical: 7, paddingHorizontal: 16,
+    borderRadius: 999, borderWidth: 1.5,
   },
-  contact: {
-    fontSize: 14,
-    color: "rgba(255, 255, 255, 0.8)",
-    marginBottom: 16,
+  kycText: { fontSize: 13, fontWeight: '700' },
+
+  /* Section */
+  section: { paddingHorizontal: 16, marginBottom: 20 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  sectionTitle: { fontSize: 18, fontWeight: '800' },
+  editBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  editBtnText: { fontSize: 14, fontWeight: '700', color: '#667eea' },
+
+  /* Card */
+  card: {
+    borderRadius: 20, padding: 8, borderWidth: 1,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06, shadowRadius: 12, elevation: 3,
   },
-  premiumBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    gap: 6,
-  },
-  badgeText: {
-    fontWeight: "700",
-    fontSize: 13,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    gap: 12,
-    marginBottom: 20,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  statIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#333',
-    marginBottom: 2,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
-  },
-  modernSection: {
-    marginBottom: 24,
-    paddingHorizontal: 20,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#333",
-  },
-  editLink: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#667eea',
-  },
-  secureLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#D1FAE5',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  secureLabelText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#10B981',
-  },
-  modernCard: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 16,
-  },
-  infoRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
-  },
-  infoIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 16,
-  },
-  infoTextContainer: {
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 13,
-    color: "#666",
-    marginBottom: 4,
-    fontWeight: '500',
-  },
-  infoValue: {
-    fontSize: 16,
-    color: "#333",
-    fontWeight: "700",
-  },
-  modernActionsCard: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  modernActionItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
-  },
-  modernActionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 14,
-  },
-  modernActionText: {
-    flex: 1,
-    fontSize: 16,
-    color: "#333",
-    fontWeight: "600",
-  },
-  modalOverlay: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-  },
-  modernModalContent: {
-    backgroundColor: "#fff",
-    borderRadius: 28,
-    padding: 32,
-    alignItems: "center",
-    width: "100%",
-    maxWidth: 340,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.3,
-    shadowRadius: 30,
-    elevation: 10,
-  },
-  modernModalIcon: {
-    marginBottom: 20,
-  },
-  modalIconGradient: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modernModalTitle: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "#333",
-    marginBottom: 12,
-  },
-  modernModalMessage: {
-    fontSize: 15,
-    color: "#666",
-    textAlign: "center",
-    lineHeight: 22,
-    marginBottom: 28,
-  },
-  modernModalButtons: {
-    flexDirection: "row",
-    gap: 12,
-    width: "100%",
-  },
-  modernModalButton: {
-    flex: 1,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  modernCancelButton: {
-    backgroundColor: "#f5f5f5",
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modernLogoutButton: {
-    overflow: 'hidden',
-  },
-  logoutButtonGradient: {
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modernCancelButtonText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#666",
-  },
-  modernLogoutButtonText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#fff",
-  },
+
+  /* Info row */
+  infoRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 13, paddingHorizontal: 12 },
+  infoIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  infoText: { flex: 1 },
+  infoLabel: { fontSize: 12, fontWeight: '600', marginBottom: 2 },
+  infoValue: { fontSize: 15, fontWeight: '700' },
+
+  /* Action item */
+  actionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16 },
+  actionIcon: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  actionLabel: { flex: 1, fontSize: 16, fontWeight: '600' },
 });

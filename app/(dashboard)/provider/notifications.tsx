@@ -271,7 +271,7 @@ export default function ProviderNotificationsScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: isDark ? colors.shadow : colors.background }]}>
       <ReviewerHeader title="Notifications" />
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -388,7 +388,6 @@ export default function ProviderNotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 12,
   },
   loadingContainer: {
     flex: 1,
