@@ -141,14 +141,6 @@ export default function MyCreatedSchemesScreen() {
         });
     }, [scholarships, query, activeTab]);
 
-    // Summary stats
-    const stats = useMemo(() => ({
-        total: scholarships.length,
-        active: scholarships.filter(s => s.status === "active").length,
-        totalApplicants: scholarships.reduce((sum, s) => sum + s.applications_count, 0),
-        totalFunds: scholarships.reduce((sum, s) => sum + (s.fund_amount || 0), 0),
-    }), [scholarships]);
-
     const formatCurrency = (amount: number | null) => {
         if (amount === null || amount === 0) return "N/A";
         if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)}Cr`;
@@ -159,7 +151,7 @@ export default function MyCreatedSchemesScreen() {
 
     const formatDate = (dateString: string | null) => {
         if (!dateString) return "No Date";
-        return new Date(dateString).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+        return new Date(dateString).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
     };
 
     const getDaysLeft = (endDate: string | null) => {
@@ -191,50 +183,6 @@ export default function MyCreatedSchemesScreen() {
         );
     };
 
-    const renderSummaryCard = () => (
-        <MotiView
-            from={{ opacity: 0, translateY: -10 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: "timing", duration: 400 }}
-        >
-            <LinearGradient
-                colors={isDark ? ["#1E293B", "#0F172A"] : ["#6366F1", "#4F46E5"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.summaryCard}
-            >
-                {/* Decorative circles */}
-                <View style={styles.decorCircle1} />
-                <View style={styles.decorCircle2} />
-
-                <Text style={styles.summaryTitle}>My Scholarship Programs</Text>
-                <Text style={styles.summarySubtitle}>Overview of all your schemes</Text>
-
-                <View style={styles.summaryStatsRow}>
-                    <View style={styles.summaryStat}>
-                        <Text style={styles.summaryStatValue}>{stats.total}</Text>
-                        <Text style={styles.summaryStatLabel}>Total</Text>
-                    </View>
-                    <View style={styles.summaryDivider} />
-                    <View style={styles.summaryStat}>
-                        <Text style={styles.summaryStatValue}>{stats.active}</Text>
-                        <Text style={styles.summaryStatLabel}>Active</Text>
-                    </View>
-                    <View style={styles.summaryDivider} />
-                    <View style={styles.summaryStat}>
-                        <Text style={styles.summaryStatValue}>{stats.totalApplicants}</Text>
-                        <Text style={styles.summaryStatLabel}>Applicants</Text>
-                    </View>
-                    <View style={styles.summaryDivider} />
-                    <View style={styles.summaryStat}>
-                        <Text style={styles.summaryStatValue}>{formatCurrency(stats.totalFunds)}</Text>
-                        <Text style={styles.summaryStatLabel}>Total Funds</Text>
-                    </View>
-                </View>
-            </LinearGradient>
-        </MotiView>
-    );
-
     const renderItem = ({ item, index }: { item: Scholarship; index: number }) => {
         const cfg = getStatusConfig(item.status);
         const daysLeft = getDaysLeft(item.end_date);
@@ -243,6 +191,10 @@ export default function MyCreatedSchemesScreen() {
         const fillPercent = item.total_seats && item.applications_count
             ? Math.min((item.applications_count / item.total_seats) * 100, 100)
             : null;
+        const statusCfg = getStatusConfig(item.status);
+        const daysColor = isExpired ? "#EF4444" : isUrgent ? "#F59E0B" : "#10B981";
+        const daysLightBg = isExpired ? "#FEF2F2" : isUrgent ? "#FFFBEB" : "#ECFDF5";
+        const daysDarkBg = isExpired ? "rgba(239,68,68,0.15)" : isUrgent ? "rgba(245,158,11,0.15)" : "rgba(16,185,129,0.15)";
 
         return (
             <MotiView
@@ -254,31 +206,18 @@ export default function MyCreatedSchemesScreen() {
                     activeOpacity={0.88}
                     onPress={() => router.push({
                         pathname: "/(dashboard)/provider/my-scheme-details",
-                        params: {
-                            id: item.id,
-                            title: item.title,
-                            status: item.status,
-                            description: item.description || "",
-                            fund_amount: item.fund_amount?.toString() || "0",
-                            end_date: item.end_date || "",
-                            applications_count: item.applications_count.toString(),
-                            start_date: item.start_date,
-                            shortname: item.shortname || "",
-                            category: item.category,
-                            total_seats: item.total_seats?.toString() || "",
-                            provider_name: item.provider_name || "",
-                        }
+                        params: { scheme: JSON.stringify(item) }
                     })}
                     style={[
                         styles.card,
                         {
                             backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
-                            shadowColor: isDark ? "#000" : "#6366F1",
-                            borderColor: isDark ? "#334155" : "rgba(99,102,241,0.08)",
+                            shadowColor: isDark ? "#000" : "#94A3B8",
+                            borderColor: isDark ? "#334155" : "#E8EDF5",
                         }
                     ]}
                 >
-                    {/* Top accent bar */}
+                    {/* Top accent bar — thick */}
                     <LinearGradient
                         colors={cfg.gradient}
                         start={{ x: 0, y: 0 }}
@@ -286,89 +225,106 @@ export default function MyCreatedSchemesScreen() {
                         style={styles.cardAccentBar}
                     />
 
-                    {/* Card Header */}
+                    {/* ── HEADER ── */}
                     <View style={styles.cardHeader}>
-                        {/* Avatar / Initials */}
-                        <LinearGradient
-                            colors={cfg.gradient}
-                            style={styles.avatarCircle}
-                        >
+                        {/* Avatar */}
+                        <LinearGradient colors={cfg.gradient} style={styles.avatarCircle}>
                             <Text style={styles.avatarText}>{getInitials(item.title)}</Text>
                         </LinearGradient>
 
+                        {/* Title + provider */}
                         <View style={styles.cardHeaderContent}>
-                            <View style={styles.cardTitleRow}>
-                                <Text numberOfLines={2} style={[styles.cardTitle, { color: isDark ? "#F8FAFC" : "#111827" }]}>
-                                    {item.title}
-                                </Text>
-                                <StatusBadge status={item.status} />
-                            </View>
-
+                            <Text numberOfLines={1} style={[styles.cardTitle, { color: isDark ? "#F1F5F9" : "#0F172A" }]}>
+                                {item.title}
+                            </Text>
                             <View style={styles.providerRow}>
-                                <Ionicons name="business-outline" size={12} color={isDark ? "#64748B" : "#9CA3AF"} />
-                                <Text style={[styles.providerText, { color: isDark ? "#64748B" : "#9CA3AF" }]} numberOfLines={1}>
+                                <MaterialCommunityIcons name="file-document-outline" size={12} color={isDark ? "#64748B" : "#94A3B8"} />
+                                <Text style={[styles.providerText, { color: isDark ? "#64748B" : "#94A3B8" }]} numberOfLines={1}>
                                     {item.provider_name || "Unknown Provider"}
                                 </Text>
-                                <Text style={[styles.dotSep, { color: isDark ? "#475569" : "#D1D5DB" }]}>•</Text>
-                                <Text style={[styles.categoryChip, {
-                                    backgroundColor: isDark ? "rgba(99,102,241,0.15)" : "#EEF2FF",
-                                    color: isDark ? "#818CF8" : "#4F46E5"
-                                }]}>
-                                    {item.category}
-                                </Text>
+                            </View>
+                        </View>
+
+                        {/* Right badges */}
+                        <View style={styles.headerBadges}>
+                            <StatusBadge status={item.status} />
+                            <View style={[styles.categoryChipWrap, { backgroundColor: isDark ? "rgba(99,102,241,0.12)" : "#EEF2FF" }]}>
+                                <Ionicons name="location-outline" size={11} color={isDark ? "#818CF8" : "#6366F1"} />
+                                <Text style={[styles.categoryChipText, { color: isDark ? "#818CF8" : "#4F46E5" }]}>{item.category}</Text>
                             </View>
                         </View>
                     </View>
 
-                    {/* Divider */}
-                    <View style={[styles.divider, { backgroundColor: isDark ? "#334155" : "#F1F5F9" }]} />
-
-                    {/* Stats Grid */}
+                    {/* ── STATS GRID ── */}
                     <View style={styles.statsGrid}>
-                        {/* Fund Amount */}
-                        <View style={[styles.statBox, { backgroundColor: isDark ? "rgba(99,102,241,0.1)" : "#F5F3FF" }]}>
-                            <View style={styles.statIconWrap}>
-                                <Ionicons name="wallet-outline" size={15} color={isDark ? "#818CF8" : "#6366F1"} />
+                        {/* Fund */}
+                        <View style={[styles.statBox, { backgroundColor: isDark ? "rgba(99,102,241,0.12)" : "#F0EEFF" }]}>
+                            <View style={styles.statIconCircle}>
+                                <Ionicons name="cash-outline" size={18} color={isDark ? "#818CF8" : "#6366F1"} />
+                                <View style={[styles.statCheckDot, { backgroundColor: isDark ? "#818CF8" : "#6366F1" }]}>
+                                    <Ionicons name="checkmark" size={7} color="#fff" />
+                                </View>
                             </View>
-                            <Text style={[styles.statBoxValue, { color: isDark ? "#818CF8" : "#4F46E5" }]}>
-                                {formatCurrency(item.fund_amount)}
-                            </Text>
-                            <Text style={[styles.statBoxLabel, { color: isDark ? "#64748B" : "#9CA3AF" }]}>Fund Size</Text>
+                            <Text style={[styles.statBoxValue, { color: isDark ? "#818CF8" : "#4F46E5" }]}>{formatCurrency(item.fund_amount)}</Text>
+                            <Text style={[styles.statBoxLabel, { color: isDark ? "#64748B" : "#94A3B8" }]}>Fund Size</Text>
                         </View>
 
                         {/* Applicants */}
-                        <View style={[styles.statBox, { backgroundColor: isDark ? "rgba(16,185,129,0.1)" : "#F0FDF4" }]}>
-                            <View style={styles.statIconWrap}>
-                                <Ionicons name="people-outline" size={15} color={isDark ? "#34D399" : "#10B981"} />
+                        <View style={[styles.statBox, { backgroundColor: isDark ? "rgba(16,185,129,0.12)" : "#EDFAF4" }]}>
+                            <View style={styles.statIconCircle}>
+                                <Ionicons name="people-outline" size={18} color={isDark ? "#34D399" : "#10B981"} />
+                                <View style={[styles.statCheckDot, { backgroundColor: isDark ? "#34D399" : "#10B981" }]}>
+                                    <Ionicons name="checkmark" size={7} color="#fff" />
+                                </View>
                             </View>
-                            <Text style={[styles.statBoxValue, { color: isDark ? "#34D399" : "#059669" }]}>
-                                {item.applications_count}
-                            </Text>
-                            <Text style={[styles.statBoxLabel, { color: isDark ? "#64748B" : "#9CA3AF" }]}>Applicants</Text>
+                            <Text style={[styles.statBoxValue, { color: isDark ? "#34D399" : "#059669" }]}>{item.applications_count}</Text>
+                            <Text style={[styles.statBoxLabel, { color: isDark ? "#64748B" : "#94A3B8" }]}>Applicants</Text>
                         </View>
 
-                        {/* Total Seats */}
-                        <View style={[styles.statBox, { backgroundColor: isDark ? "rgba(245,158,11,0.1)" : "#FFFBEB" }]}>
-                            <View style={styles.statIconWrap}>
-                                <MaterialCommunityIcons name="seat-outline" size={15} color={isDark ? "#FBBF24" : "#F59E0B"} />
+                        {/* Seats */}
+                        <View style={[styles.statBox, { backgroundColor: isDark ? "rgba(245,158,11,0.12)" : "#FFF8EC" }]}>
+                            <View style={styles.statIconCircle}>
+                                <MaterialCommunityIcons name="seat-outline" size={18} color={isDark ? "#FBBF24" : "#F59E0B"} />
+                                <View style={[styles.statCheckDot, { backgroundColor: isDark ? "#FBBF24" : "#F59E0B" }]}>
+                                    <Ionicons name="checkmark" size={7} color="#fff" />
+                                </View>
                             </View>
-                            <Text style={[styles.statBoxValue, { color: isDark ? "#FBBF24" : "#D97706" }]}>
-                                {item.total_seats ?? "∞"}
-                            </Text>
-                            <Text style={[styles.statBoxLabel, { color: isDark ? "#64748B" : "#9CA3AF" }]}>Total Seats</Text>
+                            <Text style={[styles.statBoxValue, { color: isDark ? "#FBBF24" : "#D97706" }]}>{item.total_seats ?? "∞"}</Text>
+                            <Text style={[styles.statBoxLabel, { color: isDark ? "#64748B" : "#94A3B8" }]}>Total Seats</Text>
                         </View>
                     </View>
 
-                    {/* Fill Rate Progress Bar */}
+                    {/* ── SEAT FILL RATE ── */}
                     {fillPercent !== null && (
                         <View style={styles.progressSection}>
                             <View style={styles.progressLabelRow}>
-                                <Text style={[styles.progressLabel, { color: isDark ? "#94A3B8" : "#6B7280" }]}>
-                                    Seat Fill Rate
-                                </Text>
-                                <Text style={[styles.progressPct, { color: isDark ? "#F8FAFC" : "#111827" }]}>
-                                    {item.applications_count}/{item.total_seats} ({fillPercent.toFixed(0)}%)
-                                </Text>
+                                <View style={styles.progressLabelLeft}>
+                                    <Ionicons name="bar-chart-outline" size={14} color={isDark ? "#818CF8" : "#6366F1"} />
+                                    <Text style={[styles.progressLabel, { color: isDark ? "#CBD5E1" : "#374151" }]}>Seat Fill Rate</Text>
+                                </View>
+                                <View style={styles.progressRightGroup}>
+                                    <Text style={[styles.progressSeats, { color: isDark ? "#94A3B8" : "#64748B" }]}>
+                                        {item.applications_count}/{item.total_seats} Seats Filled
+                                    </Text>
+                                    <View style={[styles.progressPctBadge, {
+                                        backgroundColor: fillPercent >= 80
+                                            ? (isDark ? "rgba(239,68,68,0.15)" : "#FEF2F2")
+                                            : fillPercent >= 50
+                                                ? (isDark ? "rgba(245,158,11,0.15)" : "#FFFBEB")
+                                                : (isDark ? "rgba(16,185,129,0.15)" : "#ECFDF5")
+                                    }]}>
+                                        <View style={[styles.progressPctDot, {
+                                            backgroundColor: fillPercent >= 80 ? "#EF4444" : fillPercent >= 50 ? "#F59E0B" : "#10B981"
+                                        }]} />
+                                        <Text style={[styles.progressPctText, {
+                                            color: fillPercent >= 80
+                                                ? (isDark ? "#F87171" : "#DC2626")
+                                                : fillPercent >= 50
+                                                    ? (isDark ? "#FBBF24" : "#D97706")
+                                                    : (isDark ? "#34D399" : "#059669")
+                                        }]}>{fillPercent.toFixed(0)}%</Text>
+                                    </View>
+                                </View>
                             </View>
                             <View style={[styles.progressTrack, { backgroundColor: isDark ? "#334155" : "#E5E7EB" }]}>
                                 <LinearGradient
@@ -381,71 +337,87 @@ export default function MyCreatedSchemesScreen() {
                         </View>
                     )}
 
-                    {/* Date Row */}
+                    {/* ── DATE SECTION ── */}
                     <View style={[styles.dateRow, { borderTopColor: isDark ? "#334155" : "#F1F5F9" }]}>
-                        <View style={styles.dateItem}>
-                            <Ionicons name="play-circle-outline" size={14} color={isDark ? "#64748B" : "#9CA3AF"} />
-                            <Text style={[styles.dateLabel, { color: isDark ? "#64748B" : "#9CA3AF" }]}>Start</Text>
-                            <Text style={[styles.dateValue, { color: isDark ? "#CBD5E1" : "#374151" }]}>
+                        {/* Start Date */}
+                        <View style={styles.dateCol}>
+                            <View style={styles.dateLabelRow}>
+                                <Ionicons name="calendar-outline" size={14} color={isDark ? "#64748B" : "#94A3B8"} />
+                                <Text style={[styles.dateLabel, { color: isDark ? "#64748B" : "#94A3B8" }]}>Start Date</Text>
+                            </View>
+                            <Text style={[styles.dateValue, { color: isDark ? "#F1F5F9" : "#0F172A" }]}>
                                 {formatDate(item.start_date)}
                             </Text>
                         </View>
 
-                        <View style={[styles.dateDivider, { backgroundColor: isDark ? "#334155" : "#E5E7EB" }]} />
+                        <View style={[styles.dateDivider, { backgroundColor: isDark ? "#334155" : "#E2E8F0" }]} />
 
-                        <View style={styles.dateItem}>
-                            <Ionicons name="flag-outline" size={14} color={isDark ? "#64748B" : "#9CA3AF"} />
-                            <Text style={[styles.dateLabel, { color: isDark ? "#64748B" : "#9CA3AF" }]}>Deadline</Text>
+                        {/* End Date */}
+                        <View style={styles.dateCol}>
+                            <View style={styles.dateLabelRow}>
+                                <Ionicons name="calendar-outline" size={14} color={isDark ? "#64748B" : "#94A3B8"} />
+                                <Text style={[styles.dateLabel, { color: isDark ? "#64748B" : "#94A3B8" }]}>End Date</Text>
+                            </View>
                             <Text style={[styles.dateValue, {
                                 color: isExpired ? (isDark ? "#F87171" : "#DC2626") :
                                     isUrgent ? (isDark ? "#FBBF24" : "#D97706") :
-                                        (isDark ? "#CBD5E1" : "#374151")
+                                        (isDark ? "#F1F5F9" : "#0F172A")
                             }]}>
                                 {item.end_date ? formatDate(item.end_date) : "Open Ended"}
                             </Text>
                         </View>
 
-                        {daysLeft !== null && (
-                            <View style={[
-                                styles.daysLeftBadge,
-                                {
-                                    backgroundColor: isExpired
-                                        ? (isDark ? "rgba(239,68,68,0.15)" : "#FEF2F2")
-                                        : isUrgent
-                                            ? (isDark ? "rgba(245,158,11,0.15)" : "#FFFBEB")
-                                            : (isDark ? "rgba(16,185,129,0.15)" : "#ECFDF5"),
-                                }
-                            ]}>
-                                <Text style={[styles.daysLeftText, {
-                                    color: isExpired ? (isDark ? "#F87171" : "#DC2626") :
-                                        isUrgent ? (isDark ? "#FBBF24" : "#D97706") :
-                                            (isDark ? "#34D399" : "#059669")
-                                }]}>
-                                    {isExpired ? "Expired" : `${daysLeft}d left`}
+                        <View style={[styles.dateDivider, { backgroundColor: isDark ? "#334155" : "#E2E8F0" }]} />
+
+                        {/* Days Left Box */}
+                        {daysLeft !== null ? (
+                            <View style={styles.daysLeftBox}>
+                                <View style={styles.daysLeftHeader}>
+                                    <Ionicons name="time-outline" size={13} color={isDark ? (isExpired ? "#F87171" : isUrgent ? "#FBBF24" : "#34D399") : daysColor} />
+                                    <Text style={[styles.daysLeftTitle, { color: isDark ? "#94A3B8" : "#64748B" }]}>Days Left</Text>
+                                </View>
+                                <Text style={[styles.daysLeftCount, { color: isDark ? (isExpired ? "#F87171" : isUrgent ? "#FBBF24" : "#34D399") : daysColor }]}>
+                                    {isExpired ? "Expired" : `${daysLeft} Days Left`}
                                 </Text>
+                            </View>
+                        ) : (
+                            <View style={styles.daysLeftBox}>
+                                <Ionicons name="infinite-outline" size={20} color={isDark ? "#818CF8" : "#6366F1"} />
+                                <Text style={[styles.daysLeftCount, { color: isDark ? "#818CF8" : "#4F46E5", fontSize: 11 }]}>Open Ended</Text>
                             </View>
                         )}
                     </View>
 
-                    {/* Footer: ID + Arrow */}
+                    {/* ── FOOTER ── */}
                     <View style={[styles.cardFooter, { borderTopColor: isDark ? "#334155" : "#F1F5F9" }]}>
-                        <View style={styles.idBadge}>
-                            <Text style={[styles.idText, { color: isDark ? "#475569" : "#9CA3AF" }]}>
-                                ID #{item.id}
-                            </Text>
+                        {/* Left: ID + shortname + copy + status */}
+                        <View style={styles.footerLeft}>
+                            <Text style={[styles.idText, { color: isDark ? "#475569" : "#94A3B8" }]}>ID #{item.id}</Text>
                             {item.shortname && (
-                                <Text style={[styles.shortnamePill, {
-                                    backgroundColor: isDark ? "#334155" : "#F3F4F6",
-                                    color: isDark ? "#94A3B8" : "#6B7280"
-                                }]} numberOfLines={1}>
-                                    {item.shortname.length > 20 ? item.shortname.substring(0, 20) + "…" : item.shortname}
-                                </Text>
+                                <View style={[styles.shortnamePill, { backgroundColor: isDark ? "#334155" : "#F1F5F9" }]}>
+                                    <Text style={[styles.shortnameText, { color: isDark ? "#94A3B8" : "#64748B" }]} numberOfLines={1}>
+                                        {item.shortname.length > 16 ? item.shortname.substring(0, 16) + "..." : item.shortname}
+                                    </Text>
+                                    <Ionicons name="copy-outline" size={11} color={isDark ? "#64748B" : "#94A3B8"} />
+                                </View>
                             )}
                         </View>
-                        <View style={[styles.viewBtn, { backgroundColor: isDark ? "rgba(99,102,241,0.15)" : "#EEF2FF" }]}>
+
+                        {/* Divider */}
+                        <View style={[styles.footerDivider, { backgroundColor: isDark ? "#334155" : "#E2E8F0" }]} />
+
+                        {/* View Details */}
+                        <TouchableOpacity
+                            style={[styles.viewBtn, { borderColor: isDark ? "#818CF8" : "#6366F1" }]}
+                            onPress={() => router.push({
+                                pathname: "/(dashboard)/provider/my-scheme-details",
+                                params: { scheme: JSON.stringify(item) }
+                            })}
+                            activeOpacity={0.75}
+                        >
                             <Text style={[styles.viewBtnText, { color: isDark ? "#818CF8" : "#4F46E5" }]}>View Details</Text>
-                            <Ionicons name="arrow-forward" size={13} color={isDark ? "#818CF8" : "#4F46E5"} />
-                        </View>
+                            <Ionicons name="arrow-forward" size={14} color={isDark ? "#818CF8" : "#4F46E5"} />
+                        </TouchableOpacity>
                     </View>
                 </TouchableOpacity>
             </MotiView>
@@ -479,9 +451,6 @@ export default function MyCreatedSchemesScreen() {
                 }
                 ListHeaderComponent={
                     <View>
-                        {/* Summary Banner */}
-                        {renderSummaryCard()}
-
                         {/* Search Bar */}
                         <View style={[
                             styles.searchWrapper,
@@ -515,7 +484,6 @@ export default function MyCreatedSchemesScreen() {
                         >
                             {TABS.map((tab) => {
                                 const isActive = activeTab === tab.key;
-                                const count = tabCounts[tab.key === "All" ? "All" : tab.key.toLowerCase()] || 0;
                                 return (
                                     <TouchableOpacity
                                         key={tab.key}
@@ -542,34 +510,10 @@ export default function MyCreatedSchemesScreen() {
                                         ]}>
                                             {tab.label}
                                         </Text>
-                                        {count > 0 && (
-                                            <View style={[
-                                                styles.tabCount,
-                                                {
-                                                    backgroundColor: isActive ? "rgba(255,255,255,0.25)" : (isDark ? "#334155" : "#F3F4F6"),
-                                                }
-                                            ]}>
-                                                <Text style={[
-                                                    styles.tabCountText,
-                                                    { color: isActive ? "#FFFFFF" : (isDark ? "#94A3B8" : "#6B7280") }
-                                                ]}>
-                                                    {count}
-                                                </Text>
-                                            </View>
-                                        )}
                                     </TouchableOpacity>
                                 );
                             })}
                         </ScrollView>
-
-                        {/* Results count */}
-                        {!loading && (
-                            <View style={styles.resultsRow}>
-                                <Text style={[styles.resultsText, { color: isDark ? "#64748B" : "#9CA3AF" }]}>
-                                    {filtered.length} scheme{filtered.length !== 1 ? "s" : ""} found
-                                </Text>
-                            </View>
-                        )}
                     </View>
                 }
                 ListEmptyComponent={
@@ -592,17 +536,8 @@ export default function MyCreatedSchemesScreen() {
                                 No Schemes Found
                             </Text>
                             <Text style={[styles.emptySub, { color: isDark ? "#64748B" : "#9CA3AF" }]}>
-                                {query ? "Try adjusting your search or filter." : "You haven't created any schemes yet."}
+                                Try adjusting your search or filter
                             </Text>
-                            {!query && (
-                                <TouchableOpacity
-                                    style={[styles.emptyCreateBtn, { backgroundColor: isDark ? "#818CF8" : "#6366F1" }]}
-                                    onPress={() => router.push("/(dashboard)/provider/add-scholarship")}
-                                >
-                                    <Ionicons name="add" size={18} color="#fff" />
-                                    <Text style={styles.emptyCreateText}>Create First Scheme</Text>
-                                </TouchableOpacity>
-                            )}
                         </View>
                     )
                 }
@@ -669,13 +604,14 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.05,
         shadowRadius: 8,
         elevation: 2,
+        marginTop: 10
     },
     searchInput: { flex: 1, marginLeft: 10, fontSize: 15, fontWeight: "500" },
     clearBtn: { padding: 4 },
 
     // Tabs
     tabsWrapper: { maxHeight: 46 },
-    tabsContent: { paddingHorizontal: 16, gap: 8, alignItems: "center" },
+    tabsContent: { gap: 8, alignItems: "center" },
     tabItem: {
         flexDirection: "row",
         alignItems: "center",
@@ -701,151 +637,153 @@ const styles = StyleSheet.create({
 
     // Card
     card: {
-        borderRadius: 20,
+        borderRadius: 18,
         borderWidth: 1,
         overflow: "hidden",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.07,
+        shadowRadius: 10,
         elevation: 4,
+        marginBottom: 2,
     },
-    cardAccentBar: { height: 4, width: "100%" },
+    cardAccentBar: { height: 6, width: "100%" },
+
+    // Header
     cardHeader: {
         flexDirection: "row",
-        alignItems: "flex-start",
-        padding: 14,
-        paddingBottom: 0,
-        gap: 12,
+        alignItems: "center",
+        paddingHorizontal: 14,
+        paddingTop: 14,
+        paddingBottom: 12,
+        gap: 10,
     },
     avatarCircle: {
-        width: 44, height: 44, borderRadius: 12,
+        width: 48, height: 48, borderRadius: 14,
         alignItems: "center", justifyContent: "center",
         flexShrink: 0,
     },
-    avatarText: { fontSize: 15, fontWeight: "800", color: "#FFFFFF" },
+    avatarText: { fontSize: 17, fontWeight: "800", color: "#FFFFFF" },
     cardHeaderContent: { flex: 1 },
-    cardTitleRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "flex-start",
-        gap: 8,
-        marginBottom: 6,
+    cardTitle: { fontSize: 16, fontWeight: "700", lineHeight: 22, marginBottom: 3 },
+    providerRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+    providerText: { fontSize: 12, fontWeight: "500" },
+    headerBadges: { flexDirection: "column", alignItems: "flex-end", gap: 5 },
+    categoryChipWrap: {
+        flexDirection: "row", alignItems: "center", gap: 3,
+        paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
     },
-    cardTitle: {
-        flex: 1,
-        fontSize: 15,
-        fontWeight: "700",
-        lineHeight: 21,
-    },
-    providerRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 5,
-        flexWrap: "wrap",
-    },
-    providerText: { fontSize: 12, fontWeight: "500", flex: 1 },
-    dotSep: { fontSize: 12 },
-    categoryChip: {
-        fontSize: 11, fontWeight: "600",
-        paddingHorizontal: 8, paddingVertical: 2,
-        borderRadius: 6,
-    },
+    categoryChipText: { fontSize: 11, fontWeight: "600" },
 
     // Status Badge
     statusBadge: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: 9,
-        paddingVertical: 4,
-        borderRadius: 10,
-        borderWidth: 1,
-        gap: 5,
-        flexShrink: 0,
+        flexDirection: "row", alignItems: "center",
+        paddingHorizontal: 9, paddingVertical: 4,
+        borderRadius: 20, borderWidth: 1, gap: 5,
     },
-    statusDot: { width: 5, height: 5, borderRadius: 3 },
-    statusText: { fontSize: 10, fontWeight: "700", letterSpacing: 0.3 },
-
-    // Divider
-    divider: { height: 1, marginHorizontal: 14, marginTop: 14, marginBottom: 0 },
+    statusDot: { width: 6, height: 6, borderRadius: 3 },
+    statusText: { fontSize: 11, fontWeight: "700" },
 
     // Stats Grid
     statsGrid: {
         flexDirection: "row",
         gap: 8,
-        padding: 14,
-        paddingTop: 12,
+        paddingHorizontal: 14,
+        paddingBottom: 14,
     },
     statBox: {
-        flex: 1,
-        borderRadius: 12,
-        padding: 10,
-        alignItems: "center",
-        gap: 3,
+        flex: 1, borderRadius: 14,
+        paddingVertical: 12, paddingHorizontal: 8,
+        alignItems: "flex-start",
     },
-    statIconWrap: { marginBottom: 2 },
-    statBoxValue: { fontSize: 15, fontWeight: "800" },
-    statBoxLabel: { fontSize: 10, fontWeight: "500" },
+    statIconCircle: {
+        width: 36, height: 36, borderRadius: 10,
+        backgroundColor: "rgba(255,255,255,0.6)",
+        alignItems: "center", justifyContent: "center",
+        marginBottom: 8, position: "relative",
+    },
+    statCheckDot: {
+        position: "absolute", bottom: -2, right: -2,
+        width: 14, height: 14, borderRadius: 7,
+        alignItems: "center", justifyContent: "center",
+        borderWidth: 1.5, borderColor: "#fff",
+    },
+    statBoxValue: { fontSize: 18, fontWeight: "800", marginBottom: 2 },
+    statBoxLabel: { fontSize: 11, fontWeight: "500" },
 
     // Progress
     progressSection: {
         paddingHorizontal: 14,
-        paddingBottom: 12,
+        paddingBottom: 14,
     },
     progressLabelRow: {
         flexDirection: "row",
         justifyContent: "space-between",
-        marginBottom: 6,
+        alignItems: "center",
+        marginBottom: 8,
     },
-    progressLabel: { fontSize: 11, fontWeight: "500" },
-    progressPct: { fontSize: 11, fontWeight: "700" },
-    progressTrack: {
-        height: 6, borderRadius: 3, overflow: "hidden",
+    progressLabelLeft: { flexDirection: "row", alignItems: "center", gap: 5 },
+    progressLabel: { fontSize: 13, fontWeight: "600" },
+    progressRightGroup: { flexDirection: "row", alignItems: "center", gap: 6 },
+    progressSeats: { fontSize: 11, fontWeight: "500" },
+    progressPctBadge: {
+        flexDirection: "row", alignItems: "center", gap: 4,
+        paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20,
     },
-    progressFill: { height: 6, borderRadius: 3 },
+    progressPctDot: { width: 6, height: 6, borderRadius: 3 },
+    progressPctText: { fontSize: 11, fontWeight: "700" },
+    progressTrack: { height: 8, borderRadius: 4, overflow: "hidden" },
+    progressFill: { height: 8, borderRadius: 4 },
 
     // Date Row
     dateRow: {
         flexDirection: "row",
-        alignItems: "center",
+        alignItems: "flex-start",
         paddingHorizontal: 14,
-        paddingVertical: 10,
+        paddingVertical: 14,
         borderTopWidth: 1,
-        gap: 8,
+        gap: 0,
     },
-    dateItem: { flex: 1, flexDirection: "row", alignItems: "center", gap: 4, flexWrap: "wrap" },
-    dateLabel: { fontSize: 11, fontWeight: "500" },
+    dateCol: { flex: 1, flexDirection: "column", gap: 4 },
+    dateLabelRow: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 2 },
+    dateLabel: { fontSize: 12, fontWeight: "500" },
     dateValue: { fontSize: 11, fontWeight: "700" },
-    dateDivider: { width: 1, height: 24 },
-    daysLeftBadge: {
-        paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8,
+    dateDivider: { width: 1, height: 50, marginHorizontal: 10, marginTop: 2 },
+
+    // Days Left Box
+    daysLeftBox: {
+        flex: 1,
+        gap: 2,
     },
-    daysLeftText: { fontSize: 11, fontWeight: "700" },
+    daysLeftHeader: { flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 2 },
+    daysLeftTitle: { fontSize: 11, fontWeight: "500" },
+    daysLeftCount: { fontSize: 11, fontWeight: "800", lineHeight: 18 },
+    daysLeftFooter: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
+    daysLeftDot: { width: 5, height: 5, borderRadius: 3 },
+    daysLeftSub: { fontSize: 10, fontWeight: "500" },
 
     // Card Footer
     cardFooter: {
         flexDirection: "row",
-        justifyContent: "space-between",
         alignItems: "center",
         paddingHorizontal: 14,
-        paddingVertical: 10,
+        paddingVertical: 12,
         borderTopWidth: 1,
+        gap: 8,
     },
-    idBadge: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1 },
-    idText: { fontSize: 11, fontWeight: "600" },
+    footerLeft: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
+    idText: { fontSize: 12, fontWeight: "600" },
     shortnamePill: {
-        fontSize: 10, fontWeight: "500",
-        paddingHorizontal: 7, paddingVertical: 2,
-        borderRadius: 6, maxWidth: 140,
+        flexDirection: "row", alignItems: "center", gap: 4,
+        paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8,
     },
+    shortnameText: { fontSize: 11, fontWeight: "500", maxWidth: 110 },
+    footerDivider: { width: 1, height: 28 },
     viewBtn: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 4,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 10,
+        flexDirection: "row", alignItems: "center", gap: 5,
+        paddingHorizontal: 14, paddingVertical: 8,
+        borderRadius: 20, borderWidth: 1.5,
     },
-    viewBtnText: { fontSize: 12, fontWeight: "700" },
+    viewBtnText: { fontSize: 13, fontWeight: "700" },
 
     // Loading
     loadingContainer: {
@@ -875,7 +813,7 @@ const styles = StyleSheet.create({
     // FAB
     fabShadow: {
         position: "absolute",
-        bottom: 50,
+        bottom: 60,
         right: 20,
         shadowColor: "#6366F1",
         shadowOffset: { width: 0, height: 8 },

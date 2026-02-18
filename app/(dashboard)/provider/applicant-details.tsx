@@ -17,7 +17,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import ReviewerHeader from "../../../components/ReviewerHeader";
 
@@ -27,760 +27,319 @@ export default function ProviderApplicantDetailsScreen() {
 
   const applicantData = useMemo(() => {
     if (params.applicant) {
-      try {
-        return JSON.parse(params.applicant as string);
-      } catch (e) {
-        return null;
-      }
+      try { return JSON.parse(params.applicant as string); }
+      catch { return null; }
     }
     return null;
   }, [params.applicant]);
 
-  // State for API data
-  const [loading, setLoading] = useState(true);
   const [apiData, setApiData] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<
-    "overview" | "academic" | "financial"
-  >("overview");
-
-  // State for approve/reject
+  const [submitting, setSubmitting] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionNotes, setRejectionNotes] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
-  // Handlers for approve/reject
-  const handleApprove = async () => {
-    Alert.alert(
-      "Approve Application",
-      "Are you sure you want to approve this application?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Approve",
-          style: "default",
-          onPress: async () => {
-            try {
-              setSubmitting(true);
-              const authDataString = await AsyncStorage.getItem("authData");
-              if (!authDataString) {
-                Alert.alert("Error", "Authentication required");
-                return;
-              }
-
-              const authData = JSON.parse(authDataString);
-              const token = authData?.token;
-              if (!token) {
-                Alert.alert("Error", "No authentication token found");
-                return;
-              }
-
-              const response = await donorReviewApplication(
-                token,
-                Number(apiData?.id || applicantData?.id),
-                "approve"
-              );
-
-              if (response.success) {
-                Alert.alert(
-                  "Success",
-                  "Application approved successfully!",
-                  [
-                    {
-                      text: "OK",
-                      onPress: () => router.back()
-                    }
-                  ]
-                );
-              } else {
-                Alert.alert("Error", response.error || "Failed to approve application");
-              }
-            } catch (err: any) {
-              Alert.alert("Error", err.message || "An error occurred");
-            } finally {
-              setSubmitting(false);
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  const handleReject = () => {
-    setShowRejectModal(true);
-  };
-
-  const submitRejection = async () => {
-    if (!rejectionNotes.trim()) {
-      Alert.alert("Required", "Please provide a reason for rejection");
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      const authDataString = await AsyncStorage.getItem("authData");
-      if (!authDataString) {
-        Alert.alert("Error", "Authentication required");
-        return;
-      }
-
-      const authData = JSON.parse(authDataString);
-      const token = authData?.token;
-      if (!token) {
-        Alert.alert("Error", "No authentication token found");
-        return;
-      }
-
-      const response = await donorReviewApplication(
-        token,
-        Number(apiData?.id || applicantData?.id),
-        "reject",
-        rejectionNotes
-      );
-
-      if (response.success) {
-        setShowRejectModal(false);
-        setRejectionNotes("");
-        Alert.alert(
-          "Success",
-          "Application rejected successfully!",
-          [
-            {
-              text: "OK",
-              onPress: () => router.back()
-            }
-          ]
-        );
-      } else {
-        Alert.alert("Error", response.error || "Failed to reject application");
-      }
-    } catch (err: any) {
-      Alert.alert("Error", err.message || "An error occurred");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Fetch applicant details from API
   useEffect(() => {
-    const fetchApplicantDetails = async () => {
-      if (!applicantData?.id) {
-        setLoading(false);
-        return;
-      }
-
+    if (!applicantData) return;
+    setApiData(applicantData);
+    const enrich = async () => {
       try {
-        setLoading(true);
-        setError(null);
-
-        const authDataString = await AsyncStorage.getItem("authData");
-        if (!authDataString) {
-          setError("Authentication required");
-          setLoading(false);
-          return;
+        const raw = await AsyncStorage.getItem("authData");
+        if (!raw) return;
+        const { token } = JSON.parse(raw);
+        if (!token) return;
+        const res = await getDonorApplicantDetails(token, Number(applicantData.id));
+        if (res.success && res.data) {
+          const enriched = res.data.application || res.data;
+          setApiData((prev: any) => ({ ...prev, ...enriched }));
         }
-
-        const authData = JSON.parse(authDataString);
-        const token = authData?.token;
-        if (!token) {
-          setError("No authentication token found");
-          setLoading(false);
-          return;
-        }
-
-        console.log("Fetching applicant details for ID:", applicantData.id);
-        const response = await getDonorApplicantDetails(token, Number(applicantData.id));
-
-        if (response.success && response.data) {
-          setApiData(response.data.application || response.data);
-          console.log("Applicant details fetched successfully:", response.data);
-        } else {
-          setError(response.error || "Failed to fetch applicant details");
-          console.error("Failed to fetch applicant details:", response.error);
-        }
-      } catch (err: any) {
-        setError(err.message || "An error occurred");
-        console.error("Error fetching applicant details:", err);
-      } finally {
-        setLoading(false);
-      }
+      } catch (_) { }
     };
-
-    fetchApplicantDetails();
+    enrich();
   }, [applicantData?.id]);
 
-  // Parse application text
-  const parsedAppText = useMemo(() => {
+  const app = useMemo(() => {
     if (!apiData?.application_text) return {};
     try {
-      return typeof apiData.application_text === 'string'
+      return typeof apiData.application_text === "string"
         ? JSON.parse(apiData.application_text)
         : apiData.application_text;
-    } catch (e) {
-      console.error("Error parsing application_text:", e);
-      return {};
-    }
+    } catch { return {}; }
   }, [apiData]);
-
-  // Show loading state
-  if (loading) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ReviewerHeader title="Applicant Details" />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Loading applicant details...
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
-  // Show error state
-  if (error) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ReviewerHeader title="Applicant Details" />
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={64} color={colors.textSecondary} />
-          <Text style={[styles.errorTitle, { color: colors.text }]}>Error Loading Details</Text>
-          <Text style={[styles.errorText, { color: colors.textSecondary }]}>{error}</Text>
-          <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: colors.primary }]}
-            onPress={() => router.back()}
-          >
-            <Text style={styles.retryButtonText}>Go Back</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
 
   const user = apiData?.user || {};
   const scholarship = apiData?.scholarship || {};
-  const academicDetails = apiData?.academic_details || [];
-  const financialInfo = apiData?.financial_info || {};
+  const academicDetails: any[] = apiData?.academic_details || [];
+  const attachments: any[] = apiData?.attachments || [];
+  const documents: any[] = apiData?.documents || [];
+  const status: string = apiData?.status || "new";
 
+  const statusCfg = useMemo(() => {
+    if (status === "approved") return { label: "Approved", color: "#10B981", light: "#D1FAE5", icon: "checkmark-circle" as const };
+    if (status === "rejected") return { label: "Rejected", color: "#EF4444", light: "#FEE2E2", icon: "close-circle" as const };
+    return { label: "Pending Review", color: "#F59E0B", light: "#FEF3C7", icon: "time" as const };
+  }, [status]);
 
-  const getStatusColor = (status: string) => {
-    const s = status?.toLowerCase();
-    if (s === 'approved') return { bg: '#10b981', light: 'rgba(16, 185, 129, 0.15)' };
-    if (s === 'rejected') return { bg: '#ef4444', light: 'rgba(239, 68, 68, 0.15)' };
-    return { bg: '#f59e0b', light: 'rgba(245, 158, 11, 0.15)' };
+  const heroGrad: [string, string, string] =
+    status === "approved" ? ["#064E3B", "#065F46", "#059669"] :
+      status === "rejected" ? ["#7F1D1D", "#991B1B", "#DC2626"] :
+        ["#1E1B4B", "#312E81", "#4F46E5"];
+
+  const fullName = user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim();
+  const initials = fullName.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase() || "?";
+
+  const appliedDate = apiData?.timecreated
+    ? new Date(apiData.timecreated).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
+    : "—";
+
+  const verificationTime = app.verification_time
+    ? new Date(app.verification_time).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+    : null;
+
+  const handleApprove = () => {
+    Alert.alert("Approve Application", `Approve ${fullName}'s application?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Approve", style: "default",
+        onPress: async () => {
+          try {
+            setSubmitting(true);
+            const raw = await AsyncStorage.getItem("authData");
+            if (!raw) return;
+            const { token } = JSON.parse(raw);
+            const res = await donorReviewApplication(token, Number(apiData?.id), "approve");
+            if (res.success) Alert.alert("✓ Approved", "Application approved successfully.", [{ text: "Done", onPress: () => router.back() }]);
+            else Alert.alert("Error", res.error || "Failed to approve");
+          } catch (e: any) { Alert.alert("Error", e.message); }
+          finally { setSubmitting(false); }
+        },
+      },
+    ]);
   };
 
-  const statusColors = getStatusColor(apiData?.status || 'new');
+  const submitRejection = async () => {
+    if (!rejectionNotes.trim()) { Alert.alert("Required", "Please enter a rejection reason."); return; }
+    try {
+      setSubmitting(true);
+      const raw = await AsyncStorage.getItem("authData");
+      if (!raw) return;
+      const { token } = JSON.parse(raw);
+      const res = await donorReviewApplication(token, Number(apiData?.id), "reject", rejectionNotes);
+      if (res.success) {
+        setShowRejectModal(false); setRejectionNotes("");
+        Alert.alert("Done", "Application rejected.", [{ text: "OK", onPress: () => router.back() }]);
+      } else Alert.alert("Error", res.error || "Failed to reject");
+    } catch (e: any) { Alert.alert("Error", e.message); }
+    finally { setSubmitting(false); }
+  };
+
+  if (!apiData) {
+    return (
+      <View style={[S.container, { backgroundColor: colors.background }]}>
+        <ReviewerHeader title="Applicant Details" />
+        <View style={S.centered}><ActivityIndicator size="large" color={colors.primary} /></View>
+      </View>
+    );
+  }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[S.container, { backgroundColor: isDark ? "#0F172A" : "#F1F5F9" }]}>
       <ReviewerHeader title="Applicant Details" />
 
-      {/* Modern Hero Section */}
-      <LinearGradient
-        colors={isDark ? ["#1e293b", "#334155"] : ["#6366f1", "#8b5cf6"]}
-        style={styles.heroSection}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <View style={styles.heroContent}>
-          {/* Avatar and Status */}
-          <View style={styles.avatarSection}>
-            {user.picture ? (
-              <Image
-                source={{ uri: user.picture }}
-                style={styles.avatar}
-                resizeMode="cover"
-              />
-            ) : (
-              <LinearGradient
-                colors={["#fbbf24", "#f59e0b"]}
-                style={styles.avatar}
-              >
-                <Text style={styles.avatarText}>
-                  {user.fullname?.charAt(0) || user.firstname?.charAt(0) || "U"}
-                </Text>
-              </LinearGradient>
-            )}
-            <View style={[styles.statusBadge, { backgroundColor: statusColors.light }]}>
-              <View style={[styles.statusDot, { backgroundColor: statusColors.bg }]} />
-              <Text style={[styles.statusText, { color: statusColors.bg }]}>
-                {apiData?.status === 'new' ? 'Pending' :
-                  apiData?.status?.charAt(0).toUpperCase() + apiData?.status?.slice(1)}
-              </Text>
-            </View>
-          </View>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.scroll}>
 
-          {/* User Info */}
-          <View style={styles.heroInfo}>
-            <Text style={styles.heroName}>{user.fullname || `${user.firstname} ${user.lastname} `}</Text>
-            <Text style={styles.heroSubtitle}>{parsedAppText.major || "N/A"}</Text>
+        {/* ══════════ HERO ══════════ */}
+        <LinearGradient colors={heroGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={S.hero}>
+          {/* Decorative circles */}
+          <View style={S.decCircle1} />
+          <View style={S.decCircle2} />
 
-            <View style={styles.infoChips}>
-              <View style={styles.infoChip}>
-                <Ionicons name="school-outline" size={14} color="rgba(255,255,255,0.9)" />
-                <Text style={styles.infoChipText}>{parsedAppText.institution || "N/A"}</Text>
-              </View>
-              <View style={styles.infoChip}>
-                <Ionicons name="trophy-outline" size={14} color="rgba(255,255,255,0.9)" />
-                <Text style={styles.infoChipText}>GPA {parsedAppText.gpa || "N/A"}</Text>
-              </View>
-            </View>
-
-            <View style={styles.contactRow}>
-              <Ionicons name="mail-outline" size={12} color="rgba(255,255,255,0.8)" />
-              <Text style={styles.contactText}>{user.email || parsedAppText.email}</Text>
-            </View>
-            <View style={styles.contactRow}>
-              <Ionicons name="call-outline" size={12} color="rgba(255,255,255,0.8)" />
-              <Text style={styles.contactText}>{parsedAppText.phone || "N/A"}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Scholarship Info */}
-        <View style={styles.scholarshipCard}>
-          <View style={styles.scholarshipHeader}>
-            <Ionicons name="ribbon-outline" size={20} color={isDark ? "#fbbf24" : "#fff"} />
-            <Text style={styles.scholarshipTitle}>Applied For</Text>
-          </View>
-          <Text style={styles.scholarshipName}>{scholarship.name || "N/A"}</Text>
-          <Text style={styles.scholarshipDate}>
-            Applied on {apiData?.timecreated ? new Date(apiData.timecreated).toLocaleDateString('en-US', {
-              month: 'short', day: 'numeric', year: 'numeric'
-            }) : "N/A"}
-          </Text>
-        </View>
-      </LinearGradient>
-
-      {/* Tab Navigation */}
-      <View style={[styles.tabContainer, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        {[
-          { key: "overview", label: "Overview", icon: "person-outline" },
-          { key: "academic", label: "Academic", icon: "school-outline" },
-          { key: "financial", label: "Financial", icon: "card-outline" },
-        ].map((tab) => (
-          <TouchableOpacity
-            key={tab.key}
-            style={[styles.tab, activeTab === tab.key && { borderBottomColor: colors.primary }]}
-            onPress={() => setActiveTab(tab.key as any)}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={tab.icon as any}
-              size={18}
-              color={activeTab === tab.key ? colors.primary : colors.textSecondary}
-            />
-            <Text
-              style={[
-                styles.tabText,
-                { color: activeTab === tab.key ? colors.primary : colors.textSecondary },
-              ]}
-            >
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Overview Tab */}
-        {activeTab === "overview" && (
-          <>
-            {/* Quick Stats Grid */}
-            <View style={styles.statsGrid}>
-              <StatCard
-                icon="person-outline"
-                label="Student ID"
-                value={parsedAppText.student_id || "N/A"}
-                color="#6366f1"
-                isDark={isDark}
-              />
-              <StatCard
-                icon="calendar-outline"
-                label="Current Year"
-                value={parsedAppText.current_year || "N/A"}
-                color="#10b981"
-                isDark={isDark}
-              />
-              <StatCard
-                icon="school-outline"
-                label="Graduation"
-                value={parsedAppText.graduation_date || "N/A"}
-                color="#f59e0b"
-                isDark={isDark}
-              />
-            </View>
-
-            {/* Application Details */}
-            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.cardHeader}>
-                <View style={styles.cardTitleRow}>
-                  <Ionicons name="document-text" size={24} color={colors.primary} />
-                  <Text style={[styles.cardTitle, { color: colors.text }]}>Application Information</Text>
-                </View>
-              </View>
-
-              <InfoRow label="Full Name" value={parsedAppText.fullname || user.fullname} colors={colors} />
-              <InfoRow label="Email" value={parsedAppText.email || user.email} colors={colors} />
-              <InfoRow label="Phone" value={parsedAppText.phone} colors={colors} />
-              <InfoRow label="Institution" value={parsedAppText.institution} colors={colors} />
-              <InfoRow label="Major" value={parsedAppText.major} colors={colors} />
-              <InfoRow label="GPA" value={parsedAppText.gpa} colors={colors} />
-              <InfoRow label="Current Year" value={parsedAppText.current_year} colors={colors} />
-              <InfoRow label="Graduation Date" value={parsedAppText.graduation_date} colors={colors} />
-            </View>
-
-            {/* Assessment Details */}
-            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.cardHeader}>
-                <View style={styles.cardTitleRow}>
-                  <Ionicons name="clipboard" size={24} color={colors.primary} />
-                  <Text style={[styles.cardTitle, { color: colors.text }]}>Assessment Responses</Text>
-                </View>
-              </View>
-
-              <View style={styles.assessmentItem}>
-                <Text style={[styles.assessmentLabel, { color: colors.textSecondary }]}>
-                  Question 1 Response
-                </Text>
-                <Text style={[styles.assessmentValue, { color: colors.text }]}>
-                  {parsedAppText.assessment_q1 || "No response"}
-                </Text>
-              </View>
-
-              <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-              <View style={styles.assessmentItem}>
-                <Text style={[styles.assessmentLabel, { color: colors.textSecondary }]}>
-                  Housing Type
-                </Text>
-                <Text style={[styles.assessmentValue, { color: colors.text }]}>
-                  {parsedAppText.assessment_q2 || "No response"}
-                </Text>
-              </View>
-
-              {parsedAppText.activities && (
-                <>
-                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                  <View style={styles.assessmentItem}>
-                    <Text style={[styles.assessmentLabel, { color: colors.textSecondary }]}>
-                      Activities
-                    </Text>
-                    <Text style={[styles.assessmentValue, { color: colors.text }]}>
-                      {parsedAppText.activities}
-                    </Text>
-                  </View>
-                </>
+          {/* Top row: avatar + name + status */}
+          <View style={S.heroRow}>
+            <View style={S.avatarRing}>
+              {user.picture ? (
+                <Image source={{ uri: user.picture }} style={S.avatar} resizeMode="cover" />
+              ) : (
+                <LinearGradient colors={["rgba(255,255,255,0.25)", "rgba(255,255,255,0.1)"]} style={[S.avatar, S.avatarFb]}>
+                  <Text style={S.avatarInitials}>{initials}</Text>
+                </LinearGradient>
               )}
             </View>
-
-            {/* Interview Details */}
-            {parsedAppText.interview_mode && (
-              <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={styles.cardHeader}>
-                  <View style={styles.cardTitleRow}>
-                    <Ionicons name="videocam" size={24} color={colors.primary} />
-                    <Text style={[styles.cardTitle, { color: colors.text }]}>Interview Details</Text>
-                  </View>
-                </View>
-
-                <InfoRow label="Interview Mode" value={parsedAppText.interview_mode} colors={colors} />
-                {parsedAppText.verification_time && (
-                  <InfoRow
-                    label="Verification Time"
-                    value={new Date(parsedAppText.verification_time).toLocaleString()}
-                    colors={colors}
-                  />
-                )}
-              </View>
-            )}
-          </>
-        )}
-
-        {/* Academic Tab */}
-        {activeTab === "academic" && (
-          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.cardHeader}>
-              <View style={styles.cardTitleRow}>
-                <Ionicons name="school" size={24} color={colors.primary} />
-                <Text style={[styles.cardTitle, { color: colors.text }]}>Academic History</Text>
-              </View>
-              <View style={[styles.badge, { backgroundColor: isDark ? "rgba(99, 102, 241, 0.2)" : "#eef2ff" }]}>
-                <Text style={[styles.badgeText, { color: colors.primary }]}>
-                  {academicDetails.length} {academicDetails.length === 1 ? 'Record' : 'Records'}
-                </Text>
+            <View style={S.heroNameBlock}>
+              <Text style={S.heroName} numberOfLines={2}>{fullName}</Text>
+              <Text style={S.heroSub} numberOfLines={1}>{app.major || "—"}</Text>
+              <View style={[S.statusPill, { backgroundColor: statusCfg.color + "30", borderColor: statusCfg.color + "60" }]}>
+                <View style={[S.statusDot, { backgroundColor: statusCfg.color }]} />
+                <Text style={[S.statusLabel, { color: statusCfg.color }]}>{statusCfg.label.toUpperCase()}</Text>
               </View>
             </View>
-
-            {academicDetails.length > 0 ? (
-              academicDetails.map((academic: any, index: number) => (
-                <View key={academic.id || index}>
-                  {index > 0 && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
-                  <View style={styles.academicCard}>
-                    <View style={styles.academicHeader}>
-                      <View style={[styles.academicBadge, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.2)" : "#d1fae5" }]}>
-                        <Ionicons name="trophy" size={16} color="#10b981" />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.academicCourse, { color: colors.text }]}>
-                          {academic.course_name}
-                        </Text>
-                        <Text style={[styles.academicMajor, { color: colors.textSecondary }]}>
-                          {academic.major}
-                        </Text>
-                      </View>
-                      <View style={[styles.cgpaChip, { backgroundColor: isDark ? "rgba(245, 158, 11, 0.2)" : "#fef3c7" }]}>
-                        <Text style={[styles.cgpaText, { color: "#f59e0b" }]}>
-                          {academic.cgpa} CGPA
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.academicDetails}>
-                      <View style={styles.academicRow}>
-                        <Ionicons name="business-outline" size={14} color={colors.textSecondary} />
-                        <Text style={[styles.academicText, { color: colors.textSecondary }]}>
-                          {academic.institution}
-                        </Text>
-                      </View>
-                      <View style={styles.academicRow}>
-                        <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
-                        <Text style={[styles.academicText, { color: colors.textSecondary }]}>
-                          {academic.academic_year} • Graduated {academic.graduation_year}
-                        </Text>
-                      </View>
-                      <View style={styles.academicRow}>
-                        <Ionicons name="pricetag-outline" size={14} color={colors.textSecondary} />
-                        <Text style={[styles.academicText, { color: colors.textSecondary }]}>
-                          {academic.category}
-                        </Text>
-                      </View>
-                      <View style={styles.academicRow}>
-                        <Ionicons name="stats-chart-outline" size={14} color={colors.textSecondary} />
-                        <Text style={[styles.academicText, { color: colors.textSecondary }]}>
-                          {academic.percentage}% Percentage
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              ))
-            ) : (
-              <View style={styles.emptyState}>
-                <Ionicons name="school-outline" size={48} color={colors.textSecondary} />
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  No academic records available
-                </Text>
-              </View>
-            )}
           </View>
-        )}
 
-        {/* Financial Tab */}
-        {activeTab === "financial" && (
-          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.cardHeader}>
-              <View style={styles.cardTitleRow}>
-                <Ionicons name="card" size={24} color={colors.primary} />
-                <Text style={[styles.cardTitle, { color: colors.text }]}>Financial Information</Text>
+          {/* Scholarship pill */}
+          {scholarship.name ? (
+            <View style={S.schBanner}>
+              <Ionicons name="ribbon" size={14} color="rgba(255,255,255,0.6)" />
+              <View style={{ flex: 1 }}>
+                <Text style={S.schLabel}>SCHOLARSHIP</Text>
+                <Text style={S.schName} numberOfLines={2}>{scholarship.name}</Text>
               </View>
-              {financialInfo.id && (
-                <View style={[styles.verifiedBadge, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.2)" : "#d1fae5" }]}>
-                  <Ionicons name="checkmark-circle" size={16} color="#10b981" />
-                  <Text style={[styles.verifiedText, { color: "#10b981" }]}>Verified</Text>
-                </View>
-              )}
+              <View style={S.appIdPill}><Text style={S.appIdText}>#{apiData.id}</Text></View>
             </View>
+          ) : null}
 
-            {financialInfo.id ? (
-              <>
-                <View style={[styles.bankCard, { backgroundColor: isDark ? "rgba(99, 102, 241, 0.1)" : "#f8f9ff" }]}>
-                  <LinearGradient
-                    colors={isDark ? ["#4f46e5", "#6366f1"] : ["#6366f1", "#8b5cf6"]}
-                    style={styles.bankCardGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  >
-                    <View style={styles.bankCardHeader}>
-                      <Ionicons name="card-outline" size={32} color="rgba(255,255,255,0.9)" />
-                      <Text style={styles.bankCardType}>Bank Account</Text>
-                    </View>
-                    <View style={styles.bankCardBody}>
-                      <Text style={styles.bankCardNumber}>•••• •••• •••• {financialInfo.account_last4}</Text>
-                      <Text style={styles.bankCardHolder}>
-                        {financialInfo.account_holder_name || "Account Holder"}
-                      </Text>
-                    </View>
-                    <View style={styles.bankCardFooter}>
-                      <View>
-                        <Text style={styles.bankCardLabel}>Bank</Text>
-                        <Text style={styles.bankCardValue}>{financialInfo.bank_name || "N/A"}</Text>
-                      </View>
-                      {financialInfo.ifsc_code && (
-                        <View>
-                          <Text style={styles.bankCardLabel}>IFSC</Text>
-                          <Text style={styles.bankCardValue}>{financialInfo.ifsc_code}</Text>
-                        </View>
-                      )}
-                    </View>
-                  </LinearGradient>
-                </View>
+          {/* 3-stat strip */}
+          <View style={S.statStrip}>
+            <StatCell label="APPLIED ON" value={appliedDate} flex={2} />
+            <View style={S.statSep} />
+            <StatCell label="GPA / %" value={app.gpa || "—"} accent flex={1} />
+            <View style={S.statSep} />
+            <StatCell label="YEAR" value={app.current_year || "—"} flex={1} />
+          </View>
+        </LinearGradient>
 
-                <View style={styles.financialMeta}>
-                  <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
-                  <Text style={[styles.financialMetaText, { color: colors.textSecondary }]}>
-                    Last updated: {new Date(financialInfo.updated_at).toLocaleDateString('en-US', {
-                      month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                    })}
+        {/* ══════════ CONTACT ══════════ */}
+        <Card title="Contact" icon="person-outline" isDark={isDark} colors={colors}>
+          <Row label="Email" value={user.email || app.email} isDark={isDark} colors={colors} />
+          <Row label="Phone" value={app.phone} isDark={isDark} colors={colors} />
+          <Row label="Student ID" value={app.student_id} isDark={isDark} colors={colors} last />
+        </Card>
+
+        {/* ══════════ ACADEMICS ══════════ */}
+        <Card title="Academic Profile" icon="school-outline" isDark={isDark} colors={colors}>
+          <Row label="Institution" value={app.institution} isDark={isDark} colors={colors} />
+          <Row label="Major / Field" value={app.major} isDark={isDark} colors={colors} />
+          <Row label="Current Year" value={app.current_year} isDark={isDark} colors={colors} />
+          <Row label="Graduation Year" value={app.graduation_date} isDark={isDark} colors={colors} />
+          <Row label="GPA / Percentage" value={app.gpa ? `${app.gpa}%` : undefined} isDark={isDark} colors={colors} accent last />
+        </Card>
+
+        {/* ══════════ INTERVIEW ══════════ */}
+        {(app.interview_mode || verificationTime) ? (
+          <Card title="Interview Details" icon="videocam-outline" isDark={isDark} colors={colors}>
+            <Row label="Mode" value={app.interview_mode} isDark={isDark} colors={colors} />
+            {verificationTime ? <Row label="Scheduled At" value={verificationTime} isDark={isDark} colors={colors} last /> : null}
+          </Card>
+        ) : null}
+
+        {/* ══════════ ASSESSMENT ══════════ */}
+        {(app.assessment_q1 || app.assessment_q2 || app.activities || app.financial_info) ? (
+          <Card title="Assessment" icon="clipboard-outline" isDark={isDark} colors={colors}>
+            {app.assessment_q1 ? <Block label="Question 1" value={app.assessment_q1} isDark={isDark} colors={colors} /> : null}
+            {app.assessment_q2 ? <Block label="Question 2" value={app.assessment_q2} isDark={isDark} colors={colors} /> : null}
+            {app.activities ? <Block label="Activities" value={app.activities} isDark={isDark} colors={colors} /> : null}
+            {app.financial_info ? <Block label="Financial Info" value={app.financial_info} isDark={isDark} colors={colors} /> : null}
+          </Card>
+        ) : null}
+
+        {/* ══════════ ACADEMIC HISTORY ══════════ */}
+        {academicDetails.length > 0 ? (
+          <Card title={`Academic History`} icon="library-outline" isDark={isDark} colors={colors} badge={`${academicDetails.length}`}>
+            {academicDetails.map((ac: any, i: number) => (
+              <View key={ac.id || i}>
+                {i > 0 && <View style={[S.divider, { backgroundColor: isDark ? "#1E293B" : "#F1F5F9" }]} />}
+                <View style={S.acItem}>
+                  <View style={S.acTop}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[S.acCourse, { color: isDark ? "#F1F5F9" : "#0F172A" }]}>{ac.course_name}</Text>
+                      <Text style={[S.acMajor, { color: isDark ? "#94A3B8" : "#64748B" }]}>{ac.major} · {ac.institution}</Text>
+                    </View>
+                    <View style={[S.cgpaBadge, { backgroundColor: isDark ? "rgba(245,158,11,0.15)" : "#FEF9C3" }]}>
+                      <Text style={S.cgpaVal}>{ac.cgpa}</Text>
+                      <Text style={S.cgpaUnit}>CGPA</Text>
+                    </View>
+                  </View>
+                  <Text style={[S.acMeta, { color: isDark ? "#64748B" : "#94A3B8" }]}>
+                    {ac.academic_year} · Graduated {ac.graduation_year} · {ac.percentage}%
                   </Text>
                 </View>
+              </View>
+            ))}
+          </Card>
+        ) : null}
 
-                {parsedAppText.financial_info && (
+        {/* ══════════ DOCUMENTS ══════════ */}
+        {(attachments.length > 0 || documents.length > 0) ? (
+          <Card title="Documents" icon="document-attach-outline" isDark={isDark} colors={colors}>
+            {[...attachments, ...documents].map((doc: any, i: number) => (
+              <View key={i} style={[S.docRow, { borderColor: isDark ? "#1E293B" : "#F1F5F9" }]}>
+                <View style={[S.docIcon, { backgroundColor: isDark ? "rgba(99,102,241,0.12)" : "#EEF2FF" }]}>
+                  <Ionicons name="document-text-outline" size={16} color="#6366F1" />
+                </View>
+                <Text style={[S.docName, { color: isDark ? "#E2E8F0" : "#1E293B" }]} numberOfLines={1}>
+                  {doc.filename || doc.name || `Document ${i + 1}`}
+                </Text>
+                {doc.verified !== undefined && (
+                  <View style={[S.verifiedPill, { backgroundColor: doc.verified ? "#D1FAE5" : "#FEF3C7" }]}>
+                    <Text style={{ fontSize: 10, fontWeight: "700", color: doc.verified ? "#059669" : "#D97706" }}>
+                      {doc.verified ? "Verified" : "Pending"}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ))}
+          </Card>
+        ) : null}
+
+        {/* ══════════ ACTIONS ══════════ */}
+        {status === "new" ? (
+          <View style={S.actions}>
+            <TouchableOpacity style={[S.actionBtn, submitting && S.disabled]} onPress={handleApprove} disabled={submitting} activeOpacity={0.85}>
+              <LinearGradient colors={["#10B981", "#059669"]} style={S.actionGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                {submitting ? <ActivityIndicator size="small" color="#fff" /> : (
                   <>
-                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                    <View style={styles.assessmentItem}>
-                      <Text style={[styles.assessmentLabel, { color: colors.textSecondary }]}>
-                        Additional Financial Information
-                      </Text>
-                      <Text style={[styles.assessmentValue, { color: colors.text }]}>
-                        {parsedAppText.financial_info}
-                      </Text>
-                    </View>
+                    <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                    <Text style={S.actionText}>Approve Application</Text>
                   </>
                 )}
-              </>
-            ) : (
-              <View style={styles.emptyState}>
-                <Ionicons name="card-outline" size={48} color={colors.textSecondary} />
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  No financial information available
-                </Text>
-              </View>
-            )}
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity style={[S.actionBtnOutline, { borderColor: "#EF4444" }, submitting && S.disabled]} onPress={() => setShowRejectModal(true)} disabled={submitting} activeOpacity={0.85}>
+              <Ionicons name="close-circle-outline" size={20} color="#EF4444" />
+              <Text style={[S.actionTextOutline, { color: "#EF4444" }]}>Reject Application</Text>
+            </TouchableOpacity>
           </View>
-        )}
-
-        {/* Action Buttons - Only show for pending applications */}
-        {apiData?.status === "new" && (
-          <View style={[styles.actionsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.actionsTitle, { color: colors.text }]}>Review Actions</Text>
-            <View style={styles.actionsRow}>
-              <TouchableOpacity
-                style={[styles.approveBtn, submitting && styles.disabledBtn]}
-                activeOpacity={0.85}
-                onPress={handleApprove}
-                disabled={submitting}
-              >
-                <LinearGradient
-                  colors={submitting ? ["#9ca3af", "#6b7280"] : ["#10b981", "#059669"]}
-                  style={styles.actionBtnGradient}
-                >
-                  {submitting ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <>
-                      <Ionicons name="checkmark-circle" size={22} color="#fff" />
-                      <Text style={styles.actionBtnText}>Approve</Text>
-                    </>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.rejectBtn, submitting && styles.disabledBtn]}
-                activeOpacity={0.85}
-                onPress={handleReject}
-                disabled={submitting}
-              >
-                <LinearGradient
-                  colors={submitting ? ["#9ca3af", "#6b7280"] : ["#ef4444", "#dc2626"]}
-                  style={styles.actionBtnGradient}
-                >
-                  {submitting ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <>
-                      <Ionicons name="close-circle" size={22} color="#fff" />
-                      <Text style={styles.actionBtnText}>Reject</Text>
-                    </>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
+        ) : (
+          <View style={[S.reviewedBanner, { backgroundColor: statusCfg.color + "18", borderColor: statusCfg.color + "40" }]}>
+            <Ionicons name={statusCfg.icon} size={22} color={statusCfg.color} />
+            <View>
+              <Text style={[S.reviewedTitle, { color: statusCfg.color }]}>Application {statusCfg.label}</Text>
+              <Text style={[S.reviewedSub, { color: isDark ? "#64748B" : "#94A3B8" }]}>No further action required.</Text>
             </View>
           </View>
         )}
+
+        <View style={{ height: 32 }} />
       </ScrollView>
 
-      {/* Rejection Modal */}
-      <Modal
-        visible={showRejectModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowRejectModal(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.modalOverlay}
-        >
-          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Reject Application</Text>
-              <TouchableOpacity
-                onPress={() => setShowRejectModal(false)}
-                style={styles.modalClose}
-              >
-                <Ionicons name="close" size={24} color={colors.textSecondary} />
+      {/* ══════════ REJECT MODAL ══════════ */}
+      <Modal visible={showRejectModal} transparent animationType="slide" onRequestClose={() => setShowRejectModal(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={S.modalOverlay}>
+          <View style={[S.modalSheet, { backgroundColor: isDark ? "#1E293B" : "#FFFFFF" }]}>
+            <View style={S.modalHandle} />
+            <View style={S.modalHead}>
+              <Text style={[S.modalTitle, { color: isDark ? "#F1F5F9" : "#0F172A" }]}>Reject Application</Text>
+              <TouchableOpacity onPress={() => setShowRejectModal(false)} style={[S.modalClose, { backgroundColor: isDark ? "#334155" : "#F1F5F9" }]}>
+                <Ionicons name="close" size={18} color={isDark ? "#94A3B8" : "#64748B"} />
               </TouchableOpacity>
             </View>
-
-            <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>
-              Please provide a reason for rejecting this application:
+            <Text style={[S.modalSub, { color: isDark ? "#64748B" : "#94A3B8" }]}>
+              This reason will be shared with the applicant. Please be clear and professional.
             </Text>
-
             <TextInput
-              style={[styles.modalInput, {
-                backgroundColor: isDark ? colors.surface : "#f3f4f6",
-                color: colors.text,
-                borderColor: colors.border
-              }]}
+              style={[S.modalInput, { backgroundColor: isDark ? "#0F172A" : "#F8FAFC", color: isDark ? "#F1F5F9" : "#0F172A", borderColor: isDark ? "#334155" : "#E2E8F0" }]}
               placeholder="Enter rejection reason..."
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
               value={rejectionNotes}
               onChangeText={setRejectionNotes}
-              multiline
-              numberOfLines={4}
+              multiline numberOfLines={5}
               textAlignVertical="top"
             />
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalCancelButton, { borderColor: colors.border }]}
-                onPress={() => {
-                  setShowRejectModal(false);
-                  setRejectionNotes("");
-                }}
-                disabled={submitting}
-              >
-                <Text style={[styles.modalCancelText, { color: colors.text }]}>Cancel</Text>
+            <View style={S.modalActions}>
+              <TouchableOpacity style={[S.modalCancel, { borderColor: isDark ? "#334155" : "#E2E8F0" }]} onPress={() => { setShowRejectModal(false); setRejectionNotes(""); }} disabled={submitting}>
+                <Text style={[S.modalCancelTxt, { color: isDark ? "#94A3B8" : "#64748B" }]}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalSubmitButton, submitting && styles.disabledBtn]}
-                onPress={submitRejection}
-                disabled={submitting}
-              >
-                <LinearGradient
-                  colors={submitting ? ["#9ca3af", "#6b7280"] : ["#ef4444", "#dc2626"]}
-                  style={styles.modalButtonGradient}
-                >
-                  {submitting ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={styles.modalSubmitText}>Submit Rejection</Text>
-                  )}
+              <TouchableOpacity style={[S.modalSubmit, submitting && S.disabled]} onPress={submitRejection} disabled={submitting}>
+                <LinearGradient colors={["#EF4444", "#DC2626"]} style={S.modalSubmitGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                  {submitting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={S.modalSubmitTxt}>Submit Rejection</Text>}
                 </LinearGradient>
               </TouchableOpacity>
             </View>
@@ -791,609 +350,206 @@ export default function ProviderApplicantDetailsScreen() {
   );
 }
 
-// Stat Card Component
-function StatCard({ icon, label, value, color, isDark }: any) {
-  const { colors } = useTheme();
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+function StatCell({ label, value, accent, flex }: { label: string; value: string; accent?: boolean; flex?: number }) {
   return (
-    <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <View style={[styles.statIcon, { backgroundColor: isDark ? `${color} 20` : `${color} 15` }]}>
-        <Ionicons name={icon} size={20} color={color} />
+    <View style={[S.statCell, flex ? { flex } : undefined]}>
+      <Text style={S.statLabel}>{label}</Text>
+      <Text style={[S.statValue, accent && { color: "#FCD34D" }]} numberOfLines={1}>{value}</Text>
+    </View>
+  );
+}
+
+function Card({ title, icon, isDark, colors, children, badge }: any) {
+  return (
+    <View style={[S.card, { backgroundColor: isDark ? "#1E293B" : "#FFFFFF", shadowColor: isDark ? "#000" : "#94A3B8" }]}>
+      <View style={[S.cardHead, { borderBottomColor: isDark ? "#334155" : "#F1F5F9" }]}>
+        <Ionicons name={icon} size={17} color={isDark ? "#818CF8" : "#6366F1"} />
+        <Text style={[S.cardTitle, { color: isDark ? "#F1F5F9" : "#0F172A" }]}>{title}</Text>
+        {badge ? (
+          <View style={[S.cardBadge, { backgroundColor: isDark ? "rgba(99,102,241,0.15)" : "#EEF2FF" }]}>
+            <Text style={[S.cardBadgeTxt, { color: isDark ? "#818CF8" : "#6366F1" }]}>{badge}</Text>
+          </View>
+        ) : null}
       </View>
-      <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
-      <Text style={[styles.statValue, { color: colors.text }]} numberOfLines={1}>{value}</Text>
+      <View style={S.cardBody}>{children}</View>
     </View>
   );
 }
 
-// Info Row Component
-function InfoRow({ label, value, colors }: any) {
-  if (!value || value === "N/A") return null;
+function Row({ label, value, isDark, colors, last, accent }: any) {
+  if (!value) return null;
   return (
-    <View style={styles.infoRow}>
-      <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{label}</Text>
-      <Text style={[styles.infoValue, { color: colors.text }]}>{value}</Text>
+    <View style={[S.row, !last && { borderBottomWidth: 1, borderBottomColor: isDark ? "#1E293B" : "#F8FAFC" }]}>
+      <Text style={[S.rowLabel, { color: isDark ? "#475569" : "#94A3B8" }]}>{label}</Text>
+      <Text style={[S.rowValue, { color: accent ? (isDark ? "#FBBF24" : "#D97706") : (isDark ? "#E2E8F0" : "#0F172A") }]} numberOfLines={2}>{value}</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+function Block({ label, value, isDark, colors }: any) {
+  return (
+    <View style={[S.block, { backgroundColor: isDark ? "#0F172A" : "#F8FAFC", borderColor: isDark ? "#334155" : "#E2E8F0" }]}>
+      <Text style={[S.blockLabel, { color: isDark ? "#475569" : "#94A3B8" }]}>{label}</Text>
+      <Text style={[S.blockValue, { color: isDark ? "#E2E8F0" : "#1E293B" }]}>{value}</Text>
+    </View>
+  );
+}
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
+const S = StyleSheet.create({
   container: { flex: 1 },
-  scroll: { flex: 1 },
-  content: { paddingBottom: 32 },
+  centered: { flex: 1, alignItems: "center", justifyContent: "center" },
+  scroll: { paddingBottom: 20 },
 
-  // Loading and Error states
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  errorText: {
-    fontSize: 14,
-    fontWeight: "500",
-    textAlign: "center",
-    marginBottom: 24,
-  },
-  retryButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  retryButtonText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-
-  // Hero Section
-  heroSection: {
+  // ── Hero ──
+  hero: {
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 24,
+    paddingTop: 24,
+    paddingBottom: 20,
+    gap: 14,
+    overflow: "hidden",
   },
-  heroContent: {
-    flexDirection: "row",
-    gap: 16,
-    marginBottom: 20,
+  decCircle1: {
+    position: "absolute", width: 200, height: 200,
+    borderRadius: 100, top: -60, right: -60,
+    backgroundColor: "rgba(255,255,255,0.05)",
   },
-  avatarSection: {
-    alignItems: "center",
-    gap: 10,
+  decCircle2: {
+    position: "absolute", width: 140, height: 140,
+    borderRadius: 70, bottom: -40, left: 20,
+    backgroundColor: "rgba(255,255,255,0.04)",
   },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 3,
-    borderColor: "rgba(255,255,255,0.3)",
+  heroRow: { flexDirection: "row", alignItems: "flex-start", gap: 16 },
+  avatarRing: {
+    padding: 3,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.25)",
   },
-  avatarText: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: "#fff",
+  avatar: { width: 72, height: 72, borderRadius: 18 },
+  avatarFb: { alignItems: "center", justifyContent: "center" },
+  avatarInitials: { fontSize: 26, fontWeight: "800", color: "#fff" },
+  heroNameBlock: { flex: 1, gap: 5, paddingTop: 2 },
+  heroName: { fontSize: 22, fontWeight: "800", color: "#fff", lineHeight: 27 },
+  heroSub: { fontSize: 13, fontWeight: "500", color: "rgba(255,255,255,0.65)" },
+  statusPill: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    alignSelf: "flex-start",
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 20, borderWidth: 1, marginTop: 2,
   },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
-  },
-  heroInfo: {
-    flex: 1,
-    justifyContent: "center",
-    gap: 6,
-  },
-  heroName: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "#fff",
-  },
-  heroSubtitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "rgba(255,255,255,0.85)",
-  },
-  infoChips: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 8,
-  },
-  infoChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  infoChipText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "rgba(255,255,255,0.95)",
-  },
-  contactRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 2,
-  },
-  contactText: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: "rgba(255,255,255,0.8)",
-  },
+  statusDot: { width: 7, height: 7, borderRadius: 4 },
+  statusLabel: { fontSize: 10, fontWeight: "800", letterSpacing: 0.6 },
 
-  // Scholarship Card
-  scholarshipCard: {
-    backgroundColor: "rgba(255,255,255,0.15)",
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
+  // Scholarship banner
+  schBanner: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    backgroundColor: "rgba(0,0,0,0.2)",
+    borderRadius: 14, padding: 12,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.1)",
   },
-  scholarshipHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 8,
-  },
-  scholarshipTitle: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "rgba(255,255,255,0.8)",
-    textTransform: "uppercase",
-  },
-  scholarshipName: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#fff",
-    marginBottom: 4,
-  },
-  scholarshipDate: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: "rgba(255,255,255,0.7)",
-  },
+  schLabel: { fontSize: 9, fontWeight: "700", color: "rgba(255,255,255,0.5)", letterSpacing: 0.8, textTransform: "uppercase" },
+  schName: { fontSize: 13, fontWeight: "700", color: "#fff", marginTop: 2 },
+  appIdPill: { backgroundColor: "rgba(255,255,255,0.15)", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  appIdText: { fontSize: 11, fontWeight: "700", color: "rgba(255,255,255,0.85)" },
 
-  // Tabs
-  tabContainer: {
+  // Stat strip
+  statStrip: {
     flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    borderBottomWidth: 1,
+    backgroundColor: "rgba(0,0,0,0.2)",
+    borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.08)",
   },
-  tab: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 12,
-    borderBottomWidth: 2,
-    borderBottomColor: "transparent",
-  },
-  tabText: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
+  statCell: { flex: 1, alignItems: "center", gap: 4, paddingHorizontal: 4 },
+  statSep: { width: 1, backgroundColor: "rgba(255,255,255,0.12)" },
+  statLabel: { fontSize: 9, fontWeight: "700", color: "rgba(255,255,255,0.5)", letterSpacing: 0.6, textTransform: "uppercase" },
+  statValue: { fontSize: 13, fontWeight: "800", color: "#fff", textAlign: "center" },
 
-  // Stats Grid
-  statsGrid: {
-    flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingTop: 20,
-  },
-  statCard: {
-    flex: 1,
-    borderRadius: 16,
-    padding: 16,
-    alignItems: "center",
-    borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  statIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  statLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    textAlign: "center",
-    marginBottom: 6,
-    textTransform: "uppercase",
-  },
-  statValue: {
-    fontSize: 14,
-    fontWeight: "800",
-    textAlign: "center",
-  },
-
-  // Cards
+  // ── Cards ──
   card: {
+    marginHorizontal: 16, marginTop: 12,
     borderRadius: 20,
-    marginHorizontal: 16,
-    marginTop: 16,
-    padding: 20,
-    borderWidth: 1,
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowOpacity: 0.08, shadowRadius: 12,
+    elevation: 3, overflow: "hidden",
   },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  cardTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  badge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  verifiedBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  verifiedText: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
-
-  // Info Rows
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 12,
+  cardHead: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    paddingHorizontal: 18, paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(0,0,0,0.05)",
   },
-  infoLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  infoValue: {
-    fontSize: 14,
-    fontWeight: "500",
-    flex: 1,
-    textAlign: "right",
-    marginLeft: 16,
-  },
+  cardTitle: { fontSize: 14, fontWeight: "800", flex: 1 },
+  cardBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  cardBadgeTxt: { fontSize: 11, fontWeight: "700" },
+  cardBody: { paddingHorizontal: 18, paddingTop: 4, paddingBottom: 8 },
 
-  // Assessment
-  assessmentItem: {
-    marginBottom: 16,
-  },
-  assessmentLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    marginBottom: 8,
-    textTransform: "uppercase",
-  },
-  assessmentValue: {
-    fontSize: 15,
-    fontWeight: "500",
-    lineHeight: 22,
-  },
-  divider: {
-    height: 1,
-    marginVertical: 16,
-  },
+  // ── Row ──
+  row: { paddingVertical: 12, gap: 3 },
+  rowLabel: { fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.4 },
+  rowValue: { fontSize: 15, fontWeight: "700" },
 
-  // Academic Cards
-  academicCard: {
-    paddingVertical: 16,
-  },
-  academicHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 12,
-  },
-  academicBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  academicCourse: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 2,
-  },
-  academicMajor: {
-    fontSize: 13,
-    fontWeight: "500",
-  },
-  cgpaChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  cgpaText: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  academicDetails: {
-    gap: 8,
-    marginLeft: 52,
-  },
-  academicRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  academicText: {
-    fontSize: 13,
-    fontWeight: "500",
-  },
+  // ── Block ──
+  block: { borderRadius: 12, borderWidth: 1, padding: 12, marginVertical: 5, gap: 5 },
+  blockLabel: { fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
+  blockValue: { fontSize: 14, fontWeight: "500", lineHeight: 20 },
 
-  // Bank Card
-  bankCard: {
-    borderRadius: 16,
-    overflow: "hidden",
-    marginBottom: 16,
-  },
-  bankCardGradient: {
-    padding: 20,
-  },
-  bankCardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 24,
-  },
-  bankCardType: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "rgba(255,255,255,0.9)",
-    textTransform: "uppercase",
-  },
-  bankCardBody: {
-    marginBottom: 20,
-  },
-  bankCardNumber: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#fff",
-    letterSpacing: 2,
-    marginBottom: 8,
-  },
-  bankCardHolder: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "rgba(255,255,255,0.8)",
-    textTransform: "uppercase",
-  },
-  bankCardFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  bankCardLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "rgba(255,255,255,0.7)",
-    marginBottom: 4,
-    textTransform: "uppercase",
-  },
-  bankCardValue: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#fff",
-  },
-  financialMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  financialMetaText: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
+  // ── Academic item ──
+  divider: { height: 1 },
+  acItem: { paddingVertical: 12, gap: 6 },
+  acTop: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  acCourse: { fontSize: 14, fontWeight: "700" },
+  acMajor: { fontSize: 12, fontWeight: "500", marginTop: 2 },
+  cgpaBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, alignItems: "center" },
+  cgpaVal: { fontSize: 16, fontWeight: "800", color: "#F59E0B" },
+  cgpaUnit: { fontSize: 9, fontWeight: "700", color: "#F59E0B", letterSpacing: 0.5 },
+  acMeta: { fontSize: 12, fontWeight: "500" },
 
-  // Empty State
-  emptyState: {
-    alignItems: "center",
-    paddingVertical: 40,
+  // ── Documents ──
+  docRow: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    paddingVertical: 11, borderBottomWidth: 1,
   },
-  emptyText: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginTop: 12,
-  },
+  docIcon: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  docName: { fontSize: 13, fontWeight: "600", flex: 1 },
+  verifiedPill: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 },
 
-  // Actions
-  actionsCard: {
-    borderRadius: 20,
-    marginHorizontal: 16,
-    marginTop: 16,
-    padding: 20,
-    borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
+  // ── Actions ──
+  actions: { marginHorizontal: 16, marginTop: 20, gap: 10 },
+  actionBtn: { borderRadius: 16, overflow: "hidden" },
+  actionGrad: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 16 },
+  actionText: { fontSize: 16, fontWeight: "800", color: "#fff" },
+  actionBtnOutline: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 8, paddingVertical: 15, borderRadius: 16, borderWidth: 1.5,
   },
-  actionsTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    marginBottom: 16,
-  },
-  actionsRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  approveBtn: {
-    flex: 1,
-    borderRadius: 14,
-    overflow: "hidden",
-    shadowColor: "#10b981",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  rejectBtn: {
-    flex: 1,
-    borderRadius: 14,
-    overflow: "hidden",
-    shadowColor: "#ef4444",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  actionBtnGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 16,
-  },
-  actionBtnText: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#fff",
-  },
-  disabledBtn: {
-    opacity: 0.6,
-  },
+  actionTextOutline: { fontSize: 16, fontWeight: "700" },
+  disabled: { opacity: 0.55 },
 
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    justifyContent: "flex-end",
+  // Reviewed banner
+  reviewedBanner: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    marginHorizontal: 16, marginTop: 20,
+    borderRadius: 16, borderWidth: 1, padding: 16,
   },
-  modalContent: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    maxHeight: "80%",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-  },
-  modalClose: {
-    padding: 4,
-  },
-  modalLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 12,
-  },
-  modalInput: {
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 15,
-    fontWeight: "500",
-    minHeight: 120,
-    borderWidth: 1,
-    marginBottom: 24,
-  },
-  modalActions: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  modalButton: {
-    flex: 1,
-    borderRadius: 14,
-    overflow: "hidden",
-  },
-  modalCancelButton: {
-    borderWidth: 1.5,
-    paddingVertical: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalCancelText: {
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  modalSubmitButton: {
-    shadowColor: "#ef4444",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  modalButtonGradient: {
-    paddingVertical: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalSubmitText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "800",
-  },
+  reviewedTitle: { fontSize: 15, fontWeight: "800" },
+  reviewedSub: { fontSize: 12, fontWeight: "500", marginTop: 2 },
+
+  // ── Modal ──
+  modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.6)" },
+  modalSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, paddingBottom: 40, gap: 14 },
+  modalHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: "#CBD5E1", alignSelf: "center", marginBottom: 6 },
+  modalHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  modalTitle: { fontSize: 18, fontWeight: "800" },
+  modalClose: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  modalSub: { fontSize: 13, fontWeight: "500", lineHeight: 20 },
+  modalInput: { borderRadius: 14, borderWidth: 1, padding: 14, fontSize: 14, minHeight: 120, fontWeight: "500" },
+  modalActions: { flexDirection: "row", gap: 10 },
+  modalCancel: { flex: 1, borderWidth: 1.5, borderRadius: 14, paddingVertical: 14, alignItems: "center", justifyContent: "center" },
+  modalCancelTxt: { fontSize: 15, fontWeight: "700" },
+  modalSubmit: { flex: 1.5, borderRadius: 14, overflow: "hidden" },
+  modalSubmitGrad: { paddingVertical: 14, alignItems: "center", justifyContent: "center" },
+  modalSubmitTxt: { fontSize: 15, fontWeight: "800", color: "#fff" },
 });

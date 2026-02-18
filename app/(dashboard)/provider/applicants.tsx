@@ -34,6 +34,7 @@ type Applicant = {
   student_id: string;
   current_year: string;
   graduation_date: string;
+  _raw: any; // full raw API object passed to applicant-details screen
 };
 
 const TABS: Array<{ key: "all" | ApplicantStatus; label: string; icon: string }> = [
@@ -94,6 +95,7 @@ export default function ProviderApplicantsScreen() {
           }
 
           return {
+            // ── display fields (used by the list card) ──
             id: String(app.id),
             name: app.user?.fullname || `${app.user?.firstname} ${app.user?.lastname}`,
             major: parsedDetails.major || "",
@@ -111,6 +113,8 @@ export default function ProviderApplicantsScreen() {
             student_id: parsedDetails.student_id || "",
             current_year: parsedDetails.current_year || "",
             graduation_date: parsedDetails.graduation_date || "",
+            // ── full raw API object (used by applicant-details screen) ──
+            _raw: app,
           };
         });
 
@@ -195,175 +199,148 @@ export default function ProviderApplicantsScreen() {
     }
   };
 
-  const renderItem: ListRenderItem<Applicant> = ({ item }) => {
+  const renderItem: ListRenderItem<Applicant> = ({ item, index }) => {
     const statusConfig = getStatusConfig(item.status);
+    const initials = item.name.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase();
+    const gradientColors: [string, string] =
+      item.status === "approved" ? ["#10B981", "#059669"] :
+        item.status === "rejected" ? ["#EF4444", "#DC2626"] :
+          ["#6366F1", "#4F46E5"];
 
     return (
       <TouchableOpacity
-        activeOpacity={0.7}
-        onPress={() => {
-          router.push({
-            pathname: "/(dashboard)/provider/applicant-details",
-            params: { applicant: JSON.stringify(item) }
-          });
-        }}
-        style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+        activeOpacity={0.88}
+        onPress={() => router.push({
+          pathname: "/(dashboard)/provider/applicant-details",
+          params: { applicant: JSON.stringify(item._raw) }
+        })}
+        style={[styles.card, {
+          backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+          borderColor: isDark ? "#334155" : "#E8EDF5",
+          shadowColor: isDark ? "#000" : "#94A3B8",
+        }]}
       >
-        {/* Header Section */}
+        {/* ── STATUS ACCENT BAR ── */}
+        <LinearGradient
+          colors={gradientColors}
+          start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+          style={styles.accentBar}
+        />
+
+        {/* ── HEADER ── */}
         <View style={styles.cardHeader}>
           {/* Avatar */}
-          <View style={styles.avatarContainer}>
+          <View style={styles.avatarWrap}>
             {item.avatarUrl ? (
-              <Image
-                source={{ uri: item.avatarUrl }}
-                style={styles.avatar}
-                resizeMode="cover"
-              />
+              <Image source={{ uri: item.avatarUrl }} style={styles.avatar} resizeMode="cover" />
             ) : (
-              <LinearGradient
-                colors={isDark ? ["#4f46e5", "#6366f1"] : ["#6366f1", "#8b5cf6"]}
-                style={styles.avatar}
-              >
-                <Text style={styles.avatarText}>
-                  {item.name.charAt(0).toUpperCase()}
-                </Text>
+              <LinearGradient colors={gradientColors} style={styles.avatar}>
+                <Text style={styles.avatarText}>{initials}</Text>
               </LinearGradient>
             )}
-            {/* Status Indicator */}
-            <View style={[styles.statusIndicator, { backgroundColor: statusConfig.color }]} />
+            <View style={[styles.statusDot, { backgroundColor: statusConfig.color, borderColor: isDark ? "#1E293B" : "#fff" }]} />
           </View>
 
-          {/* User Info */}
-          <View style={styles.userInfo}>
-            <View style={styles.nameRow}>
-              <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
-                {item.name}
+          {/* Name + meta */}
+          <View style={styles.headerInfo}>
+            <Text style={[styles.applicantName, { color: isDark ? "#F1F5F9" : "#0F172A" }]} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <View style={styles.headerMetaRow}>
+              <Ionicons name="mail-outline" size={11} color={isDark ? "#64748B" : "#94A3B8"} />
+              <Text style={[styles.headerMeta, { color: isDark ? "#64748B" : "#94A3B8" }]} numberOfLines={1}>
+                {item.email}
               </Text>
-              <View style={[styles.statusBadge, { backgroundColor: statusConfig.bgLight }]}>
-                <Ionicons name={statusConfig.icon as any} size={12} color={statusConfig.color} />
-                <Text style={[styles.statusText, { color: statusConfig.color }]}>
-                  {statusConfig.label}
-                </Text>
-              </View>
             </View>
-
-            {/* Email */}
-            {item.email && (
-              <View style={styles.infoRow}>
-                <Ionicons name="mail-outline" size={12} color={colors.textSecondary} />
-                <Text style={[styles.infoText, { color: colors.textSecondary }]} numberOfLines={1}>
-                  {item.email}
+            {item.phone ? (
+              <View style={styles.headerMetaRow}>
+                <Ionicons name="call-outline" size={11} color={isDark ? "#64748B" : "#94A3B8"} />
+                <Text style={[styles.headerMeta, { color: isDark ? "#64748B" : "#94A3B8" }]}>
+                  {item.phone}
                 </Text>
               </View>
-            )}
+            ) : null}
+          </View>
 
-            {/* Student ID */}
-            {item.student_id && (
-              <View style={styles.infoRow}>
-                <Ionicons name="card-outline" size={12} color={colors.textSecondary} />
-                <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                  ID: {item.student_id}
-                </Text>
-              </View>
-            )}
+          {/* Status badge + App ID */}
+          <View style={styles.headerRight}>
+            <View style={[styles.statusBadge, { backgroundColor: statusConfig.bgLight }]}>
+              <Ionicons name={statusConfig.icon as any} size={11} color={statusConfig.color} />
+              <Text style={[styles.statusText, { color: statusConfig.color }]}>{statusConfig.label}</Text>
+            </View>
+            <Text style={[styles.appId, { color: isDark ? "#475569" : "#94A3B8" }]}>#{item.id}</Text>
           </View>
         </View>
 
-
-        {/* Details Grid - 2x2 Layout */}
-        {(item.major || item.institution || item.gpa || item.submittedAt) && (
-          <>
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <View style={styles.compactGrid}>
-              {/* Row 1: Major & Institution */}
-              <View style={styles.gridRow}>
-                {item.major && (
-                  <View style={styles.gridItem}>
-                    <View style={[styles.gridIcon, { backgroundColor: isDark ? "rgba(99, 102, 241, 0.15)" : "#eef2ff" }]}>
-                      <Ionicons name="book-outline" size={14} color="#6366f1" />
-                    </View>
-                    <View style={styles.gridContent}>
-                      <Text style={[styles.gridLabel, { color: colors.textSecondary }]}>MAJOR</Text>
-                      <Text style={[styles.gridValue, { color: colors.text }]} numberOfLines={1}>
-                        {item.major}
-                      </Text>
-                    </View>
-                  </View>
-                )}
-                {item.institution && (
-                  <View style={styles.gridItem}>
-                    <View style={[styles.gridIcon, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.15)" : "#d1fae5" }]}>
-                      <Ionicons name="school-outline" size={14} color="#10b981" />
-                    </View>
-                    <View style={styles.gridContent}>
-                      <Text style={[styles.gridLabel, { color: colors.textSecondary }]}>INSTITUTION</Text>
-                      <Text style={[styles.gridValue, { color: colors.text }]} numberOfLines={1}>
-                        {item.institution}
-                      </Text>
-                    </View>
-                  </View>
-                )}
-              </View>
-
-              {/* Row 2: GPA & Applied */}
-              <View style={styles.gridRow}>
-                {item.gpa && (
-                  <View style={styles.gridItem}>
-                    <View style={[styles.gridIcon, { backgroundColor: isDark ? "rgba(245, 158, 11, 0.15)" : "#fef3c7" }]}>
-                      <Ionicons name="trophy-outline" size={14} color="#f59e0b" />
-                    </View>
-                    <View style={styles.gridContent}>
-                      <Text style={[styles.gridLabel, { color: colors.textSecondary }]}>GPA</Text>
-                      <Text style={[styles.gridValue, { color: colors.text }]}>
-                        {item.gpa}
-                      </Text>
-                    </View>
-                  </View>
-                )}
-                {item.submittedAt && (
-                  <View style={styles.gridItem}>
-                    <View style={[styles.gridIcon, { backgroundColor: isDark ? "rgba(139, 92, 246, 0.15)" : "#f3e8ff" }]}>
-                      <Ionicons name="calendar-outline" size={14} color="#8b5cf6" />
-                    </View>
-                    <View style={styles.gridContent}>
-                      <Text style={[styles.gridLabel, { color: colors.textSecondary }]}>APPLIED</Text>
-                      <Text style={[styles.gridValue, { color: colors.text }]} numberOfLines={1}>
-                        {item.submittedAt}
-                      </Text>
-                    </View>
-                  </View>
-                )}
-              </View>
+        {/* ── INFO TABLE ── */}
+        <View style={[styles.infoTable, { borderTopColor: isDark ? "#334155" : "#F1F5F9" }]}>
+          {/* Row 1: Major + GPA */}
+          <View style={styles.infoTableRow}>
+            <View style={styles.infoTableCell}>
+              <Text style={[styles.infoTableLabel, { color: isDark ? "#64748B" : "#94A3B8" }]}>Major</Text>
+              <Text style={[styles.infoTableValue, { color: isDark ? "#F1F5F9" : "#0F172A" }]} numberOfLines={1}>
+                {item.major || "—"}
+              </Text>
             </View>
-          </>
-        )}
+            <View style={[styles.infoTableDivider, { backgroundColor: isDark ? "#334155" : "#F1F5F9" }]} />
+            <View style={styles.infoTableCell}>
+              <Text style={[styles.infoTableLabel, { color: isDark ? "#64748B" : "#94A3B8" }]}>GPA / %</Text>
+              <Text style={[styles.infoTableValue, { color: isDark ? "#FBBF24" : "#D97706", fontWeight: "800" }]}>
+                {item.gpa || "—"}
+              </Text>
+            </View>
+          </View>
 
-        {/* Footer */}
-        <View style={[styles.cardFooter, { backgroundColor: isDark ? "rgba(0,0,0,0.2)" : "rgba(0,0,0,0.02)" }]}>
-          {item.current_year && (
-            <View style={styles.footerItem}>
-              <Text style={[styles.footerLabel, { color: colors.textSecondary }]}>YEAR</Text>
-              <Text style={[styles.footerValue, { color: colors.text }]}>{item.current_year}</Text>
+          <View style={[styles.infoTableHRule, { backgroundColor: isDark ? "#334155" : "#F1F5F9" }]} />
+
+          {/* Row 2: Institution + Year */}
+          <View style={styles.infoTableRow}>
+            <View style={styles.infoTableCell}>
+              <Text style={[styles.infoTableLabel, { color: isDark ? "#64748B" : "#94A3B8" }]}>Institution</Text>
+              <Text style={[styles.infoTableValue, { color: isDark ? "#F1F5F9" : "#0F172A" }]} numberOfLines={1}>
+                {item.institution || "—"}
+              </Text>
             </View>
-          )}
-          {item.graduation_date && (
-            <View style={styles.footerItem}>
-              <Text style={[styles.footerLabel, { color: colors.textSecondary }]}>GRADUATION</Text>
-              <Text style={[styles.footerValue, { color: colors.text }]}>{item.graduation_date}</Text>
+            <View style={[styles.infoTableDivider, { backgroundColor: isDark ? "#334155" : "#F1F5F9" }]} />
+            <View style={styles.infoTableCell}>
+              <Text style={[styles.infoTableLabel, { color: isDark ? "#64748B" : "#94A3B8" }]}>Year</Text>
+              <Text style={[styles.infoTableValue, { color: isDark ? "#A78BFA" : "#6D28D9" }]} numberOfLines={1}>
+                {item.current_year || "—"}
+              </Text>
             </View>
-          )}
-          <View style={{ flex: 1 }} />
+          </View>
+        </View>
+
+        {/* ── CHIPS ROW (student ID only) ── */}
+        {item.student_id ? (
+          <View style={[styles.chipsRow, { borderTopColor: isDark ? "#334155" : "#F1F5F9" }]}>
+            <View style={[styles.chip, { backgroundColor: isDark ? "rgba(99,102,241,0.1)" : "#EEF2FF", borderColor: isDark ? "rgba(99,102,241,0.25)" : "#C7D2FE" }]}>
+              <Ionicons name="card-outline" size={11} color={isDark ? "#818CF8" : "#6366F1"} />
+              <Text style={[styles.chipText, { color: isDark ? "#818CF8" : "#4F46E5" }]} numberOfLines={1}>
+                {item.student_id.length > 20 ? item.student_id.substring(0, 20) + "..." : item.student_id}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        {/* ── FOOTER ── */}
+        <View style={[styles.cardFooter, { borderTopColor: isDark ? "#334155" : "#F1F5F9" }]}>
+          <View style={styles.footerLeft}>
+            <Ionicons name="time-outline" size={12} color={isDark ? "#475569" : "#94A3B8"} />
+            <Text style={[styles.footerDate, { color: isDark ? "#475569" : "#94A3B8" }]}>
+              Applied {item.submittedAt}
+            </Text>
+          </View>
           <TouchableOpacity
-            style={[styles.viewButton, { backgroundColor: colors.primary }]}
-            onPress={() => {
-              router.push({
-                pathname: "/(dashboard)/provider/applicant-details",
-                params: { applicant: JSON.stringify(item) }
-              });
-            }}
+            style={[styles.viewBtn, { borderColor: isDark ? "#818CF8" : "#6366F1" }]}
+            onPress={() => router.push({
+              pathname: "/(dashboard)/provider/applicant-details",
+              params: { applicant: JSON.stringify(item._raw) }
+            })}
+            activeOpacity={0.75}
           >
-            <Text style={styles.viewButtonText}>View Details</Text>
-            <Ionicons name="arrow-forward" size={14} color="#fff" />
+            <Text style={[styles.viewBtnText, { color: isDark ? "#818CF8" : "#4F46E5" }]}>View Details</Text>
+            <Ionicons name="arrow-forward" size={13} color={isDark ? "#818CF8" : "#4F46E5"} />
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -422,59 +399,7 @@ export default function ProviderApplicantsScreen() {
         </View>
       </View>
 
-      {/* Tab Navigation */}
-      <View style={styles.tabsContainer}>
-        <FlatList
-          horizontal
-          data={TABS}
-          keyExtractor={(item) => item.key}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tabsList}
-          renderItem={({ item }) => {
-            const count = tabCounts[item.key];
-            const isActive = activeTab === item.key;
-            return (
-              <TouchableOpacity
-                style={[
-                  styles.tabChip,
-                  {
-                    backgroundColor: isActive ? colors.primary : "transparent",
-                    borderColor: isActive ? colors.primary : colors.border,
-                  }
-                ]}
-                onPress={() => {
-                  setActiveTab(item.key);
-                  setPage(1);
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={item.icon as any}
-                  size={16}
-                  color={isActive ? "#fff" : colors.textSecondary}
-                />
-                <Text style={[styles.tabText, { color: isActive ? "#fff" : colors.textSecondary }]}>
-                  {item.label}
-                </Text>
-                {count > 0 && (
-                  <View style={[styles.countBadge, { backgroundColor: isActive ? "rgba(255,255,255,0.25)" : colors.surface }]}>
-                    <Text style={[styles.countText, { color: isActive ? "#fff" : colors.textSecondary }]}>
-                      {count}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          }}
-        />
-      </View>
 
-      {/* Results Summary */}
-      <View style={styles.summaryContainer}>
-        <Text style={[styles.summaryText, { color: colors.textSecondary }]}>
-          Showing {paginated.length} of {filtered.length} applicant{filtered.length !== 1 ? 's' : ''}
-        </Text>
-      </View>
 
       {/* List */}
       <FlatList
@@ -606,160 +531,108 @@ const styles = StyleSheet.create({
 
   // Card
   card: {
-    borderRadius: 20,
-    marginBottom: 16,
+    borderRadius: 18,
+    marginBottom: 14,
     borderWidth: 1,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
     elevation: 4,
     overflow: "hidden",
   },
+  accentBar: { height: 5, width: "100%" },
+
+  // Header
   cardHeader: {
     flexDirection: "row",
-    padding: 16,
+    alignItems: "flex-start",
+    padding: 14,
     gap: 12,
   },
-  avatarContainer: {
-    position: "relative",
-  },
+  avatarWrap: { position: "relative", flexShrink: 0 },
   avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 52, height: 52, borderRadius: 14,
+    alignItems: "center", justifyContent: "center",
   },
-  avatarText: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "#fff",
+  avatarText: { fontSize: 20, fontWeight: "800", color: "#fff" },
+  statusDot: {
+    position: "absolute", bottom: -2, right: -2,
+    width: 14, height: 14, borderRadius: 7, borderWidth: 2,
   },
-  statusIndicator: {
-    position: "absolute",
-    bottom: -2,
-    right: -2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 3,
-    borderColor: "#fff",
-  },
-  userInfo: {
-    flex: 1,
-    gap: 6,
-  },
-  nameRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  name: {
-    fontSize: 18,
-    fontWeight: "800",
-    flex: 1,
-  },
+  headerInfo: { flex: 1, gap: 4 },
+  applicantName: { fontSize: 16, fontWeight: "800", lineHeight: 22 },
+  headerMetaRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  headerMeta: { fontSize: 11, fontWeight: "500", flex: 1 },
+  headerRight: { alignItems: "flex-end", gap: 6 },
   statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    flexDirection: "row", alignItems: "center",
+    gap: 4, paddingHorizontal: 9, paddingVertical: 4,
+    borderRadius: 20,
   },
-  statusText: {
-    fontSize: 11,
-    fontWeight: "800",
-    textTransform: "uppercase",
-  },
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  infoText: {
-    fontSize: 13,
-    fontWeight: "500",
-    flex: 1,
-  },
+  statusText: { fontSize: 11, fontWeight: "800", textTransform: "uppercase" },
+  appId: { fontSize: 11, fontWeight: "600" },
 
-  // Divider
-  divider: {
-    height: 1,
-    marginHorizontal: 16,
+  // Stats Grid
+  // Info Table (2-column grid)
+  infoTable: {
+    borderTopWidth: 1,
   },
-
-  // Compact Grid (2x2 Layout)
-  compactGrid: {
-    padding: 16,
-    gap: 12,
-  },
-  gridRow: {
+  infoTableRow: {
     flexDirection: "row",
-    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  gridItem: {
+  infoTableCell: {
     flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+    gap: 3,
   },
-  gridIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  gridContent: {
-    flex: 1,
-  },
-  gridLabel: {
+  infoTableLabel: {
     fontSize: 10,
     fontWeight: "600",
     textTransform: "uppercase",
-    marginBottom: 2,
+    letterSpacing: 0.4,
   },
-  gridValue: {
-    fontSize: 14,
+  infoTableValue: {
+    fontSize: 13,
     fontWeight: "700",
   },
+  infoTableDivider: {
+    width: 1,
+    marginHorizontal: 12,
+  },
+  infoTableHRule: {
+    height: 1,
+    marginHorizontal: 14,
+  },
+
+  // Chips
+  chipsRow: {
+    flexDirection: "row", flexWrap: "wrap",
+    gap: 6, paddingHorizontal: 14, paddingBottom: 12,
+    borderTopWidth: 1, paddingTop: 10,
+  },
+  chip: {
+    flexDirection: "row", alignItems: "center",
+    gap: 4, paddingHorizontal: 9, paddingVertical: 4,
+    borderRadius: 20, borderWidth: 1,
+  },
+  chipText: { fontSize: 11, fontWeight: "600" },
 
   // Footer
   cardFooter: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 16,
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: 14, paddingVertical: 10,
+    borderTopWidth: 1, gap: 8,
   },
-  footerItem: {
-    gap: 2,
+  footerLeft: { flex: 1, flexDirection: "row", alignItems: "center", gap: 5 },
+  footerDate: { fontSize: 11, fontWeight: "500" },
+  viewBtn: {
+    flexDirection: "row", alignItems: "center",
+    gap: 5, paddingHorizontal: 14, paddingVertical: 7,
+    borderRadius: 20, borderWidth: 1.5,
   },
-  footerLabel: {
-    fontSize: 10,
-    fontWeight: "600",
-    textTransform: "uppercase",
-  },
-  footerValue: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  viewButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  viewButtonText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "800",
-  },
+  viewBtnText: { fontSize: 12, fontWeight: "700" },
 
   // Loading
   footerLoader: {
