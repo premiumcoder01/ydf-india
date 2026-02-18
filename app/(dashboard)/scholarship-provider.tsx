@@ -528,9 +528,7 @@ export default function ScholarshipProviderDashboard() {
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeaderRow}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Scholarships</Text>
-            <TouchableOpacity onPress={() => router.push("/(dashboard)/provider/my-schemes")} accessibilityRole="button">
-              <Text style={[styles.viewAllText, { color: colors.text }]}>View All</Text>
-            </TouchableOpacity>
+
           </View>
           <View style={[styles.cardList, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
             {recentScholarships.slice(0, 5).map((scholarship) => (
