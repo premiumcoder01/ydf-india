@@ -153,12 +153,7 @@ export default function SignInScreen() {
           authData.userRole = studentRole;
           await AsyncStorage.setItem("authData", JSON.stringify(authData));
           router.replace(getDashboardRoute(studentRole) as any);
-        } else {
-          console.log("⚠️ No valid dashboard for role, redirecting to Role Selection");
-          await AsyncStorage.setItem("authData", JSON.stringify(authData));
-          router.replace("/(auth)/roles");
         }
-
       } else {
         // No roles found in response
         if (defaultToStudent) {
@@ -167,10 +162,6 @@ export default function SignInScreen() {
           authData.userRole = studentRole;
           await AsyncStorage.setItem("authData", JSON.stringify(authData));
           router.replace(getDashboardRoute(studentRole) as any);
-        } else {
-          console.log("ℹ️ No roles found, redirecting to Role Selection");
-          await AsyncStorage.setItem("authData", JSON.stringify(authData));
-          router.replace("/(auth)/roles");
         }
       }
     } catch (error) {
@@ -216,7 +207,7 @@ export default function SignInScreen() {
     try {
       const response = await loginUser(emailOrUsername.trim(), password);
       if (response.success) {
-        await handleLoginSuccess(response, false);
+        await handleLoginSuccess(response, true);
       } else {
         // Check if error is account not verified
         if (response.errorcode === "accountnotverified" || response.error?.toLowerCase().includes("verify")) {

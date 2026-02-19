@@ -15,12 +15,12 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ReviewerHeader } from "../../../components";
 
-// API Types
+// ─── Types ────────────────────────────────────────────────────────────────────
 interface User {
   id: number;
   firstname: string;
@@ -57,72 +57,101 @@ interface ApplicationDetails {
   id: number;
   user: User;
   application_text: string | null;
-  status: "new" | "approved" | "waitlisted" | "rejected" | null;
+  status: "new" | "approved" | "waitlisted" | "rejected" | "not_applied" | null;
   priority: number;
   assigned_reviewer: AssignedReviewer;
   is_bookmarked: boolean;
   comments_count: number;
+  attachments: any[];
   documents: DocumentGroup[];
   timecreated: string;
   timemodified: string;
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function getStatusCfg(status: ApplicationDetails["status"]) {
+  switch (status) {
+    case "approved":
+      return { color: "#10B981", bg: "rgba(16,185,129,0.12)", bg2: "#D1FAE5", label: "Approved", icon: "checkmark-circle" as const };
+    case "rejected":
+      return { color: "#EF4444", bg: "rgba(239,68,68,0.12)", bg2: "#FEE2E2", label: "Rejected", icon: "close-circle" as const };
+    case "waitlisted":
+      return { color: "#F59E0B", bg: "rgba(245,158,11,0.12)", bg2: "#FEF3C7", label: "Waitlisted", icon: "time" as const };
+    case "not_applied":
+      return { color: "#94A3B8", bg: "rgba(148,163,184,0.12)", bg2: "#F1F5F9", label: "Not Applied", icon: "document-outline" as const };
+    default:
+      return { color: "#6366F1", bg: "rgba(99,102,241,0.12)", bg2: "#EEF2FF", label: "New", icon: "sparkles" as const };
+  }
+}
+
+function getAvatarColor(name: string) {
+  const colors = [
+    { bg: "#EEF2FF", text: "#6366F1" },
+    { bg: "#D1FAE5", text: "#059669" },
+    { bg: "#FEF3C7", text: "#D97706" },
+    { bg: "#FEE2E2", text: "#DC2626" },
+    { bg: "#F3E8FF", text: "#9333EA" },
+    { bg: "#FFEDD5", text: "#EA580C" },
+    { bg: "#CFFAFE", text: "#0891B2" },
+    { bg: "#FCE7F3", text: "#DB2777" },
+  ];
+  return colors[name.charCodeAt(0) % colors.length];
+}
+
+function formatDate(dateStr: string) {
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) +
+      "  " + d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  } catch { return dateStr; }
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
+function getFileIcon(mimetype: string): "image-outline" | "document-text-outline" | "videocam-outline" | "document-outline" {
+  if (mimetype.includes("image")) return "image-outline";
+  if (mimetype.includes("pdf")) return "document-text-outline";
+  if (mimetype.includes("video")) return "videocam-outline";
+  return "document-outline";
+}
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function ReviewerApplicationDetailsScreen() {
-  const inset = useSafeAreaInsets();
+  const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const params = useLocalSearchParams();
 
-  // Data State
   const [application, setApplication] = useState<ApplicationDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Review Modal State
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useFocusEffect(
-    useCallback(() => {
-      fetchApplicationDetails();
-    }, [])
+    useCallback(() => { fetchDetails(); }, [])
   );
 
-  const fetchApplicationDetails = async () => {
+  const fetchDetails = async () => {
     try {
       setLoading(true);
       setError(null);
-      
-      // Validate application ID
-      if (!params.id) {
-        throw new Error("Application ID is required");
-      }
-      
       const appId = Number(params.id);
-      
-      // Check if appId is a valid number
-      if (isNaN(appId) || appId <= 0) {
-        throw new Error("Invalid application ID");
-      }
-      
+      if (!params.id || isNaN(appId) || appId <= 0) throw new Error("Invalid application ID");
       const authDataStr = await AsyncStorage.getItem("authData");
-      const authData = authDataStr ? JSON.parse(authDataStr) : null;
-      const token = authData?.token;
-
-      if (!token) {
-        throw new Error("No authentication token found");
-      }
-
+      const token = authDataStr ? JSON.parse(authDataStr)?.token : null;
+      if (!token) throw new Error("No authentication token found");
       const response = await getReviewerApplicationDetails(token, appId);
-
-      if (response.success && response.data && response.data.application) {
+      if (response.success && response.data?.application) {
         setApplication(response.data.application);
       } else {
         throw new Error(response.error || "Failed to load application details");
       }
-
     } catch (err: any) {
-      console.error("Error details:", err);
       setError(err.message || "Failed to load details");
       Alert.alert("Error", err.message);
     } finally {
@@ -130,522 +159,396 @@ export default function ReviewerApplicationDetailsScreen() {
     }
   };
 
-  const handleApprove = () => {
-    Alert.alert(
-      "Approve Application",
-      "Are you sure you want to approve this application?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Approve",
-          style: "default",
-          onPress: () => submitReview("approve")
-        }
-      ]
-    );
-  };
-
-  const handleWaitlist = () => {
-    Alert.alert(
-      "Waitlist Application",
-      "Are you sure you want to waitlist this application?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Waitlist",
-          style: "default",
-          onPress: () => submitReview("waitlist")
-        }
-      ]
-    );
-  };
-
-  const handleReject = () => {
-    setShowRejectModal(true);
-  };
-
-  const submitReject = () => {
-    if (!rejectionReason.trim()) {
-      Alert.alert("Required", "Please provide a reason for rejection");
-      return;
-    }
-    setShowRejectModal(false);
-    submitReview("reject", rejectionReason);
-  };
-
   const submitReview = async (action: "approve" | "reject" | "waitlist", notes?: string) => {
-    if (!application) {
-      Alert.alert("Error", "Application data not found");
-      return;
-    }
-
-    if (!application.id || application.id <= 0) {
-      Alert.alert("Error", "Invalid application ID");
-      return;
-    }
-
+    if (!application?.id) return;
     try {
       setSubmitting(true);
-
       const authDataStr = await AsyncStorage.getItem("authData");
-      const authData = authDataStr ? JSON.parse(authDataStr) : null;
-      const token = authData?.token;
-
-      if (!token) {
-        Alert.alert("Error", "Authentication token not found. Please login again.");
-        setSubmitting(false);
-        return;
-      }
-
-      console.log("Submitting review for application:", application, "Action:", action);
-
-      const response = await donorReviewApplication(
-        token,
-        application.id,
-        action,
-        notes
-      );
-
+      const token = authDataStr ? JSON.parse(authDataStr)?.token : null;
+      if (!token) { Alert.alert("Error", "Session expired. Please login."); return; }
+      const response = await donorReviewApplication(token, application.id, action, notes);
       if (response.success) {
-        Alert.alert(
-          "Success",
-          `Application ${action === "approve" ? "approved" : action === "waitlist" ? "waitlisted" : "rejected"} successfully`,
-          [
-            {
-              text: "OK",
-              onPress: () => {
-                // Refresh the application details
-                fetchApplicationDetails();
-                // Optionally navigate back
-                // router.back();
-              }
-            }
-          ]
-        );
+        const label = action === "approve" ? "approved" : action === "waitlist" ? "waitlisted" : "rejected";
+        Alert.alert("Success", `Application ${label} successfully`, [{ text: "OK", onPress: fetchDetails }]);
         setRejectionReason("");
       } else {
-        const errorMessage = response.error || "Failed to submit review";
-        console.error("Review submission failed:", errorMessage);
-        Alert.alert("Error", errorMessage);
+        Alert.alert("Error", response.error || "Failed to submit review");
       }
-    } catch (error: any) {
-      console.error("Review submission error:", error);
-      Alert.alert("Error", error.message || "Failed to submit review");
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to submit review");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const handleApprove = () =>
+    Alert.alert("Approve Application", "Are you sure you want to approve this application?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Approve", onPress: () => submitReview("approve") },
+    ]);
+
+  const handleWaitlist = () =>
+    Alert.alert("Waitlist Application", "Move this application to the waitlist?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Waitlist", onPress: () => submitReview("waitlist") },
+    ]);
+
+  const submitReject = () => {
+    if (!rejectionReason.trim()) { Alert.alert("Required", "Please provide a rejection reason"); return; }
+    setShowRejectModal(false);
+    submitReview("reject", rejectionReason);
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  };
-
-  const getFileIcon = (mimetype: string) => {
-    if (mimetype.includes('pdf')) return 'document-text';
-    if (mimetype.includes('image')) return 'image';
-    if (mimetype.includes('video')) return 'videocam';
-    return 'document';
-  };
-
+  // ── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.loadingContainer}>
-          <View style={[styles.loadingCard, { backgroundColor: colors.card }]}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.text }]}>Loading Application Details...</Text>
-          </View>
+        <View style={styles.centerWrap}>
+          <ActivityIndicator size="large" color="#6366F1" />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading details…</Text>
         </View>
       </View>
     );
   }
 
+  // ── Error ─────────────────────────────────────────────────────────────────
   if (error || !application) {
-    const isPermissionError = error?.toLowerCase().includes("permission");
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.errorContainer}>
-          <View style={[styles.errorIconContainer, {
-            backgroundColor: isPermissionError ? "#FFEBEE" : isDark ? "#333" : "#f5f5f5"
-          }]}>
-            <Ionicons
-              name={isPermissionError ? "lock-closed" : "alert-circle"}
-              size={48}
-              color={isPermissionError ? "#F44336" : colors.textSecondary}
-            />
+        <View style={styles.centerWrap}>
+          <View style={[styles.errorIcon, { backgroundColor: isDark ? "rgba(239,68,68,0.15)" : "#FEE2E2" }]}>
+            <Ionicons name="alert-circle" size={48} color="#EF4444" />
           </View>
-          <Text style={[styles.errorTitle, { color: colors.text }]}>
-            {isPermissionError ? "Access Denied" : "Something went wrong"}
-          </Text>
-          <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
-            {error || "We couldn't load the application details."}
-          </Text>
-
-          <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: colors.primary }]}
-            onPress={fetchApplicationDetails}
-          >
-            <Ionicons name="refresh" size={20} color="#fff" />
-            <Text style={styles.retryButtonText}>Try Again</Text>
+          <Text style={[styles.errorTitle, { color: colors.text }]}>Something went wrong</Text>
+          <Text style={[styles.errorMsg, { color: colors.textSecondary }]}>{error}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={fetchDetails}>
+            <Ionicons name="refresh" size={18} color="#fff" />
+            <Text style={styles.retryBtnText}>Try Again</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>Go Back</Text>
+          <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 12 }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 14, fontWeight: "600" }}>Go Back</Text>
           </TouchableOpacity>
         </View>
       </View>
     );
   }
 
-  // Separate documents into those with files and those without
-  const documentsWithFiles = application.documents.filter(doc => doc.files.length > 0);
-  const documentsWithoutFiles = application.documents.filter(doc => doc.files.length === 0);
+  const statusCfg = getStatusCfg(application.status);
+  const avatarColor = getAvatarColor(application.user.fullname);
+  const initials = (application.user.firstname?.charAt(0) ?? "") + (application.user.lastname?.charAt(0) ?? "");
+  const docsWithFiles = application.documents.filter((d) => d.files.length > 0);
+  const docsWithoutFiles = application.documents.filter((d) => d.files.length === 0);
+  const totalFiles = application.documents.reduce((s, d) => s + d.files.length, 0);
+  const verifiedFiles = application.documents.flatMap((d) => d.files).filter((f) => f.verified).length;
+  const canReview = !["approved", "rejected", "waitlisted"].includes(application.status ?? "");
+
+  const cardBg = isDark ? "#1E293B" : "#FFFFFF";
+  const border = isDark ? "rgba(255,255,255,0.07)" : "#E2E8F0";
+  const subText = isDark ? "#94A3B8" : "#64748B";
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ReviewerHeader
         title="Application Details"
-        subtitle={`#${application.id}`}
-        rightElement={
-          <View style={[styles.statusBadge, getStatusBadgeStyle(application.status, isDark)]}>
-            <View style={[styles.statusDot, { backgroundColor: getStatusColor(application.status) }]} />
-            <Text style={[styles.statusText, { color: getStatusColor(application.status) }]}>
-              {application.status ? application.status.charAt(0).toUpperCase() + application.status.slice(1) : "New"}
-            </Text>
-          </View>
-        }
+        // subtitle={`App #${application.id}`}
+        showBackButton
+        onBackPress={() => router.back()}
+
       />
 
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: inset.bottom + 20 }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + (canReview ? 100 : 32) }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Applicant Information Card */}
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.cardHeader}>
-            <View style={[styles.iconContainer, { backgroundColor: isDark ? colors.surface : "#E3F2FD" }]}>
-              <Ionicons name="person" size={24} color={colors.primary} />
+
+        {/* ── Hero Card ── */}
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
+          {/* Avatar + name */}
+          <View style={styles.heroRow}>
+            <View style={[styles.avatar, { backgroundColor: isDark ? "rgba(99,102,241,0.18)" : avatarColor.bg }]}>
+              <Text style={[styles.avatarText, { color: isDark ? "#A5B4FC" : avatarColor.text }]}>
+                {initials.toUpperCase()}
+              </Text>
             </View>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Applicant Information</Text>
+            <View style={{ flex: 1, gap: 3 }}>
+              <Text style={[styles.heroName, { color: colors.text }]}>{application.user.fullname}</Text>
+              <View style={styles.heroMeta}>
+                <Ionicons name="mail-outline" size={13} color={subText} />
+                <Text style={[styles.heroMetaText, { color: subText }]} numberOfLines={1}>
+                  {application.user.email}
+                </Text>
+              </View>
+              <View style={styles.heroMeta}>
+                <Ionicons name="person-circle-outline" size={13} color={subText} />
+                <Text style={[styles.heroMetaText, { color: subText }]}>
+                  User #{application.user.id}
+                </Text>
+              </View>
+            </View>
           </View>
 
-          <View style={styles.infoSection}>
+          {/* Quick stats strip */}
+          <View style={[styles.statsStrip, { borderColor: border }]}>
+            <StatChip icon="documents-outline" value={String(totalFiles)} label="Uploaded" color="#6366F1" isDark={isDark} />
+            <View style={[styles.stripDiv, { backgroundColor: border }]} />
+            <StatChip icon="checkmark-circle-outline" value={String(verifiedFiles)} label="Verified" color="#10B981" isDark={isDark} />
+            <View style={[styles.stripDiv, { backgroundColor: border }]} />
+            <StatChip icon="alert-circle-outline" value={String(docsWithoutFiles.length)} label="Pending" color="#F59E0B" isDark={isDark} />
+            <View style={[styles.stripDiv, { backgroundColor: border }]} />
+            <StatChip icon="chatbubble-outline" value={String(application.comments_count)} label="Comments" color="#8B5CF6" isDark={isDark} />
+          </View>
+        </View>
+
+        {/* ── Application Info Card ── */}
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
+          <SectionHeader icon="information-circle-outline" iconBg={isDark ? "rgba(99,102,241,0.15)" : "#EEF2FF"} iconColor="#6366F1" title="Application Info" textColor={colors.text} />
+          <View style={styles.infoGrid}>
+            <InfoRow label="Application ID" value={`#${application.id}`} subText={subText} colors={colors} />
+            <InfoRow label="User ID" value={`#${application.user.id}`} subText={subText} colors={colors} />
+            <InfoRow label="Priority" value={application.priority > 0 ? `${application.priority} / 10` : "Not set"} subText={subText} colors={colors} />
+            <InfoRow label="Bookmarked" value={application.is_bookmarked ? "Yes ★" : "No"} subText={subText} colors={colors} />
+            <InfoRow label="Applied On" value={formatDate(application.timecreated)} subText={subText} colors={colors} />
+            <InfoRow label="Last Modified" value={formatDate(application.timemodified)} subText={subText} colors={colors} />
             <InfoRow
-              icon="person-outline"
-              label="Full Name"
-              value={application.user.fullname}
+              label="Assigned Reviewer"
+              value={application.assigned_reviewer?.name ?? "Unassigned"}
+              subText={subText}
               colors={colors}
-              isDark={isDark}
-            />
-            <InfoRow
-              icon="mail-outline"
-              label="Email"
-              value={application.user.email}
-              colors={colors}
-              isDark={isDark}
-            />
-            <InfoRow
-              icon="calendar-outline"
-              label="Applied On"
-              value={formatDate(application.timecreated)}
-              colors={colors}
-              isDark={isDark}
-            />
-            <InfoRow
-              icon="time-outline"
-              label="Last Modified"
-              value={formatDate(application.timemodified)}
-              colors={colors}
-              isDark={isDark}
-            />
-            {application.assigned_reviewer?.name && (
-              <InfoRow
-                icon="person-circle-outline"
-                label="Assigned Reviewer"
-                value={application.assigned_reviewer.name}
-                colors={colors}
-                isDark={isDark}
-              />
-            )}
-            <InfoRow
-              icon="flag-outline"
-              label="Priority"
-              value={application.priority.toString()}
-              colors={colors}
-              isDark={isDark}
             />
           </View>
         </View>
 
-        {/* Submitted Documents Card */}
-        {documentsWithFiles.length > 0 && (
-          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.cardHeader}>
-              <View style={[styles.iconContainer, { backgroundColor: isDark ? colors.surface : "#E8F5E9" }]}>
-                <Ionicons name="documents" size={24} color="#4CAF50" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, { color: colors.text }]}>Submitted Documents</Text>
-                <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
-                  {documentsWithFiles.reduce((acc, doc) => acc + doc.files.length, 0)} documents uploaded
-                </Text>
-              </View>
-            </View>
+        {/* ── Application Statement ── */}
+        {application.application_text && application.application_text.trim() ? (
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
+            <SectionHeader icon="document-text-outline" iconBg={isDark ? "rgba(139,92,246,0.15)" : "#F3E8FF"} iconColor="#8B5CF6" title="Application Statement" textColor={colors.text} />
+            <Text style={[styles.statement, { color: colors.text }]}>{application.application_text}</Text>
+          </View>
+        ) : null}
 
-            <View style={styles.documentsContainer}>
-              {documentsWithFiles.map((docGroup) => (
-                <View key={docGroup.id} style={styles.documentGroup}>
-                  <Text style={[styles.documentGroupLabel, { color: colors.text }]}>
-                    {docGroup.label}
-                  </Text>
-                  {docGroup.files.map((file, index) => (
+        {/* ── Documents Progress ── */}
+        {application.documents.length > 0 && (
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
+            <SectionHeader
+              icon="folder-open-outline"
+              iconBg={isDark ? "rgba(16,185,129,0.15)" : "#D1FAE5"}
+              iconColor="#10B981"
+              title="Documents"
+              badge={`${docsWithFiles.length} / ${application.documents.length}`}
+              textColor={colors.text}
+            />
+            {/* Progress bar */}
+            <View style={[styles.progressBg, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#F1F5F9" }]}>
+              <View
+                style={[
+                  styles.progressFill,
+                  {
+                    width: `${application.documents.length > 0
+                      ? (docsWithFiles.length / application.documents.length) * 100
+                      : 0}%` as any,
+                    backgroundColor: "#10B981",
+                  },
+                ]}
+              />
+            </View>
+            <Text style={[styles.progressLabel, { color: subText }]}>
+              {docsWithFiles.length} of {application.documents.length} documents submitted
+            </Text>
+
+            {/* Submitted documents */}
+            {docsWithFiles.map((docGroup) => (
+              <View key={docGroup.id} style={[styles.docGroup, { borderColor: border }]}>
+                <View style={styles.docGroupHeader}>
+                  <Ionicons name="folder-outline" size={14} color="#10B981" />
+                  <Text style={[styles.docGroupLabel, { color: colors.text }]}>{docGroup.label}</Text>
+                  <View style={[styles.docCountPill, { backgroundColor: isDark ? "rgba(16,185,129,0.12)" : "#D1FAE5" }]}>
+                    <Text style={[styles.docCountText, { color: "#10B981" }]}>{docGroup.files.length} file{docGroup.files.length !== 1 ? "s" : ""}</Text>
+                  </View>
+                </View>
+
+                {docGroup.files.map((file) => {
+                  const isVerified = file.verified;
+                  const isRejected = !!(file.rejection_reason?.trim());
+                  return (
                     <TouchableOpacity
                       key={file.id}
-                      style={[
-                        styles.documentItem,
-                        {
-                          backgroundColor: isDark ? colors.surface : "#F8F9FA",
-                          borderColor: colors.border
-                        }
-                      ]}
-                      onPress={() => router.push({
-                        pathname: "/(dashboard)/reviewer/document-view",
-                        params: {
-                          id: file.id,
-                          title: docGroup.label || file.filename,
-                          fileName: file.filename,
-                          filesize: file.filesize,
-                          mimetype: file.mimetype,
-                          url: file.fileurl,
-                          verified: file.verified ? "true" : "false",
-                          rejectionReason: file.rejection_reason || ""
-                        }
-                      })}
+                      style={[styles.fileRow, { backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "#F8FAFC", borderColor: border }]}
+                      activeOpacity={0.75}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/(dashboard)/reviewer/document-view",
+                          params: {
+                            id: file.id,
+                            title: docGroup.label,
+                            fileName: file.filename,
+                            filesize: file.filesize,
+                            mimetype: file.mimetype,
+                            url: file.fileurl,
+                            verified: file.verified ? "true" : "false",
+                            rejectionReason: file.rejection_reason || "",
+                          },
+                        })
+                      }
                     >
-                      <View style={[styles.fileIconContainer, {
-                        backgroundColor: isDark ? colors.border : "#E3F2FD"
+                      {/* File type icon */}
+                      <View style={[styles.fileIconBox, {
+                        backgroundColor: isVerified
+                          ? (isDark ? "rgba(16,185,129,0.15)" : "#D1FAE5")
+                          : isRejected
+                            ? (isDark ? "rgba(239,68,68,0.15)" : "#FEE2E2")
+                            : (isDark ? "rgba(99,102,241,0.15)" : "#EEF2FF"),
                       }]}>
                         <Ionicons
                           name={getFileIcon(file.mimetype)}
-                          size={20}
-                          color={colors.primary}
+                          size={18}
+                          color={isVerified ? "#10B981" : isRejected ? "#EF4444" : "#6366F1"}
                         />
                       </View>
 
-                      <View style={styles.documentInfo}>
-                        <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={1}>
+                      {/* Info */}
+                      <View style={{ flex: 1, gap: 3 }}>
+                        <Text style={[styles.fileNameText, { color: colors.text }]} numberOfLines={1}>
                           {file.filename}
                         </Text>
-                        <View style={styles.fileMetaRow}>
-                          <Text style={[styles.fileMeta, { color: colors.textSecondary }]}>
-                            {file.mimetype.split('/')[1]?.toUpperCase() || 'FILE'}
+                        <View style={styles.fileMeta}>
+                          <Text style={[styles.fileMetaText, { color: subText }]}>
+                            {file.mimetype.split("/")[1]?.toUpperCase() || "FILE"}
                           </Text>
-                          <View style={[styles.metaDot, { backgroundColor: colors.textSecondary }]} />
-                          <Text style={[styles.fileMeta, { color: colors.textSecondary }]}>
-                            {formatFileSize(file.filesize)}
-                          </Text>
-                          {file.verified && (
+                          <View style={[styles.metaDot, { backgroundColor: subText }]} />
+                          <Text style={[styles.fileMetaText, { color: subText }]}>{formatBytes(file.filesize)}</Text>
+                          {isVerified && (
                             <>
-                              <View style={[styles.metaDot, { backgroundColor: colors.textSecondary }]} />
-                              <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
-                              <Text style={[styles.fileMeta, { color: "#4CAF50" }]}>Verified</Text>
+                              <View style={[styles.metaDot, { backgroundColor: subText }]} />
+                              <Ionicons name="checkmark-circle" size={12} color="#10B981" />
+                              <Text style={[styles.fileMetaText, { color: "#10B981" }]}>Verified</Text>
                             </>
                           )}
-                          {file.rejection_reason && file.rejection_reason.trim() !== "" && (
+                          {isRejected && (
                             <>
-                              <View style={[styles.metaDot, { backgroundColor: colors.textSecondary }]} />
-                              <Ionicons name="close-circle" size={14} color="#F44336" />
-                              <Text style={[styles.fileMeta, { color: "#F44336" }]}>Rejected</Text>
+                              <View style={[styles.metaDot, { backgroundColor: subText }]} />
+                              <Ionicons name="close-circle" size={12} color="#EF4444" />
+                              <Text style={[styles.fileMetaText, { color: "#EF4444" }]}>Rejected</Text>
                             </>
                           )}
                         </View>
+                        {isRejected && file.rejection_reason && (
+                          <Text style={[styles.rejectionReason, { color: "#EF4444" }]} numberOfLines={1}>
+                            ↳ {file.rejection_reason}
+                          </Text>
+                        )}
                       </View>
 
-                      <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                      <Ionicons name="chevron-forward" size={16} color={subText} />
                     </TouchableOpacity>
-                  ))}
+                  );
+                })}
+              </View>
+            ))}
+
+            {/* Pending / not uploaded documents */}
+            {docsWithoutFiles.length > 0 && (
+              <View style={styles.pendingSection}>
+                <View style={styles.pendingHeader}>
+                  <Ionicons name="hourglass-outline" size={14} color="#F59E0B" />
+                  <Text style={[styles.pendingHeaderText, { color: subText }]}>Not yet uploaded</Text>
                 </View>
-              ))}
-            </View>
+                {docsWithoutFiles.map((docGroup) => (
+                  <View
+                    key={docGroup.id}
+                    style={[styles.pendingPill, {
+                      backgroundColor: isDark ? "rgba(245,158,11,0.08)" : "#FFFBEB",
+                      borderColor: isDark ? "rgba(245,158,11,0.25)" : "#FDE68A",
+                    }]}
+                  >
+                    <Ionicons name="document-outline" size={14} color="#F59E0B" />
+                    <Text style={[styles.pendingPillText, { color: colors.text }]} numberOfLines={2}>
+                      {docGroup.label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         )}
-
-        {/* Pending Documents Card */}
-        {documentsWithoutFiles.length > 0 && (
-          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.cardHeader}>
-              <View style={[styles.iconContainer, { backgroundColor: isDark ? colors.surface : "#FFF3E0" }]}>
-                <Ionicons name="alert-circle" size={24} color="#FF9800" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, { color: colors.text }]}>Pending Documents</Text>
-                <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
-                  {documentsWithoutFiles.length} documents not yet uploaded
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.pendingDocumentsContainer}>
-              {documentsWithoutFiles.map((docGroup) => (
-                <View
-                  key={docGroup.id}
-                  style={[styles.pendingDocItem, {
-                    backgroundColor: isDark ? colors.surface : "#FFF8E1",
-                    borderColor: isDark ? colors.border : "#FFE082"
-                  }]}
-                >
-                  <Ionicons name="document-outline" size={18} color="#FF9800" />
-                  <Text style={[styles.pendingDocText, { color: colors.text }]} numberOfLines={2}>
-                    {docGroup.label}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Application Statement Card */}
-        {application.application_text && (
-          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.cardHeader}>
-              <View style={[styles.iconContainer, { backgroundColor: isDark ? colors.surface : "#F3E5F5" }]}>
-                <Ionicons name="document-text" size={24} color="#9C27B0" />
-              </View>
-              <Text style={[styles.cardTitle, { color: colors.text }]}>Application Statement</Text>
-            </View>
-
-            <Text style={[styles.statementText, { color: colors.text }]}>
-              {application.application_text}
-            </Text>
-          </View>
-        )}
-
       </ScrollView>
 
-      {/* Action Buttons - Sticky Footer */}
-      {/* Only show action buttons if status is not already approved, rejected, or waitlisted */}
-      {application && application.status !== "approved" && application.status !== "rejected" && application.status !== "waitlisted" && (
-        <View style={[styles.actionFooter, {
-          backgroundColor: colors.card,
-          borderTopColor: colors.border,
-          paddingBottom: inset.bottom + 16
+      {/* ── Sticky Action Footer ── */}
+      {canReview && (
+        <View style={[styles.footer, {
+          backgroundColor: cardBg,
+          borderTopColor: border,
+          paddingBottom: insets.bottom + 12,
         }]}>
-          <View style={styles.actionButtonsContainer}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.approveButton, submitting && styles.disabledButton]}
-              onPress={handleApprove}
-              disabled={submitting}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="checkmark-circle" size={20} color="#fff" />
-              <Text style={styles.actionButtonText}>Approve</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.actionButton, styles.waitlistButton, submitting && styles.disabledButton]}
-              onPress={handleWaitlist}
-              disabled={submitting}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="time" size={20} color="#fff" />
-              <Text style={styles.actionButtonText}>Waitlist</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.actionButton, styles.rejectButton, submitting && styles.disabledButton]}
-              onPress={handleReject}
-              disabled={submitting}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="close-circle" size={20} color="#fff" />
-              <Text style={styles.actionButtonText}>Reject</Text>
-            </TouchableOpacity>
-          </View>
+          {submitting ? (
+            <View style={styles.submittingRow}>
+              <ActivityIndicator size="small" color="#6366F1" />
+              <Text style={[styles.submittingText, { color: subText }]}>Submitting…</Text>
+            </View>
+          ) : (
+            <View style={styles.actionRow}>
+              <TouchableOpacity style={[styles.actionBtn, styles.approveBtn]} onPress={handleApprove} activeOpacity={0.84}>
+                <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                <Text style={styles.actionBtnText}>Approve</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.actionBtn, styles.waitlistBtn]} onPress={handleWaitlist} activeOpacity={0.84}>
+                <Ionicons name="time" size={18} color="#fff" />
+                <Text style={styles.actionBtnText}>Waitlist</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.actionBtn, styles.rejectBtn]} onPress={() => setShowRejectModal(true)} activeOpacity={0.84}>
+                <Ionicons name="close-circle" size={18} color="#fff" />
+                <Text style={styles.actionBtnText}>Reject</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       )}
 
-      {/* Rejection Reason Modal */}
-      <Modal
-        visible={showRejectModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowRejectModal(false)}
-      >
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.modalOverlay}
-        >
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPress={() => setShowRejectModal(false)}
-          />
-          <View style={[styles.modalContent, {
-            backgroundColor: colors.card,
-            paddingBottom: inset.bottom + 20
-          }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-              <View style={styles.modalTitleContainer}>
-                <Ionicons name="close-circle" size={24} color="#F44336" />
-                <Text style={[styles.modalTitle, { color: colors.text }]}>Reject Application</Text>
+      {/* ── Reject Modal ── */}
+      <Modal visible={showRejectModal} transparent animationType="slide" onRequestClose={() => setShowRejectModal(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
+          <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={() => setShowRejectModal(false)} />
+          <View style={[styles.modalSheet, { backgroundColor: cardBg, paddingBottom: insets.bottom + 20 }]}>
+            <View style={[styles.modalHandle, { backgroundColor: isDark ? "#475569" : "#CBD5E1" }]} />
+            <View style={styles.modalHeaderRow}>
+              <View style={[styles.modalIconBox, { backgroundColor: isDark ? "rgba(239,68,68,0.15)" : "#FEE2E2" }]}>
+                <Ionicons name="close-circle" size={22} color="#EF4444" />
               </View>
-              <TouchableOpacity onPress={() => setShowRejectModal(false)}>
-                <Ionicons name="close" size={24} color={colors.textSecondary} />
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Reject Application</Text>
+              <TouchableOpacity onPress={() => setShowRejectModal(false)}
+                style={[styles.modalCloseBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#F1F5F9" }]}>
+                <Ionicons name="close" size={18} color={colors.text} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.modalBody}>
-              <Text style={[styles.modalLabel, { color: colors.text }]}>
-                Reason for Rejection *
-              </Text>
+              <Text style={[styles.modalLabel, { color: colors.text }]}>Reason for Rejection *</Text>
               <TextInput
-                style={[styles.modalTextInput, {
-                  backgroundColor: isDark ? colors.surface : "#F5F5F5",
+                style={[styles.modalInput, {
+                  backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#F8FAFC",
                   color: colors.text,
-                  borderColor: colors.border
+                  borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E2E8F0",
                 }]}
-                placeholder="Please provide a detailed reason for rejection..."
-                placeholderTextColor={colors.textSecondary}
+                placeholder="Provide a clear reason for the rejection…"
+                placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
                 value={rejectionReason}
                 onChangeText={setRejectionReason}
                 multiline
                 numberOfLines={4}
                 textAlignVertical="top"
               />
-
               <View style={styles.modalActions}>
                 <TouchableOpacity
-                  style={[styles.modalButton, styles.modalCancelButton, { borderColor: colors.border }]}
-                  onPress={() => {
-                    setShowRejectModal(false);
-                    setRejectionReason("");
-                  }}
+                  style={[styles.modalBtn, { borderWidth: 1.5, borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E2E8F0" }]}
+                  onPress={() => { setShowRejectModal(false); setRejectionReason(""); }}
                 >
-                  <Text style={[styles.modalCancelText, { color: colors.text }]}>Cancel</Text>
+                  <Text style={[styles.modalBtnText, { color: colors.text }]}>Cancel</Text>
                 </TouchableOpacity>
-
                 <TouchableOpacity
-                  style={[styles.modalButton, styles.modalSubmitButton, !rejectionReason.trim() && styles.disabledButton]}
+                  style={[styles.modalBtn, { backgroundColor: "#EF4444", opacity: rejectionReason.trim() ? 1 : 0.5 }]}
                   onPress={submitReject}
                   disabled={!rejectionReason.trim()}
                 >
-                  <Text style={styles.modalSubmitText}>Submit Rejection</Text>
+                  <Text style={[styles.modalBtnText, { color: "#fff" }]}>Submit</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -656,427 +559,160 @@ export default function ReviewerApplicationDetailsScreen() {
   );
 }
 
-function InfoRow({
-  icon,
-  label,
-  value,
-  colors,
-  isDark
-}: {
-  icon: string;
-  label: string;
-  value: string;
-  colors: any;
-  isDark: boolean;
+// ─── Sub-components ───────────────────────────────────────────────────────────
+function SectionHeader({ icon, iconBg, iconColor, title, badge, textColor }: {
+  icon: any; iconBg: string; iconColor: string; title: string; badge?: string; textColor: string;
 }) {
   return (
-    <View style={styles.infoRow}>
-      <View style={styles.infoLeft}>
-        <Ionicons name={icon as any} size={18} color={colors.textSecondary} />
-        <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{label}</Text>
+    <View style={shStyles.row}>
+      <View style={[shStyles.iconBox, { backgroundColor: iconBg }]}>
+        <Ionicons name={icon} size={20} color={iconColor} />
       </View>
-      <Text style={[styles.infoValue, { color: colors.text }]} numberOfLines={2}>
-        {value}
-      </Text>
+      <Text style={[shStyles.title, { color: textColor }]}>{title}</Text>
+      {badge && (
+        <View style={[shStyles.badge, { backgroundColor: iconBg }]}>
+          <Text style={[shStyles.badgeText, { color: iconColor }]}>{badge}</Text>
+        </View>
+      )}
     </View>
   );
 }
+const shStyles = StyleSheet.create({
+  row: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 16 },
+  iconBox: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  title: { flex: 1, fontSize: 16, fontWeight: "700" },
+  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  badgeText: { fontSize: 12, fontWeight: "700" },
+});
 
-function getStatusColor(status: string | null) {
-  if (!status) return "#2196F3";
-  const s = status.toLowerCase();
-  switch (s) {
-    case "approved":
-      return "#4CAF50";
-    case "rejected":
-      return "#F44336";
-    case "waitlisted":
-      return "#FF9800";
-    default:
-      return "#2196F3";
-  }
+function StatChip({ icon, value, label, color, isDark }: {
+  icon: any; value: string; label: string; color: string; isDark: boolean;
+}) {
+  return (
+    <View style={scStyles.chip}>
+      <Ionicons name={icon} size={16} color={color} />
+      <Text style={[scStyles.value, { color }]}>{value}</Text>
+      <Text style={[scStyles.label, { color: isDark ? "#64748B" : "#94A3B8" }]}>{label}</Text>
+    </View>
+  );
 }
+const scStyles = StyleSheet.create({
+  chip: { flex: 1, alignItems: "center", gap: 3 },
+  value: { fontSize: 18, fontWeight: "800", letterSpacing: -0.5 },
+  label: { fontSize: 10, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.4 },
+});
 
-function getStatusBadgeStyle(status: string | null, isDark: boolean = false) {
-  const s = status ? status.toLowerCase() : "";
-
-  if (!s) return { backgroundColor: isDark ? "rgba(33, 150, 243, 0.15)" : "#E3F2FD" };
-
-  switch (s) {
-    case "approved":
-      return { backgroundColor: isDark ? "rgba(76, 175, 80, 0.15)" : "#E8F5E9" };
-    case "rejected":
-      return { backgroundColor: isDark ? "rgba(244, 67, 54, 0.15)" : "#FFEBEE" };
-    case "waitlisted":
-      return { backgroundColor: isDark ? "rgba(255, 152, 0, 0.15)" : "#FFF3E0" };
-    default:
-      return { backgroundColor: isDark ? "rgba(33, 150, 243, 0.15)" : "#E3F2FD" };
-  }
+function InfoRow({ label, value, subText, colors }: {
+  label: string; value: string; subText: string; colors: any;
+}) {
+  return (
+    <View style={irStyles.row}>
+      <Text style={[irStyles.label, { color: subText }]}>{label}</Text>
+      <Text style={[irStyles.value, { color: colors.text }]} numberOfLines={2}>{value}</Text>
+    </View>
+  );
 }
+const irStyles = StyleSheet.create({
+  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingVertical: 10, gap: 12 },
+  label: { fontSize: 13, fontWeight: "500", flex: 1 },
+  value: { fontSize: 13, fontWeight: "700", flex: 1.2, textAlign: "right" },
+});
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  loadingCard: {
-    padding: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 32,
-  },
-  errorIconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 24,
-  },
-  errorTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    marginBottom: 12,
-    textAlign: "center",
-  },
-  errorMessage: {
-    fontSize: 15,
-    textAlign: "center",
-    lineHeight: 22,
-    maxWidth: 320,
-    marginBottom: 32,
-  },
-  retryButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  retryButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  backButton: {
-    padding: 12,
-  },
-  backButtonText: {
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  scrollContent: {
-    padding: 16,
-    gap: 16,
-  },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  statusText: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
+  container: { flex: 1 },
+  scroll: { padding: 16, gap: 14 },
+
+  centerWrap: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 12 },
+  loadingText: { fontSize: 15, fontWeight: "500", marginTop: 8 },
+  errorIcon: { width: 88, height: 88, borderRadius: 44, alignItems: "center", justifyContent: "center", marginBottom: 8 },
+  errorTitle: { fontSize: 20, fontWeight: "700", textAlign: "center" },
+  errorMsg: { fontSize: 14, textAlign: "center", lineHeight: 21 },
+  retryBtn: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#6366F1", paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12, marginTop: 8 },
+  retryBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+
+  // Status pill in header
+  statusPill: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
+  statusPillText: { fontSize: 12, fontWeight: "700" },
+
+  // Card
   card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderRadius: 20, borderWidth: 1, padding: 18,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.06, shadowRadius: 10, elevation: 3,
   },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 20,
+
+  // Hero
+  heroRow: { flexDirection: "row", alignItems: "flex-start", gap: 14, marginBottom: 16 },
+  avatar: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  avatarText: { fontSize: 20, fontWeight: "800", letterSpacing: 0.5 },
+  heroName: { fontSize: 17, fontWeight: "800", letterSpacing: -0.3 },
+  heroMeta: { flexDirection: "row", alignItems: "center", gap: 5 },
+  heroMetaText: { fontSize: 12, fontWeight: "500", flex: 1 },
+
+  // Stats strip
+  statsStrip: { flexDirection: "row", borderTopWidth: 1, paddingTop: 14, gap: 0 },
+  stripDiv: { width: 1, height: 36, alignSelf: "center" },
+
+  // Info grid
+  infoGrid: { gap: 0 },
+
+  // Statement
+  statement: { fontSize: 14, lineHeight: 22, fontWeight: "400" },
+
+  // Progress bar
+  progressBg: { height: 6, borderRadius: 3, overflow: "hidden", marginBottom: 6 },
+  progressFill: { height: 6, borderRadius: 3 },
+  progressLabel: { fontSize: 12, fontWeight: "500", marginBottom: 16 },
+
+  // Doc group
+  docGroup: { borderTopWidth: 1, paddingTop: 14, marginTop: 4, gap: 10 },
+  docGroupHeader: { flexDirection: "row", alignItems: "center", gap: 7, marginBottom: 4 },
+  docGroupLabel: { flex: 1, fontSize: 13, fontWeight: "700" },
+  docCountPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
+  docCountText: { fontSize: 11, fontWeight: "700" },
+
+  // File row
+  fileRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 12, borderRadius: 14, borderWidth: 1, marginBottom: 10 },
+  fileIconBox: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  fileNameText: { fontSize: 13, fontWeight: "600" },
+  fileMeta: { flexDirection: "row", alignItems: "center", gap: 5, flexWrap: "wrap" },
+  fileMetaText: { fontSize: 11, fontWeight: "500" },
+  metaDot: { width: 3, height: 3, borderRadius: 1.5, opacity: 0.5 },
+  rejectionReason: { fontSize: 11, fontStyle: "italic" },
+
+  // Pending
+  pendingSection: { borderTopWidth: 1, borderTopColor: "rgba(245,158,11,0.2)", paddingTop: 14, marginTop: 8, gap: 8 },
+  pendingHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 },
+  pendingHeaderText: { fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 },
+  pendingPill: { flexDirection: "row", alignItems: "flex-start", gap: 10, padding: 11, borderRadius: 12, borderWidth: 1, borderStyle: "dashed" },
+  pendingPillText: { flex: 1, fontSize: 13, fontWeight: "500", lineHeight: 18 },
+
+  // Footer
+  footer: {
+    borderTopWidth: 1, paddingTop: 12, paddingHorizontal: 16,
+    shadowColor: "#000", shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.07, shadowRadius: 10, elevation: 10,
   },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  cardSubtitle: {
-    fontSize: 13,
-    fontWeight: "500",
-    marginTop: 2,
-  },
-  infoSection: {
-    gap: 16,
-  },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 12,
-  },
-  infoLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  infoValue: {
-    fontSize: 14,
-    fontWeight: "700",
-    flex: 1,
-    textAlign: "right",
-  },
-  documentsContainer: {
-    gap: 20,
-  },
-  documentGroup: {
-    gap: 12,
-  },
-  documentGroupLabel: {
-    fontSize: 15,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  documentItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  fileIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  documentInfo: {
-    flex: 1,
-    gap: 4,
-  },
-  fileName: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  fileMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  fileMeta: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  metaDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-  },
-  pendingDocumentsContainer: {
-    gap: 10,
-  },
-  pendingDocItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderStyle: "dashed",
-  },
-  pendingDocText: {
-    fontSize: 13,
-    fontWeight: "600",
-    flex: 1,
-  },
-  statementText: {
-    fontSize: 15,
-    lineHeight: 24,
-    fontWeight: "400",
-  },
-  metadataGrid: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  metadataItem: {
-    flex: 1,
-    alignItems: "center",
-    padding: 16,
-    borderRadius: 12,
-    gap: 8,
-  },
-  metadataLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  metadataValue: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  // Action Footer Styles
-  actionFooter: {
-    borderTopWidth: 1,
-    paddingTop: 16,
-    paddingHorizontal: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  actionButtonsContainer: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  approveButton: {
-    backgroundColor: "#4CAF50",
-  },
-  waitlistButton: {
-    backgroundColor: "#FF9800",
-  },
-  rejectButton: {
-    backgroundColor: "#F44336",
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  actionButtonText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.5)",
-  },
-  modalBackdrop: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  modalContent: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: "70%",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 20,
-    borderBottomWidth: 1,
-  },
-  modalTitleContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-  },
-  modalBody: {
-    padding: 20,
-    gap: 16,
-  },
-  modalLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-  modalTextInput: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 15,
-    minHeight: 120,
-    fontWeight: "400",
-  },
-  modalActions: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 8,
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalCancelButton: {
-    backgroundColor: "transparent",
-    borderWidth: 1.5,
-  },
-  modalCancelText: {
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  modalSubmitButton: {
-    backgroundColor: "#F44336",
-  },
-  modalSubmitText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "700",
-  },
+  actionRow: { flexDirection: "row", gap: 10 },
+  actionBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 14, borderRadius: 14 },
+  approveBtn: { backgroundColor: "#10B981", shadowColor: "#10B981", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 3 },
+  waitlistBtn: { backgroundColor: "#F59E0B", shadowColor: "#F59E0B", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 3 },
+  rejectBtn: { backgroundColor: "#EF4444", shadowColor: "#EF4444", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 3 },
+  actionBtnText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+  submittingRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, paddingVertical: 14 },
+  submittingText: { fontSize: 14, fontWeight: "600" },
+
+  // Modal
+  modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.45)" },
+  modalSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, shadowColor: "#000", shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 12 },
+  modalHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", marginTop: 12 },
+  modalHeaderRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 20, paddingVertical: 16 },
+  modalIconBox: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  modalTitle: { flex: 1, fontSize: 18, fontWeight: "700" },
+  modalCloseBtn: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
+  modalBody: { paddingHorizontal: 20, gap: 14, paddingBottom: 4 },
+  modalLabel: { fontSize: 14, fontWeight: "600" },
+  modalInput: { borderWidth: 1, borderRadius: 14, padding: 14, fontSize: 14, minHeight: 110, fontWeight: "400" },
+  modalActions: { flexDirection: "row", gap: 12 },
+  modalBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  modalBtnText: { fontSize: 14, fontWeight: "700" },
 });

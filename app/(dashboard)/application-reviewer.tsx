@@ -5,19 +5,24 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
+import { MotiView } from "moti";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   BackHandler,
+  Dimensions,
   Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
+import { PieChart } from "react-native-gifted-charts";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type ApplicationItem = {
   id: string;
@@ -48,30 +53,24 @@ export default function ApplicationReviewerDashboard() {
   const { isDark, colors } = useTheme();
   const inset = useSafeAreaInsets();
 
+  // ─── Back Handler ─────────────────────────────────────────────────────────────
   useFocusEffect(
     useCallback(() => {
       const onBackPress = () => {
         Alert.alert("Exit App", "Are you sure you want to exit?", [
-          {
-            text: "Cancel",
-            onPress: () => null,
-            style: "cancel"
-          },
-          { text: "YES", onPress: () => BackHandler.exitApp() }
+          { text: "Cancel", onPress: () => null, style: "cancel" },
+          { text: "YES", onPress: () => BackHandler.exitApp() },
         ]);
         return true;
       };
-
       const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
-
       return () => subscription.remove();
     }, [])
   );
 
-  // Reviewer state
+  // ─── State ───────────────────────────────────────────────────────────────────
   const [reviewerName, setReviewerName] = useState("Reviewer");
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
-
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -93,72 +92,58 @@ export default function ApplicationReviewerDashboard() {
     current_stage: "Loading...",
   });
 
+  const [recentApplications, setRecentApplications] = useState<ApplicationItem[]>([]);
+
+  // ─── Data Fetching ───────────────────────────────────────────────────────────
   const fetchData = async (isRefresh = false) => {
     try {
-      if (isRefresh) {
-        setRefreshing(true);
-      }
-
+      if (isRefresh) setRefreshing(true);
       const authDataString = await AsyncStorage.getItem("authData");
       if (!authDataString) return;
-
       const authData = JSON.parse(authDataString);
       const token = authData?.token;
-
       if (!token) return;
 
-      // Fetch Profile, Stats, Recent Apps, and Progress in parallel
       const [profileRes, statsRes, recentAppsRes, progressRes] = await Promise.all([
         getUserProfile(token),
         getReviewerDashboardStats(token),
         getReviewerRecentApplications(token, 5),
-        getReviewerProgress(token)
+        getReviewerProgress(token),
       ]);
 
-      // Update Profile
+      // Profile
       if (profileRes.success && profileRes.data?.user) {
         const user = profileRes.data.user;
-        const name = user.fullname ||
-          `${user.firstname || ""} ${user.lastname || ""}`.trim() ||
-          "Reviewer";
+        const name = user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || "Reviewer";
         setReviewerName(name);
-
-        if (user.profileimageurl) {
-          setProfilePhotoUrl(user.profileimageurl);
-        }
-      } else {
-        // Fallback to cached profile if available
-        if (authData?.user) {
-          const user = authData.user;
-          const name = user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || "Reviewer";
-          setReviewerName(name);
-          if (user.profileimageurl) {
-            setProfilePhotoUrl(user.profileimageurl);
-          }
-        }
+        if (user.profileimageurl) setProfilePhotoUrl(user.profileimageurl);
+      } else if (authData?.user) {
+        const user = authData.user;
+        const name = user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || "Reviewer";
+        setReviewerName(name);
+        if (user.profileimageurl) setProfilePhotoUrl(user.profileimageurl);
       }
 
-      // Update Stats
+      // Stats
       if (statsRes.success && statsRes.data?.stats) {
         setStats(statsRes.data.stats);
       }
 
-      // Update Recent Applications
+      // Recent Apps
       if (recentAppsRes.success && recentAppsRes.data && Array.isArray(recentAppsRes.data.applications)) {
         const mappedApps = recentAppsRes.data.applications.map((app: any) => ({
           id: String(app.id),
           scholarshipTitle: app.scholarship?.name || "Unknown Scholarship",
           studentName: app.user?.fullname || "Unknown Student",
-          status: app.status ? app.status.charAt(0).toUpperCase() + app.status.slice(1) : "Unknown"
+          status: app.status ? app.status.charAt(0).toUpperCase() + app.status.slice(1) : "Unknown",
         }));
         setRecentApplications(mappedApps);
       }
 
-      // Update Progress
+      // Progress
       if (progressRes.success && progressRes.data?.progress) {
         setProgress(progressRes.data.progress);
       }
-
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {
@@ -175,49 +160,49 @@ export default function ApplicationReviewerDashboard() {
     fetchData(true);
   }, []);
 
-  const [recentApplications, setRecentApplications] = useState<ApplicationItem[]>([]);
+  // ─── Chart Data Preparation ──────────────────────────────────────────────────
+  const pieData = [
+    { value: stats.approved, color: '#4CAF50', text: 'Approved' },
+    { value: stats.pending_review, color: '#FF9800', text: 'Pending' },
+    { value: stats.rejected, color: '#F44336', text: 'Rejected' },
+  ].filter(d => d.value > 0);
 
+  // If no data, show a grey ring
+  const isChartEmpty = pieData.length === 0;
+  const chartData = isChartEmpty ? [{ value: 1, color: isDark ? '#334155' : '#E2E8F0' }] : pieData;
 
+  const totalProcessed = stats.approved + stats.rejected;
+  const totalAssigned = stats.total_applications_assigned;
 
-
+  // ─── Render ──────────────────────────────────────────────────────────────────
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <LinearGradient
-        colors={isDark ? [colors.background, colors.background, colors.surface] : [colors.background, colors.background, colors.accent]}
+        colors={isDark ? [colors.shadow, colors.shadow, colors.shadow] : [colors.background, colors.background, colors.accent]}
         style={styles.background}
         locations={[0, 0.4, 1]}
       />
 
-      {/* Welcome Header - Sticky */}
+      {/* Header */}
       <View style={[styles.header, { paddingTop: inset.top + 20 }]}>
         <View style={styles.headerContent}>
-          <View style={styles.welcomeSection}>
-            <Text style={[styles.welcomeText, { color: isDark ? colors.textSecondary : "#666" }]}>Hi,</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={[styles.userName, { color: colors.text }]}>{reviewerName}</Text>
+          <View>
+            <Text style={[styles.greeting, { color: colors.textSecondary }]}>Welcome back,</Text>
+            <View style={styles.nameRow}>
+              <Text style={[styles.name, { color: colors.text }]}>{reviewerName.split(' ')[0]}</Text>
               <HelloWave />
             </View>
           </View>
           <View style={styles.headerActions}>
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={() => router.push("/(dashboard)/reviewer/notifications")}
-              style={styles.bellWrapper}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="notifications-outline" size={26} color={colors.text} />
-              {/* {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
-                </View>
-              )} */}
+            <TouchableOpacity onPress={() => router.push("/(dashboard)/reviewer/notifications")} style={styles.iconBtn}>
+              <Ionicons name="notifications-outline" size={24} color={colors.text} />
             </TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button" onPress={() => router.push("/(dashboard)/reviewer/profile")} activeOpacity={0.8}>
+            <TouchableOpacity onPress={() => router.push("/(dashboard)/reviewer/profile")}>
               {profilePhotoUrl ? (
                 <Image source={{ uri: profilePhotoUrl }} style={styles.avatar} />
               ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Ionicons name="person-circle-outline" size={36} color={colors.text} />
+                <View style={[styles.avatarPlaceholder, { borderColor: colors.border }]}>
+                  <Ionicons name="person" size={20} color={colors.textSecondary} />
                 </View>
               )}
             </TouchableOpacity>
@@ -226,276 +211,210 @@ export default function ApplicationReviewerDashboard() {
       </View>
 
       <ScrollView
-        style={styles.scrollView}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: inset.bottom + 30 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        contentContainerStyle={{ paddingBottom: inset.bottom + 40 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        {/* Dashboard Stats */}
-        <View style={styles.statsContainer}>
-          {/* Application Status Card */}
-          <View style={[styles.applicationStatusCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
-            <View style={styles.cardHeaderRow}>
-              <View style={[styles.cardIconBox, { backgroundColor: "#673AB715" }]}>
-                <Ionicons name="analytics-outline" size={20} color="#673AB7" />
+        {/* ─── Hero Chart Section ─── */}
+        <MotiView
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 600 }}
+          style={styles.heroSection}
+        >
+          <LinearGradient
+            colors={isDark ? ["#1E293B", "#334155"] : ["#FFFFFF", "#F8FAFC"]}
+            style={[styles.chartCard, { borderColor: isDark ? "#334155" : "#E2E8F0" }]}
+          >
+            <View style={styles.chartHeader}>
+              <View>
+                <Text style={[styles.chartTitle, { color: colors.text }]}>Application Status</Text>
+                <Text style={[styles.chartSubtitle, { color: colors.textSecondary }]}>Overview of your assigned tasks</Text>
               </View>
-              <Text style={[styles.cardHeaderTitle, { color: colors.text }]}>Application Status</Text>
-            </View>
-
-            <View style={styles.statusGrid}>
-              {/* First Row */}
-              <View style={styles.statusRow}>
-                {/* Total Applications */}
-                <View style={styles.statusItem}>
-                  <View style={[styles.statusIconBox, { backgroundColor: "#2196F315" }]}>
-                    <Ionicons name="albums-outline" size={20} color="#2196F3" />
-                  </View>
-                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
-                    {stats.total_applications_assigned.toLocaleString()}
-                  </Text>
-                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Total Assigned</Text>
-                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#2196F330" : "#2196F320" }]}>
-                    <View style={[styles.statusBarFill, {
-                      width: stats.total_applications_assigned > 0 ? "100%" : "0%",
-                      backgroundColor: "#2196F3"
-                    }]} />
-                  </View>
-                </View>
-
-                {/* Pending Review */}
-                <View style={styles.statusItem}>
-                  <View style={[styles.statusIconBox, { backgroundColor: "#FF980015" }]}>
-                    <Ionicons name="time-outline" size={20} color="#FF9800" />
-                  </View>
-                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
-                    {stats.pending_review.toLocaleString()}
-                  </Text>
-                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Pending</Text>
-                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#FF980030" : "#FF980020" }]}>
-                    <View style={[styles.statusBarFill, {
-                      width: stats.total_applications_assigned > 0 ? `${(stats.pending_review / stats.total_applications_assigned * 100)}%` : "0%",
-                      backgroundColor: "#FF9800"
-                    }]} />
-                  </View>
-                </View>
-              </View>
-
-              {/* Second Row */}
-              <View style={styles.statusRow}>
-                {/* Approved */}
-                <View style={styles.statusItem}>
-                  <View style={[styles.statusIconBox, { backgroundColor: "#4CAF5015" }]}>
-                    <Ionicons name="checkmark-circle-outline" size={20} color="#4CAF50" />
-                  </View>
-                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
-                    {stats.approved.toLocaleString()}
-                  </Text>
-                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Approved</Text>
-                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#4CAF5030" : "#4CAF5020" }]}>
-                    <View style={[styles.statusBarFill, {
-                      width: stats.total_applications_assigned > 0 ? `${(stats.approved / stats.total_applications_assigned * 100)}%` : "0%",
-                      backgroundColor: "#4CAF50"
-                    }]} />
-                  </View>
-                </View>
-
-                {/* Rejected */}
-                <View style={styles.statusItem}>
-                  <View style={[styles.statusIconBox, { backgroundColor: "#F4433615" }]}>
-                    <Ionicons name="close-circle-outline" size={20} color="#F44336" />
-                  </View>
-                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
-                    {stats.rejected.toLocaleString()}
-                  </Text>
-                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Rejected</Text>
-                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#F4433630" : "#F4433620" }]}>
-                    <View style={[styles.statusBarFill, {
-                      width: stats.total_applications_assigned > 0 ? `${(stats.rejected / stats.total_applications_assigned * 100)}%` : "0%",
-                      backgroundColor: "#F44336"
-                    }]} />
-                  </View>
-                </View>
+              <View style={[styles.totalBadge, { backgroundColor: isDark ? "#334155" : "#F1F5F9" }]}>
+                <Text style={[styles.totalBadgeText, { color: colors.text }]}>{stats.total_applications_assigned} Total</Text>
               </View>
             </View>
-          </View>
 
-          {/* Activity Tracking Card */}
-          <View style={[styles.applicationStatusCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
-            <View style={styles.cardHeaderRow}>
-              <View style={[styles.cardIconBox, { backgroundColor: "#00BCD415" }]}>
-                <Ionicons name="trending-up-outline" size={20} color="#00BCD4" />
-              </View>
-              <Text style={[styles.cardHeaderTitle, { color: colors.text }]}>Activity Tracking</Text>
-            </View>
-
-            <View style={styles.statusGrid}>
-              <View style={styles.statusRow}>
-                {/* Verified Today */}
-                <View style={styles.statusItem}>
-                  <View style={[styles.statusIconBox, { backgroundColor: "#00BCD415" }]}>
-                    <Ionicons name="document-text-outline" size={20} color="#00BCD4" />
-                  </View>
-                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
-                    {stats.verified_today.toLocaleString()}
-                  </Text>
-                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Verified Today</Text>
-                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#00BCD430" : "#00BCD420" }]}>
-                    <View style={[styles.statusBarFill, {
-                      width: stats.verified_this_week > 0 ? `${(stats.verified_today / stats.verified_this_week * 100)}%` : "0%",
-                      backgroundColor: "#00BCD4"
-                    }]} />
-                  </View>
-                </View>
-
-                {/* Verified This Week */}
-                <View style={styles.statusItem}>
-                  <View style={[styles.statusIconBox, { backgroundColor: "#673AB715" }]}>
-                    <Ionicons name="calendar-outline" size={20} color="#673AB7" />
-                  </View>
-                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
-                    {stats.verified_this_week.toLocaleString()}
-                  </Text>
-                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>This Week</Text>
-                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#673AB730" : "#673AB720" }]}>
-                    <View style={[styles.statusBarFill, {
-                      width: "100%",
-                      backgroundColor: "#673AB7"
-                    }]} />
-                  </View>
-                </View>
+            <View style={styles.chartContent}>
+              {/* Donut Chart */}
+              <View style={styles.chartWrapper}>
+                <PieChart
+                  data={chartData}
+                  donut
+                  radius={60}
+                  innerRadius={45}
+                  centerLabelComponent={() => {
+                    return (
+                      <View style={{ justifyContent: 'center', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 22, color: colors.text, fontWeight: 'bold' }}>
+                          {isChartEmpty ? '0' : Math.round((totalProcessed / totalAssigned) * 100) + '%'}
+                        </Text>
+                        <Text style={{ fontSize: 10, color: colors.textSecondary }}>Done</Text>
+                      </View>
+                    );
+                  }}
+                />
               </View>
 
-              {/* Second Row with Bookmarked centered */}
-              <View style={[styles.statusRow, { justifyContent: "center" }]}>
-                {/* Bookmarked */}
-                <View style={styles.statusItem}>
-                  <View style={[styles.statusIconBox, { backgroundColor: "#9C27B015" }]}>
-                    <Ionicons name="bookmark-outline" size={20} color="#9C27B0" />
-                  </View>
-                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
-                    {stats.bookmarked.toLocaleString()}
-                  </Text>
-                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Bookmarked</Text>
-                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#9C27B030" : "#9C27B020" }]}>
-                    <View style={[styles.statusBarFill, {
-                      width: stats.total_applications_assigned > 0 ? `${(stats.bookmarked / stats.total_applications_assigned * 100)}%` : "0%",
-                      backgroundColor: "#9C27B0"
-                    }]} />
-                  </View>
-                </View>
+              {/* Legend */}
+              <View style={styles.legendContainer}>
+                <ChartLegend color="#FF9800" label="Pending" value={stats.pending_review} isDark={isDark} />
+                <ChartLegend color="#4CAF50" label="Approved" value={stats.approved} isDark={isDark} />
+                <ChartLegend color="#F44336" label="Rejected" value={stats.rejected} isDark={isDark} />
               </View>
             </View>
-          </View>
+          </LinearGradient>
+        </MotiView>
+
+        {/* ─── Key Metrics Grid ─── */}
+        <View style={styles.gridContainer}>
+          <MetricCard
+            title="Verified Today"
+            value={stats.verified_today}
+            icon="checkmark-done-circle"
+            color="#10B981"
+            delay={100}
+            isDark={isDark}
+            colors={colors}
+          />
+          <MetricCard
+            title="Weekly Verified"
+            value={stats.verified_this_week}
+            icon="calendar"
+            color="#6366F1"
+            delay={200}
+            isDark={isDark}
+            colors={colors}
+          />
+          <MetricCard
+            title="Bookmarked"
+            value={stats.bookmarked}
+            icon="bookmark"
+            color="#F59E0B"
+            delay={300}
+            isDark={isDark}
+            colors={colors}
+          />
         </View>
 
-        {/* Review Progress */}
-        <View style={styles.sectionContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Review Progress</Text>
-          <View style={[styles.progressBar, { backgroundColor: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(51, 51, 51, 0.08)" }]}>
-            <View style={[styles.progressFill, { width: `${progress.progress_percentage}%` }]} />
-          </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-            <Text style={[styles.progressLabel, { color: colors.text, marginTop: 0 }]}>
-              {progress.progress_percentage}% reviewed
-            </Text>
-            <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: '500' }}>
-              {progress.current_stage || "Status Unknown"}
-            </Text>
-          </View>
+        {/* ─── Recent Applications ─── */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Applications</Text>
         </View>
 
-        {/* Recent Applications */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Applications</Text>
-            <TouchableOpacity onPress={() => router.push("/(dashboard)/reviewer/applications")} accessibilityRole="button">
-              <Text style={[styles.viewAllText, { color: colors.text }]}>View All</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={[styles.cardList, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
-            {recentApplications.slice(0, 5).map((app) => (
-              <TouchableOpacity key={app.id} style={[styles.listItem, { borderBottomColor: isDark ? colors.border : "rgba(51, 51, 51, 0.06)" }]} activeOpacity={0.8} onPress={() => router.push({ pathname: "/(dashboard)/reviewer/application-details", params: { id: app.id } })}>
-                <View style={[styles.listItemIcon, { backgroundColor: isDark ? colors.surface : "#f5f5f5" }]}>
-                  <Ionicons name="document-text-outline" size={18} color="#2196F3" />
+        <View style={[styles.listContainer, { backgroundColor: isDark ? colors.card : "#FFFFFF", borderColor: colors.border }]}>
+          {recentApplications.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="folder-open-outline" size={48} color={colors.textSecondary} style={{ opacity: 0.5, marginBottom: 10 }} />
+              <Text style={{ color: colors.textSecondary }}>No applications yet</Text>
+            </View>
+          ) : (
+            recentApplications.map((app, index) => (
+              <TouchableOpacity
+                key={app.id}
+                style={[
+                  styles.listItem,
+                  { borderBottomWidth: index === recentApplications.length - 1 ? 0 : 1, borderBottomColor: isDark ? "#334155" : "#F1F5F9" }
+                ]}
+                onPress={() => router.push({ pathname: "/(dashboard)/reviewer/application-details", params: { id: app.id } })}
+              >
+                <View style={[styles.listIcon, { backgroundColor: getStatusColor(app.status, true) }]}>
+                  <Ionicons name="document-text" size={20} color={getStatusColor(app.status)} />
                 </View>
-                <View style={styles.listItemBody}>
-                  <Text style={[styles.listItemTitle, { color: colors.text }]}>{app.scholarshipTitle}</Text>
-                  <Text style={[styles.listItemSub, { color: colors.textSecondary }]}>{app.studentName}</Text>
+                <View style={styles.listContent}>
+                  <Text style={[styles.listTitle, { color: colors.text }]}>{app.scholarshipTitle}</Text>
+                  <Text style={[styles.listSubtitle, { color: colors.textSecondary }]}>{app.studentName}</Text>
                 </View>
-                <View style={[styles.statusBadge, getStatusBadgeStyle(app.status, isDark)]}>
-                  <Text style={[styles.statusBadgeText, { color: isDark ? colors.text : "#333" }]}>{app.status}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+                <StatusBadge status={app.status} isDark={isDark} />
               </TouchableOpacity>
-            ))}
-            {recentApplications.length === 0 && (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>No recent applications</Text>
-              </View>
-            )}
-          </View>
+            ))
+          )}
         </View>
 
-
-
-        {/* Quick Actions */}
-        <View style={styles.featuresContainer}>
+        {/* ─── Quick Actions ─── */}
+        <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
-          <View style={styles.featuresGrid}>
-            <TouchableOpacity style={[styles.featureCard, { borderLeftColor: "#2196F3", backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]} activeOpacity={0.8} onPress={() => router.push("/(dashboard)/reviewer/applications")}>
-              <View style={styles.featureContent}>
-                <View style={[styles.featureIcon, { backgroundColor: "#2196F320" }]}>
-                  <Ionicons name="albums-outline" size={24} color="#2196F3" />
-                </View>
-                <View style={styles.featureInfo}>
-                  <Text style={[styles.featureTitle, { color: colors.text }]}>View All Applications</Text>
-                  <Text style={[styles.featureDescription, { color: colors.textSecondary }]}>Browse and filter all submissions</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-              </View>
-            </TouchableOpacity>
-
-            {/* <TouchableOpacity style={[styles.featureCard, { borderLeftColor: "#FF9800", backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]} activeOpacity={0.8} onPress={() => router.push("/(dashboard)/reviewer/documents")}>
-              <View style={styles.featureContent}>
-                <View style={[styles.featureIcon, { backgroundColor: "#FF980020" }]}>
-                  <Ionicons name="document-attach-outline" size={24} color="#FF9800" />
-                </View>
-                <View style={styles.featureInfo}>
-                  <Text style={[styles.featureTitle, { color: colors.text }]}>Check Documents</Text>
-                  <Text style={[styles.featureDescription, { color: colors.textSecondary }]}>Verify uploaded applicant documents</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-              </View>
-            </TouchableOpacity> */}
-
-
-          </View>
         </View>
+
+        <View style={{ paddingHorizontal: 20, marginBottom: 30 }}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => router.push("/(dashboard)/reviewer/applications")}
+            style={[
+              styles.featureActionCard,
+              {
+                backgroundColor: isDark ? colors.card : "#FFFFFF",
+                borderColor: colors.border
+              }
+            ]}
+          >
+            <View style={[styles.featureIconBox, { backgroundColor: "#6366F120" }]}>
+              <Ionicons name="layers" size={24} color="#6366F1" />
+            </View>
+            <View style={styles.featureContentBox}>
+              <Text style={[styles.featureTitle, { color: colors.text }]}>View All Sceholarships</Text>
+
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
       </ScrollView>
     </View>
   );
 }
 
-function getStatusBadgeStyle(status: string, isDark: boolean) {
-  switch (status?.toLowerCase()) {
-    case "approved":
-      return { backgroundColor: isDark ? "#1B5E2030" : "#E8F5E9", borderColor: "#4CAF50" };
-    case "rejected":
-      return { backgroundColor: isDark ? "#B71C1C30" : "#FBE9E7", borderColor: "#F44336" };
-    case "pending":
-    case "new":
-    case "waitlisted":
-      return { backgroundColor: isDark ? "#FFF3E030" : "#FFF8E1", borderColor: "#FFC107" }; // Yellow/Amber for pending/new
-    default:
-      return { backgroundColor: isDark ? "#0D47A130" : "#E3F2FD", borderColor: "#2196F3" };
-  }
+// ─── Components ──────────────────────────────────────────────────────────────
+
+function ChartLegend({ color, label, value, isDark }: { color: string, label: string, value: number, isDark: boolean }) {
+  return (
+    <View style={styles.legendRow}>
+      <View style={[styles.dot, { backgroundColor: color }]} />
+      <Text style={[styles.legendLabel, { color: isDark ? "#94A3B8" : "#64748B" }]}>{label}</Text>
+      <Text style={[styles.legendValue, { color: isDark ? "#F8FAFC" : "#0F172A" }]}>{value}</Text>
+    </View>
+  )
 }
 
+function MetricCard({ title, value, icon, color, delay, isDark, colors }: any) {
+  return (
+    <MotiView
+      from={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ type: 'timing', duration: 500, delay }}
+      style={[styles.metricCard, { backgroundColor: isDark ? colors.card : "#FFFFFF", borderColor: colors.border }]}
+    >
+      <View style={[styles.metricIcon, { backgroundColor: color + "15" }]}>
+        <Ionicons name={icon} size={20} color={color} />
+      </View>
+      <Text style={[styles.metricValue, { color: colors.text }]}>{value}</Text>
+      <Text style={[styles.metricTitle, { color: colors.textSecondary }]}>{title}</Text>
+    </MotiView>
+  );
+}
+
+function StatusBadge({ status, isDark }: { status: string, isDark: boolean }) {
+  const color = getStatusColor(status);
+  return (
+    <View style={[styles.badge, { backgroundColor: color + "15", borderColor: color + "40" }]}>
+      <View style={[styles.badgeDot, { backgroundColor: color }]} />
+      <Text style={[styles.badgeText, { color }]}>{status}</Text>
+    </View>
+  );
+}
+
+function getStatusColor(status: string, bg = false) {
+  const s = status?.toLowerCase();
+  if (s === 'approved') return bg ? "#DCFCE7" : "#16A34A";
+  if (s === 'rejected') return bg ? "#FEE2E2" : "#DC2626";
+  if (s === 'pending' || s === 'new') return bg ? "#FEF3C7" : "#D97706";
+  return bg ? "#E0F2FE" : "#0284C7";
+}
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f2c44d",
-  },
+  container: { flex: 1 },
   background: {
     position: "absolute",
     top: 0,
@@ -503,329 +422,86 @@ const styles = StyleSheet.create({
     bottom: 0,
     right: 0,
   },
-  scrollView: {
-    flex: 1,
+  header: { paddingHorizontal: 20, paddingBottom: 15 },
+  headerContent: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  greeting: { fontSize: 13, fontWeight: "500", marginBottom: 2 },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  name: { fontSize: 24, fontWeight: "700" },
+  headerActions: { flexDirection: "row", gap: 12 },
+  iconBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 20, backgroundColor: "rgba(0,0,0,0.03)" },
+  avatar: { width: 40, height: 40, borderRadius: 20 },
+  avatarPlaceholder: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+
+  heroSection: { paddingHorizontal: 20, marginBottom: 24 },
+  chartCard: {
+    borderRadius: 24, padding: 20, borderWidth: 1,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2
   },
-  header: {
-    padding: 20,
-  },
-  headerContent: {
+  chartHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 },
+  chartTitle: { fontSize: 18, fontWeight: "700", marginBottom: 4 },
+  chartSubtitle: { fontSize: 13 },
+  totalBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  totalBadgeText: { fontSize: 12, fontWeight: "600" },
+  chartContent: { flexDirection: "row", alignItems: "center" },
+  chartWrapper: { flex: 1, alignItems: "center", justifyContent: "center" },
+  legendContainer: { flex: 1, gap: 12, paddingLeft: 10 },
+  legendRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  dot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
+  legendLabel: { fontSize: 13, fontWeight: "500", flex: 1 },
+  legendValue: { fontSize: 14, fontWeight: "700" },
+
+  gridContainer: { flexDirection: "row", paddingHorizontal: 20, gap: 12, marginBottom: 30 },
+  metricCard: { flex: 1, borderRadius: 16, padding: 16, borderWidth: 1, alignItems: "center", justifyContent: "center", gap: 8 },
+  metricIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", marginBottom: 4 },
+  metricValue: { fontSize: 20, fontWeight: "800" },
+  metricTitle: { fontSize: 11, fontWeight: "600", textAlign: "center" },
+
+  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, marginBottom: 12 },
+  sectionTitle: { fontSize: 18, fontWeight: "700" },
+  viewAll: { fontSize: 13, fontWeight: "600" },
+
+  listContainer: { marginHorizontal: 20, borderRadius: 20, overflow: "hidden", borderWidth: 1, marginBottom: 30 },
+  listItem: { flexDirection: "row", alignItems: "center", padding: 16, gap: 12 },
+  listIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  listContent: { flex: 1 },
+  listTitle: { fontSize: 14, fontWeight: "600", marginBottom: 2 },
+  listSubtitle: { fontSize: 12 },
+  emptyState: { padding: 40, alignItems: "center", justifyContent: "center" },
+
+  badge: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, gap: 6 },
+  badgeDot: { width: 6, height: 6, borderRadius: 3 },
+  badgeText: { fontSize: 11, fontWeight: "700" },
+
+  // Quick Actions - Single Card
+  featureActionCard: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-  },
-  headerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  welcomeSection: {
-    flex: 1,
-  },
-  welcomeText: {
-    fontSize: 16,
-    color: "#666",
-    marginBottom: 4,
-  },
-  userName: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#333",
-  },
-  bellWrapper: {
-    marginRight: 8,
-  },
-  badge: {
-    position: "absolute",
-    top: -4,
-    right: -4,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: "#F44336",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 3,
-  },
-  badgeText: {
-    fontSize: 10,
-    color: "#fff",
-    fontWeight: "700",
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  avatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(51, 51, 51, 0.1)",
-  },
-  statsContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-    gap: 16,
-  },
-  // Application Status Card
-  applicationStatusCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderRadius: 16,
     padding: 16,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(51, 51, 51, 0.1)",
-    shadowColor: "#333",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  cardHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  cardIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
-  },
-  cardHeaderTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  statusGrid: {
-    flexDirection: "column",
-    gap: 12,
-  },
-  statusRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  statusItem: {
-    flex: 1,
-    alignItems: "center",
-    gap: 5,
-    minWidth: 0, // Allow items to shrink
-  },
-  statusIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  statusNumber: {
-    fontSize: 22,
-    fontWeight: "800",
-    lineHeight: 26,
-  },
-  statusLabel: {
-    fontSize: 11,
-    fontWeight: "500",
-    textAlign: "center",
-  },
-  statusBar: {
-    width: "100%",
-    height: 4,
-    borderRadius: 2,
-    overflow: "hidden",
-    marginTop: 4,
-  },
-  statusBarFill: {
-    height: "100%",
-    borderRadius: 2,
-  },
-  // Old stat card styles (kept for compatibility)
-  statCard: {
-    width: "48%",
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 14,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.06)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowRadius: 10,
     elevation: 2,
+    gap: 16
   },
-  statCardPrimary: {
-    // Not needed anymore - all cards same size
-  },
-  statIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  featureIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
     alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 10,
+    justifyContent: "center"
   },
-  statNumber: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#333",
-    marginBottom: 2,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: "#666",
-    textAlign: "center",
-    lineHeight: 14,
-    fontWeight: "500",
-  },
-  sectionContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#333",
-    marginBottom: 16,
-  },
-  sectionHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  viewAllText: {
-    color: "#333",
-    fontWeight: "600",
-  },
-  cardList: {
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "rgba(51, 51, 51, 0.1)",
-    shadowColor: "#333",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  listItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(51, 51, 51, 0.06)",
-  },
-  listItemIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#f5f5f5",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  listItemBody: {
-    flex: 1,
-  },
-  listItemTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 2,
-  },
-  listItemSub: {
-    fontSize: 12,
-    color: "#666",
-  },
-  statusBadge: {
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    marginRight: 8,
-  },
-  statusBadgeText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#333",
-  },
-  emptyState: {
-    padding: 16,
-    alignItems: "center",
-  },
-  emptyText: {
-    fontSize: 12,
-    color: "#666",
-  },
-  progressBar: {
-    width: "100%",
-    height: 10,
-    borderRadius: 6,
-    backgroundColor: "rgba(51, 51, 51, 0.08)",
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: "#4CAF50",
-  },
-  progressLabel: {
-    marginTop: 8,
-    fontSize: 12,
-    color: "#333",
-    fontWeight: "600",
-  },
-  featuresContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-  },
-  featuresGrid: {
-    gap: 12,
-  },
-  featureCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderLeftWidth: 4,
-    borderColor: "rgba(51, 51, 51, 0.1)",
-    shadowColor: "#333",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  featureContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
-  },
-  featureIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  featureInfo: {
-    flex: 1,
+  featureContentBox: {
+    flex: 1
   },
   featureTitle: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 2,
+    fontWeight: "700",
+    marginBottom: 4
   },
-  featureDescription: {
-    fontSize: 14,
-    color: "#666",
-    lineHeight: 18,
-  },
+  featureSubtitle: {
+    fontSize: 13,
+    lineHeight: 18
+  }
 });
-
