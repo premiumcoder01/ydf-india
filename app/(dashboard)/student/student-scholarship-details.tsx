@@ -6,8 +6,8 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, UIManager, View } from "react-native";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -58,52 +58,55 @@ export default function ScholarshipDetailsScreen() {
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState<"success" | "error" | "info">("success");
 
-  // Fetch scholarship details from API
-  useEffect(() => {
-    const fetchScholarshipDetails = async () => {
-      if (!scholarshipId) {
-        setError("Scholarship ID is missing");
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Get token from AsyncStorage
-        const authDataString = await AsyncStorage.getItem("authData");
-        if (!authDataString) {
-          setError("Authentication token not found. Please login again.");
+  // Fetch scholarship details — runs every time screen gains focus
+  // (e.g. when navigating back from the upload-document screen)
+  useFocusEffect(
+    useCallback(() => {
+      const fetchScholarshipDetails = async () => {
+        if (!scholarshipId) {
+          setError("Scholarship ID is missing");
           setLoading(false);
           return;
         }
 
-        const authData = JSON.parse(authDataString);
-        const token = authData?.token;
+        try {
+          setLoading(true);
+          setError(null);
 
-        if (!token) {
-          setError("Authentication token not found. Please login again.");
+          const authDataString = await AsyncStorage.getItem("authData");
+          if (!authDataString) {
+            setError("Authentication token not found. Please login again.");
+            setLoading(false);
+            return;
+          }
+
+          const authData = JSON.parse(authDataString);
+          const token = authData?.token;
+
+          if (!token) {
+            setError("Authentication token not found. Please login again.");
+            setLoading(false);
+            return;
+          }
+
+          const response = await getScholarshipDetails(token, scholarshipId);
+          if (response.success && response.data) {
+            const apiData = response.data?.data?.data || response.data?.data || response.data;
+            setScholarship(apiData);
+          } else {
+            setError(response.error || response.message || "Failed to load scholarship details");
+          }
+        } catch (err: any) {
+          console.error("Error fetching scholarship details:", err);
+          setError(err.message || "Failed to load scholarship details");
+        } finally {
           setLoading(false);
-          return;
         }
-        const response = await getScholarshipDetails(token, scholarshipId);
-        if (response.success && response.data) {
-          const apiData = response.data?.data?.data || response.data?.data || response.data;
-          setScholarship(apiData);
-        } else {
-          setError(response.error || response.message || "Failed to load scholarship details");
-        }
-      } catch (err: any) {
-        console.error("Error fetching scholarship details:", err);
-        setError(err.message || "Failed to load scholarship details");
-      } finally {
-        setLoading(false);
-      }
-    };
+      };
 
-    fetchScholarshipDetails();
-  }, [scholarshipId]);
+      fetchScholarshipDetails();
+    }, [scholarshipId])
+  );
 
   // Update saved state when scholarship data changes
   useEffect(() => {

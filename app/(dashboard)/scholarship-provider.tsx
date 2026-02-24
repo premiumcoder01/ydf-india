@@ -735,8 +735,9 @@ const styles = StyleSheet.create({
   metricGradientTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     marginBottom: 10,
+    gap: 10
   },
   metricGradientIcon: {
     width: 40,
@@ -757,9 +758,10 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.85)',
     lineHeight: 18,
     marginBottom: 10,
+    textAlign: "center",
   },
   metricGradientBadge: {
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
     backgroundColor: 'rgba(255,255,255,0.22)',
     paddingHorizontal: 10,
     paddingVertical: 4,

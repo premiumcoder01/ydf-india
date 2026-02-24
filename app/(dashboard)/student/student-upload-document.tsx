@@ -126,7 +126,16 @@ export default function StudentUploadDocumentScreen() {
             const result = await response.json();
             if (response.ok && (result.success || result.status === true || result[0]?.status === true)) {
                 setFile(null);
-                Alert.alert("Success", "File uploaded successfully!");
+                Alert.alert(
+                    "Upload Successful",
+                    "Your document has been uploaded successfully!",
+                    [
+                        {
+                            text: "OK",
+                            onPress: () => router.back(),
+                        },
+                    ]
+                );
 
             } else {
                 Alert.alert("Upload Failed", result.message || "Something went wrong during upload.");
@@ -212,7 +221,7 @@ export default function StudentUploadDocumentScreen() {
 
                 <View style={styles.actionContainer}>
                     <Button
-                        title={uploading ? "Uploading..." : "Upload / Submit"}
+                        title={uploading ? "Uploading..." : "Submit"}
                         onPress={handleUploadPress}
                         variant="primary"
                         disabled={!file || uploading}

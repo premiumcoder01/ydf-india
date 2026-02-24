@@ -78,17 +78,13 @@ export default function ProviderNotificationsScreen() {
         return;
       }
 
-      console.log("Fetching notifications with token:", token.substring(0, 20) + "...");
 
       const response = await getNotifications(token, {
         page: 1,
         per_page: 200,
       });
 
-      console.log("API Response:", JSON.stringify(response, null, 2));
-      console.log("Response success:", response.success);
-      console.log("Response data type:", typeof response.data);
-      console.log("Response data:", response.data);
+
 
       if (response.success && response.data) {
         // The API wraps the response, so response.data contains the actual API response
@@ -120,7 +116,6 @@ export default function ProviderNotificationsScreen() {
           event_type: item.event_type,
         }));
 
-        console.log("Mapped notifications:", notifications);
         setItems(notifications);
         setError(null);
       } else {
