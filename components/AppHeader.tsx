@@ -21,7 +21,7 @@ export default function AppHeader({ title, onBack, rightIcon, rightElement }: Pr
         alignItems: "center",
         justifyContent: "space-between",
         padding: 20,
-        paddingTop: inset.top + 20,
+        paddingTop: inset.top,
         backgroundColor: isDark ? colors.background : "#fff",
         borderBottomWidth: 1,
         borderColor: isDark ? colors.border : "#f0f0f0",
