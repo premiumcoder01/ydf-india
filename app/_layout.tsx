@@ -40,8 +40,6 @@ export default function RootLayout() {
         <Stack.Screen name="(dashboard)/reviewer/application-details" options={{ title: "Application Details" }} />
         <Stack.Screen name="(dashboard)/reviewer/documents" options={{ title: "Check Documents" }} />
         <Stack.Screen name="(dashboard)/reviewer/reports" options={{ title: "Reports" }} />
-
-        {/* Reviewer Profile & Settings Screens */}
         <Stack.Screen name="(dashboard)/reviewer/profile" options={{ title: "Profile" }} />
         <Stack.Screen name="(dashboard)/reviewer/settings" options={{ title: "Settings" }} />
         <Stack.Screen name="(dashboard)/reviewer/help-support" options={{ title: "Help & Support" }} />

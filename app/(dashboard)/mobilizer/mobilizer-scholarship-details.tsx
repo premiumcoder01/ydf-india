@@ -612,19 +612,19 @@ export default function MobilizerScholarshipDetailsScreen() {
 
                 {/* Application Process - same as student */}
                 <View style={styles.sectionContainer}>
-                    <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>Application Process</Text>
+                    <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>📝 Application Process</Text>
                     <View style={{ paddingLeft: 10 }}>
                         {[
-                            { icon: "document-text", title: "Apply Online", desc: "Fill out the application form with accurate details." },
-                            { icon: "search", title: "Application Review", desc: "Our team validates your details and documents." },
-                            { icon: "people", title: "Interview Round", desc: "Shortlisted candidates will be invited for a personal interview." },
-                            { icon: "home", title: "Home Verification", desc: "A field officer may visit your residence for verification." },
-                            { icon: "gift", title: "Scholarship Awarded", desc: "Successful applicants receive the scholarship funds." },
+                            { emoji: "📄", title: "Application", desc: "Please complete and submit all required steps of the application form along with necessary documents for the scholarship process." },
+                            { emoji: "📁", title: "Document Collection", desc: "Upload the required documents including previous year's mark sheets, fee structure for the current year (if applicable), and any other supporting documents." },
+                            { emoji: "📆", title: "Interview", desc: "To assess your eligibility, schedule an interview. The interview will help finalize your selection in the scholarship process." },
+                            { emoji: "✅", title: "Selection", desc: "The scholarship committee will evaluate applications, documents, and interview responses to shortlist deserving candidates." },
+                            { emoji: "💰", title: "Disbursement", desc: "If selected, the scholarship amount will be transferred directly to the recipient's bank account." },
                         ].map((step, idx, arr) => (
                             <View key={idx} style={styles.timelineItem}>
                                 {idx !== arr.length - 1 && <View style={[styles.timelineLine, { backgroundColor: isDark ? "#333" : "#E5E7EB" }]} />}
                                 <View style={[styles.timelineIconBox, { backgroundColor: isDark ? "#333" : "#FFF", borderColor: isDark ? "#444" : "#E5E7EB" }]}>
-                                    <Text style={[styles.timelineStepNum, { color: colors.primary }]}>{idx + 1}</Text>
+                                    <Text style={[styles.timelineStepNum, { color: getCategoryColor(scholarship.category || "General"), fontSize: 16 }]}>{step.emoji}</Text>
                                 </View>
                                 <View style={[styles.timelineContent, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
                                     <Text style={[styles.timelineTitle, { color: colors.text }]}>{step.title}</Text>

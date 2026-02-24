@@ -169,7 +169,7 @@ export default function ApplicationReviewerDashboard() {
 
   // If no data, show a grey ring
   const isChartEmpty = pieData.length === 0;
-  const chartData = isChartEmpty ? [{ value: 1, color: isDark ? '#334155' : '#E2E8F0' }] : pieData;
+  const chartData = isChartEmpty ? [{ value: 1, color: isDark ? '#475569' : '#E2E8F0' }] : pieData;
 
   const totalProcessed = stats.approved + stats.rejected;
   const totalAssigned = stats.total_applications_assigned;
@@ -244,11 +244,12 @@ export default function ApplicationReviewerDashboard() {
                   donut
                   radius={60}
                   innerRadius={45}
+                  innerCircleColor="transparent"
                   centerLabelComponent={() => {
                     return (
                       <View style={{ justifyContent: 'center', alignItems: 'center' }}>
                         <Text style={{ fontSize: 22, color: colors.text, fontWeight: 'bold' }}>
-                          {isChartEmpty ? '0' : Math.round((totalProcessed / totalAssigned) * 100) + '%'}
+                          {isChartEmpty || totalAssigned === 0 ? '0%' : Math.round((totalProcessed / totalAssigned) * 100) + '%'}
                         </Text>
                         <Text style={{ fontSize: 10, color: colors.textSecondary }}>Done</Text>
                       </View>
@@ -353,7 +354,7 @@ export default function ApplicationReviewerDashboard() {
               <Ionicons name="layers" size={24} color="#6366F1" />
             </View>
             <View style={styles.featureContentBox}>
-              <Text style={[styles.featureTitle, { color: colors.text }]}>View All Sceholarships</Text>
+              <Text style={[styles.featureTitle, { color: colors.text }]}>View All Scholarships</Text>
 
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />

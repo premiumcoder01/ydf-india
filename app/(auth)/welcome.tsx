@@ -6,68 +6,123 @@ import { Animated, Image, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function WelcomeScreen() {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
   const inset = useSafeAreaInsets();
 
+  // Staggered Animation Values
+  const logoScale = useRef(new Animated.Value(0.8)).current;
+  const logoOpacity = useRef(new Animated.Value(0)).current;
+  const titleSlide = useRef(new Animated.Value(20)).current;
+  const titleOpacity = useRef(new Animated.Value(0)).current;
+  const buttonSlide = useRef(new Animated.Value(30)).current;
+  const buttonOpacity = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
+    Animated.sequence([
+      Animated.delay(100),
+      Animated.parallel([
+        Animated.spring(logoScale, {
+          toValue: 1,
+          tension: 20,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+        Animated.timing(logoOpacity, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.parallel([
+        Animated.timing(titleOpacity, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(titleSlide, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.parallel([
+        Animated.timing(buttonOpacity, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(buttonSlide, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]),
     ]).start();
   }, []);
 
   return (
-    <View style={[styles.container, { paddingBottom: inset.bottom }]}>
-      {/* Gradient Background */}
+    <View style={styles.container}>
+      {/* Gradient Background - Retained exactly as requested */}
       <LinearGradient
         colors={["#fff", "#fff", "#f2c44d"]}
         style={styles.background}
         locations={[0, 0.3, 1]}
       />
 
-      {/* Content */}
-      <View style={styles.content}>
-        {/* Logo/Title Section */}
-        <Animated.View
-          style={[
-            styles.titleSection,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          <View style={styles.logoContainer}>
+      {/* Subtle overlay to enhance premium look */}
+      <View style={styles.overlay} />
+
+      <View
+        style={[
+          styles.content,
+          {
+            paddingTop: Math.max(inset.top, 20),
+            paddingBottom: Math.max(inset.bottom, 20),
+          },
+        ]}
+      >
+        <View style={styles.topSpacer} />
+
+        {/* Center/Main Section */}
+        <View style={styles.mainSection}>
+          <Animated.View
+            style={[
+              styles.logoContainer,
+              {
+                opacity: logoOpacity,
+                transform: [{ scale: logoScale }],
+              },
+            ]}
+          >
             <Image
               source={require("@/assets/appImages/new.png")}
               resizeMode="contain"
               style={styles.logoImage}
             />
-          </View>
+          </Animated.View>
 
-          <View style={styles.brandTextContainer}>
+          <Animated.View
+            style={[
+              styles.brandTextContainer,
+              {
+                opacity: titleOpacity,
+                transform: [{ translateY: titleSlide }],
+              },
+            ]}
+          >
             <Text style={styles.brandTitle}>Welcome</Text>
             <Text style={styles.brandSubtitle}>
               Empowering Dreams, Building Futures
             </Text>
-          </View>
-        </Animated.View>
+          </Animated.View>
+        </View>
 
-        {/* Bottom Section with Buttons */}
+        {/* Bottom Section */}
         <Animated.View
           style={[
             styles.bottomSection,
             {
-              opacity: fadeAnim,
+              opacity: buttonOpacity,
+              transform: [{ translateY: buttonSlide }],
             },
           ]}
         >
@@ -101,9 +156,8 @@ export default function WelcomeScreen() {
 
           <View style={styles.termsContainer}>
             <Text style={styles.termsText}>
-              By continuing, you agree to our{" "}
-              <Text style={styles.termsLink}>Terms of Service</Text>
-              {" "}and{" "}
+              By continuing, you agree to our{"\n"}
+              <Text style={styles.termsLink}>Terms of Service</Text> and{" "}
               <Text style={styles.termsLink}>Privacy Policy</Text>
             </Text>
           </View>
@@ -119,115 +173,111 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   background: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    bottom: 0,
-    right: 0,
+    ...StyleSheet.absoluteFillObject,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   content: {
     flex: 1,
-    justifyContent: "space-between",
-    paddingTop: 60,
-    paddingBottom: 40,
-    paddingHorizontal: 28,
+    paddingHorizontal: 32,
   },
-  titleSection: {
+  topSpacer: {
+    flex: 0.5,
+  },
+  mainSection: {
+    flex: 2.5,
+    justifyContent: "center",
     alignItems: "center",
-    gap: 24,
-    paddingTop: 20,
   },
   logoContainer: {
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 8,
+    marginBottom: 40,
   },
   logoImage: {
-    width: 240,
-    height: 240,
+    width: 220,
+    height: 220,
   },
   brandTextContainer: {
     alignItems: "center",
-    gap: 8,
+    gap: 12,
   },
   brandTitle: {
-    fontSize: 32,
-    fontWeight: "700",
-    color: "#1a1a1a",
-    letterSpacing: 0.5,
+    fontSize: 44,
+    fontWeight: "800",
+    color: "#111",
+    letterSpacing: -1.2,
     textAlign: "center",
   },
   brandSubtitle: {
-    fontSize: 15,
-    color: "#666",
+    fontSize: 16,
+    color: "#555",
     letterSpacing: 0.3,
     textAlign: "center",
     fontWeight: "500",
-    maxWidth: 280,
-    lineHeight: 22,
+    lineHeight: 24,
   },
   bottomSection: {
+    flex: 2,
+    justifyContent: "flex-end",
+    paddingBottom: 16,
     gap: 24,
   },
   welcomeTextContainer: {
     alignItems: "center",
-    gap: 12,
+    marginBottom: -8,
   },
   welcomeText: {
-    fontSize: 16,
-    color: "#2d2d2d",
+    fontSize: 12,
+    color: "#777",
     textAlign: "center",
-    fontWeight: "600",
-    letterSpacing: 0.2,
-  },
-  decorativeLine: {
-    width: 60,
-    height: 3,
-    backgroundColor: "#f2c44d",
-    borderRadius: 2,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
   },
   buttonContainer: {
     gap: 16,
-    paddingHorizontal: 4,
   },
   signInButton: {
-    backgroundColor: "#333",
+    backgroundColor: "#1A1A1A",
     paddingVertical: 18,
-    borderRadius: 14,
+    borderRadius: 16,
     alignItems: "center",
-    shadowColor: "#333",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
     elevation: 8,
   },
   createAccountButton: {
     backgroundColor: "rgba(255, 255, 255, 0.95)",
     paddingVertical: 18,
-    borderRadius: 14,
+    borderRadius: 16,
     alignItems: "center",
-    borderWidth: 2,
-    borderColor: "rgba(51, 51, 51, 0.15)",
+    borderWidth: 1.5,
+    borderColor: "rgba(26, 26, 26, 0.1)",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowRadius: 12,
+    elevation: 4,
   },
   termsContainer: {
-    paddingHorizontal: 8,
-
+    paddingHorizontal: 20,
+    marginTop: 8,
   },
   termsText: {
     fontSize: 13,
-    color: "#555",
+    color: "#666",
     textAlign: "center",
-    lineHeight: 20,
+    lineHeight: 22,
     fontWeight: "400",
   },
   termsLink: {
-    color: "#1a1a1a",
-    fontWeight: "600",
+    color: "#111",
+    fontWeight: "700",
     textDecorationLine: "underline",
   },
 });
