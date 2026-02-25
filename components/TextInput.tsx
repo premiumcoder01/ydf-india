@@ -81,14 +81,14 @@ export default function CustomTextInput({
     const baseStyle: any[] = [
       styles.inputContainer,
       {
-        backgroundColor: isDark ? colors.surface : 'rgba(255, 255, 255, 0.8)',
+        backgroundColor: isDark ? "rgba(255,255,255,0.05)" : 'rgba(255, 255, 255, 0.8)',
         borderColor: isDark ? colors.border : 'rgba(51, 51, 51, 0.2)'
       }
     ];
     if (isFocused || focused) {
       baseStyle.push({
         borderColor: colors.primary,
-        backgroundColor: isDark ? colors.surface : 'rgba(255, 255, 255, 0.95)',
+        backgroundColor: isDark ? "rgba(255,255,255,0.05)" : 'rgba(255, 255, 255, 0.95)',
       });
     }
     if (error) {

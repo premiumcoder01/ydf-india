@@ -29,7 +29,7 @@ export const LightColors = {
 };
 
 export const DarkColors = {
-    background: '#0F172A',
+    background: '#0f0f0f',
     surface: '#1E293B',
     text: '#F8FAFC',
     textSecondary: '#94A3B8',
@@ -39,7 +39,7 @@ export const DarkColors = {
     border: '#334155',
     error: '#F87171',
     success: '#34D399',
-    card: '#1E293B',
+    card: '#0f0f0f',
     inputBg: '#334155',
     divider: '#334155',
     shadow: '#000000', // Shadows are usually black even in dark mode, or use transparent

@@ -6,7 +6,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState } from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 
 interface ValidationErrors {
   [key: string]: string;
@@ -151,10 +151,11 @@ export default function StudentProfileSettingsScreen() {
               </View>
             </View>
             <View pointerEvents="none">
-              <Ionicons
-                name={isDark ? "toggle" : "toggle-outline"}
-                size={32}
-                color={isDark ? colors.primary : colors.textSecondary}
+              <Switch
+                value={isDark}
+                onValueChange={toggleTheme}
+                trackColor={{ false: "#767577", true: colors.primary }}
+                ios_backgroundColor="#3e3e3e"
               />
             </View>
           </TouchableOpacity>
