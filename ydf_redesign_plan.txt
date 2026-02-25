@@ -1,0 +1,6 @@
+1. Keep the exact API calls and state logic
+2. Use Pdf from 'react-native-pdf' for PDF viewing
+3. Use Image from 'expo-image' for image/gif viewing
+4. Create an elegant, full-screen flex layout, abandoning the nested ScrollView that breaks zooming behaviour.
+5. Create a sleek floating document-info header.
+6. Provide an elegant fallback with clear "Open in Browser" button for edge cases.

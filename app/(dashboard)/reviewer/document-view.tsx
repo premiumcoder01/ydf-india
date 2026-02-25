@@ -2,54 +2,57 @@ import { useTheme } from "@/context/ThemeContext";
 import { verifyDocument } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    Dimensions,
     KeyboardAvoidingView,
     Linking,
     Modal,
     Platform,
-    ScrollView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
     View
 } from "react-native";
+import Pdf from 'react-native-pdf';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import WebView from "react-native-webview";
 import { ReviewerHeader } from "../../../components";
+
+const { width } = Dimensions.get("window");
 
 export default function DocumentViewScreen() {
     const params = useLocalSearchParams();
     const { id, title, fileName, filesize, mimetype, url, verified, rejectionReason } = params;
+
     const { colors, isDark } = useTheme();
     const inset = useSafeAreaInsets();
 
-    // Check if document is already verified or rejected
     const isVerified = verified === "true";
     const isRejected = rejectionReason && rejectionReason.toString().trim() !== "";
     const isProcessed = isVerified || isRejected;
 
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [newRejectionReason, setNewRejectionReason] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
-    // Log params for debugging
-    console.log("Document View Params:", { id, title, fileName, filesize, mimetype, url: url ? "present" : "missing", verified, rejectionReason });
+    const isImage = mimetype?.toString().includes("image") || fileName?.toString().match(/\.(jpg|jpeg|png|gif|webp)$/i);
+    const isPdf = mimetype?.toString().includes("pdf") || fileName?.toString().match(/\.pdf$/i);
 
     const formatFileSize = (bytes: number) => {
-        if (!bytes) return "Unknown size";
+        if (!bytes || isNaN(bytes)) return "Unknown size";
         if (bytes < 1024) return bytes + " B";
         if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
         return (bytes / (1024 * 1024)).toFixed(1) + " MB";
     };
 
     const handleApprove = async () => {
-        // Validate document ID before showing confirmation
         if (!id) {
             Alert.alert("Error", "Document ID not found. Please try again.");
             return;
@@ -72,23 +75,17 @@ export default function DocumentViewScreen() {
                     onPress: async () => {
                         try {
                             setSubmitting(true);
-
-                            // Get token from AsyncStorage
                             const authDataStr = await AsyncStorage.getItem("authData");
                             const authData = authDataStr ? JSON.parse(authDataStr) : null;
                             const token = authData?.token;
 
                             if (!token) {
-                                Alert.alert("Error", "Authentication token not found. Please login again.");
+                                Alert.alert("Error", "Authentication token not found.");
                                 setSubmitting(false);
                                 return;
                             }
 
-                            console.log("Approving document:", documentId);
-
-                            // Call API to verify document
                             const response = await verifyDocument(token, documentId, "verify");
-
                             setSubmitting(false);
 
                             if (response.success) {
@@ -96,12 +93,10 @@ export default function DocumentViewScreen() {
                                     { text: "OK", onPress: () => router.back() }
                                 ]);
                             } else {
-                                console.error("Document verification failed:", response.error);
                                 Alert.alert("Error", response.error || "Failed to verify document");
                             }
                         } catch (error: any) {
                             setSubmitting(false);
-                            console.error("Document verification error:", error);
                             Alert.alert("Error", error.message || "Something went wrong");
                         }
                     }
@@ -131,23 +126,17 @@ export default function DocumentViewScreen() {
 
         try {
             setSubmitting(true);
-
-            // Get token from AsyncStorage
             const authDataStr = await AsyncStorage.getItem("authData");
             const authData = authDataStr ? JSON.parse(authDataStr) : null;
             const token = authData?.token;
 
             if (!token) {
-                Alert.alert("Error", "Authentication token not found. Please login again.");
+                Alert.alert("Error", "Authentication token not found.");
                 setSubmitting(false);
                 return;
             }
 
-            console.log("Rejecting document:", documentId, "Reason:", newRejectionReason);
-
-            // Call API to reject document with reason
             const response = await verifyDocument(token, documentId, "reject", newRejectionReason);
-
             setSubmitting(false);
             setShowRejectModal(false);
 
@@ -157,13 +146,11 @@ export default function DocumentViewScreen() {
                     { text: "OK", onPress: () => router.back() }
                 ]);
             } else {
-                console.error("Document rejection failed:", response.error);
                 Alert.alert("Error", response.error || "Failed to reject document");
             }
         } catch (error: any) {
             setSubmitting(false);
             setShowRejectModal(false);
-            console.error("Document rejection error:", error);
             Alert.alert("Error", error.message || "Something went wrong");
         }
     };
@@ -172,248 +159,183 @@ export default function DocumentViewScreen() {
         if (url) {
             Linking.openURL(url.toString());
         } else {
-            Alert.alert("Error", "Download URL not available");
+            Alert.alert("Error", "Document URL not available");
         }
     };
 
-    console.log(url)
+    const rawTitle = title?.toString() || "";
+    const headerTitle = rawTitle.includes("/") ? rawTitle.split("/")[0].trim() : (rawTitle || 'Review Details');
+
+    const renderPreviewContent = () => {
+        if (!url) {
+            return (
+                <View style={[styles.stateContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                    <Ionicons name="link-outline" size={54} color={colors.textSecondary} />
+                    <Text style={[styles.stateTitle, { color: colors.text }]}>No Document Link</Text>
+                    <Text style={[styles.stateSub, { color: colors.textSecondary }]}>The URL for this document could not be found.</Text>
+                </View>
+            );
+        }
+
+        if (loadError) {
+            return (
+                <View style={[styles.stateContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                    <View style={styles.errorIconBox}>
+                        <Ionicons name="cloud-offline-outline" size={48} color="#F44336" />
+                    </View>
+                    <Text style={[styles.stateTitle, { color: colors.text }]}>Preview Failed</Text>
+                    <Text style={[styles.stateSub, { color: colors.textSecondary }]}>
+                        The document could  not found.
+                    </Text>
+                    <TouchableOpacity
+                        style={[styles.primaryActionBtn, { backgroundColor: colors.primary }]}
+                        onPress={handleDownload}
+                    >
+                        <Ionicons name="open-outline" size={20} color="#fff" />
+                        <Text style={styles.primaryActionText}>Open in Browser</Text>
+                    </TouchableOpacity>
+                </View>
+            );
+        }
+
+        if (isImage) {
+            return (
+                <View style={[styles.documentCard, { borderColor: colors.border, backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF" }]}>
+                    <Image
+                        source={{ uri: url.toString() }}
+                        style={styles.imageViewer}
+                        contentFit="contain"
+                        onLoadStart={() => setLoading(true)}
+                        onLoadEnd={() => setLoading(false)}
+                        onError={() => {
+                            setLoading(false);
+                            setLoadError(true);
+                        }}
+                    />
+                    {loading && (
+                        <View style={styles.loaderOverlay}>
+                            <ActivityIndicator size="large" color={colors.primary} />
+                        </View>
+                    )}
+                </View>
+            );
+        }
+
+        if (isPdf) {
+            return (
+                <View style={[styles.documentCard, { borderColor: colors.border, backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF" }]}>
+                    <Pdf
+                        source={{ uri: url.toString(), cache: true }}
+                        style={styles.pdfViewer}
+                        trustAllCerts={false}
+                        onLoadComplete={() => setLoading(false)}
+                        onError={(error) => {
+                            console.log("PDF error: ", error);
+                            setLoading(false);
+                            setLoadError(true);
+                        }}
+                    />
+                    {loading && (
+                        <View style={styles.loaderOverlay}>
+                            <ActivityIndicator size="large" color={colors.primary} />
+                        </View>
+                    )}
+                </View>
+            );
+        }
+
+        // Generic File Type Fallback
+        return (
+            <View style={[styles.stateContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                <View style={[styles.genericIconBox, { backgroundColor: isDark ? "#1F2937" : "#E0F2FE" }]}>
+                    <Ionicons name="document-attach-outline" size={54} color={colors.primary} />
+                </View>
+                <Text style={[styles.stateTitle, { color: colors.text }]}>Document Format</Text>
+                <Text style={[styles.stateSub, { color: colors.textSecondary }]}>
+                    App natively previewing {mimetype?.toString().split('/')[1]?.toUpperCase() || 'this file format'} is not supported.
+                </Text>
+                <TouchableOpacity
+                    style={[styles.primaryActionBtn, { backgroundColor: colors.primary }]}
+                    onPress={handleDownload}
+                >
+                    <Ionicons name="download-outline" size={20} color="#fff" />
+                    <Text style={styles.primaryActionText}>Download to View</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    };
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.container, { backgroundColor: isDark ? "#121212" : "#F4F6F8" }]}>
             <ReviewerHeader
-                title="Document Review"
-                subtitle={mimetype?.toString().split('/')[1]?.toUpperCase() || 'Document'}
+                title="Document View"
+                subtitle={headerTitle}
                 showBackButton={true}
                 rightElement={
-                    <TouchableOpacity style={styles.downloadBtn} onPress={handleDownload}>
-                        <Ionicons name="download-outline" size={22} color={colors.primary} />
+                    <TouchableOpacity style={[styles.downloadIconBtn, { backgroundColor: isDark ? "#1F2937" : "#E0F2FE" }]} onPress={handleDownload}>
+                        <Ionicons name="open-outline" size={20} color={colors.primary} />
                     </TouchableOpacity>
                 }
             />
 
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }}>
-                {/* Document Information Card */}
-                <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    {/* File Name and Type */}
-                    <View style={styles.fileInfoSection}>
-                        <View style={[styles.fileIconLarge, { backgroundColor: isDark ? colors.surface : "#E3F2FD" }]}>
-                            <Ionicons
-                                name={
-                                    mimetype?.toString().includes("pdf") ? "document-text" :
-                                        mimetype?.toString().includes("image") ? "image" :
-                                            "document"
-                                }
-                                size={32}
-                                color={colors.primary}
-                            />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                                <Text style={[styles.fileName, { color: colors.text, flex: 1 }]} numberOfLines={2}>
-                                    {fileName?.toString() || "Unknown File"}
-                                </Text>
-                                {isVerified && (
-                                    <View style={styles.verifiedBadge}>
-                                        <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
-                                        <Text style={styles.verifiedText}>Verified</Text>
-                                    </View>
-                                )}
-                                {isRejected && (
-                                    <View style={styles.rejectedBadge}>
-                                        <Ionicons name="close-circle" size={16} color="#F44336" />
-                                        <Text style={styles.rejectedText}>Rejected</Text>
-                                    </View>
-                                )}
-                            </View>
-                            <View style={styles.fileMetaRow}>
-                                <View style={[styles.typeBadge, { backgroundColor: isDark ? colors.surface : "#E3F2FD" }]}>
-                                    <Text style={[styles.typeBadgeText, { color: colors.primary }]}>
-                                        {mimetype?.toString().split('/')[1]?.toUpperCase() || 'FILE'}
-                                    </Text>
-                                </View>
-                                <Text style={[styles.fileMeta, { color: colors.textSecondary }]}>
+            {/* Premium Document Details Card */}
+            <View style={[styles.docHeaderPanel, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={styles.docHeaderRow}>
+                    <View style={[styles.iconCircle, { backgroundColor: isDark ? "#2D3748" : "#EEF2F6" }]}>
+                        <Ionicons
+                            name={isPdf ? "document-text" : isImage ? "image" : "document"}
+                            size={26}
+                            color={colors.primary}
+                        />
+                    </View>
+                    <View style={styles.docHeaderInfo}>
+                        <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={1}>
+                            {fileName?.toString() || "Unknown File"}
+                        </Text>
+                        <View style={styles.badgesRow}>
+                            <View style={[styles.badge, { backgroundColor: isDark ? "#2D3748" : "#F1F5F9" }]}>
+                                <Text style={[styles.badgeText, { color: colors.textSecondary }]}>
                                     {formatFileSize(Number(filesize))}
                                 </Text>
                             </View>
+                            <View style={[styles.badge, { backgroundColor: isDark ? `${colors.primary}20` : `${colors.primary}15` }]}>
+                                <Text style={[styles.badgeText, { color: colors.primary, fontWeight: '700' }]}>
+                                    {mimetype?.toString().split('/')[1]?.toUpperCase() || 'FILE'}
+                                </Text>
+                            </View>
                         </View>
                     </View>
+                </View>
 
-                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-                    {/* Document Details */}
-                    <View style={styles.detailsSection}>
-                        <View style={styles.detailRow}>
-                            <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Document Type</Text>
-                            <Text style={[styles.detailValue, { color: colors.text }]}>
-                                {title?.toString() || "Unknown"}
+                {(isVerified || isRejected) && (
+                    <View style={styles.statusBannerWrapper}>
+                        <View style={[styles.statusBanner, {
+                            backgroundColor: isVerified ? (isDark ? "rgba(76, 175, 80, 0.15)" : "#E8F5E9") : (isDark ? "rgba(244, 67, 54, 0.15)" : "#FFEBEE"),
+                            borderColor: isVerified ? (isDark ? "rgba(76, 175, 80, 0.3)" : "#A5D6A7") : (isDark ? "rgba(244, 67, 54, 0.3)" : "#EF9A9A")
+                        }]}>
+                            <Ionicons name={isVerified ? "checkmark-circle" : "close-circle"} size={20} color={isVerified ? "#4CAF50" : "#F44336"} />
+                            <Text style={[styles.statusText, { color: isVerified ? (isDark ? "#81C784" : "#2E7D32") : (isDark ? "#E57373" : "#C62828") }]} numberOfLines={1}>
+                                {isVerified ? "Document is verified" : `Rejected: ${rejectionReason}`}
                             </Text>
                         </View>
-
-                        <View style={styles.detailRow}>
-                            <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Document ID</Text>
-                            <View style={[styles.idBadge, { backgroundColor: isDark ? colors.surface : "#F3F4F6" }]}>
-                                <Text style={[styles.idBadgeText, { color: colors.text }]}>
-                                    #{id?.toString()}
-                                </Text>
-                            </View>
-                        </View>
-
-                        {/* Show rejection reason if document is rejected */}
-                        {isRejected && (
-                            <View style={styles.detailRow}>
-                                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Rejection Reason</Text>
-                                <View style={[styles.rejectionReasonBox, { backgroundColor: isDark ? "#3D1E1E" : "#FFEBEE", borderColor: "#F44336" }]}>
-                                    <Ionicons name="alert-circle-outline" size={16} color="#F44336" />
-                                    <Text style={[styles.rejectionReasonText, { color: isDark ? "#FF8A80" : "#C62828" }]}>
-                                        {rejectionReason?.toString()}
-                                    </Text>
-                                </View>
-                            </View>
-                        )}
                     </View>
-                </View>
+                )}
+            </View>
 
-                {/* Document Preview */}
-                <View style={[styles.previewCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <View style={styles.previewHeader}>
-                        <Ionicons name="eye-outline" size={20} color={colors.text} />
-                        <Text style={[styles.previewTitle, { color: colors.text }]}>Document Preview</Text>
-                    </View>
+            {/* Preview Area */}
+            <View style={styles.previewSection}>
+                {renderPreviewContent()}
+            </View>
 
-
-                    <View style={[styles.previewContainer, { backgroundColor: isDark ? "#1a1a1a" : "#F3F4F6" }]}>
-                        {url ? (
-                            Platform.OS === 'android' ? (
-                                // Android: Show download-focused UI since WebView doesn't work with authenticated URLs
-                                <View style={styles.placeholder}>
-                                    <View style={[styles.documentIconLarge, { backgroundColor: isDark ? colors.surface : "#E3F2FD" }]}>
-                                        <Ionicons
-                                            name={
-                                                mimetype?.toString().includes("pdf") ? "document-text" :
-                                                    mimetype?.toString().includes("image") ? "image" :
-                                                        mimetype?.toString().includes("word") ? "document-text" :
-                                                            mimetype?.toString().includes("excel") ? "grid" :
-                                                                "document"
-                                            }
-                                            size={64}
-                                            color={colors.primary}
-                                        />
-                                    </View>
-                                    <Text style={[styles.placeholderText, { color: colors.text }]}>
-                                        {fileName?.toString() || "Document"}
-                                    </Text>
-                                    <View style={[styles.previewInfoBox, { backgroundColor: isDark ? colors.surface : "#FFF3E0" }]}>
-                                        <Ionicons name="information-circle" size={20} color="#FF9800" />
-                                        <Text style={[styles.previewInfoText, { color: isDark ? colors.textSecondary : "#E65100" }]}>
-                                            Preview not available for this document type
-                                        </Text>
-                                    </View>
-                                    <TouchableOpacity
-                                        style={[styles.downloadPreviewBtn, { backgroundColor: colors.primary }]}
-                                        onPress={handleDownload}
-                                    >
-                                        <Ionicons name="download-outline" size={20} color="#fff" />
-                                        <Text style={styles.downloadPreviewText}>Download to View</Text>
-                                    </TouchableOpacity>
-                                    <Text style={[styles.downloadHint, { color: colors.textSecondary }]}>
-                                        Tap to download and open in your device's viewer
-                                    </Text>
-                                </View>
-                            ) : (
-                                // iOS: Use WebView as it works fine
-                                <>
-                                    <WebView
-                                        source={{ uri: url.toString() }}
-                                        style={styles.webview}
-                                        onLoadStart={() => setLoading(true)}
-                                        onLoadEnd={() => setLoading(false)}
-                                        onError={(syntheticEvent) => {
-                                            const { nativeEvent } = syntheticEvent;
-                                            console.log('WebView error: ', nativeEvent);
-                                            setLoading(false);
-                                            Alert.alert(
-                                                "Preview Error",
-                                                "Unable to preview this document. Please download it to view.",
-                                                [
-                                                    { text: "Cancel", style: "cancel" },
-                                                    { text: "Download", onPress: handleDownload }
-                                                ]
-                                            );
-                                        }}
-                                        onHttpError={(syntheticEvent) => {
-                                            const { nativeEvent } = syntheticEvent;
-                                            console.log('WebView HTTP error: ', nativeEvent);
-                                            if (nativeEvent.statusCode === 404) {
-                                                setLoading(false);
-                                                Alert.alert(
-                                                    "Document Not Found",
-                                                    "The document could not be loaded. Please try downloading it instead.",
-                                                    [
-                                                        { text: "Cancel", style: "cancel" },
-                                                        { text: "Download", onPress: handleDownload }
-                                                    ]
-                                                );
-                                            }
-                                        }}
-                                        startInLoadingState={true}
-                                        scalesPageToFit={true}
-                                        javaScriptEnabled={true}
-                                        domStorageEnabled={true}
-                                        mixedContentMode="always"
-                                        originWhitelist={['*']}
-                                        renderLoading={() => (
-                                            <View style={[styles.loader, { backgroundColor: isDark ? "rgba(0,0,0,0.8)" : "rgba(255,255,255,0.9)" }]}>
-                                                <ActivityIndicator size="large" color={colors.primary} />
-                                                <Text style={[styles.loadingText, { color: colors.text }]}>Loading Document...</Text>
-                                            </View>
-                                        )}
-                                    />
-                                    {loading && (
-                                        <View style={[styles.loader, { backgroundColor: isDark ? "rgba(0,0,0,0.8)" : "rgba(255,255,255,0.9)" }]}>
-                                            <ActivityIndicator size="large" color={colors.primary} />
-                                            <Text style={[styles.loadingText, { color: colors.text }]}>Loading Document...</Text>
-                                        </View>
-                                    )}
-                                </>
-                            )
-                        ) : (
-                            <View style={styles.placeholder}>
-                                <Ionicons name="document-text-outline" size={64} color={colors.textSecondary} />
-                                <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>
-                                    {fileName?.toString().split('.').pop()?.toUpperCase()} File
-                                </Text>
-                                <Text style={[styles.placeholderSub, { color: colors.textSecondary }]}>
-                                    Document URL not available
-                                </Text>
-                                <TouchableOpacity
-                                    style={[styles.downloadPreviewBtn, { backgroundColor: colors.primary }]}
-                                    onPress={handleDownload}
-                                >
-                                    <Ionicons name="download-outline" size={20} color="#fff" />
-                                    <Text style={styles.downloadPreviewText}>Download to View</Text>
-                                </TouchableOpacity>
-                            </View>
-                        )}
-
-                        {loading && url && Platform.OS !== 'android' && (
-                            <View style={[styles.loader, { backgroundColor: isDark ? "rgba(0,0,0,0.8)" : "rgba(255,255,255,0.9)" }]}>
-                                <ActivityIndicator size="large" color={colors.primary} />
-                                <Text style={[styles.loadingText, { color: colors.text }]}>Loading Document...</Text>
-                            </View>
-                        )}
-                    </View>
-                </View>
-            </ScrollView>
-
-            {/* Bottom Actions - Only show if document is not verified or rejected */}
+            {/* Modern Bottom Actions - Sticky */}
             {!isProcessed && (
-                <View style={[styles.footer, { paddingBottom: inset.bottom + 8, backgroundColor: colors.card, borderTopColor: colors.border }]}>
+                <View style={[styles.footer, { paddingBottom: inset.bottom || 24, backgroundColor: colors.card, borderTopColor: colors.border }]}>
                     <TouchableOpacity
                         style={[styles.actionBtn, styles.rejectBtn, submitting && { opacity: 0.7 }]}
                         disabled={submitting}
                         onPress={() => setShowRejectModal(true)}
                     >
-                        <Ionicons name="close-circle-outline" size={20} color="#fff" />
+                        <Ionicons name="close" size={20} color="#fff" />
                         <Text style={styles.actionBtnText}>Reject</Text>
                     </TouchableOpacity>
 
@@ -422,7 +344,7 @@ export default function DocumentViewScreen() {
                         disabled={submitting}
                         onPress={handleApprove}
                     >
-                        <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+                        <Ionicons name="checkmark" size={20} color="#fff" />
                         <Text style={styles.actionBtnText}>
                             {submitting ? "Processing..." : "Approve"}
                         </Text>
@@ -431,24 +353,9 @@ export default function DocumentViewScreen() {
             )}
 
             {/* Reject Modal */}
-            <Modal
-                visible={showRejectModal}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setShowRejectModal(false)}
-            >
-                <KeyboardAvoidingView 
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    style={styles.modalBackdrop}
-                >
-                    <TouchableOpacity 
-                        style={styles.modalBackdropTouchable}
-                        activeOpacity={1}
-                        onPress={() => {
-                            setShowRejectModal(false);
-                            setNewRejectionReason("");
-                        }}
-                    />
+            <Modal visible={showRejectModal} transparent animationType="fade" onRequestClose={() => setShowRejectModal(false)}>
+                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalBackdrop}>
+                    <TouchableOpacity style={styles.modalBackdropTouchable} activeOpacity={1} onPress={() => { setShowRejectModal(false); setNewRejectionReason(""); }} />
                     <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
                         <View style={styles.modalHeader}>
                             <View style={[styles.modalIconContainer, { backgroundColor: "#FFEBEE" }]}>
@@ -459,7 +366,6 @@ export default function DocumentViewScreen() {
                                 Please provide a reason for rejecting this document
                             </Text>
                         </View>
-
                         <TextInput
                             style={[styles.modalInput, { color: colors.text, borderColor: colors.border, backgroundColor: isDark ? colors.surface : "#F8F9FA" }]}
                             multiline
@@ -469,25 +375,12 @@ export default function DocumentViewScreen() {
                             value={newRejectionReason}
                             onChangeText={setNewRejectionReason}
                         />
-
                         <View style={styles.modalActions}>
-                            <TouchableOpacity
-                                style={[styles.modalBtn, styles.modalCancel, { backgroundColor: isDark ? colors.border : "#F3F4F6" }]}
-                                onPress={() => {
-                                    setShowRejectModal(false);
-                                    setNewRejectionReason("");
-                                }}
-                            >
+                            <TouchableOpacity style={[styles.modalBtn, styles.modalCancel, { backgroundColor: isDark ? colors.border : "#F3F4F6" }]} onPress={() => { setShowRejectModal(false); setNewRejectionReason(""); }}>
                                 <Text style={[styles.modalCancelText, { color: colors.text }]}>Cancel</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.modalBtn, styles.modalReject, submitting && { opacity: 0.7 }]}
-                                disabled={submitting}
-                                onPress={handleReject}
-                            >
-                                <Text style={styles.modalRejectText}>
-                                    {submitting ? "Submitting..." : "Reject Document"}
-                                </Text>
+                            <TouchableOpacity style={[styles.modalBtn, styles.modalReject, submitting && { opacity: 0.7 }]} disabled={submitting} onPress={handleReject}>
+                                <Text style={styles.modalRejectText}>{submitting ? "Submitting..." : "Reject Document"}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -501,272 +394,190 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    downloadBtn: {
-        padding: 8,
+    downloadIconBtn: {
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+        alignItems: "center",
+        justifyContent: "center",
     },
-    infoCard: {
-        margin: 16,
-        marginBottom: 8,
-        borderRadius: 16,
+    docHeaderPanel: {
+        marginHorizontal: 16,
+        marginTop: 16,
+        marginBottom: 16,
+        padding: 16,
+        borderRadius: 20,
         borderWidth: 1,
-        padding: 20,
+        elevation: 3,
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
+        shadowRadius: 10,
+        zIndex: 10,
     },
-    fileInfoSection: {
+    docHeaderRow: {
         flexDirection: "row",
         alignItems: "center",
         gap: 16,
     },
-    fileIconLarge: {
-        width: 64,
-        height: 64,
+    iconCircle: {
+        width: 52,
+        height: 52,
         borderRadius: 16,
         alignItems: "center",
         justifyContent: "center",
+    },
+    docHeaderInfo: {
+        flex: 1,
+        justifyContent: "center",
+        gap: 6,
     },
     fileName: {
         fontSize: 16,
         fontWeight: "700",
-        marginBottom: 8,
+        letterSpacing: -0.2,
     },
-    fileMetaRow: {
+    badgesRow: {
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
     },
-    fileMeta: {
-        fontSize: 13,
-        fontWeight: "500",
-    },
-    typeBadge: {
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 6,
-    },
-    typeBadgeText: {
-        fontSize: 11,
-        fontWeight: "700",
-        letterSpacing: 0.5,
-    },
-    verifiedBadge: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 4,
-        backgroundColor: "#E8F5E9",
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 12,
-    },
-    verifiedText: {
-        fontSize: 11,
-        fontWeight: "700",
-        color: "#4CAF50",
-        letterSpacing: 0.3,
-    },
-    rejectedBadge: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 4,
-        backgroundColor: "#FFEBEE",
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 12,
-    },
-    rejectedText: {
-        fontSize: 11,
-        fontWeight: "700",
-        color: "#F44336",
-        letterSpacing: 0.3,
-    },
-    rejectionReasonBox: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        padding: 12,
+    badge: {
+        paddingHorizontal: 10,
+        paddingVertical: 5,
         borderRadius: 8,
-        borderWidth: 1,
     },
-    rejectionReasonText: {
-        fontSize: 13,
-        fontWeight: "600",
-        flex: 1,
-        lineHeight: 18,
-    },
-    divider: {
-        height: 1,
-        marginVertical: 16,
-    },
-    detailsSection: {
-        gap: 12,
-    },
-    detailRow: {
-        gap: 6,
-    },
-    detailLabel: {
+    badgeText: {
         fontSize: 12,
         fontWeight: "600",
-        textTransform: "uppercase",
-        letterSpacing: 0.5,
+        letterSpacing: 0.3,
     },
-    detailValue: {
-        fontSize: 14,
-        fontWeight: "600",
-        lineHeight: 20,
+    statusBannerWrapper: {
+        marginTop: 16,
     },
-    idBadge: {
-        alignSelf: "flex-start",
-        paddingVertical: 6,
-        borderRadius: 8,
-    },
-    idBadgeText: {
-        fontSize: 13,
-        fontWeight: "700",
-        fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
-    },
-    previewCard: {
-        margin: 16,
-        marginTop: 8,
-        borderRadius: 16,
-        borderWidth: 1,
-        padding: 16,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
-        flex: 1,
-    },
-    previewHeader: {
+    statusBanner: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 8,
-        marginBottom: 16,
-    },
-    previewTitle: {
-        fontSize: 16,
-        fontWeight: "700",
-    },
-    previewContainer: {
+        paddingVertical: 12,
+        paddingHorizontal: 16,
         borderRadius: 12,
-        overflow: "hidden",
-        minHeight: 400,
+        borderWidth: 1,
+        gap: 8,
+    },
+    statusText: {
+        fontSize: 14,
+        fontWeight: "600",
         flex: 1,
     },
-    pdf: {
+    previewSection: {
         flex: 1,
-        width: "100%",
-        minHeight: 400,
+        paddingHorizontal: 16,
+        paddingBottom: 16,
     },
-    image: {
+    documentCard: {
         flex: 1,
-        width: "100%",
-        minHeight: 400,
-    },
-    placeholder: {
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 16,
-        padding: 40,
-    },
-    documentIconLarge: {
-        width: 120,
-        height: 120,
         borderRadius: 20,
+        borderWidth: 1,
+        overflow: "hidden",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 4,
+    },
+    stateContainer: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 30,
+        gap: 16,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderStyle: "dashed",
+    },
+    errorIconBox: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: "#FFEBEE",
         alignItems: "center",
         justifyContent: "center",
         marginBottom: 8,
     },
-    placeholderText: {
-        fontSize: 18,
+    genericIconBox: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: 8,
+    },
+    stateTitle: {
+        fontSize: 20,
         fontWeight: "700",
         textAlign: "center",
     },
-    placeholderSub: {
-        fontSize: 14,
+    stateSub: {
+        fontSize: 15,
         textAlign: "center",
+        lineHeight: 22,
+        marginBottom: 10,
     },
-    previewInfoBox: {
+    primaryActionBtn: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 8,
-        padding: 12,
-        borderRadius: 10,
-        marginVertical: 8,
-    },
-    previewInfoText: {
-        fontSize: 13,
-        fontWeight: "600",
-        flex: 1,
-        textAlign: "center",
-        lineHeight: 18,
-    },
-    downloadPreviewBtn: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
+        justifyContent: "center",
         paddingVertical: 14,
-        paddingHorizontal: 32,
-        borderRadius: 12,
+        paddingHorizontal: 28,
+        borderRadius: 14,
         marginTop: 8,
+        gap: 8,
     },
-    downloadPreviewText: {
+    primaryActionText: {
         color: "#fff",
-        fontSize: 16,
-        fontWeight: "700",
+        fontSize: 15,
+        fontWeight: "600",
     },
-    downloadHint: {
-        fontSize: 12,
-        textAlign: "center",
-        marginTop: 8,
-        fontStyle: "italic",
-    },
-    webview: {
+    imageViewer: {
         flex: 1,
         width: "100%",
-        minHeight: 400,
+        height: "100%",
+    },
+    pdfViewer: {
+        flex: 1,
+        width: "100%",
         backgroundColor: "transparent",
     },
-    loader: {
+    loaderOverlay: {
         ...StyleSheet.absoluteFillObject,
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 12,
-    },
-    loadingText: {
-        fontSize: 14,
-        fontWeight: "600",
+        alignItems: 'center',
+        justifyContent: 'center',
+        pointerEvents: 'none',
+        backgroundColor: 'rgba(0,0,0,0.02)',
     },
     footer: {
         flexDirection: "row",
-        padding: 16,
+        padding: 20,
+        paddingTop: 16,
         gap: 12,
         borderTopWidth: 1,
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 4,
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+        elevation: 10,
     },
     actionBtn: {
         flex: 1,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        paddingVertical: 14,
-        borderRadius: 12,
+        paddingVertical: 16,
+        borderRadius: 16,
         gap: 8,
     },
-    approveBtn: {
-        backgroundColor: "#4CAF50",
-    },
-    rejectBtn: {
-        backgroundColor: "#F44336",
-    },
+    approveBtn: { backgroundColor: "#10B981" },
+    rejectBtn: { backgroundColor: "#EF4444" },
     actionBtnText: {
         color: "#fff",
         fontSize: 16,
@@ -774,33 +585,24 @@ const styles = StyleSheet.create({
     },
     modalBackdrop: {
         flex: 1,
-        backgroundColor: "rgba(0,0,0,0.5)",
+        backgroundColor: "rgba(0,0,0,0.6)",
         alignItems: "center",
         justifyContent: "center",
         padding: 20,
     },
-    modalBackdropTouchable: {
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-    },
+    modalBackdropTouchable: { ...StyleSheet.absoluteFillObject },
     modalCard: {
         width: "100%",
         maxWidth: 400,
-        borderRadius: 20,
+        borderRadius: 24,
         padding: 24,
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
+        shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.2,
-        shadowRadius: 12,
-        elevation: 8,
+        shadowRadius: 20,
+        elevation: 10,
     },
-    modalHeader: {
-        alignItems: "center",
-        marginBottom: 20,
-    },
+    modalHeader: { alignItems: "center", marginBottom: 20 },
     modalIconContainer: {
         width: 64,
         height: 64,
@@ -809,49 +611,27 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         marginBottom: 16,
     },
-    modalTitle: {
-        fontSize: 20,
-        fontWeight: "700",
-        marginBottom: 8,
-    },
-    modalSubtitle: {
-        fontSize: 14,
-        textAlign: "center",
-        lineHeight: 20,
-    },
+    modalTitle: { fontSize: 20, fontWeight: "800", marginBottom: 8 },
+    modalSubtitle: { fontSize: 14, textAlign: "center", lineHeight: 20 },
     modalInput: {
         borderWidth: 1,
-        borderRadius: 12,
+        borderRadius: 16,
         padding: 16,
         minHeight: 120,
         textAlignVertical: "top",
         fontSize: 15,
         marginBottom: 20,
     },
-    modalActions: {
-        flexDirection: "row",
-        gap: 12,
-    },
+    modalActions: { flexDirection: "row", gap: 12 },
     modalBtn: {
         flex: 1,
-        paddingVertical: 14,
-        borderRadius: 12,
+        paddingVertical: 15,
+        borderRadius: 16,
         alignItems: "center",
         justifyContent: "center",
     },
-    modalCancel: {
-        backgroundColor: "#F3F4F6",
-    },
-    modalReject: {
-        backgroundColor: "#F44336",
-    },
-    modalCancelText: {
-        fontSize: 15,
-        fontWeight: "700",
-    },
-    modalRejectText: {
-        color: "#fff",
-        fontSize: 15,
-        fontWeight: "700",
-    },
+    modalCancel: { backgroundColor: "#F3F4F6" },
+    modalReject: { backgroundColor: "#EF4444" },
+    modalCancelText: { fontSize: 15, fontWeight: "700" },
+    modalRejectText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 });
