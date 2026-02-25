@@ -39,7 +39,7 @@ type AppItem = {
     id: number;
     user: ApplicationUser;
     application_text: string | null;
-    status: "new" | "approved" | "waitlisted" | "rejected" | "not_applied" | null;
+    status: "new" | "approved" | "rejected" | "not_applied" | null;
     priority: number;
     assigned_reviewer_id: number | null;
     is_bookmarked: boolean;
@@ -55,11 +55,10 @@ type PaginationData = {
     total_pages: number;
 };
 
-const STATUS_TABS: Array<"All" | "new" | "approved" | "waitlisted" | "rejected" | "not_applied"> = [
+const STATUS_TABS: Array<"All" | "new" | "approved" | "rejected" | "not_applied"> = [
     "All",
     "new",
     "approved",
-    "waitlisted",
     "rejected",
     "not_applied",
 ];
@@ -71,8 +70,6 @@ function getStatusConfig(status: AppItem["status"]) {
             return { color: "#10B981", bg: "rgba(16,185,129,0.12)", bg2: "#D1FAE5", label: "Approved", icon: "checkmark-circle" as const };
         case "rejected":
             return { color: "#EF4444", bg: "rgba(239,68,68,0.12)", bg2: "#FEE2E2", label: "Rejected", icon: "close-circle" as const };
-        case "waitlisted":
-            return { color: "#F59E0B", bg: "rgba(245,158,11,0.12)", bg2: "#FEF3C7", label: "Waitlisted", icon: "time" as const };
         case "not_applied":
             return { color: "#94A3B8", bg: "rgba(148,163,184,0.12)", bg2: "#F1F5F9", label: "Not Applied", icon: "document-outline" as const };
         case "new":
@@ -334,20 +331,36 @@ export default function SchemeApplicationsScreen() {
             const token = authData?.token;
             if (!token) throw new Error("No authentication token found. Please login again.");
 
+            const isNotAppliedTab = activeTab === "not_applied";
             const apiParams: {
-                status: "new" | "approved" | "waitlisted" | "rejected" | "not_applied" | "";
+                status: "new" | "approved" | "rejected" | "not_applied" | "";
                 page: number;
                 per_page: number;
             } = {
-                page: targetPage,
-                per_page: pageSize,
-                status: activeTab === "All" ? "" : activeTab,
+                page: isNotAppliedTab ? 1 : targetPage,
+                per_page: isNotAppliedTab ? 1000 : pageSize,
+                status: activeTab === "All" || isNotAppliedTab ? "" : activeTab,
             };
 
             const response = await getReviewerApplications(token, schemeId, apiParams);
             if (response.success && response.data) {
-                setApplications(response.data.applications || []);
-                setPagination(response.data.pagination || null);
+                let fetchedApps = response.data.applications || [];
+                let pgData = response.data.pagination || null;
+
+                // Handle broken backend filter for not_applied users by filtering locally
+                if (isNotAppliedTab) {
+                    fetchedApps = fetchedApps.filter((a: AppItem) => a.status === "not_applied");
+                    // Override pagination since we're forcing a bulk local filter
+                    pgData = {
+                        page: 1,
+                        per_page: fetchedApps.length,
+                        total: fetchedApps.length,
+                        total_pages: 1,
+                    };
+                }
+
+                setApplications(fetchedApps);
+                setPagination(pgData);
             } else {
                 throw new Error(response.error || "Failed to fetch applications");
             }

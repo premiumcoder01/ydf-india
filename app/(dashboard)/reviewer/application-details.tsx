@@ -57,7 +57,7 @@ interface ApplicationDetails {
   id: number;
   user: User;
   application_text: string | null;
-  status: "new" | "approved" | "waitlisted" | "rejected" | "not_applied" | null;
+  status: "new" | "approved" | "rejected" | "not_applied" | null;
   priority: number;
   assigned_reviewer: AssignedReviewer;
   is_bookmarked: boolean;
@@ -75,8 +75,6 @@ function getStatusCfg(status: ApplicationDetails["status"]) {
       return { color: "#10B981", bg: "rgba(16,185,129,0.12)", bg2: "#D1FAE5", label: "Approved", icon: "checkmark-circle" as const };
     case "rejected":
       return { color: "#EF4444", bg: "rgba(239,68,68,0.12)", bg2: "#FEE2E2", label: "Rejected", icon: "close-circle" as const };
-    case "waitlisted":
-      return { color: "#F59E0B", bg: "rgba(245,158,11,0.12)", bg2: "#FEF3C7", label: "Waitlisted", icon: "time" as const };
     case "not_applied":
       return { color: "#94A3B8", bg: "rgba(148,163,184,0.12)", bg2: "#F1F5F9", label: "Not Applied", icon: "document-outline" as const };
     default:
@@ -159,7 +157,7 @@ export default function ReviewerApplicationDetailsScreen() {
     }
   };
 
-  const submitReview = async (action: "approve" | "reject" | "waitlist", notes?: string) => {
+  const submitReview = async (action: "approve" | "reject", notes?: string) => {
     if (!application?.id) return;
     try {
       setSubmitting(true);
@@ -168,7 +166,7 @@ export default function ReviewerApplicationDetailsScreen() {
       if (!token) { Alert.alert("Error", "Session expired. Please login."); return; }
       const response = await donorReviewApplication(token, application.id, action, notes);
       if (response.success) {
-        const label = action === "approve" ? "approved" : action === "waitlist" ? "waitlisted" : "rejected";
+        const label = action === "approve" ? "approved" : "rejected";
         Alert.alert("Success", `Application ${label} successfully`, [{ text: "OK", onPress: fetchDetails }]);
         setRejectionReason("");
       } else {
@@ -185,12 +183,6 @@ export default function ReviewerApplicationDetailsScreen() {
     Alert.alert("Approve Application", "Are you sure you want to approve this application?", [
       { text: "Cancel", style: "cancel" },
       { text: "Approve", onPress: () => submitReview("approve") },
-    ]);
-
-  const handleWaitlist = () =>
-    Alert.alert("Waitlist Application", "Move this application to the waitlist?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Waitlist", onPress: () => submitReview("waitlist") },
     ]);
 
   const submitReject = () => {
@@ -240,7 +232,7 @@ export default function ReviewerApplicationDetailsScreen() {
   const docsWithoutFiles = application.documents.filter((d) => d.files.length === 0);
   const totalFiles = application.documents.reduce((s, d) => s + d.files.length, 0);
   const verifiedFiles = application.documents.flatMap((d) => d.files).filter((f) => f.verified).length;
-  const canReview = !["approved", "rejected", "waitlisted"].includes(application.status ?? "");
+  const canReview = !["approved", "rejected"].includes(application.status ?? "");
 
   const cardBg = isDark ? "#1E293B" : "#FFFFFF";
   const border = isDark ? "rgba(255,255,255,0.07)" : "#E2E8F0";
@@ -250,7 +242,6 @@ export default function ReviewerApplicationDetailsScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ReviewerHeader
         title="Application Details"
-        // subtitle={`App #${application.id}`}
         showBackButton
         onBackPress={() => router.back()}
 
@@ -490,10 +481,6 @@ export default function ReviewerApplicationDetailsScreen() {
                 <Ionicons name="checkmark-circle" size={18} color="#fff" />
                 <Text style={styles.actionBtnText}>Approve</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionBtn, styles.waitlistBtn]} onPress={handleWaitlist} activeOpacity={0.84}>
-                <Ionicons name="time" size={18} color="#fff" />
-                <Text style={styles.actionBtnText}>Waitlist</Text>
-              </TouchableOpacity>
               <TouchableOpacity style={[styles.actionBtn, styles.rejectBtn]} onPress={() => setShowRejectModal(true)} activeOpacity={0.84}>
                 <Ionicons name="close-circle" size={18} color="#fff" />
                 <Text style={styles.actionBtnText}>Reject</Text>
@@ -695,7 +682,6 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: "row", gap: 10 },
   actionBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 14, borderRadius: 14 },
   approveBtn: { backgroundColor: "#10B981", shadowColor: "#10B981", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 3 },
-  waitlistBtn: { backgroundColor: "#F59E0B", shadowColor: "#F59E0B", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 3 },
   rejectBtn: { backgroundColor: "#EF4444", shadowColor: "#EF4444", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 3 },
   actionBtnText: { color: "#fff", fontWeight: "700", fontSize: 14 },
   submittingRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, paddingVertical: 14 },
