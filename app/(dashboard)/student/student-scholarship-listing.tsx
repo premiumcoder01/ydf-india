@@ -832,24 +832,26 @@ export default function ScholarshipListingScreen() {
             </View>
           </View>
 
-          <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6, alignItems: "center" }}>
-              <Text style={{ fontSize: 11, fontWeight: "600", color: colors.textSecondary, textTransform: "uppercase" }}>Application Progress</Text>
-              <Text style={{ fontSize: 12, fontWeight: "700", color: item.progress_percent === 100 ? "#10B981" : categoryColor }}>
-                {item.progress_percent}%
-              </Text>
+          {item.progress_percent > 0 && (
+            <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6, alignItems: "center" }}>
+                <Text style={{ fontSize: 11, fontWeight: "600", color: colors.textSecondary, textTransform: "uppercase" }}>Application Progress</Text>
+                <Text style={{ fontSize: 12, fontWeight: "700", color: item.progress_percent === 100 ? "#10B981" : categoryColor }}>
+                  {item.progress_percent}%
+                </Text>
+              </View>
+              <View style={{ height: 6, backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "#F3F4F6", borderRadius: 3, overflow: "hidden" }}>
+                <View
+                  style={{
+                    height: "100%",
+                    width: `${item.progress_percent}%`,
+                    backgroundColor: item.progress_percent === 100 ? "#10B981" : categoryColor,
+                    borderRadius: 3,
+                  }}
+                />
+              </View>
             </View>
-            <View style={{ height: 6, backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "#F3F4F6", borderRadius: 3, overflow: "hidden" }}>
-              <View
-                style={{
-                  height: "100%",
-                  width: `${item.progress_percent}%`,
-                  backgroundColor: item.progress_percent === 100 ? "#10B981" : categoryColor,
-                  borderRadius: 3,
-                }}
-              />
-            </View>
-          </View>
+          )}
 
           <View style={[styles.cardDivider, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "#F3F4F6", marginBottom: 12 }]} />
 

@@ -653,22 +653,24 @@ export default function StudentDashboardScreen() {
                       </View>
 
                       {/* Application Progress Bar */}
-                      <View style={{ marginTop: 8 }}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                          <Text style={{ fontSize: 10, color: colors.textSecondary }}>Application Progress</Text>
-                          <Text style={{ fontSize: 10, fontWeight: '700', color: colors.text }}>{s.progress_percent}%</Text>
+                      {s.progress_percent > 0 && (
+                        <View style={{ marginTop: 8 }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <Text style={{ fontSize: 10, color: colors.textSecondary }}>Application Progress</Text>
+                            <Text style={{ fontSize: 10, fontWeight: '700', color: colors.text }}>{s.progress_percent}%</Text>
+                          </View>
+                          <View style={{ height: 4, backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : '#e0e0e0', borderRadius: 2, overflow: 'hidden' }}>
+                            <View
+                              style={{
+                                height: '100%',
+                                width: `${s.progress_percent}%`,
+                                backgroundColor: s.progress_percent === 100 ? '#4CAF50' : categoryColor,
+                                borderRadius: 2
+                              }}
+                            />
+                          </View>
                         </View>
-                        <View style={{ height: 4, backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : '#e0e0e0', borderRadius: 2, overflow: 'hidden' }}>
-                          <View
-                            style={{
-                              height: '100%',
-                              width: `${s.progress_percent}%`,
-                              backgroundColor: s.progress_percent === 100 ? '#4CAF50' : categoryColor,
-                              borderRadius: 2
-                            }}
-                          />
-                        </View>
-                      </View>
+                      )}
                     </View>
                     <TouchableOpacity
                       onPress={() => toggleBookmark(Number(s.id), s.bookmarked)}

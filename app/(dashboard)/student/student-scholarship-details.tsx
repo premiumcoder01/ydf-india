@@ -337,7 +337,7 @@ export default function ScholarshipDetailsScreen() {
         </View>
 
         {/* APPLICATION STATUS / PROGRESS */}
-        {(scholarship.progress_percent !== undefined) && (
+        {(scholarship.progress_percent !== undefined && scholarship.progress_percent > 0) && (
           <View style={styles.sectionContainer}>
             <View style={[styles.progressCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
               <View style={styles.progressHeader}>
