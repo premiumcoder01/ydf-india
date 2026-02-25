@@ -4,7 +4,6 @@ import { getAcademicDetails, getScholarshipDetails, getUserProfile, submitApplic
 import { Ionicons } from "@expo/vector-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { MotiView } from "moti";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -525,7 +524,7 @@ export default function ApplyFormScreen() {
           // Delay redirect to show toast
           setTimeout(() => {
             router.replace("/(dashboard)/student/student-application-status");
-          }, 2000);
+          }, 1000);
         } else {
           setToast({ visible: true, message: response.message || "Submission failed", type: "error" });
         }
@@ -564,175 +563,157 @@ export default function ApplyFormScreen() {
     const totalWidth = STEP_ITEM_WIDTH * STEPS.length;
 
     return (
-      <View style={styles.stepperContainer}>
-        <View style={[
-          styles.stepperInner,
-          {
-            backgroundColor: isDark ? colors.card : "#FFFFFF",
-            borderColor: isDark ? colors.border : "rgba(51,51,51,0.08)",
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: isDark ? 0.3 : 0.1,
-            shadowRadius: 8,
-            elevation: 4,
-          }
-        ]}>
-          <ScrollView
-            ref={stepperScrollRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ width: totalWidth, paddingVertical: 16 }}
-          >
-            <View style={{ width: totalWidth, flexDirection: "row", alignItems: "flex-start" }}>
-              {STEPS.map((step, index) => {
-                const isCompleted = index < stepIndex;
-                const isCurrent = index === stepIndex;
-                const isPending = index > stepIndex;
 
-                return (
-                  <View key={step.key} style={{ width: STEP_ITEM_WIDTH, alignItems: "center" }}>
-                    {/* Connector Line (before step) */}
-                    {index > 0 && (
-                      <View
-                        style={{
-                          position: "absolute",
-                          left: -STEP_ITEM_WIDTH / 2 + 18,
-                          top: 16,
-                          width: STEP_ITEM_WIDTH - 32,
-                          height: 2,
-                          backgroundColor: isCompleted
-                            ? "#10B981"
-                            : (isDark ? "rgba(255,255,255,0.15)" : "#E5E7EB"),
-                        }}
-                      />
-                    )}
+      <ScrollView
+        ref={stepperScrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ width: totalWidth, paddingBottom: 10 }}
+      >
+        <View style={{ width: totalWidth, flexDirection: "row", alignItems: "flex-start" }}>
+          {STEPS.map((step, index) => {
+            const isCompleted = index < stepIndex;
+            const isCurrent = index === stepIndex;
+            const isPending = index > stepIndex;
 
-                    {/* Step Circle */}
-                    <MotiView
-                      from={{ scale: 0.8, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ type: "timing", duration: 300, delay: index * 50 }}
-                    >
-                      <View
+            return (
+              <View key={step.key} style={{ width: STEP_ITEM_WIDTH, alignItems: "center" }}>
+                {/* Connector Line (before step) */}
+                {index > 0 && (
+                  <View
+                    style={{
+                      position: "absolute",
+                      left: -STEP_ITEM_WIDTH / 2 + 18,
+                      top: 16,
+                      width: STEP_ITEM_WIDTH - 32,
+                      height: 2,
+                      backgroundColor: isCompleted
+                        ? "#10B981"
+                        : (isDark ? "rgba(255,255,255,0.15)" : "#E5E7EB"),
+                    }}
+                  />
+                )}
+
+                {/* Step Circle */}
+                <MotiView
+                  from={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "timing", duration: 300, delay: index * 50 }}
+                >
+                  <View
+                    style={{
+                      width: isCurrent ? 36 : 32,
+                      height: isCurrent ? 36 : 32,
+                      borderRadius: isCurrent ? 18 : 16,
+                      backgroundColor: isCompleted
+                        ? "#10B981"
+                        : isCurrent
+                          ? colors.primary
+                          : (isDark ? colors.surface : "#F3F4F6"),
+                      borderWidth: 2,
+                      borderColor: isCompleted
+                        ? "#10B981"
+                        : isCurrent
+                          ? colors.primary
+                          : (isDark ? "rgba(255,255,255,0.2)" : "#D1D5DB"),
+                      justifyContent: "center",
+                      alignItems: "center",
+                      shadowColor: isCurrent ? colors.primary : "#000",
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: isCurrent ? 0.3 : 0.1,
+                      shadowRadius: isCurrent ? 4 : 2,
+                      elevation: isCurrent ? 4 : 2,
+                    }}
+                  >
+                    {isCompleted ? (
+                      <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                    ) : (
+                      <Text
                         style={{
-                          width: isCurrent ? 36 : 32,
-                          height: isCurrent ? 36 : 32,
-                          borderRadius: isCurrent ? 18 : 16,
-                          backgroundColor: isCompleted
-                            ? "#10B981"
-                            : isCurrent
-                              ? colors.primary
-                              : (isDark ? colors.surface : "#F3F4F6"),
-                          borderWidth: 2,
-                          borderColor: isCompleted
-                            ? "#10B981"
-                            : isCurrent
-                              ? colors.primary
-                              : (isDark ? "rgba(255,255,255,0.2)" : "#D1D5DB"),
-                          justifyContent: "center",
-                          alignItems: "center",
-                          shadowColor: isCurrent ? colors.primary : "#000",
-                          shadowOffset: { width: 0, height: 2 },
-                          shadowOpacity: isCurrent ? 0.3 : 0.1,
-                          shadowRadius: isCurrent ? 4 : 2,
-                          elevation: isCurrent ? 4 : 2,
+                          fontSize: isCurrent ? 14 : 13,
+                          fontWeight: "700",
+                          color: isCurrent
+                            ? "#FFFFFF"
+                            : (isDark ? colors.textSecondary : "#9CA3AF"),
                         }}
                       >
-                        {isCompleted ? (
-                          <Ionicons name="checkmark" size={18} color="#FFFFFF" />
-                        ) : (
-                          <Text
-                            style={{
-                              fontSize: isCurrent ? 14 : 13,
-                              fontWeight: "700",
-                              color: isCurrent
-                                ? "#FFFFFF"
-                                : (isDark ? colors.textSecondary : "#9CA3AF"),
-                            }}
-                          >
-                            {index + 1}
-                          </Text>
-                        )}
-                      </View>
-
-                      {/* Pulsing animation for current step */}
-                      {isCurrent && (
-                        <MotiView
-                          from={{ scale: 1, opacity: 0.5 }}
-                          animate={{ scale: 1.3, opacity: 0 }}
-                          transition={{
-                            type: "timing",
-                            duration: 1500,
-                            loop: true,
-                          }}
-                          style={{
-                            position: "absolute",
-                            width: 36,
-                            height: 36,
-                            borderRadius: 18,
-                            backgroundColor: colors.primary,
-                          }}
-                        />
-                      )}
-                    </MotiView>
-
-                    {/* Step Label */}
-                    <Text
-                      style={{
-                        marginTop: 6,
-                        fontSize: isCurrent ? 11 : 10,
-                        fontWeight: isCurrent ? "700" : "600",
-                        color: isCompleted
-                          ? "#10B981"
-                          : isCurrent
-                            ? colors.primary
-                            : (isDark ? colors.textSecondary : "#6B7280"),
-                        textAlign: "center",
-                        maxWidth: STEP_ITEM_WIDTH - 20,
-                      }}
-                      numberOfLines={2}
-                    >
-                      {step.title}
-                    </Text>
+                        {index + 1}
+                      </Text>
+                    )}
                   </View>
-                );
-              })}
-            </View>
-          </ScrollView>
+
+                  {/* Pulsing animation for current step */}
+                  {isCurrent && (
+                    <MotiView
+                      from={{ scale: 1, opacity: 0.5 }}
+                      animate={{ scale: 1.3, opacity: 0 }}
+                      transition={{
+                        type: "timing",
+                        duration: 1500,
+                        loop: true,
+                      }}
+                      style={{
+                        position: "absolute",
+                        width: 36,
+                        height: 36,
+                        borderRadius: 18,
+                        backgroundColor: colors.primary,
+                      }}
+                    />
+                  )}
+                </MotiView>
+
+                {/* Step Label */}
+                <Text
+                  style={{
+                    marginTop: 6,
+                    fontSize: isCurrent ? 11 : 10,
+                    fontWeight: isCurrent ? "700" : "600",
+                    color: isCompleted
+                      ? "#10B981"
+                      : isCurrent
+                        ? colors.primary
+                        : (isDark ? colors.textSecondary : "#6B7280"),
+                    textAlign: "center",
+                    maxWidth: STEP_ITEM_WIDTH - 20,
+                  }}
+                  numberOfLines={2}
+                >
+                  {step.title}
+                </Text>
+              </View>
+            );
+          })}
         </View>
-      </View>
+      </ScrollView>
+
     );
   };
 
   const Section = ({ children }: { children: React.ReactNode }) => (
     <MotiView from={{ opacity: 0, translateY: 10 }} animate={{ opacity: 1, translateY: 0 }} transition={{ type: "timing", duration: 250 }}>
-      <View style={[styles.formCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: isDark ? colors.border : "rgba(51, 51, 51, 0.1)", borderWidth: isDark ? 1 : 1 }]}>{children}</View>
+      <View style={[styles.formCard, { backgroundColor: isDark ? colors.card : "#FFFFFF", borderColor: isDark ? colors.border : "rgba(0,0,0,0.06)", borderWidth: 1 }]}>{children}</View>
     </MotiView>
   );
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: isDark ? colors.background : "#f2c44d", justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={[styles.container, { backgroundColor: isDark ? colors.background : "#F4F6F8", justifyContent: 'center', alignItems: 'center' }]}>
         <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-        <ActivityIndicator size="large" color={isDark ? colors.primary : "#333"} />
-        <Text style={{ marginTop: 20, color: isDark ? colors.text : "#333" }}>Checking scholarship status...</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ marginTop: 20, color: colors.text }}>Checking scholarship status...</Text>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: isDark ? colors.background : "#f2c44d" }]}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? colors.background : "#fff"} />
-      <LinearGradient
-        colors={isDark ? ["#121212", "#121212", "#1e1e1e"] : ["#fff", "#fff", "#f2c44d"]}
-        style={styles.background}
-        locations={[0, 0.3, 1]}
-      />
+    <View style={[styles.container, { backgroundColor: isDark ? colors.background : "#F4F6F8" }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? colors.background : "#F4F6F8"} />
 
       <AppHeader title="Apply for Scholarship" onBack={() => router.back()} />
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-        <ScrollView ref={scrollRef} style={styles.scrollView} contentContainerStyle={{ paddingBottom: 370, paddingTop: 20 }} showsVerticalScrollIndicator={false}>
+        <ScrollView ref={scrollRef} style={styles.scrollView} contentContainerStyle={{ paddingBottom: 20, paddingTop: 20 }} showsVerticalScrollIndicator={false}>
           <Stepper />
 
           <View style={styles.formContainer}>
@@ -1739,12 +1720,12 @@ export default function ApplyFormScreen() {
 
           {/* Spacer handled via contentContainerStyle */}
         </ScrollView >
-        <View style={[styles.footer, { paddingBottom: insets.bottom }]}>
-          <View style={[styles.footerInner, { backgroundColor: isDark ? colors.card : "rgba(255,255,255,0.98)", borderColor: isDark ? colors.border : "rgba(0,0,0,0.06)" }]}>
+        <View style={[styles.footer, { paddingBottom: insets.bottom || 20 }]}>
+          <View style={[styles.footerInner, { backgroundColor: isDark ? colors.card : "#FFFFFF", borderColor: isDark ? colors.border : "rgba(0,0,0,0.06)" }]}>
             {stepIndex === 0 ? (
-              <Button title="Cancel" onPress={() => router.back()} variant="secondary" style={[styles.footerBtn, !isDark && { backgroundColor: "#FFF" }]} />
+              <Button title="Cancel" onPress={() => router.back()} variant="secondary" style={[styles.footerBtn, !isDark && { backgroundColor: "#F3F4F6", borderColor: "transparent" }]} />
             ) : (
-              <Button title="Back" onPress={back} variant="secondary" style={[styles.footerBtn, !isDark && { backgroundColor: "#FFF" }]} />
+              <Button title="Back" onPress={back} variant="secondary" style={[styles.footerBtn, !isDark && { backgroundColor: "#F3F4F6", borderColor: "transparent" }]} />
             )}
             {stepIndex < STEPS.length - 1 ? (
               <Button title="Next" onPress={next} variant="primary" style={[styles.footerBtn, styles.footerPrimary]} />
@@ -1895,11 +1876,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   footer: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingBottom: 20,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.05)",
+    backgroundColor: "transparent",
   },
   footerInner: {
     flexDirection: "row",
