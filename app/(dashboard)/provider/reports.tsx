@@ -598,7 +598,6 @@ export default function ProviderReportsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 12,
   },
   scrollContent: {
     padding: 16,

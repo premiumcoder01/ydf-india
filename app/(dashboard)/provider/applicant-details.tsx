@@ -235,7 +235,7 @@ export default function ProviderApplicantDetailsScreen() {
           <Card title={`Academic History`} icon="library-outline" isDark={isDark} colors={colors} badge={`${academicDetails.length}`}>
             {academicDetails.map((ac: any, i: number) => (
               <View key={ac.id || i}>
-                {i > 0 && <View style={[S.divider, { backgroundColor: isDark ? "#1E293B" : "#F1F5F9" }]} />}
+                {i > 0 && <View style={[S.divider, { backgroundColor: isDark ? "#000" : "#F1F5F9" }]} />}
                 <View style={S.acItem}>
                   <View style={S.acTop}>
                     <View style={{ flex: 1 }}>
@@ -260,11 +260,11 @@ export default function ProviderApplicantDetailsScreen() {
         {(attachments.length > 0 || documents.length > 0) ? (
           <Card title="Documents" icon="document-attach-outline" isDark={isDark} colors={colors}>
             {[...attachments, ...documents].map((doc: any, i: number) => (
-              <View key={i} style={[S.docRow, { borderColor: isDark ? "#1E293B" : "#F1F5F9" }]}>
+              <View key={i} style={[S.docRow, { borderColor: isDark ? "#000" : "#F1F5F9" }]}>
                 <View style={[S.docIcon, { backgroundColor: isDark ? "rgba(99,102,241,0.12)" : "#EEF2FF" }]}>
                   <Ionicons name="document-text-outline" size={16} color="#6366F1" />
                 </View>
-                <Text style={[S.docName, { color: isDark ? "#E2E8F0" : "#1E293B" }]} numberOfLines={1}>
+                <Text style={[S.docName, { color: isDark ? "#E2E8F0" : "#000" }]} numberOfLines={1}>
                   {doc.filename || doc.name || `Document ${i + 1}`}
                 </Text>
                 {doc.verified !== undefined && (
@@ -313,7 +313,7 @@ export default function ProviderApplicantDetailsScreen() {
       {/* ══════════ REJECT MODAL ══════════ */}
       <Modal visible={showRejectModal} transparent animationType="slide" onRequestClose={() => setShowRejectModal(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={S.modalOverlay}>
-          <View style={[S.modalSheet, { backgroundColor: isDark ? "#1E293B" : "#FFFFFF" }]}>
+          <View style={[S.modalSheet, { backgroundColor: isDark ? "#000" : "#FFFFFF" }]}>
             <View style={S.modalHandle} />
             <View style={S.modalHead}>
               <Text style={[S.modalTitle, { color: isDark ? "#F1F5F9" : "#0F172A" }]}>Reject Application</Text>
@@ -363,7 +363,7 @@ function StatCell({ label, value, accent, flex }: { label: string; value: string
 
 function Card({ title, icon, isDark, colors, children, badge }: any) {
   return (
-    <View style={[S.card, { backgroundColor: isDark ? "#1E293B" : "#FFFFFF", shadowColor: isDark ? "#000" : "#94A3B8" }]}>
+    <View style={[S.card, { backgroundColor: isDark ? "#000" : "#FFFFFF", shadowColor: isDark ? "#000" : "#94A3B8" }]}>
       <View style={[S.cardHead, { borderBottomColor: isDark ? "#334155" : "#F1F5F9" }]}>
         <Ionicons name={icon} size={17} color={isDark ? "#818CF8" : "#6366F1"} />
         <Text style={[S.cardTitle, { color: isDark ? "#F1F5F9" : "#0F172A" }]}>{title}</Text>
@@ -381,7 +381,7 @@ function Card({ title, icon, isDark, colors, children, badge }: any) {
 function Row({ label, value, isDark, colors, last, accent }: any) {
   if (!value) return null;
   return (
-    <View style={[S.row, !last && { borderBottomWidth: 1, borderBottomColor: isDark ? "#1E293B" : "#F8FAFC" }]}>
+    <View style={[S.row, !last && { borderBottomWidth: 1, borderBottomColor: isDark ? "#000" : "#F8FAFC" }]}>
       <Text style={[S.rowLabel, { color: isDark ? "#475569" : "#94A3B8" }]}>{label}</Text>
       <Text style={[S.rowValue, { color: accent ? (isDark ? "#FBBF24" : "#D97706") : (isDark ? "#E2E8F0" : "#0F172A") }]} numberOfLines={2}>{value}</Text>
     </View>
@@ -392,7 +392,7 @@ function Block({ label, value, isDark, colors }: any) {
   return (
     <View style={[S.block, { backgroundColor: isDark ? "#0F172A" : "#F8FAFC", borderColor: isDark ? "#334155" : "#E2E8F0" }]}>
       <Text style={[S.blockLabel, { color: isDark ? "#475569" : "#94A3B8" }]}>{label}</Text>
-      <Text style={[S.blockValue, { color: isDark ? "#E2E8F0" : "#1E293B" }]}>{value}</Text>
+      <Text style={[S.blockValue, { color: isDark ? "#E2E8F0" : "#000" }]}>{value}</Text>
     </View>
   );
 }

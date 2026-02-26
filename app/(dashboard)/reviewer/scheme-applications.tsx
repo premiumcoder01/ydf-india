@@ -127,7 +127,7 @@ function ApplicationCard({
         (item.user.firstname?.charAt(0) ?? "") +
         (item.user.lastname?.charAt(0) ?? "");
 
-    const cardBg = isDark ? "#1E293B" : "#FFFFFF";
+    const cardBg = isDark ? "#000" : "#FFFFFF";
     const borderColor = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
     const dividerColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)";
     const subTextColor = isDark ? "#94A3B8" : "#64748B";
@@ -509,7 +509,7 @@ export default function SchemeApplicationsScreen() {
                             onRequestClose={() => setShowFilterModal(false)}
                         >
                             <View style={styles.modalBackdrop}>
-                                <View style={[styles.filterModal, { backgroundColor: isDark ? "#1E293B" : "#FFFFFF" }]}>
+                                <View style={[styles.filterModal, { backgroundColor: isDark ? "#000" : "#FFFFFF" }]}>
                                     <View style={[styles.modalHandle, { backgroundColor: isDark ? "#475569" : "#CBD5E1" }]} />
                                     <View style={styles.modalHeader}>
                                         <Text style={[styles.modalTitle, { color: colors.text }]}>Filter by Status</Text>
@@ -585,7 +585,7 @@ export default function SchemeApplicationsScreen() {
                             ))}
 
                             {filtered.length === 0 && (
-                                <View style={[styles.emptyState, { backgroundColor: isDark ? "#1E293B" : "#FFFFFF", borderColor: isDark ? "rgba(255,255,255,0.06)" : "#E2E8F0" }]}>
+                                <View style={[styles.emptyState, { backgroundColor: isDark ? "#000" : "#FFFFFF", borderColor: isDark ? "rgba(255,255,255,0.06)" : "#E2E8F0" }]}>
                                     <View style={[styles.emptyIconRing, { backgroundColor: isDark ? "rgba(99,102,241,0.1)" : "#EEF2FF" }]}>
                                         <Ionicons name="document-text-outline" size={36} color="#6366F1" />
                                     </View>
@@ -606,7 +606,7 @@ export default function SchemeApplicationsScreen() {
                 <View style={[
                     styles.paginationFooter,
                     {
-                        backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+                        backgroundColor: isDark ? "#000" : "#FFFFFF",
                         borderTopColor: isDark ? "rgba(255,255,255,0.07)" : "#E2E8F0",
                         paddingBottom: insets.bottom + 10,
                     },

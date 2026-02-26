@@ -48,7 +48,6 @@ export default function RootLayout() {
         <Stack.Screen name="(dashboard)/reviewer/about" options={{ title: "About" }} />
 
         {/* Provider Module Screens */}
-        <Stack.Screen name="(dashboard)/provider/scholarships" options={{ title: "Provider Scholarships" }} />
         <Stack.Screen name="(dashboard)/provider/scholarship-details" options={{ title: "Scholarship Details" }} />
         <Stack.Screen name="(dashboard)/provider/add-scholarship" options={{ title: "Add Scholarship" }} />
         <Stack.Screen name="(dashboard)/provider/applicants" options={{ title: "Applicants" }} />

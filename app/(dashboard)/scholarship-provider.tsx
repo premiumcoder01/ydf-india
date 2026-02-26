@@ -274,10 +274,11 @@ export default function ScholarshipProviderDashboard() {
   }, [stats, scholarshipProgressData]);
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
       minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     }).format(amount);
   };
 
@@ -348,7 +349,7 @@ export default function ScholarshipProviderDashboard() {
           <View style={styles.topMetricsRow}>
             {/* Total Scholarships */}
             <LinearGradient
-              colors={['#4CAF50', '#2E7D32']}
+              colors={['#34d399', '#059669']}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
               style={styles.metricGradientCard}
             >
@@ -366,7 +367,7 @@ export default function ScholarshipProviderDashboard() {
 
             {/* Total Applications */}
             <LinearGradient
-              colors={['#2196F3', '#1565C0']}
+              colors={['#60a5fa', '#2563eb']}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
               style={styles.metricGradientCard}
             >
@@ -478,7 +479,7 @@ export default function ScholarshipProviderDashboard() {
                 </Text>
               </View>
               <LinearGradient
-                colors={['#10B981', '#059669']}
+                colors={['#10B981', '#047857']}
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                 style={styles.financialDisbursedBadge}
               >
@@ -724,40 +725,40 @@ const styles = StyleSheet.create({
   },
   metricGradientCard: {
     flex: 1,
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 24,
+    padding: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
   },
   metricGradientTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
-    gap: 10
+    marginBottom: 12,
+    gap: 12
   },
   metricGradientIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   metricGradientNumber: {
-    fontSize: 36,
+    fontSize: 28,
     fontWeight: '800',
     color: '#fff',
   },
   metricGradientLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.85)',
+    color: 'rgba(255,255,255,0.95)',
     lineHeight: 18,
-    marginBottom: 10,
+    marginBottom: 14,
     textAlign: "center",
   },
   metricGradientBadge: {
@@ -775,15 +776,15 @@ const styles = StyleSheet.create({
 
   // ── Application Status Card ──
   applicationStatusCard: {
-    borderRadius: 20,
-    padding: 18,
+    borderRadius: 24,
+    padding: 22,
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.07,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 20,
     elevation: 4,
-    marginBottom: 14,
+    marginBottom: 16,
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -799,7 +800,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   cardHeaderTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
   },
   // ── Application Status Vertical List ──
@@ -832,12 +833,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   statusListLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   statusListCount: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '700',
   },
   statusListTrack: {
     width: '100%',
@@ -860,13 +861,13 @@ const styles = StyleSheet.create({
 
   // ── Financial Card ──
   financialCard: {
-    borderRadius: 20,
-    padding: 18,
+    borderRadius: 24,
+    padding: 22,
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.07,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 20,
     elevation: 4,
   },
   financialAmountRow: {
@@ -879,13 +880,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   financialAmountLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   financialAmountValue: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: -0.3,
   },
   financialDisbursedBadge: {
     borderRadius: 16,
@@ -895,14 +899,14 @@ const styles = StyleSheet.create({
     minWidth: 110,
   },
   financialDisbursedLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.8)',
     marginBottom: 3,
   },
   financialDisbursedValue: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '700',
     color: '#fff',
   },
   financialProgressWrap: {

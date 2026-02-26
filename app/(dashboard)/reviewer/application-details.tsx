@@ -234,7 +234,7 @@ export default function ReviewerApplicationDetailsScreen() {
   const verifiedFiles = application.documents.flatMap((d) => d.files).filter((f) => f.verified).length;
   const canReview = !["approved", "rejected"].includes(application.status ?? "");
 
-  const cardBg = isDark ? "#1E293B" : "#FFFFFF";
+  const cardBg = isDark ? "#000" : "#FFFFFF";
   const border = isDark ? "rgba(255,255,255,0.07)" : "#E2E8F0";
   const subText = isDark ? "#94A3B8" : "#64748B";
 

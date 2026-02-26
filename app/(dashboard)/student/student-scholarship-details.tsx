@@ -291,10 +291,15 @@ export default function ScholarshipDetailsScreen() {
                 <Text style={[
                   styles.statusPillText,
                   {
-                    color: scholarship.has_applied ? "#4CAF50" : scholarship.expired ? "#EF4444" : getCategoryColor(scholarship.category || "General")
+                    color: scholarship.application_status?.toLowerCase() === 'approved' ? "#4CAF50" :
+                      scholarship.application_status?.toLowerCase() === 'rejected' ? "#EF4444" :
+                        scholarship.application_status?.toLowerCase() === 'pending' ? "#FF9800" :
+                          scholarship.application_status?.toLowerCase() === 'not_applied' ? "#64748B" :
+                            scholarship.has_applied ? "#4CAF50" :
+                              scholarship.expired ? "#EF4444" : getCategoryColor(scholarship.category || "General")
                   }
                 ]}>
-                  {scholarship.has_applied ? "APPLIED" : scholarship.expired ? "EXPIRED" : "OPEN"}
+                  {scholarship.application_status ? scholarship.application_status.replace(/_/g, ' ').toUpperCase() : (scholarship.has_applied ? "APPLIED" : scholarship.expired ? "EXPIRED" : "OPEN")}
                 </Text>
               </View>
             </View>
@@ -335,6 +340,55 @@ export default function ScholarshipDetailsScreen() {
             </View>
           </LinearGradient>
         </View>
+
+        {/* APPLICATION CURRENT STATUS */}
+        {scholarship.application_status && (
+          <View style={styles.sectionContainer}>
+            <View style={[styles.progressCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB", paddingVertical: 16 }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <View style={[styles.progressIconBox, {
+                    backgroundColor:
+                      scholarship.application_status.toLowerCase() === 'approved' ? "#4CAF5020" :
+                        scholarship.application_status.toLowerCase() === 'rejected' ? "#EF444420" :
+                          scholarship.application_status.toLowerCase() === 'not_applied' ? "#64748B20" :
+                            "#FF980020"
+                  }]}>
+                    <Ionicons
+                      name={
+                        scholarship.application_status.toLowerCase() === 'approved' ? "checkmark-circle" :
+                          scholarship.application_status.toLowerCase() === 'rejected' ? "close-circle" :
+                            scholarship.application_status.toLowerCase() === 'not_applied' ? "document-text" :
+                              "time"
+                      }
+                      size={24}
+                      color={
+                        scholarship.application_status.toLowerCase() === 'approved' ? "#4CAF50" :
+                          scholarship.application_status.toLowerCase() === 'rejected' ? "#EF4444" :
+                            scholarship.application_status.toLowerCase() === 'not_applied' ? "#64748B" :
+                              "#FF9800"
+                      }
+                    />
+                  </View>
+                  <View>
+                    <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>CURRENT STATUS</Text>
+                    <Text style={[styles.cardTitle, { color: colors.text, textTransform: 'capitalize', marginTop: 2 }]}>
+                      {scholarship.application_status.replace(/_/g, ' ')}
+                    </Text>
+                  </View>
+                </View>
+                {scholarship.application_step && scholarship.application_step.toLowerCase() !== scholarship.application_status.toLowerCase() && (
+                  <View style={{ alignItems: 'flex-end', flex: 1 }}>
+                    <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>STAGE</Text>
+                    <Text style={[styles.dateValue, { color: colors.text, textTransform: 'capitalize', marginTop: 2 }]} numberOfLines={1}>
+                      {scholarship.application_step.replace(/_/g, ' ')}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* APPLICATION STATUS / PROGRESS */}
         {(scholarship.progress_percent !== undefined && scholarship.progress_percent > 0) && (

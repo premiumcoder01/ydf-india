@@ -223,7 +223,7 @@ export default function ApplicationReviewerDashboard() {
           style={styles.heroSection}
         >
           <LinearGradient
-            colors={isDark ? ["#1E293B", "#334155"] : ["#FFFFFF", "#F8FAFC"]}
+            colors={isDark ? ["#000", "#334155"] : ["#FFFFFF", "#F8FAFC"]}
             style={[styles.chartCard, { borderColor: isDark ? "#334155" : "#E2E8F0" }]}
           >
             <View style={styles.chartHeader}>

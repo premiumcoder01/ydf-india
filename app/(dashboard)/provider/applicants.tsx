@@ -215,7 +215,7 @@ export default function ProviderApplicantsScreen() {
           params: { applicant: JSON.stringify(item._raw) }
         })}
         style={[styles.card, {
-          backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+          backgroundColor: isDark ? "#000" : "#FFFFFF",
           borderColor: isDark ? "#334155" : "#E8EDF5",
           shadowColor: isDark ? "#000" : "#94A3B8",
         }]}
@@ -238,7 +238,7 @@ export default function ProviderApplicantsScreen() {
                 <Text style={styles.avatarText}>{initials}</Text>
               </LinearGradient>
             )}
-            <View style={[styles.statusDot, { backgroundColor: statusConfig.color, borderColor: isDark ? "#1E293B" : "#fff" }]} />
+            <View style={[styles.statusDot, { backgroundColor: statusConfig.color, borderColor: isDark ? "#000" : "#fff" }]} />
           </View>
 
           {/* Name + meta */}

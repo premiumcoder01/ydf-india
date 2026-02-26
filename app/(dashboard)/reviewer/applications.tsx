@@ -74,7 +74,7 @@ function SchemeCard({ s, isDark, colors, onPress }: {
 
   const status = getStatusInfo(s);
 
-  const cardBg = isDark ? "#1E293B" : "#FFFFFF";
+  const cardBg = isDark ? "#000" : "#FFFFFF";
   const borderColor = isDark ? "rgba(99,102,241,0.2)" : "rgba(99,102,241,0.12)";
   const dividerColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)";
   const statBg = isDark ? "rgba(255,255,255,0.04)" : "rgba(99,102,241,0.04)";
@@ -348,7 +348,7 @@ export default function ReviewerApplicationsScreen() {
         {/* ── Empty state ── */}
         {!loading && filtered.length === 0 && (
           <View style={[styles.emptyState, {
-            backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+            backgroundColor: isDark ? "#000" : "#FFFFFF",
             borderColor: isDark ? "rgba(255,255,255,0.06)" : "#E5E7EB",
           }]}>
             <View style={[styles.emptyIconRing, { backgroundColor: isDark ? "rgba(99,102,241,0.1)" : "#EEF2FF" }]}>
