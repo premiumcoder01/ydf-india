@@ -256,7 +256,6 @@ export default function ProviderAddScholarshipScreen() {
         Alert.alert("Error", "Please fill in all required fields");
         return;
       }
-
       // Get token
       const authDataString = await AsyncStorage.getItem("authData");
       if (!authDataString) {
@@ -265,69 +264,13 @@ export default function ProviderAddScholarshipScreen() {
       }
       const authData = JSON.parse(authDataString);
       const token = authData?.token;
-
       if (!token) {
         Alert.alert("Error", "User not authenticated");
         return;
       }
-
-      // Prepare API Payload
-      // Prepare API Payload (Explicitly stringifying JSON fields as required)
-      const payload = {
-        fullname: formData.schemeName,
-        shortname: formData.schemeName.substring(0, 50).replace(/\s+/g, '-').toLowerCase() + '-' + Date.now(),
-        categoryid: 2,
-        provider_name: formData.providerName,
-        summary: formData.description,
-        startdate: formData.startDate ? Math.floor(formData.startDate.getTime() / 1000) : null,
-        enddate: formData.endDate ? Math.floor(formData.endDate.getTime() / 1000) : null,
-        visible: 1,
-        total_seats: formData.totalSeats,
-        scholarship_cycle: formData.paymentCycle,
-        scholarship_amount: formData.amountType === "fixed" ? formData.fixedAmount : formData.actualAmountLimit,
-        fund_amount: formData.totalSeats
-          ? (formData.amountType === "fixed"
-            ? (Number(formData.fixedAmount || 0) * Number(formData.totalSeats))
-            : (Number(formData.actualAmountLimit || 0) * Number(formData.totalSeats)))
-          : null,
-        student_pct: formData.distributionStudent,
-        institute_pct: formData.distributionInstitute,
-        selection_stages_json: JSON.stringify(formData.stages.map(stage => stage.name)),
-        geo_eligibility_json: JSON.stringify({
-          states: formData.states,
-          districts: formData.districts,
-          blocks: formData.blocks,
-          villages: formData.villages
-        }),
-        personal_eligibility_json: JSON.stringify({
-          gender: formData.gender,
-          caste: formData.casteCategory,
-          special_category: formData.specialCategory,
-          income_limit: formData.incomeLimit
-        }),
-        academic_eligibility_json: JSON.stringify({
-          education_level: formData.educationLevel,
-          streams: formData.streams.map(s => s.includes(':') ? s.split(':')[1] : s),
-          min_class_score: formData.lastClassPercent,
-          min_10th_score: formData.tenthClassPercent,
-          min_12th_score: formData.twelfthClassPercent,
-          competitive_exam: {
-            name: formData.competitiveExams,
-            rank: formData.minRank,
-            score: formData.minScore
-          }
-        }),
-        document_requirements_json: JSON.stringify(formData.requiredDocuments),
-        eligibility_criteria: [
-          formData.incomeLimit ? `Income Limit: ${formData.incomeLimit}` : "",
-          formData.gender.length > 0 ? formData.gender.join(', ') : ""
-        ].filter(Boolean).join(', ')
-      };
-
+      const payload = { ...formData };
       console.log("Submitting Payload:", JSON.stringify(payload, null, 2));
-
       const response = await createScholarship(token, payload);
-
       if (response.success) {
         Alert.alert("Success", "Scholarship created successfully!", [
           { text: "OK", onPress: () => router.back() }
@@ -335,7 +278,6 @@ export default function ProviderAddScholarshipScreen() {
       } else {
         Alert.alert("Error", response.message || "Failed to create scholarship");
       }
-
     } catch (error) {
       console.error(error);
       Alert.alert("Error", "An unexpected error occurred");
