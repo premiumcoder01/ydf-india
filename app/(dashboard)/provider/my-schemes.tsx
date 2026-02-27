@@ -10,6 +10,7 @@ import {
     ActivityIndicator,
     Animated,
     Dimensions,
+    Image,
     Modal,
     Platform,
     Pressable,
@@ -364,41 +365,57 @@ export default function MyCreatedSchemesScreen() {
 
                     {/* ── Inner content ── */}
                     <View style={styles.cardInner}>
+                        <View style={styles.cardInfoRow}>
+                            <View style={styles.cardMainInfo}>
+                                {/* Top row: Category + Status badge */}
+                                <View style={styles.cardTopRow}>
+                                    <View style={[styles.categoryPill, {
+                                        backgroundColor: isDark ? "rgba(99,102,241,0.12)" : "#EEF2FF",
+                                        borderColor: isDark ? "rgba(99,102,241,0.22)" : "#C7D2FE",
+                                    }]}>
+                                        <Ionicons name="grid-outline" size={11} color={isDark ? "#818CF8" : "#4F46E5"} />
+                                        <Text style={[styles.categoryText, { color: isDark ? "#818CF8" : "#4F46E5" }]}>
+                                            {item.category}
+                                        </Text>
+                                    </View>
 
-                        {/* Top row: Category + Status badge */}
-                        <View style={styles.cardTopRow}>
-                            <View style={[styles.categoryPill, {
-                                backgroundColor: isDark ? "rgba(99,102,241,0.12)" : "#EEF2FF",
-                                borderColor: isDark ? "rgba(99,102,241,0.22)" : "#C7D2FE",
-                            }]}>
-                                <Ionicons name="grid-outline" size={11} color={isDark ? "#818CF8" : "#4F46E5"} />
-                                <Text style={[styles.categoryText, { color: isDark ? "#818CF8" : "#4F46E5" }]}>
-                                    {item.category}
+                                    <View style={[styles.statusBadge, { backgroundColor: isDark ? cfg.darkBg : cfg.bg }]}>
+                                        <View style={[styles.statusDot, { backgroundColor: isDark ? cfg.darkText : cfg.text }]} />
+                                        <Text style={[styles.statusText, { color: isDark ? cfg.darkText : cfg.text }]}>
+                                            {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                                        </Text>
+                                    </View>
+                                </View>
+
+                                {/* Title */}
+                                <Text style={[styles.cardTitle, { color: isDark ? "#F1F5F9" : "#121212" }]} numberOfLines={2}>
+                                    {item.title}
                                 </Text>
+
+                                {/* Provider + ID row */}
+                                <View style={styles.providerRow}>
+                                    <Ionicons name="business-outline" size={12} color={isDark ? "#64748B" : "#94A3B8"} />
+                                    <Text style={[styles.providerText, { color: isDark ? "#64748B" : "#94A3B8" }]} numberOfLines={1}>
+                                        {item.provider_name || "YDF Verified Provider"}
+                                    </Text>
+                                    <View style={[styles.idPill, { backgroundColor: isDark ? "#1E1E1E" : "#F1F5F9" }]}>
+                                        <Text style={[styles.idText, { color: isDark ? "#475569" : "#94A3B8" }]}>#{item.id}</Text>
+                                    </View>
+                                </View>
                             </View>
 
-                            <View style={[styles.statusBadge, { backgroundColor: isDark ? cfg.darkBg : cfg.bg }]}>
-                                <View style={[styles.statusDot, { backgroundColor: isDark ? cfg.darkText : cfg.text }]} />
-                                <Text style={[styles.statusText, { color: isDark ? cfg.darkText : cfg.text }]}>
-                                    {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-                                </Text>
-                            </View>
-                        </View>
-
-                        {/* Title */}
-                        <Text style={[styles.cardTitle, { color: isDark ? "#F1F5F9" : "#121212" }]} numberOfLines={2}>
-                            {item.title}
-                        </Text>
-
-                        {/* Provider + ID row */}
-                        <View style={styles.providerRow}>
-                            <Ionicons name="business-outline" size={12} color={isDark ? "#64748B" : "#94A3B8"} />
-                            <Text style={[styles.providerText, { color: isDark ? "#64748B" : "#94A3B8" }]} numberOfLines={1}>
-                                {item.provider_name || "YDF Verified Provider"}
-                            </Text>
-                            <View style={[styles.idPill, { backgroundColor: isDark ? "#1E1E1E" : "#F1F5F9" }]}>
-                                <Text style={[styles.idText, { color: isDark ? "#475569" : "#94A3B8" }]}>#{item.id}</Text>
-                            </View>
+                            {/* Image Thumbnail */}
+                            {item.image ? (
+                                <Image
+                                    source={{ uri: item.image }}
+                                    style={styles.cardThumbnail}
+                                    resizeMode="cover"
+                                />
+                            ) : (
+                                <View style={[styles.cardThumbnailPlaceholder, { backgroundColor: isDark ? "#1E1E1E" : "#F8FAFC" }]}>
+                                    <Ionicons name="image-outline" size={24} color={isDark ? "#334155" : "#E2E8F0"} />
+                                </View>
+                            )}
                         </View>
 
                         {/* Divider */}
@@ -437,7 +454,7 @@ export default function MyCreatedSchemesScreen() {
                             <View style={[styles.statSep, { backgroundColor: isDark ? "#1E1E1E" : "#F1F5F9" }]} />
 
                             {/* Seats */}
-                            <View style={styles.statItem}>
+                            <View style={styles.statItem} >
                                 <View style={[styles.statIconBox, { backgroundColor: isDark ? "rgba(249,115,22,0.12)" : "#FFF7ED" }]}>
                                     <MaterialCommunityIcons
                                         name="seat-outline"
@@ -481,6 +498,7 @@ export default function MyCreatedSchemesScreen() {
                         </View>
                     </View>
                 </TouchableOpacity>
+
             </MotiView>
         );
     };
@@ -765,6 +783,29 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 16,
         paddingLeft: 14,
+    },
+    cardInfoRow: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        gap: 12,
+    },
+    cardMainInfo: {
+        flex: 1,
+    },
+    cardThumbnail: {
+        width: 80,
+        height: 80,
+        borderRadius: 12,
+        backgroundColor: "#F1F5F9",
+    },
+    cardThumbnailPlaceholder: {
+        width: 80,
+        height: 80,
+        borderRadius: 12,
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1,
+        borderColor: "rgba(0,0,0,0.05)",
     },
     cardTopRow: {
         flexDirection: "row",

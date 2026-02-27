@@ -1,6 +1,6 @@
 import { Button, CustomTextInput, ReviewerHeader } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { createScholarship } from "@/utils/api";
+import { createScholarship, uploadProfileImage } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
@@ -107,6 +107,7 @@ export default function ProviderAddScholarshipScreen() {
   const insets = useSafeAreaInsets();
   const { isDark, colors } = useTheme();
   const [currentStep, setCurrentStep] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState<FormData>({
@@ -256,6 +257,8 @@ export default function ProviderAddScholarshipScreen() {
         Alert.alert("Error", "Please fill in all required fields");
         return;
       }
+      setIsSubmitting(true);
+
       // Get token
       const authDataString = await AsyncStorage.getItem("authData");
       if (!authDataString) {
@@ -268,7 +271,93 @@ export default function ProviderAddScholarshipScreen() {
         Alert.alert("Error", "User not authenticated");
         return;
       }
-      const payload = { ...formData };
+
+      const categoryMap: Record<string, number> = {
+        "Merit-based": 1,
+        "Need-based": 2,
+        "Minority": 3,
+        "Talent-based": 4,
+        "Sports": 5,
+        "Special Ability": 6,
+        "General Research": 7,
+        "Other": 8,
+      };
+
+      let logo_draftitemid = null;
+      let banner_draftitemid = null;
+
+      if (formData.logo) {
+        const logoResponse = await uploadProfileImage(token, {
+          uri: formData.logo,
+          name: "logo.jpg",
+          type: "image/jpeg",
+        });
+        if (logoResponse.success) {
+          logo_draftitemid = logoResponse.data?.id || null;
+        }
+      }
+
+      if (formData.banner) {
+        const bannerResponse = await uploadProfileImage(token, {
+          uri: formData.banner,
+          name: "banner.jpg",
+          type: "image/jpeg",
+        });
+        if (bannerResponse.success) {
+          banner_draftitemid = bannerResponse.data?.id || null;
+        }
+      }
+
+      const formStartDate = formData.startDate as Date | null;
+      const formEndDate = formData.endDate as Date | null;
+
+      const generatedShortname = formData.schemeName
+        ? `${formData.schemeName.toUpperCase().replace(/[^A-Z0-9]/g, '-')}-${Date.now()}`
+        : `SCHEME-${Date.now()}`;
+
+      const payload: any = {
+        fullname: formData.schemeName,
+        shortname: generatedShortname,
+        categoryid: categoryMap[formData.category] || 1,
+        summary: formData.description,
+        provider_name: formData.providerName,
+        startdate: formStartDate ? Math.floor(formStartDate.getTime() / 1000) : 0,
+        enddate: formEndDate ? Math.floor(formEndDate.getTime() / 1000) : 0,
+        total_seats: parseInt(formData.totalSeats) || 0,
+        scholarship_amount: parseFloat(formData.amountType === "fixed" ? formData.fixedAmount : formData.actualAmountLimit) || 0,
+        fund_amount: (parseInt(formData.totalSeats) || 0) * (parseFloat(formData.amountType === "fixed" ? formData.fixedAmount : formData.actualAmountLimit) || 0),
+        scholarship_cycle: formData.paymentCycle,
+        student_pct: parseFloat(formData.distributionStudent) || 100,
+        institute_pct: parseFloat(formData.distributionInstitute) || 0,
+        selection_stages_json: JSON.stringify(formData.stages),
+        geo_eligibility_json: JSON.stringify({
+          states: formData.states,
+          districts: formData.districts,
+          blocks: formData.blocks,
+          villages: formData.villages,
+        }),
+        personal_eligibility_json: JSON.stringify({
+          gender: formData.gender,
+          caste_category: formData.casteCategory,
+          special_category: formData.specialCategory,
+          income_limit: formData.incomeLimit,
+        }),
+        academic_eligibility_json: JSON.stringify({
+          education_level: formData.educationLevel,
+          streams: formData.streams,
+          last_class_percent: formData.lastClassPercent,
+          tenth_class_percent: formData.tenthClassPercent,
+          twelfth_class_percent: formData.twelfthClassPercent,
+          competitive_exams: formData.competitiveExams,
+          min_rank: formData.minRank,
+          min_score: formData.minScore,
+        }),
+        document_requirements_json: JSON.stringify(formData.requiredDocuments),
+      };
+
+      if (logo_draftitemid) payload.logo_draftitemid = logo_draftitemid;
+      if (banner_draftitemid) payload.banner_draftitemid = banner_draftitemid;
+
       console.log("Submitting Payload:", JSON.stringify(payload, null, 2));
       const response = await createScholarship(token, payload);
       if (response.success) {
@@ -281,6 +370,8 @@ export default function ProviderAddScholarshipScreen() {
     } catch (error) {
       console.error(error);
       Alert.alert("Error", "An unexpected error occurred");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1177,9 +1268,10 @@ export default function ProviderAddScholarshipScreen() {
         </TouchableOpacity>
 
         <Button
-          title={currentStep === STEPS.length - 1 ? "Submit" : "Continue"}
+          title={currentStep === STEPS.length - 1 ? (isSubmitting ? "Submitting..." : "Submit") : "Continue"}
           onPress={handleNext}
           style={styles.nextBtn}
+          disabled={isSubmitting}
         />
       </View>
       <View style={{ width: '100%', alignItems: 'center' }}>
