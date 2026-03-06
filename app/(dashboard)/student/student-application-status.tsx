@@ -179,40 +179,7 @@ export default function ApplicationStatusScreen() {
       <View style={styles.fixedHeader}>
         <AppHeader title="My Applications" onBack={() => router.back()} />
 
-        {/* Stats Cards */}
-        {/* <View style={styles.statsContainer}>
-          <View style={[styles.statCard, { backgroundColor: isDark ? "#1e1e1e" : "#f5f5f5" }]}>
-            <View style={[styles.statIcon, { backgroundColor: "#2196F315" }]}>
-              <Ionicons name="documents-outline" size={18} color="#2196F3" />
-            </View>
-            <Text style={[styles.statValue, { color: colors.text }]}>{totalCounts.total}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total</Text>
-          </View>
 
-          <View style={[styles.statCard, { backgroundColor: isDark ? "#1e1e1e" : "#f5f5f5" }]}>
-            <View style={[styles.statIcon, { backgroundColor: "#4CAF5015" }]}>
-              <Ionicons name="checkmark-circle-outline" size={18} color="#4CAF50" />
-            </View>
-            <Text style={[styles.statValue, { color: colors.text }]}>{totalCounts.approved}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Approved</Text>
-          </View>
-
-          <View style={[styles.statCard, { backgroundColor: isDark ? "#1e1e1e" : "#f5f5f5" }]}>
-            <View style={[styles.statIcon, { backgroundColor: "#FF980015" }]}>
-              <Ionicons name="time-outline" size={18} color="#FF9800" />
-            </View>
-            <Text style={[styles.statValue, { color: colors.text }]}>{totalCounts.pending}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Pending</Text>
-          </View>
-
-          <View style={[styles.statCard, { backgroundColor: isDark ? "#1e1e1e" : "#f5f5f5" }]}>
-            <View style={[styles.statIcon, { backgroundColor: "#F4433615" }]}>
-              <Ionicons name="close-circle-outline" size={18} color="#F44336" />
-            </View>
-            <Text style={[styles.statValue, { color: colors.text }]}>{totalCounts.rejected}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Rejected</Text>
-          </View>
-        </View> */}
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>

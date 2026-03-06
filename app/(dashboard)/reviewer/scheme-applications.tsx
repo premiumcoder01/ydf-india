@@ -55,6 +55,21 @@ type PaginationData = {
     total_pages: number;
 };
 
+type ParsedApplicationData = {
+    application_text?: string;
+    fullname?: string;
+    email?: string;
+    phone?: string;
+    student_id?: string;
+    institution?: string;
+    major?: string;
+    graduation_date?: string;
+    current_year?: string;
+    gpa?: string;
+    activities?: string;
+    financial_info?: string;
+};
+
 const STATUS_TABS: Array<"All" | "new" | "approved" | "rejected" | "not_applied"> = [
     "All",
     "new",
@@ -109,7 +124,35 @@ function formatBytes(bytes: number) {
     return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
+function parseApplicationText(text: string | null): ParsedApplicationData | null {
+    if (!text) return null;
+    try {
+        const trimmed = text.trim();
+        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            const parsed = JSON.parse(trimmed);
+            if (typeof parsed === "object" && parsed !== null) {
+                return parsed;
+            }
+        }
+    } catch {
+        // Not valid JSON
+    }
+    return null;
+}
+
 // ─── Application Card ─────────────────────────────────────────────────────────
+const FIELD_CONFIGS: Record<string, { icon: any; color: string; bg: string; darkBg: string }> = {
+    phone: { icon: "call-outline", color: "#3B82F6", bg: "#EFF6FF", darkBg: "rgba(59,130,246,0.15)" },
+    institution: { icon: "business-outline", color: "#10B981", bg: "#ECFDF5", darkBg: "rgba(16,185,129,0.15)" },
+    major: { icon: "school-outline", color: "#6366F1", bg: "#EEF2FF", darkBg: "rgba(99,102,241,0.15)" },
+    gpa: { icon: "stats-chart-outline", color: "#F59E0B", bg: "#FFFBEB", darkBg: "rgba(245,158,11,0.15)" },
+    financial_info: { icon: "wallet-outline", color: "#8B5CF6", bg: "#F5F3FF", darkBg: "rgba(139,92,246,0.15)" },
+    fullname: { icon: "person-outline", color: "#EC4899", bg: "#FDF2F8", darkBg: "rgba(236,72,153,0.15)" },
+    graduation_date: { icon: "time-outline", color: "#64748B", bg: "#F8FAFC", darkBg: "rgba(100,116,139,0.15)" },
+    current_year: { icon: "calendar-outline", color: "#64748B", bg: "#F8FAFC", darkBg: "rgba(100,116,139,0.15)" },
+    activities: { icon: "sparkles-outline", color: "#06B6D4", bg: "#ECFEFF", darkBg: "rgba(6,182,212,0.15)" },
+};
+
 function ApplicationCard({
     item,
     isDark,
@@ -123,6 +166,18 @@ function ApplicationCard({
 }) {
     const statusCfg = getStatusConfig(item.status);
     const avatarColor = getAvatarColor(item.user.fullname);
+
+    const getFieldTag = (key: string, value: string) => {
+        const config = FIELD_CONFIGS[key] || { icon: "information-circle-outline", color: "#64748B", bg: "#F8FAFC", darkBg: "rgba(100,116,139,0.1)" };
+        return (
+            <View key={key} style={[styles.noteItem, { backgroundColor: isDark ? config.darkBg : config.bg }]}>
+                <Ionicons name={config.icon} size={11} color={config.color} />
+                <Text style={[styles.noteItemText, { color: isDark ? "#fff" : config.color }]} numberOfLines={1}>
+                    {key === 'gpa' ? `GPA: ${value}` : value}
+                </Text>
+            </View>
+        );
+    };
     const initials =
         (item.user.firstname?.charAt(0) ?? "") +
         (item.user.lastname?.charAt(0) ?? "");
@@ -191,17 +246,44 @@ function ApplicationCard({
 
             {/* ── Application text or placeholder ── */}
             <View style={styles.textSection}>
-                {item.application_text && item.application_text.trim() ? (
-                    <>
-                        <View style={styles.textLabelRow}>
-                            <Ionicons name="document-text-outline" size={13} color={subTextColor} />
-                            <Text style={[styles.textLabel, { color: subTextColor }]}>Application Note</Text>
-                        </View>
-                        <Text style={[styles.appText, { color: colors.text }]} numberOfLines={2}>
-                            {item.application_text}
-                        </Text>
-                    </>
-                ) : (
+                {item.application_text && item.application_text.trim() ? (() => {
+                    const parsed = parseApplicationText(item.application_text);
+                    if (parsed) {
+                        return (
+                            <>
+                                <View style={styles.textLabelRow}>
+                                    <Ionicons name="document-text-outline" size={13} color={subTextColor} />
+                                    <Text style={[styles.textLabel, { color: subTextColor }]}>Application details</Text>
+                                </View>
+                                {parsed.application_text?.trim() ? (
+                                    <Text style={[styles.appText, { color: colors.text, marginBottom: 4 }]} numberOfLines={3}>
+                                        {parsed.application_text}
+                                    </Text>
+                                ) : null}
+
+                                <View style={styles.noteGrid}>
+                                    {parsed.fullname && parsed.fullname !== item.user.fullname && getFieldTag('fullname', parsed.fullname)}
+                                    {parsed.phone && getFieldTag('phone', parsed.phone)}
+                                    {parsed.institution && getFieldTag('institution', parsed.institution)}
+                                    {parsed.major && getFieldTag('major', parsed.major)}
+                                    {parsed.gpa && getFieldTag('gpa', parsed.gpa)}
+                                    {parsed.financial_info && getFieldTag('financial_info', parsed.financial_info)}
+                                </View>
+                            </>
+                        );
+                    }
+                    return (
+                        <>
+                            <View style={styles.textLabelRow}>
+                                <Ionicons name="document-text-outline" size={13} color={subTextColor} />
+                                <Text style={[styles.textLabel, { color: subTextColor }]}>Application Note</Text>
+                            </View>
+                            <Text style={[styles.appText, { color: colors.text }]} numberOfLines={2}>
+                                {item.application_text}
+                            </Text>
+                        </>
+                    );
+                })() : (
                     <View style={[styles.noTextRow, { backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "#F8FAFC" }]}>
                         <Ionicons name="document-outline" size={14} color={subTextColor} />
                         <Text style={[styles.noText, { color: subTextColor }]}>No application text provided</Text>
@@ -864,7 +946,18 @@ const styles = StyleSheet.create({
     textSection: { paddingHorizontal: 16, paddingVertical: 12, gap: 6 },
     textLabelRow: { flexDirection: "row", alignItems: "center", gap: 5 },
     textLabel: { fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 },
-    appText: { fontSize: 14, lineHeight: 21, fontWeight: "500" },
+    appText: { fontSize: 13, lineHeight: 18, fontWeight: "500" },
+    noteGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 },
+    noteItem: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 5,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+        maxWidth: "100%",
+    },
+    noteItemText: { fontSize: 11, fontWeight: "600" },
     noTextRow: {
         flexDirection: "row",
         alignItems: "center",

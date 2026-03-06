@@ -1,7 +1,7 @@
 import { useTheme } from "@/context/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useRef } from "react";
-import { Animated, TextInput, TouchableOpacity, View } from "react-native";
+import { Animated, Platform, TextInput, TouchableOpacity, View } from "react-native";
 
 type Props = {
   value: string;
@@ -18,7 +18,7 @@ export default function SearchBar({
   placeholder = "Search...",
   style,
 }: Props) {
-  const { isDark, colors } = useTheme();
+  const { isDark } = useTheme();
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handleFocus = () => {
@@ -45,6 +45,8 @@ export default function SearchBar({
   const textColor = isDark ? "#fff" : "#111";
   const placeholderColor = isDark ? "rgba(255,255,255,0.4)" : "#aaa";
 
+  const hasValue = value.length > 0;
+
   return (
     <View style={[{ paddingHorizontal: 16, paddingVertical: 8 }, style]}>
       <Animated.View
@@ -55,31 +57,38 @@ export default function SearchBar({
           backgroundColor: bgColor,
           borderRadius: 16,
           paddingHorizontal: 14,
-          paddingVertical: 11,
+          // Fixed height avoids Android's unreliable paddingVertical on TextInput rows
+          height: 48,
           borderWidth: 1.5,
-          borderColor: value.length > 0
+          borderColor: hasValue
             ? isDark ? "rgba(108,99,255,0.6)" : "rgba(108,99,255,0.45)"
             : borderColor,
-          shadowColor: value.length > 0 ? "#6C63FF" : "#000",
+          shadowColor: hasValue ? "#6C63FF" : "#000",
           shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: value.length > 0 ? 0.18 : 0.06,
+          shadowOpacity: hasValue ? 0.18 : 0.06,
           shadowRadius: 8,
-          elevation: value.length > 0 ? 4 : 1,
+          // elevation on Android always renders a GREY shadow — shadowColor is iOS-only
+          // Use 0 on Android to avoid the ugly default grey box shadow
+          elevation: Platform.OS === "android" ? 0 : (hasValue ? 4 : 1),
         }}
       >
         <Ionicons
           name="search-outline"
           size={19}
-          color={value.length > 0 ? "#6C63FF" : iconColor}
+          color={hasValue ? "#6C63FF" : iconColor}
         />
         <TextInput
           style={{
             flex: 1,
             marginLeft: 10,
             fontSize: 15,
-            fontWeight: "500",
+            // fontWeight "500" is not supported on Android default fonts — causes misalignment
+            fontWeight: Platform.OS === "android" ? "400" : "500",
             color: textColor,
-            minHeight: 22,
+            // Critical Android fixes:
+            textAlignVertical: "center",
+            includeFontPadding: false,
+            padding: 0,
             letterSpacing: 0.1,
           }}
           placeholder={placeholder}
@@ -91,7 +100,7 @@ export default function SearchBar({
           multiline={false}
           returnKeyType="search"
         />
-        {value.length > 0 && (
+        {hasValue && (
           <TouchableOpacity
             onPress={onClear}
             style={{

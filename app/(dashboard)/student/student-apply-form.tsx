@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useLocalSearchParams } from "expo-router";
 import { MotiView } from "moti";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Controller, useForm, type Resolver } from "react-hook-form";
 import {
   ActivityIndicator,
@@ -28,14 +28,7 @@ import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { z } from "zod";
 
-type DocumentItem = {
-  name: string;
-  uri: string;
-  mimeType?: string | null;
-  size?: number | null;
-  documentId?: number | string; // To link to specific requirement
-  label?: string; // To store the requirement label
-};
+
 
 const formSchema = z.object({
   // Personal (can be prefilled in future from profile)
@@ -123,6 +116,7 @@ export default function ApplyFormScreen() {
     message: "",
     type: "info",
   });
+  const [userId, setUserId] = useState<string | number | null>(null);
 
   const {
     control,
@@ -162,7 +156,6 @@ export default function ApplyFormScreen() {
     reValidateMode: "onSubmit",
   });
 
-  const documents = watch("documents") || [];
   const hasDocumentRequirements = Boolean(
     scholarship && Array.isArray(scholarship.documents) && scholarship.documents.length > 0
   );
@@ -229,192 +222,145 @@ export default function ApplyFormScreen() {
   };
 
 
+  // ─── Single unified auth effect: fetch scholarship + profile + draft ───────
   useEffect(() => {
-    const fetchUserProfile = async () => {
+    let cancelled = false;
+
+    const bootstrap = async () => {
       try {
         setLoading(true);
         const authDataStr = await AsyncStorage.getItem("authData");
-        if (authDataStr) {
-          const authData = JSON.parse(authDataStr);
-          if (authData.token) {
+        if (!authDataStr || cancelled) return;
+        const authData = JSON.parse(authDataStr);
+        if (!authData?.token) return;
 
-            // 1. Fetch Scholarship Details FIRST to check expiry
-            if (scholarshipId) {
-              const scholarResponse = await getScholarshipDetails(authData.token, Number(scholarshipId));
+        const token: string = authData.token;
+        const uid: string | number = authData?.user?.id;
+        if (uid) setUserId(uid);
 
-              if (scholarResponse.success) {
-                const scholarData = scholarResponse.data?.data?.data || scholarResponse.data?.data || scholarResponse.data;
-                setScholarship(scholarData);
+        // 1. Scholarship details + expiry check
+        if (scholarshipId) {
+          const scholarResponse = await getScholarshipDetails(token, Number(scholarshipId));
+          if (cancelled) return;
+          if (scholarResponse.success) {
+            const scholarData =
+              scholarResponse.data?.data?.data ||
+              scholarResponse.data?.data ||
+              scholarResponse.data;
+            setScholarship(scholarData);
+            if (scholarData?.expired) {
+              Alert.alert(
+                "Application Closed",
+                "This scholarship has expired and is no longer accepting applications.",
+                [{ text: "OK", onPress: () => router.back() }]
+              );
+              setLoading(false);
+              return;
+            }
+          }
+        }
 
-                // Check if expired
-                if (scholarData && scholarData.expired) {
-                  Alert.alert("Application Closed", "This scholarship has expired and is no longer accepting applications.", [
-                    { text: "OK", onPress: () => router.back() }
-                  ]);
-                  setLoading(false); // Even though we go back, stop loading
-                  return;
-                }
+        // 2. User profile prefill
+        const response = await getUserProfile(token);
+        if (cancelled) return;
+        if (response.success && response.data?.user) {
+          const user = response.data.user;
+          const getField = (shortname: string) =>
+            user.customfields?.find((f: any) => f.shortname === shortname)?.value || "";
 
-
+          reset({
+            ...getValues(),
+            fullName: user.fullname || `${user.firstname} ${user.lastname}` || "",
+            email: user.email || "",
+            phone: (() => {
+              let p = user.phone1 || user.phone || getField('phone') || "";
+              if (typeof p === 'string') {
+                p = p.replace(/\D/g, '');
+                if (p.length > 10 && p.startsWith('91')) p = p.substring(p.length - 10);
               }
-            }
+              return p;
+            })(),
+            studentId: user.username || getField('student_id') || "",
+            institution: user.institution || getField('institution') || "",
+            major: user.major || getField('major') || "",
+            gradDate: user.graduationdate || getField('graduationdate') || "",
+            currentYear: user.academicyear || getField('academicyear') || "",
+            gpa: user.gpa || getField('gpa') || "",
+            financial: getField('financial_info') || "",
+          });
+        }
 
-            // 2. Fetch User Profile to prefill
-            const response = await getUserProfile(authData.token);
-            if (response.success && response.data && response.data.user) {
-              const user = response.data.user;
-
-              // Helper to find custom field value
-              const getField = (shortname: string) =>
-                user.customfields?.find((f: any) => f.shortname === shortname)?.value || "";
-
-              reset({
-                ...getValues(),
-                fullName: user.fullname || `${user.firstname} ${user.lastname}` || "",
-                email: user.email || "",
-                // Clean phone number (remove +91 or 91)
-                phone: (() => {
-                  let p = user.phone1 || user.phone || getField('phone') || "";
-                  if (typeof p === 'string') {
-                    p = p.replace(/\D/g, ''); // keep only digits
-                    if (p.length > 10 && (p.startsWith('91'))) {
-                      p = p.substring(p.length - 10);
+        // 3. Draft recovery (after profile so merge is correct)
+        if (uid && scholarshipId) {
+          const draftKey = `draft_application_${uid}_${scholarshipId}`;
+          const savedDraft = await AsyncStorage.getItem(draftKey);
+          if (savedDraft && !cancelled) {
+            const { values, step } = JSON.parse(savedDraft);
+            Alert.alert(
+              "Draft Found",
+              "We found an unfinished application. Would you like to resume?",
+              [
+                {
+                  text: "No, Start Fresh",
+                  style: "cancel",
+                  onPress: () => AsyncStorage.removeItem(draftKey),
+                },
+                {
+                  text: "Yes, Resume",
+                  onPress: () => {
+                    const restored = { ...values };
+                    if (restored.verificationTime && typeof restored.verificationTime === "string") {
+                      restored.verificationTime = new Date(restored.verificationTime);
                     }
-                  }
-                  return p;
-                })(),
-                studentId: user.username || getField('student_id') || "",
-
-                // Academic Auto-fill
-                institution: user.institution || getField('institution') || "",
-                major: user.major || getField('major') || "",
-                gradDate: user.graduationdate || getField('graduationdate') || "",
-                currentYear: user.academicyear || getField('academicyear') || "",
-                gpa: user.gpa || getField('gpa') || "",
-
-                // Other fields if available
-                financial: getField('financial_info') || "",
-              });
-            }
+                    reset({ ...getValues(), ...restored });
+                    setStepIndex(step || 0);
+                    setToast({ visible: true, message: "Draft restored", type: "success" });
+                  },
+                },
+              ]
+            );
           }
         }
       } catch (error) {
-        console.error("Failed to prefill form or fetch scholarship:", error);
+        console.error("Bootstrap error:", error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    fetchUserProfile();
-  }, [reset, getValues, scholarshipId]);
+    bootstrap();
+    return () => { cancelled = true; };
+  }, [scholarshipId]);
 
-  // --- Draft Saving Logic ---
-  const [userId, setUserId] = useState<string | number | null>(null);
+  // ─── Academic details: fetch once per session when entering academic step ──
+  const academicFetchedRef = useRef(false);
+  const currentStepKey = useMemo(() => STEPS[stepIndex].key, [stepIndex]);
 
-  // 1. Get User ID on mount to enable drafting
-  useEffect(() => {
-    const getUserId = async () => {
-      try {
-        const authDataStr = await AsyncStorage.getItem("authData");
-        if (authDataStr) {
-          const authData = JSON.parse(authDataStr);
-          if (authData?.user?.id) {
-            setUserId(authData.user.id);
-          }
-        }
-      } catch (e) {
-        console.log("Error getting user ID for draft", e);
-      }
-    };
-    getUserId();
-  }, []);
-
-  // 2. Recovery: Check for draft when UserID is available
-  useEffect(() => {
+  // ─── Save draft in background (never blocks UI) ──────────────────────────
+  const saveDraft = useCallback(async (nextStepIndex: number) => {
     if (!userId || !scholarshipId) return;
-
-    const checkDraft = async () => {
-      try {
-        const draftKey = `draft_application_${userId}_${scholarshipId}`;
-        const savedDraft = await AsyncStorage.getItem(draftKey);
-
-        if (savedDraft) {
-          const { values, step } = JSON.parse(savedDraft);
-          Alert.alert(
-            "Draft Found",
-            "We found an unfinished application for this scholarship. Would you like to resume where you left off?",
-            [
-              {
-                text: "No, Start Fresh",
-                style: "cancel",
-                onPress: async () => {
-                  await AsyncStorage.removeItem(draftKey);
-                }
-              },
-              {
-                text: "Yes, Resume",
-                onPress: () => {
-                  // Merge saved values with default/reset structure to avoid missing keys
-                  const restoredValues = { ...values };
-                  if (restoredValues.verificationTime && typeof restoredValues.verificationTime === "string") {
-                    restoredValues.verificationTime = new Date(restoredValues.verificationTime);
-                  }
-                  reset({ ...getValues(), ...restoredValues });
-                  setStepIndex(step || 0);
-                  setToast({ visible: true, message: "Draft restored successfully", type: "success" });
-                }
-              }
-            ]
-          );
-        }
-      } catch (e) {
-        console.error("Failed to load draft", e);
-      }
-    };
-
-    // Small delay to ensure profile fetch doesn't conflict visually, though logic handles merge
-    setTimeout(checkDraft, 1000);
-  }, [userId, scholarshipId, reset, getValues]);
-
-  // Helper function to save draft manually
-  const saveDraft = async (nextStepIndex: number) => {
-    if (!userId || !scholarshipId) return;
-
     try {
       const draftKey = `draft_application_${userId}_${scholarshipId}`;
-      const draftData = JSON.stringify({
-        values: getValues(),
-        step: nextStepIndex // Save the step we're moving TO, not the current step
-      });
-      await AsyncStorage.setItem(draftKey, draftData);
+      await AsyncStorage.setItem(draftKey, JSON.stringify({ values: getValues(), step: nextStepIndex }));
     } catch (e) {
       console.error("Failed to save draft", e);
     }
-  };
+  }, [userId, scholarshipId, getValues]);
 
-  const currentStepKey = useMemo(() => STEPS[stepIndex].key, [stepIndex]);
-
-  // Fetch academic details when user enters Academic Info step (for "Fill from your academic data")
   useEffect(() => {
-    if (currentStepKey !== "academic") return;
+    if (currentStepKey !== "academic" || academicFetchedRef.current) return;
 
     const fetchAcademicDetails = async () => {
       setLoadingAcademicDetails(true);
-      setAcademicDetailsList([]);
       try {
         const authDataStr = await AsyncStorage.getItem("authData");
-        if (!authDataStr) {
-          setLoadingAcademicDetails(false);
-          return;
-        }
-        const authData = JSON.parse(authDataStr);
-        if (!authData?.token) {
-          setLoadingAcademicDetails(false);
-          return;
-        }
-        const res = await getAcademicDetails(authData.token);
+        if (!authDataStr) return;
+        const { token } = JSON.parse(authDataStr);
+        if (!token) return;
+        const res = await getAcademicDetails(token);
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
           setAcademicDetailsList(res.data);
+          academicFetchedRef.current = true;
         }
       } catch (e) {
         console.error("Failed to fetch academic details", e);
@@ -426,45 +372,38 @@ export default function ApplyFormScreen() {
     fetchAcademicDetails();
   }, [currentStepKey]);
 
-  const next = async () => {
-    // Validate only fields relevant to current step
+  const next = useCallback(async () => {
     const fields = FIELDS_BY_STEP[currentStepKey];
     if (fields.length) {
       const ok = await trigger(fields as any);
-      if (!ok) return; // Validation failed, don't save draft
+      if (!ok) return;
     }
 
     if (currentStepKey === "documents" && hasDocumentRequirements) {
       const acknowledged = getValues("acknowledgedDocIds") || [];
       const requiredDocs = scholarship.documents || [];
-      // Assuming all listed are required unless specified otherwise, but logic implies all checkboxes needed
       const allChecked = requiredDocs.every((d: any) => {
         const id = String(d.id || d.shortname || d.label || d.name || requiredDocs.indexOf(d));
         return acknowledged.includes(id);
       });
-
       if (!allChecked) {
-        setError("acknowledgedDocIds", { type: "manual", message: "Please confirmation all required documents." });
-        return; // Validation failed, don't save draft
+        setError("acknowledgedDocIds", { type: "manual", message: "Please confirm all required documents." });
+        return;
       }
     } else if (currentStepKey === "documents") {
       clearErrors("acknowledgedDocIds");
     }
 
-    // Validation passed, move to next step and save draft
-    setStepIndex((i) => {
-      const ni = Math.min(i + 1, STEPS.length - 1);
-      // Save draft with the new step index
-      saveDraft(ni);
-      return ni;
-    });
-  };
+    // Move step immediately (no async inside setStepIndex = no flicker)
+    const nextIndex = Math.min(stepIndex + 1, STEPS.length - 1);
+    setStepIndex(nextIndex);
+    // Save draft in background after state update
+    saveDraft(nextIndex);
+  }, [currentStepKey, stepIndex, trigger, getValues, hasDocumentRequirements, scholarship, setError, clearErrors, saveDraft]);
 
-  const back = () =>
-    setStepIndex((i) => {
-      const ni = Math.max(0, i - 1);
-      return ni;
-    });
+  const back = useCallback(() => {
+    setStepIndex((i) => Math.max(0, i - 1));
+  }, []);
 
   const findStepForField = (fieldName: keyof FormValues): number => {
     const stepKey = (Object.keys(FIELDS_BY_STEP) as (keyof typeof FIELDS_BY_STEP)[])
@@ -548,22 +487,24 @@ export default function ApplyFormScreen() {
 
   const STEP_ITEM_WIDTH = 140;
 
-
   useEffect(() => {
     const screenW = Dimensions.get('window').width;
     const scrollViewportW = screenW - 40;
     const stepCenter = (stepIndex * STEP_ITEM_WIDTH) + (STEP_ITEM_WIDTH / 2);
     const scrollX = stepCenter - (scrollViewportW / 2);
-
     stepperScrollRef.current?.scrollTo({ x: Math.max(0, scrollX), animated: true });
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   }, [stepIndex]);
 
-  const Stepper = () => {
+  const Section = memo(({ children }: { children: React.ReactNode }) => (
+    <MotiView from={{ opacity: 0, translateY: 10 }} animate={{ opacity: 1, translateY: 0 }} transition={{ type: "timing", duration: 250 }}>
+      <View style={[styles.formCard, { backgroundColor: isDark ? colors.card : "#FFFFFF", borderColor: isDark ? colors.border : "rgba(0,0,0,0.06)", borderWidth: 1 }]}>{children}</View>
+    </MotiView>
+  ));
+
+  const Stepper = memo(() => {
     const totalWidth = STEP_ITEM_WIDTH * STEPS.length;
-
     return (
-
       <ScrollView
         ref={stepperScrollRef}
         horizontal
@@ -574,11 +515,8 @@ export default function ApplyFormScreen() {
           {STEPS.map((step, index) => {
             const isCompleted = index < stepIndex;
             const isCurrent = index === stepIndex;
-            const isPending = index > stepIndex;
-
             return (
               <View key={step.key} style={{ width: STEP_ITEM_WIDTH, alignItems: "center" }}>
-                {/* Connector Line (before step) */}
                 {index > 0 && (
                   <View
                     style={{
@@ -587,14 +525,10 @@ export default function ApplyFormScreen() {
                       top: 16,
                       width: STEP_ITEM_WIDTH - 32,
                       height: 2,
-                      backgroundColor: isCompleted
-                        ? "#10B981"
-                        : (isDark ? "rgba(255,255,255,0.15)" : "#E5E7EB"),
+                      backgroundColor: isCompleted ? "#10B981" : (isDark ? "rgba(255,255,255,0.15)" : "#E5E7EB"),
                     }}
                   />
                 )}
-
-                {/* Step Circle */}
                 <MotiView
                   from={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
@@ -605,17 +539,9 @@ export default function ApplyFormScreen() {
                       width: isCurrent ? 36 : 32,
                       height: isCurrent ? 36 : 32,
                       borderRadius: isCurrent ? 18 : 16,
-                      backgroundColor: isCompleted
-                        ? "#10B981"
-                        : isCurrent
-                          ? colors.primary
-                          : (isDark ? colors.surface : "#F3F4F6"),
+                      backgroundColor: isCompleted ? "#10B981" : isCurrent ? colors.primary : (isDark ? colors.surface : "#F3F4F6"),
                       borderWidth: 2,
-                      borderColor: isCompleted
-                        ? "#10B981"
-                        : isCurrent
-                          ? colors.primary
-                          : (isDark ? "rgba(255,255,255,0.2)" : "#D1D5DB"),
+                      borderColor: isCompleted ? "#10B981" : isCurrent ? colors.primary : (isDark ? "rgba(255,255,255,0.2)" : "#D1D5DB"),
                       justifyContent: "center",
                       alignItems: "center",
                       shadowColor: isCurrent ? colors.primary : "#000",
@@ -628,52 +554,26 @@ export default function ApplyFormScreen() {
                     {isCompleted ? (
                       <Ionicons name="checkmark" size={18} color="#FFFFFF" />
                     ) : (
-                      <Text
-                        style={{
-                          fontSize: isCurrent ? 14 : 13,
-                          fontWeight: "700",
-                          color: isCurrent
-                            ? "#FFFFFF"
-                            : (isDark ? colors.textSecondary : "#9CA3AF"),
-                        }}
-                      >
+                      <Text style={{ fontSize: isCurrent ? 14 : 13, fontWeight: "700", color: isCurrent ? "#FFFFFF" : (isDark ? colors.textSecondary : "#9CA3AF") }}>
                         {index + 1}
                       </Text>
                     )}
                   </View>
-
-                  {/* Pulsing animation for current step */}
                   {isCurrent && (
                     <MotiView
                       from={{ scale: 1, opacity: 0.5 }}
                       animate={{ scale: 1.3, opacity: 0 }}
-                      transition={{
-                        type: "timing",
-                        duration: 1500,
-                        loop: true,
-                      }}
-                      style={{
-                        position: "absolute",
-                        width: 36,
-                        height: 36,
-                        borderRadius: 18,
-                        backgroundColor: colors.primary,
-                      }}
+                      transition={{ type: "timing", duration: 1500, loop: true }}
+                      style={{ position: "absolute", width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primary }}
                     />
                   )}
                 </MotiView>
-
-                {/* Step Label */}
                 <Text
                   style={{
                     marginTop: 6,
                     fontSize: isCurrent ? 11 : 10,
                     fontWeight: isCurrent ? "700" : "600",
-                    color: isCompleted
-                      ? "#10B981"
-                      : isCurrent
-                        ? colors.primary
-                        : (isDark ? colors.textSecondary : "#6B7280"),
+                    color: isCompleted ? "#10B981" : isCurrent ? colors.primary : (isDark ? colors.textSecondary : "#6B7280"),
                     textAlign: "center",
                     maxWidth: STEP_ITEM_WIDTH - 20,
                   }}
@@ -686,15 +586,8 @@ export default function ApplyFormScreen() {
           })}
         </View>
       </ScrollView>
-
     );
-  };
-
-  const Section = ({ children }: { children: React.ReactNode }) => (
-    <MotiView from={{ opacity: 0, translateY: 10 }} animate={{ opacity: 1, translateY: 0 }} transition={{ type: "timing", duration: 250 }}>
-      <View style={[styles.formCard, { backgroundColor: isDark ? colors.card : "#FFFFFF", borderColor: isDark ? colors.border : "rgba(0,0,0,0.06)", borderWidth: 1 }]}>{children}</View>
-    </MotiView>
-  );
+  });
 
   if (loading) {
     return (
@@ -1829,25 +1722,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  background: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    bottom: 0,
-    right: 0,
-  },
   scrollView: {
     flex: 1,
-  },
-  stepperContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 16,
-  },
-  stepperInner: {
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 10,
   },
   formContainer: {
     paddingHorizontal: 20,
@@ -1876,32 +1752,11 @@ const styles = StyleSheet.create({
   },
   footerBtn: { flex: 1 },
   footerPrimary: { flex: 1.2 },
-  docItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  docName: {
-    flex: 1,
-    marginLeft: 8,
-  },
-  docRemove: {
-    padding: 6,
-    marginLeft: 8,
-  },
   errorTextInline: {
     color: "#EF4444",
     fontSize: 13,
     marginTop: 6,
     fontWeight: "500",
-  },
-  summaryTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 12,
   },
   summaryRow: {
     flexDirection: "row",
@@ -1929,46 +1784,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     lineHeight: 20,
-  },
-  docReqItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderStyle: 'dashed'
-  },
-  reqDocLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  uploadedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  uploadedText: {
-    fontSize: 12,
-    color: '#4CAF50',
-    maxWidth: 150
-  },
-  uploadSmallBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6
-  },
-  existingDocRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 6
-  },
-  existingDocText: {
-    fontSize: 12
   },
   noDocNote: {
     flexDirection: "row",

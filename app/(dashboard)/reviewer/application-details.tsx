@@ -68,6 +68,21 @@ interface ApplicationDetails {
   timemodified: string;
 }
 
+interface ParsedApplicationData {
+  application_text?: string;
+  fullname?: string;
+  email?: string;
+  phone?: string;
+  student_id?: string;
+  institution?: string;
+  major?: string;
+  graduation_date?: string;
+  current_year?: string;
+  gpa?: string;
+  activities?: string;
+  financial_info?: string;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getStatusCfg(status: ApplicationDetails["status"]) {
   switch (status) {
@@ -110,12 +125,40 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
+function parseApplicationText(text: string | null): ParsedApplicationData | null {
+  if (!text) return null;
+  try {
+    const trimmed = text.trim();
+    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+      const parsed = JSON.parse(trimmed);
+      if (typeof parsed === "object" && parsed !== null) {
+        return parsed;
+      }
+    }
+  } catch {
+    // Not valid JSON
+  }
+  return null;
+}
+
 function getFileIcon(mimetype: string): "image-outline" | "document-text-outline" | "videocam-outline" | "document-outline" {
   if (mimetype.includes("image")) return "image-outline";
   if (mimetype.includes("pdf")) return "document-text-outline";
   if (mimetype.includes("video")) return "videocam-outline";
   return "document-outline";
 }
+
+const FIELD_CONFIGS: Record<string, { icon: any; color: string; bg: string; darkBg: string }> = {
+  phone: { icon: "call-outline", color: "#3B82F6", bg: "#EFF6FF", darkBg: "rgba(59,130,246,0.15)" },
+  institution: { icon: "business-outline", color: "#10B981", bg: "#ECFDF5", darkBg: "rgba(16,185,129,0.15)" },
+  major: { icon: "school-outline", color: "#6366F1", bg: "#EEF2FF", darkBg: "rgba(99,102,241,0.15)" },
+  gpa: { icon: "stats-chart-outline", color: "#F59E0B", bg: "#FFFBEB", darkBg: "rgba(245,158,11,0.15)" },
+  financial_info: { icon: "wallet-outline", color: "#8B5CF6", bg: "#F5F3FF", darkBg: "rgba(139,92,246,0.15)" },
+  fullname: { icon: "person-outline", color: "#EC4899", bg: "#FDF2F8", darkBg: "rgba(236,72,153,0.15)" },
+  graduation_date: { icon: "time-outline", color: "#64748B", bg: "#F8FAFC", darkBg: "rgba(100,116,139,0.15)" },
+  current_year: { icon: "calendar-outline", color: "#64748B", bg: "#F8FAFC", darkBg: "rgba(100,116,139,0.15)" },
+  activities: { icon: "sparkles-outline", color: "#06B6D4", bg: "#ECFEFF", darkBg: "rgba(6,182,212,0.15)" },
+};
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function ReviewerApplicationDetailsScreen() {
@@ -309,13 +352,61 @@ export default function ReviewerApplicationDetailsScreen() {
           </View>
         </View>
 
-        {/* ── Application Statement ── */}
-        {application.application_text && application.application_text.trim() ? (
-          <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
-            <SectionHeader icon="document-text-outline" iconBg={isDark ? "rgba(139,92,246,0.15)" : "#F3E8FF"} iconColor="#8B5CF6" title="Application Statement" textColor={colors.text} />
-            <Text style={[styles.statement, { color: colors.text }]}>{application.application_text}</Text>
-          </View>
-        ) : null}
+        {/* ── Application Statement / Details ── */}
+        {application.application_text && application.application_text.trim() ? (() => {
+          const parsed = parseApplicationText(application.application_text);
+          if (parsed) {
+            return (
+              <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
+                <SectionHeader
+                  icon="document-text-outline"
+                  iconBg={isDark ? "rgba(139,92,246,0.15)" : "#F3E8FF"}
+                  iconColor="#8B5CF6"
+                  title="Application Details"
+                  textColor={colors.text}
+                />
+
+                {parsed.application_text?.trim() ? (
+                  <View style={[styles.parsedNoteBox, { backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "#F8FAFC", borderColor: border }]}>
+                    <Text style={[styles.statement, { color: colors.text }]}>{parsed.application_text}</Text>
+                  </View>
+                ) : null}
+
+                <View style={styles.parsedDetailsGrid}>
+                  {Object.entries(parsed).map(([key, value]) => {
+                    if (key === "application_text" || !value || value === "[]") return null;
+                    const config = FIELD_CONFIGS[key] || { icon: "information-circle-outline", color: "#64748B", bg: "#F8FAFC", darkBg: "rgba(100,116,139,0.1)" };
+                    const label = key.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+
+                    return (
+                      <View key={key} style={[styles.parsedDetailRow, { borderBottomColor: border }]}>
+                        <View style={[styles.detailIconBox, { backgroundColor: isDark ? config.darkBg : config.bg }]}>
+                          <Ionicons name={config.icon} size={16} color={config.color} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.parsedDetailLabel, { color: subText }]}>{label}</Text>
+                          <Text style={[styles.parsedDetailValue, { color: colors.text }]}>{value}</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            );
+          }
+          return (
+            <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
+              <SectionHeader
+                icon="document-text-outline"
+                iconBg={isDark ? "rgba(139,92,246,0.15)" : "#F3E8FF"}
+                iconColor="#8B5CF6"
+                title="Application Statement"
+                textColor={colors.text}
+              />
+              <Text style={[styles.statement, { color: colors.text }]}>{application.application_text}</Text>
+            </View>
+          );
+        })() : null}
 
         {/* ── Documents Progress ── */}
         {application.documents.length > 0 && (
@@ -645,6 +736,12 @@ const styles = StyleSheet.create({
 
   // Statement
   statement: { fontSize: 14, lineHeight: 22, fontWeight: "400" },
+  parsedNoteBox: { padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 16 },
+  parsedDetailsGrid: { gap: 12, marginTop: 10 },
+  parsedDetailRow: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 12, borderBottomWidth: 1 },
+  detailIconBox: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  parsedDetailLabel: { fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 },
+  parsedDetailValue: { fontSize: 14, fontWeight: "700" },
 
   // Progress bar
   progressBg: { height: 6, borderRadius: 3, overflow: "hidden", marginBottom: 6 },
