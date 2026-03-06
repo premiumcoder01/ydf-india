@@ -713,7 +713,7 @@ export default function ApplyFormScreen() {
       <AppHeader title="Apply for Scholarship" onBack={() => router.back()} />
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-        <ScrollView ref={scrollRef} style={styles.scrollView} contentContainerStyle={{ paddingBottom: 20, paddingTop: 20 }} showsVerticalScrollIndicator={false}>
+        <ScrollView ref={scrollRef} style={styles.scrollView} contentContainerStyle={{ paddingBottom: 200, paddingTop: 20 }} showsVerticalScrollIndicator={false}>
           <Stepper />
 
           <View style={styles.formContainer}>
@@ -850,22 +850,7 @@ export default function ApplyFormScreen() {
                     }}>
                       <View style={{ paddingHorizontal: 20, marginBottom: 12 }}>
                         <Text style={{ fontSize: 18, fontWeight: "700", color: colors.text, marginBottom: 8 }}>Your academic data</Text>
-                        {/* <TextInput
-                          placeholder="Search course, institution, major..."
-                          placeholderTextColor={colors.textSecondary}
-                          value={academicModalSearch}
-                          onChangeText={setAcademicModalSearch}
-                          style={{
-                            height: 44,
-                            borderRadius: 10,
-                            borderWidth: 1,
-                            borderColor: colors.border,
-                            paddingHorizontal: 14,
-                            fontSize: 15,
-                            color: colors.text,
-                            backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#f8f8f8",
-                          }}
-                        /> */}
+
                       </View>
                       <FlatList
                         data={filteredAcademicList}
@@ -1336,9 +1321,6 @@ export default function ApplyFormScreen() {
                 </View>
               </Section>
             )}
-
-
-
 
             {currentStepKey === "documents" && (
               <Section>

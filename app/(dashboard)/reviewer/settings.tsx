@@ -1,10 +1,15 @@
 import { useTheme } from "@/context/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import { MotiView } from "moti";
 import React from "react";
 import {
+  Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   View
@@ -15,6 +20,7 @@ import { ReviewerHeader } from "../../../components";
 export default function ReviewerSettingsScreen() {
   const inset = useSafeAreaInsets();
   const { theme, toggleTheme, isDark, colors } = useTheme();
+  const appVersion = Constants.expoConfig?.version;
 
 
 
@@ -38,21 +44,30 @@ export default function ReviewerSettingsScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ReviewerHeader
         title="Settings"
-        subtitle="App preferences and preferences"
+        subtitle="Manage your app preferences"
       />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: inset.bottom + 20 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: inset.bottom + 40 }]}
+      >
         {/* App Preferences */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>App Preferences</Text>
 
-          <View style={[styles.settingsCard, { backgroundColor: colors.surface }]}>
+          <LinearGradient
+            colors={isDark ? ["#1E293B", "#0F172A"] : ["#FFFFFF", "#F8FAFC"]}
+            style={[styles.settingsCardPremium, { borderColor: isDark ? "#334155" : "#E2E8F0" }]}
+          >
             {/* Theme Toggle */}
-            <View style={styles.settingItem}>
+            <View style={styles.settingItemPremium}>
               <View style={styles.settingLeft}>
-                <View style={[styles.settingIcon, { backgroundColor: isDark ? "rgba(156, 39, 176, 0.2)" : "#f5f5f5" }]}>
-                  <Ionicons name="moon-outline" size={20} color="#9C27B0" />
-                </View>
+                <LinearGradient
+                  colors={isDark ? ["rgba(156, 39, 176, 0.3)", "rgba(156, 39, 176, 0.1)"] : ["#F3E5F5", "#EDE7F6"]}
+                  style={styles.settingIconPremium}
+                >
+                  <Ionicons name={isDark ? "moon" : "sunny"} size={20} color="#9C27B0" />
+                </LinearGradient>
                 <View style={styles.settingContent}>
                   <Text style={[styles.settingTitle, { color: colors.text }]}>Theme</Text>
                   <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>
@@ -60,96 +75,115 @@ export default function ReviewerSettingsScreen() {
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity
-                style={styles.themeToggle}
-                onPress={toggleTheme}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.themeToggleBg, isDark && styles.themeToggleBgActive]}>
-                  <View style={[styles.themeToggleThumb, isDark && styles.themeToggleThumbActive]} />
-                </View>
-              </TouchableOpacity>
+              <Switch
+                value={isDark}
+                onValueChange={toggleTheme}
+                trackColor={{ false: "#CBD5E1", true: "#6366F1" }}
+                thumbColor={Platform.OS === 'ios' ? undefined : "#FFFFFF"}
+                ios_backgroundColor="#CBD5E1"
+              />
             </View>
-          </View>
+          </LinearGradient>
         </View>
 
         {/* Support & Help */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Support & Help</Text>
 
-          <View style={[styles.settingsCard, { backgroundColor: colors.surface }]}>
-            <TouchableOpacity style={styles.settingItem} onPress={handleHelpSupport} activeOpacity={0.7}>
+          <LinearGradient
+            colors={isDark ? ["#1E293B", "#0F172A"] : ["#FFFFFF", "#F8FAFC"]}
+            style={[styles.settingsCardPremium, { borderColor: isDark ? "#334155" : "#E2E8F0" }]}
+          >
+            <TouchableOpacity style={styles.settingItemPremium} onPress={handleHelpSupport} activeOpacity={0.7}>
               <View style={styles.settingLeft}>
-                <View style={[styles.settingIcon, { backgroundColor: isDark ? "rgba(33, 150, 243, 0.2)" : "#f5f5f5" }]}>
-                  <Ionicons name="help-circle-outline" size={20} color="#2196F3" />
-                </View>
+                <LinearGradient
+                  colors={isDark ? ["rgba(33, 150, 243, 0.3)", "rgba(33, 150, 243, 0.1)"] : ["#E3F2FD", "#E1F5FE"]}
+                  style={styles.settingIconPremium}
+                >
+                  <Ionicons name="help-circle" size={20} color="#2196F3" />
+                </LinearGradient>
                 <View style={styles.settingContent}>
                   <Text style={[styles.settingTitle, { color: colors.text }]}>Help & Support</Text>
                   <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>FAQs and documentation</Text>
                 </View>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+              <Ionicons name="chevron-forward" size={18} color={isDark ? "#475569" : "#CBD5E1"} />
             </TouchableOpacity>
 
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View style={[styles.premiumDivider, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)" }]} />
 
-            <TouchableOpacity style={styles.settingItem} onPress={handleContactSupport} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.settingItemPremium} onPress={handleContactSupport} activeOpacity={0.7}>
               <View style={styles.settingLeft}>
-                <View style={[styles.settingIcon, { backgroundColor: isDark ? "rgba(255, 152, 0, 0.2)" : "#f5f5f5" }]}>
-                  <Ionicons name="mail-outline" size={20} color="#FF9800" />
-                </View>
+                <LinearGradient
+                  colors={isDark ? ["rgba(255, 152, 0, 0.3)", "rgba(255, 152, 0, 0.1)"] : ["#FFF3E0", "#FFE0B2"]}
+                  style={styles.settingIconPremium}
+                >
+                  <Ionicons name="mail" size={20} color="#FF9800" />
+                </LinearGradient>
                 <View style={styles.settingContent}>
                   <Text style={[styles.settingTitle, { color: colors.text }]}>Contact Support</Text>
                   <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Raise a support ticket</Text>
                 </View>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+              <Ionicons name="chevron-forward" size={18} color={isDark ? "#475569" : "#CBD5E1"} />
             </TouchableOpacity>
-          </View>
+          </LinearGradient>
         </View>
 
         {/* Legal & About */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Legal & About</Text>
 
-          <View style={[styles.settingsCard, { backgroundColor: colors.surface }]}>
-            <TouchableOpacity style={styles.settingItem} onPress={handleTermsConditions} activeOpacity={0.7}>
+          <LinearGradient
+            colors={isDark ? ["#1E293B", "#0F172A"] : ["#FFFFFF", "#F8FAFC"]}
+            style={[styles.settingsCardPremium, { borderColor: isDark ? "#334155" : "#E2E8F0" }]}
+          >
+            <TouchableOpacity style={styles.settingItemPremium} onPress={handleTermsConditions} activeOpacity={0.7}>
               <View style={styles.settingLeft}>
-                <View style={[styles.settingIcon, { backgroundColor: isDark ? "rgba(102, 102, 102, 0.2)" : "#f5f5f5" }]}>
-                  <Ionicons name="document-text-outline" size={20} color="#666" />
-                </View>
+                <LinearGradient
+                  colors={isDark ? ["rgba(100, 116, 139, 0.3)", "rgba(100, 116, 139, 0.1)"] : ["#F1F5F9", "#E2E8F0"]}
+                  style={styles.settingIconPremium}
+                >
+                  <Ionicons name="document-text" size={20} color="#64748B" />
+                </LinearGradient>
                 <View style={styles.settingContent}>
                   <Text style={[styles.settingTitle, { color: colors.text }]}>Terms & Conditions</Text>
                   <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Read our terms of service</Text>
                 </View>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+              <Ionicons name="chevron-forward" size={18} color={isDark ? "#475569" : "#CBD5E1"} />
             </TouchableOpacity>
 
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View style={[styles.premiumDivider, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)" }]} />
 
-            <TouchableOpacity style={styles.settingItem} onPress={handleAbout} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.settingItemPremium} onPress={handleAbout} activeOpacity={0.7}>
               <View style={styles.settingLeft}>
-                <View style={[styles.settingIcon, { backgroundColor: isDark ? "rgba(76, 175, 80, 0.2)" : "#f5f5f5" }]}>
-                  <Ionicons name="information-circle-outline" size={20} color="#4CAF50" />
-                </View>
+                <LinearGradient
+                  colors={isDark ? ["rgba(76, 175, 80, 0.3)", "rgba(76, 175, 80, 0.1)"] : ["#E8F5E9", "#C8E6C9"]}
+                  style={styles.settingIconPremium}
+                >
+                  <Ionicons name="information-circle" size={20} color="#4CAF50" />
+                </LinearGradient>
                 <View style={styles.settingContent}>
                   <Text style={[styles.settingTitle, { color: colors.text }]}>About</Text>
                   <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>App version and team info</Text>
                 </View>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+              <Ionicons name="chevron-forward" size={18} color={isDark ? "#475569" : "#CBD5E1"} />
             </TouchableOpacity>
-          </View>
+          </LinearGradient>
         </View>
 
         {/* App Version */}
-        <View style={styles.section}>
-          <View style={[styles.versionCard, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.versionText, { color: colors.textSecondary }]}>App Version</Text>
-            <Text style={[styles.versionNumber, { color: colors.text }]}>1.0.0</Text>
-          </View>
-        </View>
+        <MotiView
+          from={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'timing', duration: 800 }}
+          style={styles.versionContainer}
+        >
+          <Text style={[styles.versionLabel, { color: colors.textSecondary }]}>App Version</Text>
+          <Text style={[styles.versionValue, { color: colors.text }]}>{appVersion}</Text>
+        </MotiView>
       </ScrollView>
     </View>
   );
@@ -159,41 +193,47 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
-    flex: 1,
+  scrollContent: {
     padding: 20,
   },
   section: {
-    marginBottom: 20,
+    marginBottom: 32,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 12,
+    fontSize: 16,
+    fontWeight: "800",
+    marginBottom: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+    opacity: 0.6,
+    marginLeft: 4,
   },
-  settingsCard: {
-    borderRadius: 16,
+  settingsCardPremium: {
+    borderRadius: 24,
+    borderWidth: 1,
+    overflow: 'hidden',
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 5,
   },
-  settingItem: {
+  settingItemPremium: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: 20,
+    padding: 16,
+    minHeight: 80,
   },
   settingLeft: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
   },
-  settingIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  settingIconPremium: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 16,
@@ -202,61 +242,40 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingTitle: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 17,
+    fontWeight: "700",
     marginBottom: 2,
+    letterSpacing: -0.3,
   },
   settingSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: "500",
+    opacity: 0.8,
   },
-  divider: {
+  premiumDivider: {
     height: 1,
-    marginLeft: 76,
+    marginHorizontal: 16,
   },
-  themeToggle: {
-    padding: 4,
-  },
-  themeToggleBg: {
-    width: 50,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#e0e0e0",
-    justifyContent: "center",
-    paddingHorizontal: 2,
-  },
-  themeToggleBgActive: {
-    backgroundColor: "#6366F1",
-  },
-  themeToggleThumb: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#fff",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  themeToggleThumbActive: {
-    transform: [{ translateX: 22 }],
-  },
-  versionCard: {
-    borderRadius: 16,
-    padding: 20,
+  versionContainer: {
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    justifyContent: "center",
+    marginTop: 20,
+    paddingVertical: 24,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+    borderStyle: 'dashed',
   },
-  versionText: {
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  versionNumber: {
-    fontSize: 18,
+  versionLabel: {
+    fontSize: 12,
     fontWeight: "700",
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+    marginBottom: 8,
+  },
+  versionValue: {
+    fontSize: 20,
+    fontWeight: "900",
+    letterSpacing: -0.5,
   },
 });

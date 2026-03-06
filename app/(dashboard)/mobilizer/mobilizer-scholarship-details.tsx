@@ -16,20 +16,17 @@ import {
     Alert,
     FlatList,
     Modal,
-    Platform,
     ScrollView,
     StatusBar,
     StyleSheet,
     Text,
     TouchableOpacity,
-    UIManager,
     View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-    UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+// LayoutAnimation is enabled by default in the new architecture
+// No need for UIManager.setLayoutAnimationEnabledExperimental(true) on Android
 
 // Helper function to strip HTML tags
 const stripHtml = (html: string): string => {

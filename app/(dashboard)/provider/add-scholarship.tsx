@@ -701,7 +701,6 @@ export default function ProviderAddScholarshipScreen() {
           </View>
           <Text style={[styles.cardTitle, { color: colors.text }]}>Financials</Text>
         </View>
-
         <View style={styles.row}>
           <View style={{ flex: 1, marginRight: 8 }}>
             <CustomTextInput

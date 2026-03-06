@@ -219,70 +219,79 @@ export default function ApplicationReviewerDashboard() {
         <MotiView
           from={{ opacity: 0, translateY: 20 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 600 }}
+          transition={{ type: 'timing', duration: 800 }}
           style={styles.heroSection}
         >
-          <LinearGradient
-            colors={isDark ? ["#000", "#334155"] : ["#FFFFFF", "#F8FAFC"]}
-            style={[styles.chartCard, { borderColor: isDark ? "#334155" : "#E2E8F0" }]}
-          >
-            <View style={styles.chartHeader}>
-              <View>
-                <Text style={[styles.chartTitle, { color: colors.text }]}>Application Status</Text>
-                <Text style={[styles.chartSubtitle, { color: colors.textSecondary }]}>Overview of your assigned tasks</Text>
-              </View>
-              <View style={[styles.totalBadge, { backgroundColor: isDark ? "#334155" : "#F1F5F9" }]}>
-                <Text style={[styles.totalBadgeText, { color: colors.text }]}>{stats.total_applications_assigned} Total</Text>
-              </View>
-            </View>
-
-            <View style={styles.chartContent}>
-              {/* Donut Chart */}
-              <View style={styles.chartWrapper}>
-                <PieChart
-                  data={chartData}
-                  donut
-                  radius={60}
-                  innerRadius={45}
-                  innerCircleColor="transparent"
-                  centerLabelComponent={() => {
-                    return (
-                      <View style={{ justifyContent: 'center', alignItems: 'center' }}>
-                        <Text style={{ fontSize: 22, color: colors.text, fontWeight: 'bold' }}>
-                          {isChartEmpty || totalAssigned === 0 ? '0%' : Math.round((totalProcessed / totalAssigned) * 100) + '%'}
-                        </Text>
-                        <Text style={{ fontSize: 10, color: colors.textSecondary }}>Done</Text>
-                      </View>
-                    );
-                  }}
-                />
+          <View style={[styles.premiumCardContainer, { shadowColor: isDark ? colors.primary : "#000" }]}>
+            <LinearGradient
+              colors={isDark ? ["#1E293B", "#0F172A"] : ["#FFFFFF", "#F1F5F9"]}
+              style={[styles.chartCard, { borderColor: isDark ? "#334155" : "#E2E8F0" }]}
+            >
+              <View style={styles.chartHeader}>
+                <View>
+                  <Text style={[styles.chartTitle, { color: colors.text }]}>Performance Insights</Text>
+                  <Text style={[styles.chartSubtitle, { color: colors.textSecondary }]}>Real-time application tracking</Text>
+                </View>
+                <LinearGradient
+                  colors={isDark ? ["#475569", "#334155"] : ["#E2E8F0", "#F1F5F9"]}
+                  style={styles.totalBadgePremium}
+                >
+                  <Text style={[styles.totalBadgeText, { color: colors.text }]}>{stats.total_applications_assigned}</Text>
+                  <Text style={[styles.totalBadgeSubtext, { color: colors.textSecondary }]}>TOTAL</Text>
+                </LinearGradient>
               </View>
 
-              {/* Legend */}
-              <View style={styles.legendContainer}>
-                <ChartLegend color="#FF9800" label="Pending" value={stats.pending_review} isDark={isDark} />
-                <ChartLegend color="#4CAF50" label="Approved" value={stats.approved} isDark={isDark} />
-                <ChartLegend color="#F44336" label="Rejected" value={stats.rejected} isDark={isDark} />
+              <View style={styles.chartContent}>
+                {/* Donut Chart with shadow/glow effect */}
+                <View style={styles.chartWrapperPremium}>
+                  <View style={styles.chartGlow}>
+                    <PieChart
+                      data={chartData}
+                      donut
+                      radius={70}
+                      innerRadius={55}
+                      innerCircleColor={isDark ? "#1E293B" : "#FFFFFF"}
+                      centerLabelComponent={() => {
+                        const percent = isChartEmpty || totalAssigned === 0 ? 0 : Math.round((totalProcessed / totalAssigned) * 100);
+                        return (
+                          <View style={{ justifyContent: 'center', alignItems: 'center' }}>
+                            <Text style={{ fontSize: 26, color: colors.text, fontWeight: '800', letterSpacing: -1 }}>
+                              {percent}%
+                            </Text>
+                            <Text style={{ fontSize: 10, color: colors.textSecondary, fontWeight: '700', textTransform: 'uppercase' }}>Done</Text>
+                          </View>
+                        );
+                      }}
+                    />
+                  </View>
+                </View>
+
+                {/* Refined Legend */}
+                <View style={styles.legendContainerPremium}>
+                  <ChartLegend color="#F59E0B" label="Pending" value={stats.pending_review} isDark={isDark} />
+                  <ChartLegend color="#10B981" label="Approved" value={stats.approved} isDark={isDark} />
+                  <ChartLegend color="#EF4444" label="Rejected" value={stats.rejected} isDark={isDark} />
+                </View>
               </View>
-            </View>
-          </LinearGradient>
+            </LinearGradient>
+          </View>
         </MotiView>
 
-        {/* ─── Key Metrics Grid ─── */}
-        <View style={styles.gridContainer}>
+        {/* ─── Key Metrics List (Vertical) ─── */}
+        <View style={styles.verticalMetricsContainer}>
           <MetricCard
             title="Verified Today"
             value={stats.verified_today}
-            icon="checkmark-done-circle"
+            icon="flash"
             color="#10B981"
             delay={100}
             isDark={isDark}
             colors={colors}
           />
           <MetricCard
-            title="Weekly Verified"
+            title="Weekly Review"
             value={stats.verified_this_week}
-            icon="calendar"
+            icon="trending-up"
             color="#6366F1"
             delay={200}
             isDark={isDark}
@@ -291,7 +300,7 @@ export default function ApplicationReviewerDashboard() {
           <MetricCard
             title="Bookmarked"
             value={stats.bookmarked}
-            icon="bookmark"
+            icon="star"
             color="#F59E0B"
             delay={300}
             isDark={isDark}
@@ -304,7 +313,10 @@ export default function ApplicationReviewerDashboard() {
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Applications</Text>
         </View>
 
-        <View style={[styles.listContainer, { backgroundColor: isDark ? colors.card : "#FFFFFF", borderColor: colors.border }]}>
+        <LinearGradient
+          colors={isDark ? ["#1E293B", "#0F172A"] : ["#FFFFFF", "#F8FAFC"]}
+          style={[styles.listContainerPremium, { borderColor: isDark ? "#334155" : "#E2E8F0" }]}
+        >
           {recentApplications.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="folder-open-outline" size={48} color={colors.textSecondary} style={{ opacity: 0.5, marginBottom: 10 }} />
@@ -331,7 +343,7 @@ export default function ApplicationReviewerDashboard() {
               </TouchableOpacity>
             ))
           )}
-        </View>
+        </LinearGradient>
 
         {/* ─── Quick Actions ─── */}
         <View style={styles.sectionHeader}>
@@ -342,22 +354,19 @@ export default function ApplicationReviewerDashboard() {
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => router.push("/(dashboard)/reviewer/applications")}
-            style={[
-              styles.featureActionCard,
-              {
-                backgroundColor: isDark ? colors.card : "#FFFFFF",
-                borderColor: colors.border
-              }
-            ]}
           >
-            <View style={[styles.featureIconBox, { backgroundColor: "#6366F120" }]}>
-              <Ionicons name="layers" size={24} color="#6366F1" />
-            </View>
-            <View style={styles.featureContentBox}>
-              <Text style={[styles.featureTitle, { color: colors.text }]}>View All Scholarships</Text>
-
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+            <LinearGradient
+              colors={isDark ? ["#1E293B", "#0F172A"] : ["#FFFFFF", "#F8FAFC"]}
+              style={[styles.featureActionCardPremium, { borderColor: isDark ? "#334155" : "#E2E8F0" }]}
+            >
+              <View style={[styles.featureIconBox, { backgroundColor: "#6366F120" }]}>
+                <Ionicons name="layers" size={24} color="#6366F1" />
+              </View>
+              <View style={styles.featureContentBox}>
+                <Text style={[styles.featureTitle, { color: colors.text }]}>View All Scholarships</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+            </LinearGradient>
           </TouchableOpacity>
         </View>
 
@@ -370,10 +379,12 @@ export default function ApplicationReviewerDashboard() {
 
 function ChartLegend({ color, label, value, isDark }: { color: string, label: string, value: number, isDark: boolean }) {
   return (
-    <View style={styles.legendRow}>
-      <View style={[styles.dot, { backgroundColor: color }]} />
-      <Text style={[styles.legendLabel, { color: isDark ? "#94A3B8" : "#64748B" }]}>{label}</Text>
-      <Text style={[styles.legendValue, { color: isDark ? "#F8FAFC" : "#0F172A" }]}>{value}</Text>
+    <View style={[styles.legendRowPremium, { backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)" }]}>
+      <View style={styles.legendInfo}>
+        <View style={[styles.dotPremium, { backgroundColor: color, shadowColor: color }]} />
+        <Text style={[styles.legendLabelPremium, { color: isDark ? "#94A3B8" : "#64748B" }]}>{label}</Text>
+      </View>
+      <Text style={[styles.legendValuePremium, { color: isDark ? "#F8FAFC" : "#0F172A" }]}>{value}</Text>
     </View>
   )
 }
@@ -381,16 +392,28 @@ function ChartLegend({ color, label, value, isDark }: { color: string, label: st
 function MetricCard({ title, value, icon, color, delay, isDark, colors }: any) {
   return (
     <MotiView
-      from={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ type: 'timing', duration: 500, delay }}
-      style={[styles.metricCard, { backgroundColor: isDark ? colors.card : "#FFFFFF", borderColor: colors.border }]}
+      from={{ opacity: 0, translateX: -20 }}
+      animate={{ opacity: 1, translateX: 0 }}
+      transition={{ type: 'timing', duration: 600, delay }}
+      style={{ width: '100%', marginBottom: 12 }}
     >
-      <View style={[styles.metricIcon, { backgroundColor: color + "15" }]}>
-        <Ionicons name={icon} size={20} color={color} />
-      </View>
-      <Text style={[styles.metricValue, { color: colors.text }]}>{value}</Text>
-      <Text style={[styles.metricTitle, { color: colors.textSecondary }]}>{title}</Text>
+      <LinearGradient
+        colors={isDark ? ["#1E293B", "#0F172A"] : ["#FFFFFF", "#F8FAFC"]}
+        style={[styles.metricCardPremium, { borderColor: isDark ? "#334155" : "#E2E8F0" }]}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
+          <LinearGradient
+            colors={[color + "30", color + "10"]}
+            style={styles.metricIconPremium}
+          >
+            <Ionicons name={icon} size={22} color={color} />
+          </LinearGradient>
+          <View style={styles.metricTextContent}>
+            <Text style={[styles.metricTitlePremium, { color: colors.textSecondary }]}>{title}</Text>
+            <Text style={[styles.metricValuePremium, { color: colors.text }]}>{value}</Text>
+          </View>
+        </View>
+      </LinearGradient>
     </MotiView>
   );
 }
@@ -433,35 +456,102 @@ const styles = StyleSheet.create({
   avatar: { width: 40, height: 40, borderRadius: 20 },
   avatarPlaceholder: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, alignItems: "center", justifyContent: "center" },
 
-  heroSection: { paddingHorizontal: 20, marginBottom: 24 },
-  chartCard: {
-    borderRadius: 24, padding: 20, borderWidth: 1,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2
+  heroSection: { paddingHorizontal: 20, marginVertical: 20 },
+  premiumCardContainer: {
+    borderRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 8,
   },
-  chartHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 },
-  chartTitle: { fontSize: 18, fontWeight: "700", marginBottom: 4 },
-  chartSubtitle: { fontSize: 13 },
-  totalBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  totalBadgeText: { fontSize: 12, fontWeight: "600" },
-  chartContent: { flexDirection: "row", alignItems: "center" },
-  chartWrapper: { flex: 1, alignItems: "center", justifyContent: "center" },
-  legendContainer: { flex: 1, gap: 12, paddingLeft: 10 },
-  legendRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  dot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
-  legendLabel: { fontSize: 13, fontWeight: "500", flex: 1 },
-  legendValue: { fontSize: 14, fontWeight: "700" },
+  chartCard: {
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  chartHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 },
+  chartTitle: { fontSize: 20, fontWeight: "800", marginBottom: 2, letterSpacing: -0.5 },
+  chartSubtitle: { fontSize: 13, fontWeight: "500" },
+  totalBadgePremium: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  totalBadgeText: { fontSize: 18, fontWeight: "800", lineHeight: 20 },
+  totalBadgeSubtext: { fontSize: 8, fontWeight: "900", letterSpacing: 1 },
+  chartContent: { flexDirection: "row", alignItems: "center", gap: 20 },
+  chartWrapperPremium: { flex: 1.2, alignItems: "center", justifyContent: "center" },
+  chartGlow: {
+    shadowColor: "#6366F1",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+  },
+  legendContainerPremium: { flex: 1, gap: 10 },
+  legendRowPremium: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+  },
+  legendInfo: { flexDirection: "row", alignItems: "center", gap: 8 },
+  dotPremium: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+  },
+  legendLabelPremium: { fontSize: 12, fontWeight: "600" },
+  legendValuePremium: { fontSize: 13, fontWeight: "800" },
 
-  gridContainer: { flexDirection: "row", paddingHorizontal: 20, gap: 12, marginBottom: 30 },
-  metricCard: { flex: 1, borderRadius: 16, padding: 16, borderWidth: 1, alignItems: "center", justifyContent: "center", gap: 8 },
-  metricIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", marginBottom: 4 },
-  metricValue: { fontSize: 20, fontWeight: "800" },
-  metricTitle: { fontSize: 11, fontWeight: "600", textAlign: "center" },
+  verticalMetricsContainer: {
+    flexDirection: "column",
+    paddingHorizontal: 20,
+    gap: 12,
+    marginBottom: 32,
+    width: '100%',
+  },
+  metricCardPremium: {
+    width: '100%',
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 85,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  metricIconPremium: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 16,
+  },
+  metricTextContent: { flex: 1, gap: 2 },
+  metricValuePremium: { fontSize: 22, fontWeight: "800", letterSpacing: -0.5 },
+  metricTitlePremium: { fontSize: 11, fontWeight: "700", textTransform: 'uppercase', letterSpacing: 0.8, opacity: 0.7 },
 
   sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, marginBottom: 12 },
   sectionTitle: { fontSize: 18, fontWeight: "700" },
   viewAll: { fontSize: 13, fontWeight: "600" },
 
-  listContainer: { marginHorizontal: 20, borderRadius: 20, overflow: "hidden", borderWidth: 1, marginBottom: 30 },
+  listContainerPremium: { marginHorizontal: 20, borderRadius: 20, overflow: "hidden", borderWidth: 1, marginBottom: 30 },
   listItem: { flexDirection: "row", alignItems: "center", padding: 16, gap: 12 },
   listIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   listContent: { flex: 1 },
@@ -474,12 +564,13 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 11, fontWeight: "700" },
 
   // Quick Actions - Single Card
-  featureActionCard: {
+  featureActionCardPremium: {
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 10,
@@ -499,10 +590,5 @@ const styles = StyleSheet.create({
   featureTitle: {
     fontSize: 16,
     fontWeight: "700",
-    marginBottom: 4
   },
-  featureSubtitle: {
-    fontSize: 13,
-    lineHeight: 18
-  }
 });

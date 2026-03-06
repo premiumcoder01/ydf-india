@@ -405,7 +405,7 @@ export default function StudentDashboardScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[isDark ? "#fff" : "#000"]} // Android
+            colors={[isDark ? "#000" : "#fff"]} // Android
             tintColor={isDark ? "#fff" : "#000"} // iOS
           />
         }
@@ -522,7 +522,7 @@ export default function StudentDashboardScreen() {
                   }
                 >
                   <LinearGradient
-                    colors={isDark ? ['#1a1a1a', '#121212'] : ['#ffffff', '#fff']}
+                    colors={isDark ? ['#000', '#000'] : ['#ffffff', '#fff']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={[
