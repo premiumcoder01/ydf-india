@@ -1291,6 +1291,90 @@ export const getScholarshipDetails = async (
 };
 
 /**
+ * Generic helper for Moodle WebService API requests
+ */
+const moodleApiRequest = async (
+  token: string,
+  wsfunction: string,
+  params: Record<string, string> = {}
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", wsfunction);
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+
+    Object.keys(params).forEach((key) => {
+      urlObj.searchParams.append(key, params[key]);
+    });
+
+    const finalUrl = urlObj.toString();
+    console.log(`--- Moodle WS Request [${wsfunction}] ---`);
+    console.log("URL:", finalUrl);
+
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+
+      // Check for Moodle exceptions even in 200 OK responses
+      if (data.exception) {
+        return {
+          success: false,
+          error: data.message || "Moodle error",
+          errorcode: data.errorcode
+        };
+      }
+
+      const shouldLogout = await checkAuthenticationError(data);
+      if (shouldLogout) return { success: false, error: "Authentication failed" };
+    } catch (e) {
+      return { success: false, error: "Invalid JSON response" };
+    }
+
+    if (response.ok) {
+      return { success: true, data };
+    } else {
+      return { success: false, error: data.message || "API request failed" };
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Scheduler (Interview) APIs
+ */
+export const getSchedulerSlots = (token: string, cmid: number) =>
+  moodleApiRequest(token, "local_mobileapi_get_scheduler_slots", { cmid: String(cmid) });
+
+export const bookSchedulerSlot = (token: string, cmid: number, slotid: number) =>
+  moodleApiRequest(token, "local_mobileapi_book_scheduler_slot", { cmid: String(cmid), slotid: String(slotid) });
+
+export const getMySchedulerBookings = (token: string, cmid: number) =>
+  moodleApiRequest(token, "local_mobileapi_get_my_scheduler_bookings", { cmid: String(cmid) });
+
+/**
+ * Quiz APIs
+ */
+export const getQuizAccessInfo = (token: string, cmid: number) =>
+  moodleApiRequest(token, "local_mobileapi_get_quiz_access_info", { cmid: String(cmid) });
+
+export const getQuizMyAttempts = (token: string, cmid: number) =>
+  moodleApiRequest(token, "local_mobileapi_get_quiz_my_attempts", { cmid: String(cmid) });
+
+export const startQuizAttempt = (token: string, cmid: number) =>
+  moodleApiRequest(token, "local_mobileapi_start_quiz_attempt", { cmid: String(cmid) });
+
+/**
  * Bookmark/Unbookmark Scholarship API call (POST with query parameters)
  * This requires a token from AsyncStorage, scholarship_id, and action (bookmark/unbookmark)
  */

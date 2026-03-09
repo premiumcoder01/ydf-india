@@ -11,6 +11,45 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Dimensions, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import RenderHTML from "react-native-render-html";
+import Svg, { Circle } from 'react-native-svg';
+
+// Colorful Circular Progress Component
+const CircularProgress = ({ size = 52, strokeWidth = 5, percentage = 0, color = "#007AFF", isDark = false }: any) => {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+  return (
+    <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+      <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
+        {/* Background Circle */}
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"}
+          strokeWidth={strokeWidth}
+          fill="transparent"
+        />
+        {/* Progress Circle */}
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          fill="transparent"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+        />
+      </Svg>
+      <View style={{ position: 'absolute' }}>
+        <Text style={{ fontSize: 13, fontWeight: '800', color: color }}>{Math.round(percentage)}%</Text>
+      </View>
+    </View>
+  );
+};
 
 const stripHtml = (html: string): string => {
   if (!html) return "";
@@ -468,9 +507,11 @@ export default function ScholarshipDetailsScreen() {
                   </Text>
                 </View>
                 {scholarship.application_progress !== undefined && (
-                  <View style={styles.circularProgress}>
-                    <Text style={[styles.progressText, { color: colors.primary }]}>{scholarship.application_progress}%</Text>
-                  </View>
+                  <CircularProgress
+                    percentage={scholarship.application_progress}
+                    color={colors.primary}
+                    isDark={isDark}
+                  />
                 )}
               </View>
 
@@ -505,14 +546,14 @@ export default function ScholarshipDetailsScreen() {
         <View style={styles.gridContainer}>
           <View style={[styles.gridItem, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
             <Ionicons name="calendar" size={20} color={colors.primary} />
-            <Text style={styles.gridLabel}>Start Date</Text>
+            <Text style={[styles.gridLabel, { color: colors.text }]}>Start Date</Text>
             <Text style={[styles.gridValue, { color: colors.text }]}>
               {scholarship.start_date ? new Date(scholarship.start_date).toLocaleDateString() : "N/A"}
             </Text>
           </View>
           <View style={[styles.gridItem, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
             <Ionicons name="hourglass" size={20} color="#F59E0B" />
-            <Text style={styles.gridLabel}>End Date</Text>
+            <Text style={[styles.gridLabel, { color: colors.text }]}>End Date</Text>
             <Text style={[styles.gridValue, { color: colors.text }]}>
               {scholarship.end_date ? new Date(scholarship.end_date).toLocaleDateString() : (scholarship.application_deadline ? new Date(scholarship.application_deadline).toLocaleDateString() : "No Deadline")}
             </Text>
@@ -573,6 +614,73 @@ export default function ScholarshipDetailsScreen() {
                       const isCompleted = activity.completion_state === 1;
                       const hasDoc = activity.document;
                       const docStatus = activity.document?.status;
+                      const isQuiz = activity.modname === 'quiz';
+                      const isScheduler = activity.modname === 'scheduler';
+
+                      const handlePress = () => {
+                        if (isQuiz) {
+                          router.push({
+                            pathname: "/(dashboard)/student/student-quiz-webview",
+                            params: { cmid: activity.id, name: activity.name }
+                          });
+                        } else if (isScheduler) {
+                          router.push({
+                            pathname: "/(dashboard)/student/student-scheduler-booking",
+                            params: { cmid: activity.id, name: activity.name }
+                          });
+                        }
+                      };
+
+                      const activityContent = (
+                        <View style={styles.activityInner}>
+                          {activity.modicon ? (
+                            <Image source={{ uri: activity.modicon }} style={styles.activityIcon} tintColor={colors.text} />
+                          ) : (
+                            <View style={[styles.activityIcon, { backgroundColor: colors.primary + "10", borderRadius: 6, justifyContent: 'center', alignItems: 'center' }]}>
+                              <Ionicons name="document-text-outline" size={14} color={colors.primary} />
+                            </View>
+                          )}
+
+                          <View style={{ flex: 1, marginRight: 10 }}>
+                            <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={1}>{activity.name}</Text>
+                            {hasDoc && (
+                              <View style={styles.docStatusRow}>
+                                <View style={[styles.statusMiniBadge, { backgroundColor: docStatus === 'done' ? '#DCFCE7' : '#FEF3C7' }]}>
+                                  <View style={[styles.statusDot, { backgroundColor: docStatus === 'done' ? '#166534' : '#F59E0B' }]} />
+                                  <Text style={[styles.statusMiniText, { color: docStatus === 'done' ? '#166534' : '#92400E' }]}>
+                                    {docStatus === 'done' ? 'Done' : 'ToDo'}
+                                  </Text>
+                                </View>
+                                {activity.document.due_date && (
+                                  <Text style={[styles.activitySubtext, { color: colors.textSecondary }]}>
+                                    Due: {new Date(activity.document.due_date).toLocaleDateString()}
+                                  </Text>
+                                )}
+                              </View>
+                            )}
+                          </View>
+
+                          {isCompleted ? (
+                            <View style={styles.completionBadge}>
+                              <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                            </View>
+                          ) : (
+                            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary + "80"} />
+                          )}
+                        </View>
+                      );
+
+                      if (isQuiz || isScheduler) {
+                        return (
+                          <TouchableOpacity
+                            key={activity.id}
+                            style={[styles.activityItem, { borderBottomColor: isDark ? "#333" : "#F3F4F6" }]}
+                            onPress={handlePress}
+                          >
+                            {activityContent}
+                          </TouchableOpacity>
+                        );
+                      }
 
                       return (
                         <ExternalLink
@@ -580,42 +688,7 @@ export default function ScholarshipDetailsScreen() {
                           href={activity.url as any}
                           style={[styles.activityItem, { borderBottomColor: isDark ? "#333" : "#F3F4F6" }]}
                         >
-                          <View style={styles.activityInner}>
-                            {activity.modicon ? (
-                              <Image source={{ uri: activity.modicon }} style={styles.activityIcon} />
-                            ) : (
-                              <View style={[styles.activityIcon, { backgroundColor: colors.primary + "10", borderRadius: 6, justifyContent: 'center', alignItems: 'center' }]}>
-                                <Ionicons name="document-text-outline" size={14} color={colors.primary} />
-                              </View>
-                            )}
-
-                            <View style={{ flex: 1, marginRight: 10 }}>
-                              <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={1}>{activity.name}</Text>
-                              {hasDoc && (
-                                <View style={styles.docStatusRow}>
-                                  <View style={[styles.statusMiniBadge, { backgroundColor: docStatus === 'done' ? '#DCFCE7' : '#FEF3C7' }]}>
-                                    <View style={[styles.statusDot, { backgroundColor: docStatus === 'done' ? '#166534' : '#F59E0B' }]} />
-                                    <Text style={[styles.statusMiniText, { color: docStatus === 'done' ? '#166534' : '#92400E' }]}>
-                                      {docStatus === 'done' ? 'Done' : 'ToDo'}
-                                    </Text>
-                                  </View>
-                                  {activity.document.due_date && (
-                                    <Text style={[styles.activitySubtext, { color: colors.textSecondary }]}>
-                                      Due: {new Date(activity.document.due_date).toLocaleDateString()}
-                                    </Text>
-                                  )}
-                                </View>
-                              )}
-                            </View>
-
-                            {isCompleted ? (
-                              <View style={styles.completionBadge}>
-                                <Ionicons name="checkmark-circle" size={18} color="#10B981" />
-                              </View>
-                            ) : (
-                              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary + "80"} />
-                            )}
-                          </View>
+                          {activityContent}
                         </ExternalLink>
                       );
                     })}
@@ -963,19 +1036,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "800",
     marginTop: 2,
-  },
-  circularProgress: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 3,
-    borderColor: "#E5E7EB",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  progressText: {
-    fontSize: 12,
-    fontWeight: "800",
   },
   stepInfoContainer: {
     marginTop: 20,
