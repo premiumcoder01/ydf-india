@@ -1311,7 +1311,6 @@ const moodleApiRequest = async (
     });
 
     const finalUrl = urlObj.toString();
-    console.log(`--- Moodle WS Request [${wsfunction}] ---`);
     console.log("URL:", finalUrl);
 
     const response = await fetch(finalUrl, {

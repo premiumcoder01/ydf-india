@@ -370,7 +370,24 @@ export default function ScholarshipDetailsScreen() {
     <View style={[styles.container, { backgroundColor: isDark ? "#0f0f0f" : "#F8F9FA" }]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#0f0f0f" : "#F8F9FA"} />
 
-      <AppHeader title="Scholarship Details" onBack={() => router.back()} />
+      <AppHeader
+        title="Scholarship Details"
+        onBack={() => router.back()}
+        rightElement={
+          <TouchableOpacity
+            onPress={handleBookmark}
+            style={styles.headerBookmarkBtn}
+            activeOpacity={0.7}
+            disabled={bookmarking}
+          >
+            <Ionicons
+              name={saved || scholarship?.bookmarked ? "bookmark" : "bookmark-outline"}
+              size={22}
+              color={isDark ? "#FFF" : "#333"}
+            />
+          </TouchableOpacity>
+        }
+      />
 
       <ScrollView
         style={styles.scrollView}
@@ -395,18 +412,6 @@ export default function ScholarshipDetailsScreen() {
                 <View style={[styles.categoryBadge, { backgroundColor: getCategoryColor(scholarship.category || "General") }]}>
                   <Text style={styles.categoryBadgeText}>{scholarship.category || "General"}</Text>
                 </View>
-                <TouchableOpacity
-                  onPress={handleBookmark}
-                  style={styles.iconButton}
-                  activeOpacity={0.7}
-                  disabled={bookmarking}
-                >
-                  <Ionicons
-                    name={saved || scholarship?.bookmarked ? "bookmark" : "bookmark-outline"}
-                    size={22}
-                    color="#FFF"
-                  />
-                </TouchableOpacity>
               </View>
               <Text style={styles.bannerTitle} numberOfLines={2}>{scholarship.title}</Text>
               {scholarship.scholarship_tags && scholarship.scholarship_tags.length > 0 && (
@@ -474,19 +479,6 @@ export default function ScholarshipDetailsScreen() {
                     </Text>
                   </View>
                 </View>
-
-                <TouchableOpacity
-                  onPress={handleBookmark}
-                  style={[styles.heroBookmarkBtn, { backgroundColor: 'rgba(255,255,255,0.2)' }]}
-                  activeOpacity={0.8}
-                  disabled={bookmarking}
-                >
-                  <Ionicons
-                    name={saved || scholarship?.bookmarked ? "bookmark" : "bookmark-outline"}
-                    size={24}
-                    color="#FFF"
-                  />
-                </TouchableOpacity>
               </View>
             </LinearGradient>
           </View>
@@ -612,12 +604,47 @@ export default function ScholarshipDetailsScreen() {
                   <View style={styles.activitiesList}>
                     {section.activities.map((activity: any) => {
                       const isCompleted = activity.completion_state === 1;
-                      const hasDoc = activity.document;
-                      const docStatus = activity.document?.status;
+                      const isAssign = activity.modname === 'assign';
                       const isQuiz = activity.modname === 'quiz';
                       const isScheduler = activity.modname === 'scheduler';
+                      const uploadedFiles: any[] = activity.document?.files || [];
+                      const hasUploadedFiles = uploadedFiles.length > 0;
 
-                      const handlePress = () => {
+                      // ── Helper: icon for file mimetype ──────────────────
+                      const getFileIcon = (mime: string): any => {
+                        if (mime?.startsWith('image/')) return 'image-outline';
+                        if (mime === 'application/pdf') return 'document-text-outline';
+                        if (mime?.includes('word')) return 'document-outline';
+                        if (mime?.includes('excel') || mime?.includes('spreadsheet')) return 'grid-outline';
+                        return 'attach-outline';
+                      };
+
+                      const getFileIconColor = (mime: string): string => {
+                        if (mime?.startsWith('image/')) return '#8B5CF6';
+                        if (mime === 'application/pdf') return '#EF4444';
+                        if (mime?.includes('word')) return '#3B82F6';
+                        return '#6B7280';
+                      };
+
+                      const formatFileSize = (bytes: number) => {
+                        if (!bytes) return '';
+                        if (bytes < 1024) return `${bytes} B`;
+                        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+                        return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+                      };
+
+                      const handleFileOpen = (file: any) => {
+                        router.push({
+                          pathname: "/(dashboard)/student/student-file-viewer",
+                          params: {
+                            fileurl: file.fileurl,
+                            filename: file.filename,
+                            mimetype: file.mimetype,
+                          },
+                        });
+                      };
+
+                      const handleActivityPress = () => {
                         if (isQuiz) {
                           router.push({
                             pathname: "/(dashboard)/student/student-quiz-webview",
@@ -628,10 +655,152 @@ export default function ScholarshipDetailsScreen() {
                             pathname: "/(dashboard)/student/student-scheduler-booking",
                             params: { cmid: activity.id, name: activity.name }
                           });
+                        } else if (isAssign && !hasUploadedFiles) {
+                          // No files yet → go to upload screen
+                          router.push({
+                            pathname: "/(dashboard)/student/student-upload-document",
+                            params: { cmid: activity.id, label: activity.name, mode: "scheme" }
+                          });
                         }
                       };
 
-                      const activityContent = (
+                      // ── ASSIGN with uploaded files → show file list ──────
+                      if (isAssign && hasUploadedFiles) {
+                        return (
+                          <View
+                            key={activity.id}
+                            style={[styles.activityItem, { borderBottomColor: isDark ? "#333" : "#F3F4F6" }]}
+                          >
+                            {/* Activity header row */}
+                            <View style={styles.activityInner}>
+                              {activity.modicon ? (
+                                <Image source={{ uri: activity.modicon }} style={styles.activityIcon} tintColor={colors.text} />
+                              ) : (
+                                <View style={[styles.activityIcon, { backgroundColor: '#DCFCE7', borderRadius: 6, justifyContent: 'center', alignItems: 'center' }]}>
+                                  <Ionicons name="folder-open-outline" size={14} color="#16A34A" />
+                                </View>
+                              )}
+                              <View style={{ flex: 1, marginRight: 10 }}>
+                                <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
+                                  {activity.name}
+                                </Text>
+                                <View style={styles.docStatusRow}>
+                                  <View style={[styles.statusMiniBadge, { backgroundColor: '#DCFCE7' }]}>
+                                    <View style={[styles.statusDot, { backgroundColor: '#166534' }]} />
+                                    <Text style={[styles.statusMiniText, { color: '#166534' }]}>
+                                      {uploadedFiles.length} File{uploadedFiles.length > 1 ? 's' : ''} Uploaded
+                                    </Text>
+                                  </View>
+                                  {activity.document?.due_date && (
+                                    <Text style={[styles.activitySubtext, { color: colors.textSecondary }]}>
+                                      Due: {new Date(activity.document.due_date).toLocaleDateString()}
+                                    </Text>
+                                  )}
+                                </View>
+                              </View>
+                              <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                            </View>
+
+                            {/* Uploaded files list */}
+                            <View style={[styles.fileListContainer, { backgroundColor: isDark ? '#161616' : '#F9FAFB', borderColor: isDark ? '#2a2a2a' : '#E5E7EB' }]}>
+                              {uploadedFiles.map((file: any, fi: number) => (
+                                <TouchableOpacity
+                                  key={file.id ?? fi}
+                                  style={[
+                                    styles.fileRow,
+                                    { borderBottomColor: isDark ? '#252525' : '#F3F4F6' },
+                                    fi === uploadedFiles.length - 1 && { borderBottomWidth: 0 },
+                                  ]}
+                                  activeOpacity={0.7}
+                                  onPress={() => handleFileOpen(file)}
+                                >
+                                  {/* File type icon */}
+                                  <View style={[styles.fileTypeIcon, { backgroundColor: getFileIconColor(file.mimetype) + '18' }]}>
+                                    <Ionicons
+                                      name={getFileIcon(file.mimetype)}
+                                      size={18}
+                                      color={getFileIconColor(file.mimetype)}
+                                    />
+                                  </View>
+
+                                  {/* File info */}
+                                  <View style={{ flex: 1, minWidth: 0 }}>
+                                    <Text
+                                      style={[styles.fileItemName, { color: colors.text }]}
+                                      numberOfLines={1}
+                                      ellipsizeMode="middle"
+                                    >
+                                      {file.filename}
+                                    </Text>
+                                    <View style={styles.fileMetaRow}>
+                                      {file.filesize > 0 && (
+                                        <Text style={[styles.fileMeta, { color: colors.textSecondary }]}>
+                                          {formatFileSize(file.filesize)}
+                                        </Text>
+                                      )}
+                                      {file.uploaded_at && (
+                                        <Text style={[styles.fileMeta, { color: colors.textSecondary }]}>
+                                          · {new Date(file.uploaded_at).toLocaleDateString()}
+                                        </Text>
+                                      )}
+                                    </View>
+                                  </View>
+
+                                  {/* Open indicator */}
+                                  <View style={[styles.openBadge, { backgroundColor: colors.primary + '12' }]}>
+                                    <Ionicons name="eye-outline" size={14} color={colors.primary} />
+                                    <Text style={[styles.openBadgeText, { color: colors.primary }]}>View</Text>
+                                  </View>
+                                </TouchableOpacity>
+                              ))}
+                            </View>
+                          </View>
+                        );
+                      }
+
+                      // ── ASSIGN with no files → upload prompt ─────────────
+                      if (isAssign && !hasUploadedFiles) {
+                        return (
+                          <TouchableOpacity
+                            key={activity.id}
+                            style={[styles.activityItem, { borderBottomColor: isDark ? "#333" : "#F3F4F6" }]}
+                            onPress={handleActivityPress}
+                            activeOpacity={0.7}
+                          >
+                            <View style={styles.activityInner}>
+                              {activity.modicon ? (
+                                <Image source={{ uri: activity.modicon }} style={styles.activityIcon} tintColor={colors.text} />
+                              ) : (
+                                <View style={[styles.activityIcon, { backgroundColor: '#FEF3C7', borderRadius: 6, justifyContent: 'center', alignItems: 'center' }]}>
+                                  <Ionicons name="cloud-upload-outline" size={14} color="#D97706" />
+                                </View>
+                              )}
+                              <View style={{ flex: 1, marginRight: 10 }}>
+                                <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
+                                  {activity.name}
+                                </Text>
+                                <View style={styles.docStatusRow}>
+                                  <View style={[styles.statusMiniBadge, { backgroundColor: '#FEF3C7' }]}>
+                                    <View style={[styles.statusDot, { backgroundColor: '#D97706' }]} />
+                                    <Text style={[styles.statusMiniText, { color: '#92400E' }]}>Upload Required</Text>
+                                  </View>
+                                  {activity.document?.due_date && (
+                                    <Text style={[styles.activitySubtext, { color: colors.textSecondary }]}>
+                                      Due: {new Date(activity.document.due_date).toLocaleDateString()}
+                                    </Text>
+                                  )}
+                                </View>
+                              </View>
+                              <View style={[styles.uploadMiniBtn, { backgroundColor: colors.primary }]}>
+                                <Ionicons name="arrow-up" size={13} color="#FFF" />
+                              </View>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      }
+
+                      // ── QUIZ / SCHEDULER / OTHER → tappable with nav / ExternalLink ─────────────
+                      const standardContent = (
                         <View style={styles.activityInner}>
                           {activity.modicon ? (
                             <Image source={{ uri: activity.modicon }} style={styles.activityIcon} tintColor={colors.text} />
@@ -640,26 +809,9 @@ export default function ScholarshipDetailsScreen() {
                               <Ionicons name="document-text-outline" size={14} color={colors.primary} />
                             </View>
                           )}
-
                           <View style={{ flex: 1, marginRight: 10 }}>
                             <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={1}>{activity.name}</Text>
-                            {hasDoc && (
-                              <View style={styles.docStatusRow}>
-                                <View style={[styles.statusMiniBadge, { backgroundColor: docStatus === 'done' ? '#DCFCE7' : '#FEF3C7' }]}>
-                                  <View style={[styles.statusDot, { backgroundColor: docStatus === 'done' ? '#166534' : '#F59E0B' }]} />
-                                  <Text style={[styles.statusMiniText, { color: docStatus === 'done' ? '#166534' : '#92400E' }]}>
-                                    {docStatus === 'done' ? 'Done' : 'ToDo'}
-                                  </Text>
-                                </View>
-                                {activity.document.due_date && (
-                                  <Text style={[styles.activitySubtext, { color: colors.textSecondary }]}>
-                                    Due: {new Date(activity.document.due_date).toLocaleDateString()}
-                                  </Text>
-                                )}
-                              </View>
-                            )}
                           </View>
-
                           {isCompleted ? (
                             <View style={styles.completionBadge}>
                               <Ionicons name="checkmark-circle" size={18} color="#10B981" />
@@ -675,9 +827,9 @@ export default function ScholarshipDetailsScreen() {
                           <TouchableOpacity
                             key={activity.id}
                             style={[styles.activityItem, { borderBottomColor: isDark ? "#333" : "#F3F4F6" }]}
-                            onPress={handlePress}
+                            onPress={handleActivityPress}
                           >
-                            {activityContent}
+                            {standardContent}
                           </TouchableOpacity>
                         );
                       }
@@ -688,7 +840,7 @@ export default function ScholarshipDetailsScreen() {
                           href={activity.url as any}
                           style={[styles.activityItem, { borderBottomColor: isDark ? "#333" : "#F3F4F6" }]}
                         >
-                          {activityContent}
+                          {standardContent}
                         </ExternalLink>
                       );
                     })}
@@ -699,53 +851,6 @@ export default function ScholarshipDetailsScreen() {
           </View>
         )}
 
-        {/* DOCUMENTS LIST */}
-        {scholarship.documents && scholarship.documents.length > 0 && (
-          <View style={styles.sectionContainer}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Text style={[styles.sectionHeaderTitle, { color: colors.text, marginBottom: 0 }]}>Required Documents</Text>
-              <View style={[styles.countBadge, { backgroundColor: isDark ? "#333" : "#F3F4F6" }]}>
-                <Text style={[styles.countText, { color: isDark ? "#fff" : "#374151" }]}>{scholarship.documents.length} Items</Text>
-              </View>
-            </View>
-
-            <View style={{ gap: 12 }}>
-              {scholarship.documents.map((doc: any, index: number) => {
-                const isCompleted = doc.uploaded || doc.status !== 'todo';
-                return (
-                  <TouchableOpacity
-                    key={index}
-                    activeOpacity={isCompleted ? 1 : 0.7}
-                    onPress={() => {
-                      if (!isCompleted) {
-                        router.push({
-                          pathname: "/(dashboard)/student/student-upload-document",
-                          params: { cmid: doc.cmid, label: doc.label, mode: doc.mode || "scheme" }
-                        });
-                      } else {
-                        showToast("Document already uploaded", "info");
-                      }
-                    }}
-                    style={[styles.docRow, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}
-                  >
-                    <View style={[styles.docIcon, { backgroundColor: isCompleted ? "#DCFCE7" : "#EFF6FF" }]}>
-                      <Ionicons name={isCompleted ? "checkmark" : "document-text"} size={20} color={isCompleted ? "#166534" : "#3B82F6"} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.docLabel, { color: colors.text }]}>{doc.label}</Text>
-                      {doc.due_date && <Text style={[styles.docDate, { color: colors.textSecondary }]}>Due: {new Date(doc.due_date).toLocaleDateString()}</Text>}
-                    </View>
-                    {!isCompleted && (
-                      <View style={[styles.uploadActionBtn, { backgroundColor: colors.primary }]}>
-                        <Ionicons name="arrow-up" size={14} color="#FFF" />
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        )}
 
       </ScrollView>
 
@@ -991,6 +1096,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.3)",
+  },
+  headerBookmarkBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
   },
 
   // COMMON SECTIONS
@@ -1270,6 +1382,66 @@ const styles = StyleSheet.create({
   },
   disabledBtn: {
     opacity: 0.7,
+  },
+
+  // FILE LIST (inside assign activities)
+  fileListContainer: {
+    marginTop: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  fileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 10,
+    borderBottomWidth: 1,
+  },
+  fileTypeIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  fileItemName: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  fileMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  fileMeta: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  openBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    flexShrink: 0,
+  },
+  openBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  // UPLOAD MINI BUTTON (for assign with no file)
+  uploadMiniBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
   },
 });
 
