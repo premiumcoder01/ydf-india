@@ -1800,7 +1800,7 @@ export const updateUserProfile = async (
     payload.country = "IN";
 
     // Profile image file ID (new parameter for image upload)
-    if (profileData.profileImageFileId) {
+    if (profileData.profileImageFileId !== undefined) {
       payload.profileimage_file_id = profileData.profileImageFileId;
     }
 

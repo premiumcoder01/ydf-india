@@ -114,13 +114,13 @@ export default function SignInScreen() {
         else if (normalizedRoles.includes("student-mobilizer")) {
           selectedRole = "student-mobilizer";
         }
-        // Priority 3: Application Reviewer
-        else if (normalizedRoles.includes("application-reviewer")) {
-          selectedRole = "application-reviewer";
-        }
-        // Priority 4: Student (Fallback if exists)
+        // Priority 3: Student
         else if (normalizedRoles.includes("student")) {
           selectedRole = "student";
+        }
+        // Priority 4: Application Reviewer
+        else if (normalizedRoles.includes("application-reviewer")) {
+          selectedRole = "application-reviewer";
         }
 
         // If no known role found in priority list, verify if any role has a valid route (fallback logic)
@@ -553,7 +553,6 @@ export default function SignInScreen() {
         }}
         onFailure={(err) => {
           console.log("LinkedIn login failed", err);
-          showToast(`LinkedIn login failed: ${err}`);
         }}
       />
       {WebViewComponent}

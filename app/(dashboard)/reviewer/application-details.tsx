@@ -57,7 +57,7 @@ interface ApplicationDetails {
   id: number;
   user: User;
   application_text: string | null;
-  status: "new" | "approved" | "rejected" | "not_applied" | null;
+  status: "approved" | "rejected" | "not_applied" | null;
   priority: number;
   assigned_reviewer: AssignedReviewer;
   is_bookmarked: boolean;
@@ -93,7 +93,7 @@ function getStatusCfg(status: ApplicationDetails["status"]) {
     case "not_applied":
       return { color: "#94A3B8", bg: "rgba(148,163,184,0.12)", bg2: "#F1F5F9", label: "Not Applied", icon: "document-outline" as const };
     default:
-      return { color: "#6366F1", bg: "rgba(99,102,241,0.12)", bg2: "#EEF2FF", label: "New", icon: "sparkles" as const };
+      return { color: "#6366F1", bg: "rgba(99,102,241,0.12)", bg2: "#EEF2FF", label: "Pending", icon: "time-outline" as const };
   }
 }
 

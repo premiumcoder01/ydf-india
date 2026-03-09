@@ -39,7 +39,7 @@ type AppItem = {
     id: number;
     user: ApplicationUser;
     application_text: string | null;
-    status: "new" | "approved" | "rejected" | "not_applied" | null;
+    status: "approved" | "rejected" | "not_applied" | null;
     priority: number;
     assigned_reviewer_id: number | null;
     is_bookmarked: boolean;
@@ -70,9 +70,8 @@ type ParsedApplicationData = {
     financial_info?: string;
 };
 
-const STATUS_TABS: Array<"All" | "new" | "approved" | "rejected" | "not_applied"> = [
+const STATUS_TABS: Array<"All" | "approved" | "rejected" | "not_applied"> = [
     "All",
-    "new",
     "approved",
     "rejected",
     "not_applied",
@@ -87,10 +86,8 @@ function getStatusConfig(status: AppItem["status"]) {
             return { color: "#EF4444", bg: "rgba(239,68,68,0.12)", bg2: "#FEE2E2", label: "Rejected", icon: "close-circle" as const };
         case "not_applied":
             return { color: "#94A3B8", bg: "rgba(148,163,184,0.12)", bg2: "#F1F5F9", label: "Not Applied", icon: "document-outline" as const };
-        case "new":
-            return { color: "#6366F1", bg: "rgba(99,102,241,0.12)", bg2: "#EEF2FF", label: "New", icon: "sparkles" as const };
         default:
-            return { color: "#6366F1", bg: "rgba(99,102,241,0.12)", bg2: "#EEF2FF", label: "New", icon: "sparkles" as const };
+            return { color: "#6366F1", bg: "rgba(99,102,241,0.12)", bg2: "#EEF2FF", label: "Pending", icon: "time-outline" as const };
     }
 }
 
@@ -415,7 +412,7 @@ export default function SchemeApplicationsScreen() {
 
             const isNotAppliedTab = activeTab === "not_applied";
             const apiParams: {
-                status: "new" | "approved" | "rejected" | "not_applied" | "";
+                status: "approved" | "rejected" | "not_applied" | "";
                 page: number;
                 per_page: number;
             } = {

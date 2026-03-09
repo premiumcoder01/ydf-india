@@ -6,8 +6,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useState } from "react";
 import {
     ActivityIndicator,
     Image,
@@ -161,67 +161,70 @@ export default function ProviderEditProfileScreen() {
         return emailRegex.test(email);
     };
 
-    useEffect(() => {
-        const fetchUserProfile = async () => {
-            setIsProfileLoading(true);
-            try {
-                const authDataStr = await AsyncStorage.getItem("authData");
-                if (authDataStr) {
-                    const authData = JSON.parse(authDataStr);
-                    if (authData.token) {
-                        const response = await getUserProfile(authData.token);
-                        if (response.success && response.data && response.data.user) {
-                            const user = response.data.user;
-                            setPersonalInfo((prev) => ({
-                                ...prev,
-                                username: user.username || prev.username,
-                                firstName: user.firstname || prev.firstName,
-                                lastName: user.lastname || prev.lastName,
-                                email: user.email || prev.email,
-                                phone: (() => {
-                                    let p = user.phone1 || user.phone || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'phone_number')?.value || "";
-                                    if (p === "N/A") return "";
-                                    if (p && p.startsWith('+91')) return p.substring(3);
-                                    if (p && p.startsWith('91') && p.length === 12) return p.substring(2);
-                                    return p || prev.phone;
-                                })(),
-                                address: user.address || prev.address,
-                                city: user.city || prev.city,
-                                dob: user.dob
-                                    ? (user.dob.includes('-') && user.dob.split('-')[0].length === 4
-                                        ? user.dob.split('-').reverse().join('/')
-                                        : user.dob)
-                                    : (user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'dob')?.value
-                                        ? new Date(parseInt(user.customfields.find((f: any) => f.shortname.toLowerCase() === 'dob').value) * 1000).toLocaleDateString('en-GB')
-                                        : prev.dob),
-                                gender: user.gender || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'gender')?.value || prev.gender,
-                                religion: user.religion || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'religion')?.value || prev.religion,
-                                caste: user.caste || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'caste')?.value || prev.caste,
-                                fatherName: user.fathername || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'fathername')?.value || prev.fatherName,
-                                motherName: user.mothername || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'mothername')?.value || prev.motherName,
-                                annualIncome: user.annualincome || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'family_income' || f.shortname.toLowerCase() === 'annualincome')?.value || prev.annualIncome,
-                                session: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'session')?.value || prev.session,
-                                yearOfCourse: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'year_of_course')?.value || prev.yearOfCourse,
-                                passing10th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'passing_10th')?.value || prev.passing10th,
-                                board12th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === '12th_board')?.value || prev.board12th,
-                                stream12th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'stream_in_12th')?.value || prev.stream12th,
-                                applicationYear: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'applicationyear')?.value || prev.applicationYear,
-                                registeringAs: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'registering_as')?.value || prev.registeringAs,
-                                schemeName: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'schemename')?.value || prev.schemeName,
-                                passingYear12th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === '12th_passing_year')?.value || prev.passingYear12th,
-                                profileImageUrl: user?.profileimageurl || prev?.profileImageUrl,
-                            }));
-                        }
+    const fetchUserProfile = useCallback(async () => {
+        setIsProfileLoading(true);
+        try {
+            const authDataStr = await AsyncStorage.getItem("authData");
+            if (authDataStr) {
+                const authData = JSON.parse(authDataStr);
+                if (authData.token) {
+                    const response = await getUserProfile(authData.token);
+                    if (response.success && response.data && response.data.user) {
+                        const user = response.data.user;
+                        setPersonalInfo((prev) => ({
+                            ...prev,
+                            username: user.username || prev.username,
+                            firstName: user.firstname || prev.firstName,
+                            lastName: user.lastname || prev.lastName,
+                            email: user.email || prev.email,
+                            phone: (() => {
+                                let p = user.phone1 || user.phone || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'phone_number')?.value || "";
+                                if (p === "N/A") return "";
+                                if (p && p.startsWith('+91')) return p.substring(3);
+                                if (p && p.startsWith('91') && p.length === 12) return p.substring(2);
+                                return p || prev.phone;
+                            })(),
+                            address: user.address || prev.address,
+                            city: user.city || prev.city,
+                            dob: user.dob
+                                ? (user.dob.includes('-') && user.dob.split('-')[0].length === 4
+                                    ? user.dob.split('-').reverse().join('/')
+                                    : user.dob)
+                                : (user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'dob')?.value
+                                    ? new Date(parseInt(user.customfields.find((f: any) => f.shortname.toLowerCase() === 'dob').value) * 1000).toLocaleDateString('en-GB')
+                                    : prev.dob),
+                            gender: user.gender || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'gender')?.value || prev.gender,
+                            religion: user.religion || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'religion')?.value || prev.religion,
+                            caste: user.caste || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'caste')?.value || prev.caste,
+                            fatherName: user.fathername || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'fathername')?.value || prev.fatherName,
+                            motherName: user.mothername || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'mothername')?.value || prev.motherName,
+                            annualIncome: user.annualincome || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'family_income' || f.shortname.toLowerCase() === 'annualincome')?.value || prev.annualIncome,
+                            session: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'session')?.value || prev.session,
+                            yearOfCourse: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'year_of_course')?.value || prev.yearOfCourse,
+                            passing10th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'passing_10th')?.value || prev.passing10th,
+                            board12th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === '12th_board')?.value || prev.board12th,
+                            stream12th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'stream_in_12th')?.value || prev.stream12th,
+                            applicationYear: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'applicationyear')?.value || prev.applicationYear,
+                            registeringAs: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'registering_as')?.value || prev.registeringAs,
+                            schemeName: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'schemename')?.value || prev.schemeName,
+                            passingYear12th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === '12th_passing_year')?.value || prev.passingYear12th,
+                            profileImageUrl: user?.profileimageurl || "",
+                        }));
                     }
                 }
-            } catch (error) {
-                console.error("Failed to fetch user profile:", error);
-            } finally {
-                setIsProfileLoading(false);
             }
-        };
-        fetchUserProfile();
+        } catch (error) {
+            console.error("Failed to fetch user profile:", error);
+        } finally {
+            setIsProfileLoading(false);
+        }
     }, []);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchUserProfile();
+        }, [fetchUserProfile])
+    );
 
     const handlePersonalInfoChange = useCallback(
         (field: keyof typeof personalInfo, value: string) => {
@@ -364,7 +367,7 @@ export default function ProviderEditProfileScreen() {
             if (!authDataStr) throw new Error("Authentication session expired");
             const authData = JSON.parse(authDataStr);
             if (!authData.token) throw new Error("Invalid session token");
-            const response = await updateUserProfile(authData.token, { profileImageFileId: null });
+            const response = await updateUserProfile(authData.token, { profileImageFileId: 0 });
             if (response.success) {
                 setPersonalInfo(prev => ({ ...prev, profileImageUrl: "" }));
                 setToastMessage("Profile image removed successfully");
