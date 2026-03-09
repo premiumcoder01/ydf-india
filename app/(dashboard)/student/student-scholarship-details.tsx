@@ -1,18 +1,17 @@
-import { AppHeader, Button } from "@/components";
+import { AppHeader, Button, ExternalLink } from "@/components";
 import Toast from "@/components/Toast";
 import { useTheme } from "@/context/ThemeContext";
 import { bookmarkScholarship, getScholarshipDetails } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-// LayoutAnimation is enabled by default in the new architecture
-// No need for UIManager.setLayoutAnimationEnabledExperimental(true) on Android
+import { ActivityIndicator, Dimensions, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import RenderHTML from "react-native-render-html";
 
-// Helper function to strip HTML tags
 const stripHtml = (html: string): string => {
   if (!html) return "";
   return html
@@ -22,6 +21,7 @@ const stripHtml = (html: string): string => {
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
+    .replace(/\s+/g, ' ')
     .trim();
 };
 
@@ -46,6 +46,7 @@ export default function ScholarshipDetailsScreen() {
   const { isDark, colors } = useTheme();
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
+  const { width } = Dimensions.get("window");
   const scholarshipId = params.scholarshipId ? Number(params.scholarshipId) : null;
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -89,7 +90,17 @@ export default function ScholarshipDetailsScreen() {
 
           const response = await getScholarshipDetails(token, scholarshipId);
           if (response.success && response.data) {
-            const apiData = response.data?.data?.data || response.data?.data || response.data;
+            // Updated mapping based on new response structure
+            const apiData = response.data.data || response.data;
+
+            // Flatten application fields for easier access in UI
+            if (apiData.application) {
+              apiData.application_status = apiData.application.status;
+              apiData.application_step = apiData.application.application_step;
+              apiData.progress_percent = apiData.application.progress_percent;
+              apiData.has_applied = true;
+            }
+
             setScholarship(apiData);
           } else {
             setError(response.error || response.message || "Failed to load scholarship details");
@@ -246,8 +257,75 @@ export default function ScholarshipDetailsScreen() {
   }
 
 
-  const description = stripHtml(scholarship.description || "");
+  // Custom styles for HTML rendering
+  const tagsStyles: any = {
+    body: {
+      color: colors.textSecondary,
+      fontSize: 15,
+      lineHeight: 24,
+      textAlign: 'left',
+    },
+    p: {
+      marginBottom: 16,
+      marginTop: 0,
+    },
+    div: {
+      marginBottom: 12,
+      marginTop: 0,
+    },
+    strong: {
+      fontWeight: '700',
+      color: colors.text,
+    },
+    ul: {
+      marginBottom: 16,
+      marginTop: 8,
+      paddingLeft: 10,
+    },
+    ol: {
+      marginBottom: 16,
+      marginTop: 8,
+      paddingLeft: 10,
+    },
+    li: {
+      marginBottom: 12,
+      fontSize: 15,
+      lineHeight: 24,
+    },
+    h1: {
+      color: colors.text,
+      fontSize: 22,
+      fontWeight: '800',
+      marginBottom: 16,
+      marginTop: 20,
+      letterSpacing: -0.5,
+    },
+    h2: {
+      color: colors.text,
+      fontSize: 20,
+      fontWeight: '700',
+      marginBottom: 14,
+      marginTop: 18,
+      letterSpacing: -0.4,
+    },
+    h3: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: '700',
+      marginBottom: 12,
+      marginTop: 16,
+      letterSpacing: -0.3,
+    },
+  };
 
+
+  const getStatusColor = (status: string) => {
+    const s = status?.toLowerCase();
+    if (s === 'approved' || s === 'applied' || s === 'success') return "#10B981";
+    if (s === 'rejected' || s === 'expired') return "#EF4444";
+    if (s === 'pending' || s === 'processing') return "#F59E0B";
+    return "#6366F1";
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? "#0f0f0f" : "#F8F9FA" }]}>
@@ -260,233 +338,296 @@ export default function ScholarshipDetailsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 150 }}
       >
-        {/* HERO CARD (Replaces Image) */}
-        <View style={styles.heroContainer}>
-          <LinearGradient
-            colors={[
-              getCategoryColor(scholarship.category || "General"),
-              getCategoryColor(scholarship.category || "General") + "DD",
-              getCategoryColor(scholarship.category || "General") + "BB"
-            ]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroCard}
-          >
-            {/* Decorative Elements */}
-            <View style={[styles.decorativeCircle1, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
-            <View style={[styles.decorativeCircle2, { backgroundColor: 'rgba(255,255,255,0.08)' }]} />
-
-            <View style={styles.heroHeaderRow}>
-              <View style={[styles.categoryPill, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
-                <Ionicons name="location" size={14} color="#FFF" />
-                <Text style={styles.categoryPillText}>{scholarship.category || "General"}</Text>
+        {/* HERO IMAGE SECTION */}
+        {scholarship.image ? (
+          <View style={styles.imageHeaderContainer}>
+            <Image
+              source={{ uri: scholarship.image }}
+              style={styles.heroBannerImage}
+              contentFit="cover"
+              transition={1000}
+            />
+            <LinearGradient
+              colors={["transparent", "rgba(0,0,0,0.8)"]}
+              style={styles.imageGradient}
+            />
+            <View style={styles.imageOverlayContent}>
+              <View style={styles.categoryRow}>
+                <View style={[styles.categoryBadge, { backgroundColor: getCategoryColor(scholarship.category || "General") }]}>
+                  <Text style={styles.categoryBadgeText}>{scholarship.category || "General"}</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={handleBookmark}
+                  style={styles.iconButton}
+                  activeOpacity={0.7}
+                  disabled={bookmarking}
+                >
+                  <Ionicons
+                    name={saved || scholarship?.bookmarked ? "bookmark" : "bookmark-outline"}
+                    size={22}
+                    color="#FFF"
+                  />
+                </TouchableOpacity>
               </View>
-
-              <View style={[
-                styles.statusPill,
-                { backgroundColor: 'rgba(255,255,255,0.95)' }
-              ]}>
-                <Text style={[
-                  styles.statusPillText,
-                  {
-                    color: scholarship.application_status?.toLowerCase() === 'approved' ? "#4CAF50" :
-                      scholarship.application_status?.toLowerCase() === 'rejected' ? "#EF4444" :
-                        scholarship.application_status?.toLowerCase() === 'pending' ? "#FF9800" :
-                          scholarship.application_status?.toLowerCase() === 'not_applied' ? "#64748B" :
-                            scholarship.has_applied ? "#4CAF50" :
-                              scholarship.expired ? "#EF4444" : getCategoryColor(scholarship.category || "General")
-                  }
-                ]}>
-                  {scholarship.application_status ? scholarship.application_status.replace(/_/g, ' ').toUpperCase() : (scholarship.has_applied ? "APPLIED" : scholarship.expired ? "EXPIRED" : "OPEN")}
-                </Text>
-              </View>
+              <Text style={styles.bannerTitle} numberOfLines={2}>{scholarship.title}</Text>
+              {scholarship.scholarship_tags && scholarship.scholarship_tags.length > 0 && (
+                <View style={styles.tagList}>
+                  {scholarship.scholarship_tags.map((tag: any) => (
+                    <View key={tag.id} style={styles.tagItem}>
+                      <Text style={styles.tagText}>#{tag.tag_name}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
+          </View>
+        ) : (
+          /* FALLBACK HERO CARD */
+          <View style={styles.heroContainer}>
+            <LinearGradient
+              colors={[
+                getCategoryColor(scholarship.category || "General"),
+                getCategoryColor(scholarship.category || "General") + "DD",
+                getCategoryColor(scholarship.category || "General") + "BB"
+              ]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.heroCard}
+            >
+              <View style={[styles.decorativeCircle1, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
+              <View style={[styles.decorativeCircle2, { backgroundColor: 'rgba(255,255,255,0.08)' }]} />
 
-            <Text style={styles.heroTitle}>
-              {scholarship.title}
-            </Text>
+              <View style={styles.heroHeaderRow}>
+                <View style={[styles.categoryPill, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
+                  <Ionicons name="location" size={14} color="#FFF" />
+                  <Text style={styles.categoryPillText}>{scholarship.category || "General"}</Text>
+                </View>
 
-            {scholarship.shortname && (
-              <Text style={styles.heroSubtitle}>{scholarship.shortname}</Text>
-            )}
-
-            <View style={styles.heroDivider} />
-
-            <View style={styles.heroFooterRow}>
-              <View style={styles.deadlineInfo}>
-                <Text style={styles.deadlineLabel}>DEADLINE</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="calendar-outline" size={16} color="rgba(255,255,255,0.9)" />
-                  <Text style={styles.deadlineValue}>
-                    {deadline ? new Date(deadline).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "No Deadline"}
+                <View style={[styles.statusPill, { backgroundColor: 'rgba(255,255,255,0.95)' }]}>
+                  <Text style={[styles.statusPillText, { color: getStatusColor(scholarship.application_status || (scholarship.has_applied ? "applied" : "open")) }]}>
+                    {scholarship.application_status ? scholarship.application_status.replace(/_/g, ' ').toUpperCase() : (scholarship.has_applied ? "APPLIED" : scholarship.expired ? "EXPIRED" : "OPEN")}
                   </Text>
                 </View>
               </View>
 
-              <TouchableOpacity
-                onPress={handleBookmark}
-                style={[styles.heroBookmarkBtn, { backgroundColor: 'rgba(255,255,255,0.2)' }]}
-                activeOpacity={0.8}
-                disabled={bookmarking}
-              >
-                <Ionicons
-                  name={saved || scholarship?.bookmarked ? "bookmark" : "bookmark-outline"}
-                  size={24}
-                  color="#FFF"
-                />
-              </TouchableOpacity>
-            </View>
-          </LinearGradient>
-        </View>
+              <Text style={styles.heroTitle}>{scholarship.title}</Text>
+              {scholarship.shortname && <Text style={styles.heroSubtitle}>{scholarship.shortname}</Text>}
 
-        {/* APPLICATION CURRENT STATUS */}
-        {scholarship.application_status && (
-          <View style={styles.sectionContainer}>
-            <View style={[styles.progressCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB", paddingVertical: 16 }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <View style={[styles.progressIconBox, {
-                    backgroundColor:
-                      scholarship.application_status.toLowerCase() === 'approved' ? "#4CAF5020" :
-                        scholarship.application_status.toLowerCase() === 'rejected' ? "#EF444420" :
-                          scholarship.application_status.toLowerCase() === 'not_applied' ? "#64748B20" :
-                            "#FF980020"
-                  }]}>
-                    <Ionicons
-                      name={
-                        scholarship.application_status.toLowerCase() === 'approved' ? "checkmark-circle" :
-                          scholarship.application_status.toLowerCase() === 'rejected' ? "close-circle" :
-                            scholarship.application_status.toLowerCase() === 'not_applied' ? "document-text" :
-                              "time"
-                      }
-                      size={24}
-                      color={
-                        scholarship.application_status.toLowerCase() === 'approved' ? "#4CAF50" :
-                          scholarship.application_status.toLowerCase() === 'rejected' ? "#EF4444" :
-                            scholarship.application_status.toLowerCase() === 'not_applied' ? "#64748B" :
-                              "#FF9800"
-                      }
-                    />
-                  </View>
-                  <View>
-                    <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>CURRENT STATUS</Text>
-                    <Text style={[styles.cardTitle, { color: colors.text, textTransform: 'capitalize', marginTop: 2 }]}>
-                      {scholarship.application_status.replace(/_/g, ' ')}
+              {scholarship.scholarship_tags && scholarship.scholarship_tags.length > 0 && (
+                <View style={[styles.tagList, { marginTop: 0, marginBottom: 12 }]}>
+                  {scholarship.scholarship_tags.map((tag: any) => (
+                    <View key={tag.id} style={[styles.tagItem, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+                      <Text style={styles.tagText}>#{tag.tag_name}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              <View style={styles.heroDivider} />
+
+              <View style={styles.heroFooterRow}>
+                <View style={styles.deadlineInfo}>
+                  <Text style={styles.deadlineLabel}>DEADLINE</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons name="calendar-outline" size={16} color="rgba(255,255,255,0.9)" />
+                    <Text style={styles.deadlineValue}>
+                      {deadline ? new Date(deadline).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "No Deadline"}
                     </Text>
                   </View>
                 </View>
-                {scholarship.application_step && scholarship.application_step.toLowerCase() !== scholarship.application_status.toLowerCase() && (
-                  <View style={{ alignItems: 'flex-end', flex: 1 }}>
-                    <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>STAGE</Text>
-                    <Text style={[styles.dateValue, { color: colors.text, textTransform: 'capitalize', marginTop: 2 }]} numberOfLines={1}>
-                      {scholarship.application_step.replace(/_/g, ' ')}
-                    </Text>
+
+                <TouchableOpacity
+                  onPress={handleBookmark}
+                  style={[styles.heroBookmarkBtn, { backgroundColor: 'rgba(255,255,255,0.2)' }]}
+                  activeOpacity={0.8}
+                  disabled={bookmarking}
+                >
+                  <Ionicons
+                    name={saved || scholarship?.bookmarked ? "bookmark" : "bookmark-outline"}
+                    size={24}
+                    color="#FFF"
+                  />
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+          </View>
+        )}
+
+        {/* APPLICATION STATUS CARD (New Layout) */}
+        {(scholarship.application_status || scholarship.application_step) && (
+          <View style={styles.sectionContainer}>
+            <View style={[styles.premiumCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
+              <View style={styles.cardHeader}>
+                <View style={[styles.iconBox, { backgroundColor: getStatusColor(scholarship.application_status) + "20" }]}>
+                  <Ionicons name="shield-checkmark" size={20} color={getStatusColor(scholarship.application_status)} />
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={[styles.cardTag, { color: colors.textSecondary }]}>APPLICATION STATUS</Text>
+                  <Text style={[styles.cardValue, { color: colors.text, textTransform: 'uppercase' }]}>
+                    {scholarship.application_status?.replace(/_/g, ' ') || 'NOT APPLIED'}
+                  </Text>
+                </View>
+                {scholarship.application_progress !== undefined && (
+                  <View style={styles.circularProgress}>
+                    <Text style={[styles.progressText, { color: colors.primary }]}>{scholarship.application_progress}%</Text>
                   </View>
                 )}
               </View>
+
+              {scholarship.application_step && (
+                <View style={styles.stepInfoContainer}>
+                  <Text style={[styles.stepLabel, { color: colors.textSecondary }]}>CURRENT STEP</Text>
+                  <View style={styles.stepBadge}>
+                    <Text style={styles.stepBadgeText}>{scholarship.application_step.replace(/_/g, ' ')}</Text>
+                  </View>
+                </View>
+              )}
             </View>
           </View>
         )}
 
-        {/* APPLICATION STATUS / PROGRESS */}
-        {(scholarship.progress_percent !== undefined && scholarship.progress_percent > 0) && (
+        {/* PROGRESS BAR */}
+        {scholarship.progress_percent !== undefined && scholarship.progress_percent > 0 && (
           <View style={styles.sectionContainer}>
             <View style={[styles.progressCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
               <View style={styles.progressHeader}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <View style={[styles.progressIconBox, { backgroundColor: getCategoryColor(scholarship.category || "General") + "20" }]}>
-                    <Ionicons name="pie-chart" size={20} color={getCategoryColor(scholarship.category || "General")} />
-                  </View>
-                  <Text style={[styles.cardTitle, { color: colors.text }]}>Application Progress</Text>
-                </View>
-                <Text style={[styles.progressPercent, { color: getCategoryColor(scholarship.category || "General") }]}>
-                  {scholarship.progress_percent}%
-                </Text>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>Overall Progress</Text>
+                <Text style={[styles.progressPercent, { color: colors.primary }]}>{scholarship.progress_percent}%</Text>
               </View>
-
               <View style={styles.progressBarBg}>
-                <View
-                  style={[
-                    styles.progressBarFill,
-                    {
-                      width: `${scholarship.progress_percent}%`,
-                      backgroundColor: scholarship.progress_percent === 100 ? '#10B981' : getCategoryColor(scholarship.category || "General")
-                    }
-                  ]}
-                />
+                <View style={[styles.progressBarFill, { width: `${scholarship.progress_percent}%`, backgroundColor: colors.primary }]} />
               </View>
-              <Text style={[styles.progressMessage, { color: colors.textSecondary }]}>
-                {scholarship.progress_percent === 100
-                  ? "Everything looks good! You have completed the application."
-                  : "Complete all required steps to submit your application securely."}
-              </Text>
             </View>
           </View>
         )}
 
-        {/* SCHOLARSHIP TIMELINE / DATES */}
-        <View style={styles.sectionContainer}>
-          <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>Timeline</Text>
-          <View style={[styles.datesCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
-            {scholarship.start_date && (
-              <View style={styles.dateRow}>
-                <View style={[styles.dateIconBox, { backgroundColor: getCategoryColor(scholarship.category || "General") + "20" }]}>
-                  <Ionicons name="play" size={18} color={getCategoryColor(scholarship.category || "General")} />
-                </View>
-                <View style={styles.dateInfo}>
-                  <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>APPLICATION OPENS</Text>
-                  <Text style={[styles.dateValue, { color: colors.text }]}>
-                    {new Date(scholarship.start_date).toLocaleDateString("en-US", { day: 'numeric', month: 'long', year: 'numeric' })}
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            {scholarship.start_date && (scholarship.end_date || scholarship.application_deadline) && (
-              <View style={[styles.horizontalLine, { backgroundColor: isDark ? "#333" : "#F3F4F6" }]} />
-            )}
-
-            {(scholarship.end_date || scholarship.application_deadline) && (
-              <View style={styles.dateRow}>
-                <View style={[styles.dateIconBox, { backgroundColor: getCategoryColor(scholarship.category || "General") + "20" }]}>
-                  <Ionicons name="stop" size={18} color={getCategoryColor(scholarship.category || "General")} />
-                </View>
-                <View style={styles.dateInfo}>
-                  <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>APPLICATION CLOSES</Text>
-                  <Text style={[styles.dateValue, { color: colors.text }]}>
-                    {new Date(scholarship.end_date || scholarship.application_deadline).toLocaleDateString("en-US", { day: 'numeric', month: 'long', year: 'numeric' })}
-                  </Text>
-                </View>
-              </View>
-            )}
+        {/* QUICK DETAILS GRID */}
+        <View style={styles.gridContainer}>
+          <View style={[styles.gridItem, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
+            <Ionicons name="calendar" size={20} color={colors.primary} />
+            <Text style={styles.gridLabel}>Start Date</Text>
+            <Text style={[styles.gridValue, { color: colors.text }]}>
+              {scholarship.start_date ? new Date(scholarship.start_date).toLocaleDateString() : "N/A"}
+            </Text>
+          </View>
+          <View style={[styles.gridItem, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
+            <Ionicons name="hourglass" size={20} color="#F59E0B" />
+            <Text style={styles.gridLabel}>End Date</Text>
+            <Text style={[styles.gridValue, { color: colors.text }]}>
+              {scholarship.end_date ? new Date(scholarship.end_date).toLocaleDateString() : (scholarship.application_deadline ? new Date(scholarship.application_deadline).toLocaleDateString() : "No Deadline")}
+            </Text>
           </View>
         </View>
 
-        {/* DESCRIPTION */}
-        {description && (
+        {/* DESCRIPTION SECTION */}
+        {scholarship.description && (
           <View style={styles.sectionContainer}>
-            <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>About Scholarship</Text>
+            <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>Description</Text>
             <View style={[styles.contentCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
-              <Text style={[styles.bodyText, { color: colors.textSecondary }]}>{description}</Text>
+              <RenderHTML
+                contentWidth={width - 72}
+                source={{ html: scholarship.description }}
+                tagsStyles={tagsStyles}
+              />
             </View>
           </View>
         )}
 
-        {/* ELIGIBILITY */}
+        {/* ELIGIBILITY CRITERIA */}
         {scholarship.eligibility_criteria && (
           <View style={styles.sectionContainer}>
-            <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>Eligibility</Text>
+            <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>Eligibility Criteria</Text>
             <View style={[styles.contentCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <Ionicons name="school" size={24} color={getCategoryColor(scholarship.category || "General")} style={{ marginTop: 2 }} />
-                <Text style={[styles.bodyText, { color: colors.textSecondary, flex: 1 }]}>{scholarship.eligibility_criteria}</Text>
-              </View>
+              <RenderHTML
+                contentWidth={width - 72}
+                source={{ html: scholarship.eligibility_criteria }}
+                tagsStyles={tagsStyles}
+              />
             </View>
+          </View>
+        )}
+
+        {/* SECTIONS & ACTIVITIES (New) */}
+        {scholarship.sections && scholarship.sections.length > 0 && (
+          <View style={styles.sectionContainer}>
+            <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>Scholarship Modules</Text>
+            {scholarship.sections.map((section: any, idx: number) => (
+              <View key={section.id} style={[styles.moduleCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
+                <View style={styles.moduleHeader}>
+                  <View style={[styles.moduleIndexBadge, { backgroundColor: colors.primary + "15" }]}>
+                    <Text style={[styles.moduleIndexText, { color: colors.primary }]}>{idx + 1}</Text>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.moduleTitle, { color: colors.text }]}>{section.name}</Text>
+                    {section.summary ? (
+                      <Text style={[styles.moduleSummary, { color: colors.textSecondary }]} numberOfLines={3}>
+                        {stripHtml(section.summary)}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+
+                {section.activities && section.activities.length > 0 && (
+                  <View style={styles.activitiesList}>
+                    {section.activities.map((activity: any) => {
+                      const isCompleted = activity.completion_state === 1;
+                      const hasDoc = activity.document;
+                      const docStatus = activity.document?.status;
+
+                      return (
+                        <ExternalLink
+                          key={activity.id}
+                          href={activity.url as any}
+                          style={[styles.activityItem, { borderBottomColor: isDark ? "#333" : "#F3F4F6" }]}
+                        >
+                          <View style={styles.activityInner}>
+                            {activity.modicon ? (
+                              <Image source={{ uri: activity.modicon }} style={styles.activityIcon} />
+                            ) : (
+                              <View style={[styles.activityIcon, { backgroundColor: colors.primary + "10", borderRadius: 6, justifyContent: 'center', alignItems: 'center' }]}>
+                                <Ionicons name="document-text-outline" size={14} color={colors.primary} />
+                              </View>
+                            )}
+
+                            <View style={{ flex: 1, marginRight: 10 }}>
+                              <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={1}>{activity.name}</Text>
+                              {hasDoc && (
+                                <View style={styles.docStatusRow}>
+                                  <View style={[styles.statusMiniBadge, { backgroundColor: docStatus === 'done' ? '#DCFCE7' : '#FEF3C7' }]}>
+                                    <View style={[styles.statusDot, { backgroundColor: docStatus === 'done' ? '#166534' : '#F59E0B' }]} />
+                                    <Text style={[styles.statusMiniText, { color: docStatus === 'done' ? '#166534' : '#92400E' }]}>
+                                      {docStatus === 'done' ? 'Done' : 'ToDo'}
+                                    </Text>
+                                  </View>
+                                  {activity.document.due_date && (
+                                    <Text style={[styles.activitySubtext, { color: colors.textSecondary }]}>
+                                      Due: {new Date(activity.document.due_date).toLocaleDateString()}
+                                    </Text>
+                                  )}
+                                </View>
+                              )}
+                            </View>
+
+                            {isCompleted ? (
+                              <View style={styles.completionBadge}>
+                                <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                              </View>
+                            ) : (
+                              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary + "80"} />
+                            )}
+                          </View>
+                        </ExternalLink>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+            ))}
           </View>
         )}
 
         {/* DOCUMENTS LIST */}
-        {scholarship.documents && scholarship.documents.length > 0 && !scholarship.expired && (
+        {scholarship.documents && scholarship.documents.length > 0 && (
           <View style={styles.sectionContainer}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <Text style={[styles.sectionHeaderTitle, { color: colors.text, marginBottom: 0 }]}>Required Documents</Text>
@@ -519,12 +660,10 @@ export default function ScholarshipDetailsScreen() {
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.docLabel, { color: colors.text }]}>{doc.label}</Text>
-                      <Text style={[styles.docSub, { color: isCompleted ? "#166534" : "#6B7280" }]}>
-                        {isCompleted ? "Verified & Attached" : "Tap to upload document"}
-                      </Text>
+                      {doc.due_date && <Text style={[styles.docDate, { color: colors.textSecondary }]}>Due: {new Date(doc.due_date).toLocaleDateString()}</Text>}
                     </View>
                     {!isCompleted && (
-                      <View style={[styles.uploadActionBtn, { backgroundColor: getCategoryColor(scholarship.category || "General") }]}>
+                      <View style={[styles.uploadActionBtn, { backgroundColor: colors.primary }]}>
                         <Ionicons name="arrow-up" size={14} color="#FFF" />
                       </View>
                     )}
@@ -535,50 +674,12 @@ export default function ScholarshipDetailsScreen() {
           </View>
         )}
 
-        {/* PROCESS STEPS (VERTICAL TIMELINE) */}
-        <View style={styles.sectionContainer}>
-          <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>📝 Application Process</Text>
-          <View style={{ paddingLeft: 10 }}>
-            {[
-              { emoji: "📄", title: "Application", desc: "Please complete and submit all required steps of the application form along with necessary documents for the scholarship process." },
-              { emoji: "📁", title: "Document Collection", desc: "Upload the required documents including previous year's mark sheets, fee structure for the current year (if applicable), and any other supporting documents." },
-              { emoji: "📆", title: "Interview", desc: "To assess your eligibility, schedule an interview. The interview will help finalize your selection in the scholarship process." },
-              { emoji: "✅", title: "Selection", desc: "The scholarship committee will evaluate applications, documents, and interview responses to shortlist deserving candidates." },
-              { emoji: "💰", title: "Disbursement", desc: "If selected, the scholarship amount will be transferred directly to the recipient's bank account." },
-            ].map((step, idx, arr) => (
-              <View key={idx} style={styles.timelineItem}>
-                {/* Timeline Connector */}
-                {idx !== arr.length - 1 && (
-                  <View style={[styles.timelineLine, { backgroundColor: isDark ? "#333" : "#E5E7EB" }]} />
-                )}
-
-                <View style={[styles.timelineIconBox, { backgroundColor: isDark ? "#333" : "#FFF", borderColor: isDark ? "#444" : "#E5E7EB" }]}>
-                  <Text style={[styles.timelineStepNum, { color: getCategoryColor(scholarship.category || "General"), fontSize: 16 }]}>{step.emoji}</Text>
-                </View>
-
-                <View style={[styles.timelineContent, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
-                  <Text style={[styles.timelineTitle, { color: colors.text }]}>{step.title}</Text>
-                  <Text style={styles.timelineDesc}>{step.desc}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* NOTES */}
-        <View style={[styles.sectionContainer, { marginBottom: 40 }]}>
-          <View style={[styles.noteBox, { backgroundColor: "#FFFBEB", borderColor: "#FCD34D" }]}>
-            <Ionicons name="bulb" size={20} color="#D97706" />
-            <Text style={[styles.noteText, { color: "#92400E" }]}>Make sure to double check all your documents before submission to avoid rejection.</Text>
-          </View>
-        </View>
-
       </ScrollView>
 
       {/* FIXED ACTION BAR */}
       <View style={[styles.floatFooter, {
         paddingBottom: insets.bottom + 12,
-        backgroundColor: isDark ? "#0f0f0f" : "#FFF",
+        backgroundColor: isDark ? "rgba(15,15,15,0.95)" : "rgba(255,255,255,0.95)",
         borderTopWidth: 1,
         borderTopColor: isDark ? "#333" : "#E5E7EB"
       }]}>
@@ -615,321 +716,6 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  // HERO CARD
-  heroContainer: {
-    padding: 20,
-    marginBottom: 10,
-  },
-  heroCard: {
-    borderRadius: 24,
-    padding: 24,
-    position: 'relative',
-    overflow: 'hidden',
-    shadowColor: "#2563EB",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
-    minHeight: 220,
-    justifyContent: 'space-between'
-  },
-  decorativeCircle1: {
-    position: 'absolute',
-    top: -50,
-    right: -50,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  decorativeCircle2: {
-    position: 'absolute',
-    bottom: -60,
-    left: -20,
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  heroHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  categoryPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    gap: 6,
-  },
-  categoryPillText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  statusPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  statusPillText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  heroTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#FFF',
-    lineHeight: 34,
-    marginBottom: 4,
-    textShadowColor: 'rgba(0,0,0,0.1)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  heroSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
-    marginBottom: 16,
-    fontWeight: '500',
-  },
-  heroDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    marginVertical: 16,
-  },
-  heroFooterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  deadlineInfo: {
-    gap: 4,
-  },
-  deadlineLabel: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.6)',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  deadlineValue: {
-    fontSize: 14,
-    color: '#FFF',
-    fontWeight: '700',
-  },
-  heroBookmarkBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-  },
-
-  // SECTIONS & GRIDS
-  sectionContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-  },
-  sectionHeaderTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  gridContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    gap: 12,
-    marginBottom: 24,
-  },
-  gridItem: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  gridLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  gridValue: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-
-  // PROGRESS CARD
-  progressCard: {
-    padding: 20,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  progressIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  progressPercent: {
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  progressBarBg: {
-    height: 10,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    borderRadius: 5,
-    overflow: 'hidden',
-    marginBottom: 12,
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 5,
-  },
-  progressMessage: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-
-  // COMMON CONTENT CARD
-  contentCard: {
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  bodyText: {
-    fontSize: 15,
-    lineHeight: 24,
-  },
-
-  // DOCS
-  countBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  countText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  docRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 12,
-  },
-  docIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  docLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  docSub: {
-    fontSize: 12,
-  },
-
-  // STEPS
-  stepCard: {
-    width: 140,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: 'flex-start',
-  },
-  stepNum: {
-    fontSize: 40,
-    fontWeight: '900',
-    color: 'rgba(0,0,0,0.05)',
-    position: 'absolute',
-    top: -5,
-    right: 10,
-  },
-  stepTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  stepDesc: {
-    fontSize: 11,
-    color: '#6B7280',
-    lineHeight: 14,
-  },
-
-  // NOTE
-  noteBox: {
-    flexDirection: 'row',
-    gap: 12,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'flex-start',
-  },
-  noteText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '500',
-    lineHeight: 20,
-  },
-
-  // FOOTER
-  floatFooter: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingTop: 12,
-    paddingHorizontal: 20,
-    backgroundColor: 'transparent',
-  },
-  fullWidthButton: {
-    width: '100%',
-    paddingVertical: 16,
-    borderRadius: 16,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  fullWidthButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  disabledBtn: {
-    opacity: 0.7,
-    backgroundColor: '#9CA3AF'
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -939,7 +725,6 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: "#666",
   },
   errorContainer: {
     flex: 1,
@@ -952,100 +737,479 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 24,
     fontSize: 16,
-    color: "#666",
     textAlign: "center",
   },
   errorButton: {
     minWidth: 120,
   },
-  datesCard: {
-    flexDirection: 'column',
+  // IMAGE HEADER
+  imageHeaderContainer: {
+    height: 300,
+    width: "100%",
+    position: "relative",
+    marginBottom: 20,
+  },
+  heroBannerImage: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  imageGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  imageOverlayContent: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 20,
+  },
+  categoryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  categoryBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  categoryBadgeText: {
+    color: "#FFF",
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
+  },
+  bannerTitle: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#FFF",
+    lineHeight: 34,
+  },
+  tagList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  tagItem: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  tagText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // FALLBACK HERO CARD
+  heroContainer: {
+    padding: 20,
+    marginBottom: 10,
+  },
+  heroCard: {
+    borderRadius: 24,
+    padding: 24,
+    position: "relative",
+    overflow: "hidden",
+    minHeight: 220,
+    justifyContent: "space-between",
+  },
+  decorativeCircle1: {
+    position: "absolute",
+    top: -50,
+    right: -50,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+  },
+  decorativeCircle2: {
+    position: "absolute",
+    bottom: -60,
+    left: -20,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+  },
+  heroHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  categoryPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    gap: 6,
+  },
+  categoryPillText: {
+    color: "#FFF",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  statusPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  statusPillText: {
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  heroTitle: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: "#FFF",
+    lineHeight: 34,
+    marginBottom: 4,
+  },
+  heroSubtitle: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.8)",
+    marginBottom: 16,
+    fontWeight: "500",
+  },
+  heroDivider: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    marginVertical: 16,
+  },
+  heroFooterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  deadlineInfo: {
+    gap: 4,
+  },
+  deadlineLabel: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.6)",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  deadlineValue: {
+    fontSize: 14,
+    color: "#FFF",
+    fontWeight: "700",
+  },
+  heroBookmarkBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
+  },
+
+  // COMMON SECTIONS
+  sectionContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 32,
+  },
+  sectionHeaderTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 16,
+    marginTop: 8,
+  },
+  contentCard: {
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+
+  // PREMIUM CARD Layout
+  premiumCard: {
+    padding: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  iconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cardTag: {
+    fontSize: 11,
+    fontWeight: "600",
+    letterSpacing: 1,
+  },
+  cardValue: {
+    fontSize: 18,
+    fontWeight: "800",
+    marginTop: 2,
+  },
+  circularProgress: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 3,
+    borderColor: "#E5E7EB",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  progressText: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  stepInfoContainer: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.05)",
+  },
+  stepLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  stepBadge: {
+    backgroundColor: "#F3F4F6",
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  stepBadgeText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#374151",
+    textTransform: "capitalize",
+  },
+
+  // PROGRESS CARD
+  progressCard: {
+    padding: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  progressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  progressPercent: {
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  progressBarBg: {
+    height: 10,
+    backgroundColor: "rgba(0,0,0,0.05)",
+    borderRadius: 5,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    borderRadius: 5,
+  },
+
+  // GRID
+  gridContainer: {
+    flexDirection: "row",
+    paddingHorizontal: 20,
+    gap: 12,
+    marginBottom: 24,
+  },
+  gridItem: {
+    flex: 1,
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
-    gap: 16,
+    alignItems: "flex-start",
+    gap: 8,
   },
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+  gridLabel: {
+    fontSize: 12,
+    fontWeight: "500",
   },
-  dateIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dateInfo: {
-    flex: 1,
-  },
-  dateLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  dateValue: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  horizontalLine: {
-    width: '100%',
-    height: 1,
+  gridValue: {
+    fontSize: 14,
+    fontWeight: "700",
   },
 
-  // UPLOAD BTN
+  // MODULES
+  moduleCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 20,
+    overflow: 'hidden',
+    padding: 16,
+  },
+  moduleHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  moduleIndexBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  moduleIndexText: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  moduleTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  moduleSummary: {
+    fontSize: 13,
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  activitiesList: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+    paddingTop: 8,
+  },
+  activityItem: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  activityInner: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  activityIcon: {
+    width: 32,
+    height: 32,
+    marginRight: 12,
+  },
+  activityName: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  docStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 8,
+  },
+  statusMiniBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 4,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusMiniText: {
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: 'uppercase',
+  },
+  activitySubtext: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  completionBadge: {
+    marginLeft: 8,
+  },
+
+  // DOCS
+  docRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 12,
+  },
+  docIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  docLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  docDate: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  countBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  countText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
   uploadActionBtn: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
 
-  // TIMELINE
-  timelineItem: {
-    flexDirection: 'row',
-    marginBottom: 24,
-    position: 'relative',
+  // FOOTER
+  floatFooter: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingTop: 12,
+    paddingHorizontal: 20,
   },
-  timelineLine: {
-    position: 'absolute',
-    left: 17, // center of the 36px icon box
-    top: 36,
-    bottom: -24,
-    width: 2,
-  },
-  timelineIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    zIndex: 2,
-    marginRight: 16,
-  },
-  timelineStepNum: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  timelineContent: {
-    flex: 1,
-    padding: 16,
+  fullWidthButton: {
+    width: "100%",
+    paddingVertical: 16,
     borderRadius: 16,
-    borderWidth: 1,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
   },
-  timelineTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 4,
+  fullWidthButtonText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "700",
   },
-  timelineDesc: {
-    fontSize: 13,
-    color: '#6B7280',
-    lineHeight: 18,
+  disabledBtn: {
+    opacity: 0.7,
   },
 });
 
