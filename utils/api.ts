@@ -1370,8 +1370,27 @@ export const getQuizAccessInfo = (token: string, cmid: number) =>
 export const getQuizMyAttempts = (token: string, cmid: number) =>
   moodleApiRequest(token, "local_mobileapi_get_quiz_my_attempts", { cmid: String(cmid) });
 
-export const startQuizAttempt = (token: string, cmid: number) =>
-  moodleApiRequest(token, "local_mobileapi_start_quiz_attempt", { cmid: String(cmid) });
+/**
+ * Get generic activity details (for page, forum, qbank, customcert, etc.)
+ * Returns content_type: "html_page" | "webview_only"
+ *   - html_page    → use content_html to render natively
+ *   - webview_only → open webview_url in the in-app WebView
+ */
+export const getActivityDetails = (token: string, cmid: number) =>
+  moodleApiRequest(token, "local_mobileapi_get_activity_details", { cmid: String(cmid) });
+
+export const startQuizAttempt = (
+  token: string,
+  cmid: number,
+  preflightdata: Record<string, string> = {},
+  forcenew: boolean = false
+) =>
+  moodleApiRequest(token, "local_mobileapi_start_quiz_attempt", {
+    cmid: String(cmid),
+    // preflightdata is sent as an empty object unless a password/preflight is required
+    ...preflightdata,
+    forcenew: forcenew ? "1" : "0",
+  });
 
 /**
  * Bookmark/Unbookmark Scholarship API call (POST with query parameters)

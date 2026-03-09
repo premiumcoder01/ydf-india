@@ -1,14 +1,19 @@
-import { AppHeader, Button, ExternalLink } from '@/components';
+import { AppHeader, Button } from '@/components';
 import { useTheme } from '@/context/ThemeContext';
 import { getQuizAccessInfo, getQuizMyAttempts, startQuizAttempt } from '@/utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useLocalSearchParams } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
-
-const openBrowserAsync = WebBrowser.openBrowserAsync;
+import {
+    ActivityIndicator,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 
 export default function StudentQuizWebView() {
     const { cmid, name } = useLocalSearchParams();
@@ -36,12 +41,36 @@ export default function StudentQuizWebView() {
                 getQuizMyAttempts(token, Number(cmid))
             ]);
 
-            // Robust unwrapping for double-nested data: result.data.data
+            // ── Parse access info ────────────────────────────────────────────
+            // The API may return: { success:true, data: { success:false, data:{...}, message:"..." } }
+            // OR on success:      { success:true, data: { success:true,  data:{...} } }
+            let accessData: any = null;
+            let accessError: string | null = null;
+
             if (accessRes.success && accessRes.data) {
-                const actualData = accessRes.data.data || accessRes.data;
-                setAccessInfo(actualData);
+                const outer = accessRes.data;
+                // Inner wrapper has its own success flag
+                if (outer.success === false) {
+                    // Quiz not accessible (not enrolled, not yet unlocked, etc.)
+                    accessError = outer.message || 'This quiz is not accessible at this time.';
+                } else {
+                    accessData = outer.data || outer;
+                }
+            } else if (!accessRes.success) {
+                // requireloginerror or other Moodle exception
+                const errCode = (accessRes as any).errorcode;
+                if (errCode === 'requireloginerror' || errCode === 'nopermissions') {
+                    accessError = 'This quiz is not yet available to you.';
+                } else {
+                    accessError = accessRes.error || 'This quiz information could not be retrieved.';
+                }
             }
 
+            if (accessData) {
+                setAccessInfo(accessData);
+            }
+
+            // ── Parse attempts ───────────────────────────────────────────────
             if (attemptsRes.success && attemptsRes.data) {
                 const actualData = attemptsRes.data.data || attemptsRes.data;
                 setAttempts(actualData.attempts || []);
@@ -49,12 +78,14 @@ export default function StudentQuizWebView() {
                     attempt: actualData.attempt_url,
                     review: actualData.review_url
                 });
-            } else if (attemptsRes.errorcode === 'invalidrecordunknown') {
+            } else {
+                // requireloginerror / nopermissions / any error → treat as no attempts yet
                 setAttempts([]);
             }
 
-            if (!accessRes.success || (accessRes.data && accessRes.data.success === false)) {
-                setError('This quiz information could not be retrieved.');
+            // ── Set error only if access info is truly unavailable ───────────
+            if (accessError && !accessData) {
+                setError(accessError);
             }
         } catch (err) {
             setError('An error occurred while loading quiz');
@@ -63,46 +94,44 @@ export default function StudentQuizWebView() {
         }
     };
 
+    // Opens a quiz URL inside the app (in-app WebView)
+    const openInApp = (url: string) => {
+        router.push({
+            pathname: '/(dashboard)/student/student-quiz-attempt',
+            params: { url: encodeURIComponent(url), title: String(name) },
+        });
+    };
+
     const handleStartQuiz = async () => {
         setStarting(true);
         try {
-            const authData = await AsyncStorage.getItem('authData');
-            if (!authData) return;
-            const { token } = JSON.parse(authData);
-
-            // If it's finished, try to review using the review URL template
-            if (accessInfo?.isfinished && (baseUrls.review || attempts.length > 0)) {
-                let reviewUrl = baseUrls.review;
-                if (reviewUrl && !reviewUrl.includes('attempt=')) {
-                    // It's a base URL, need to append attempt ID
-                    const lastAttemptId = attempts[attempts.length - 1]?.id;
-                    if (lastAttemptId) {
-                        reviewUrl = `${reviewUrl}${lastAttemptId}`;
-                    }
-                } else if (!reviewUrl && attempts.length > 0) {
-                    // Hard fallback if no base URL
-                    reviewUrl = `https://testing.ydfindia.org/mod/quiz/review.php?attempt=${attempts[attempts.length - 1].id}&cmid=${cmid}`;
-                }
-
-                if (reviewUrl) {
-                    await openBrowserAsync(reviewUrl);
-                    setStarting(false);
+            // ── 1. If already finished → open review ───────────────────────────
+            if (accessInfo?.isfinished) {
+                const lastAttempt = attempts[attempts.length - 1];
+                if (lastAttempt && baseUrls.review) {
+                    openInApp(`${baseUrls.review}${lastAttempt.id}`);
                     return;
                 }
             }
+
+            // ── 2. If there's an in-progress attempt → resume directly (no API call needed) ──
+            if (inProgressAttempt && baseUrls.attempt) {
+                openInApp(`${baseUrls.attempt}${inProgressAttempt.id}`);
+                return;
+            }
+
+            // ── 3. Start a brand-new attempt ───────────────────────────────────
+            const authData = await AsyncStorage.getItem('authData');
+            if (!authData) return;
+            const { token } = JSON.parse(authData);
 
             const response = await startQuizAttempt(token, Number(cmid));
             const actualData = response.data?.data || response.data;
 
             if ((response.success || actualData?.success) && actualData?.attempt_url) {
-                await openBrowserAsync(actualData.attempt_url);
+                openInApp(actualData.attempt_url);
             } else {
-                // If it failed but maybe there's an in-progress attempt we can resume
-                if (attempts.length > 0 && attempts[0].state === 'inprogress' && baseUrls.attempt) {
-                    await openBrowserAsync(`${baseUrls.attempt}${attempts[0].id}`);
-                } else {
-                    Alert.alert('Notice', actualData?.message || 'You cannot start or continue this quiz at this time.');
-                }
+                Alert.alert('Notice', actualData?.message || 'You cannot start this quiz at this time.');
             }
         } catch (err) {
             Alert.alert('Error', 'Could not access the quiz');
@@ -138,14 +167,24 @@ export default function StudentQuizWebView() {
     }
 
     if (error) {
+        const isAccessError = error.includes('not yet available') || error.includes('not accessible');
         return (
             <View style={[styles.container, { backgroundColor: colors.background }]}>
                 <AppHeader title={name as string || 'Quiz'} onBack={() => router.back()} />
                 <View style={styles.center}>
-                    <View style={styles.errorIconContainer}>
-                        <Ionicons name="document-lock-outline" size={60} color={colors.textSecondary} />
+                    <View style={[styles.errorIconContainer, isAccessError && { backgroundColor: '#FEF3C7' }]}>
+                        <Ionicons
+                            name={isAccessError ? 'lock-closed-outline' : 'document-lock-outline'}
+                            size={60}
+                            color={isAccessError ? '#D97706' : colors.textSecondary}
+                        />
                     </View>
                     <Text style={[styles.errorText, { color: colors.text }]}>{error}</Text>
+                    {isAccessError && (
+                        <Text style={[styles.errorSubText, { color: colors.textSecondary }]}>
+                            Complete the previous steps to unlock this quiz.
+                        </Text>
+                    )}
                     <Button title="Go Back" onPress={() => router.back()} style={styles.backBtn} />
                 </View>
             </View>
@@ -153,7 +192,7 @@ export default function StudentQuizWebView() {
     }
 
     const canAttempt = accessInfo?.preventnewattemptreasons?.length === 0 && !accessInfo?.isfinished;
-    const inProgressAttempt = attempts.find(a => a.state === 'inprogress');
+    const inProgressAttempt = attempts.find((a: any) => a.state === 'inprogress');
 
     return (
         <View style={[styles.container, { backgroundColor: isDark ? '#0F0F0F' : '#F8F9FA' }]}>
@@ -209,6 +248,7 @@ export default function StudentQuizWebView() {
                     </View>
                 </View>
 
+                {/* Attempt History */}
                 <View style={styles.historySection}>
                     <View style={styles.sectionHeader}>
                         <Ionicons name="list" size={20} color={colors.primary} />
@@ -226,9 +266,7 @@ export default function StudentQuizWebView() {
                             let reviewUrl = '';
 
                             if (isFinished && baseUrls.review) {
-                                reviewUrl = baseUrls.review.includes('attempt=')
-                                    ? `${baseUrls.review}${attempt.id}`
-                                    : `${baseUrls.review}${attempt.id}`; // Simple append for now assuming it's a template
+                                reviewUrl = `${baseUrls.review}${attempt.id}`;
                             }
 
                             const CardBody = (
@@ -239,8 +277,13 @@ export default function StudentQuizWebView() {
                                                 {formatDate(attempt.timestart)}
                                             </Text>
                                             <Text style={[styles.attemptTime, { color: colors.textSecondary }]}>
-                                                {formatTime(attempt.timestart)}
+                                                Started: {formatTime(attempt.timestart)}
                                             </Text>
+                                            {attempt.timefinish > 0 && (
+                                                <Text style={[styles.attemptTime, { color: colors.textSecondary }]}>
+                                                    Finished: {formatTime(attempt.timefinish)}
+                                                </Text>
+                                            )}
                                         </View>
                                         <View style={[styles.stateBadge, {
                                             backgroundColor: attempt.state === 'finished' ? '#E0F2FE' :
@@ -255,30 +298,48 @@ export default function StudentQuizWebView() {
                                         </View>
                                     </View>
 
-                                    {attempt.sumgrades !== null && (
-                                        <View style={styles.gradeBox}>
-                                            <View>
-                                                <Text style={[styles.gradeLabel, { color: colors.textSecondary }]}>Grade Achieved</Text>
+                                    {/* Grade row — shown for finished; resume row — shown for in-progress */}
+                                    <View style={styles.gradeBox}>
+                                        <View>
+                                            <Text style={[styles.gradeLabel, { color: colors.textSecondary }]}>
+                                                {isFinished ? 'Grade Achieved' : 'Status'}
+                                            </Text>
+                                            {isFinished ? (
                                                 <Text style={[styles.gradeValue, { color: colors.primary }]}>
-                                                    {parseFloat(attempt.sumgrades).toFixed(2)}
+                                                    {parseFloat(attempt.sumgrades ?? 0).toFixed(2)}
                                                 </Text>
-                                            </View>
-                                            {isFinished && (
-                                                <View style={styles.reviewAction}>
-                                                    <Text style={[styles.reviewText, { color: colors.primary }]}>Review</Text>
-                                                    <Ionicons name="chevron-forward" size={16} color={colors.primary} />
-                                                </View>
+                                            ) : (
+                                                <Text style={[styles.gradeValue, { color: '#1D4ED8', fontSize: 15 }]}>
+                                                    In Progress
+                                                </Text>
                                             )}
                                         </View>
-                                    )}
+                                        {/* Action label */}
+                                        <View style={styles.reviewAction}>
+                                            <Text style={[styles.reviewText, { color: colors.primary }]}>
+                                                {isFinished ? 'Review' : 'Resume'}
+                                            </Text>
+                                            <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+                                        </View>
+                                    </View>
                                 </View>
                             );
 
-                            if (isFinished && reviewUrl) {
+                            // Both finished AND in-progress attempts are now tappable
+                            const tapUrl = isFinished
+                                ? reviewUrl
+                                : `${baseUrls.attempt}${attempt.id}`;
+
+                            if (tapUrl) {
                                 return (
-                                    <ExternalLink key={attempt.id} href={reviewUrl as any} style={{ marginBottom: 16 }}>
+                                    <TouchableOpacity
+                                        key={attempt.id}
+                                        style={{ marginBottom: 16 }}
+                                        activeOpacity={0.8}
+                                        onPress={() => openInApp(tapUrl)}
+                                    >
                                         {CardBody}
-                                    </ExternalLink>
+                                    </TouchableOpacity>
                                 );
                             }
 
@@ -296,215 +357,62 @@ export default function StudentQuizWebView() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    center: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 30,
-    },
+    container: { flex: 1 },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
     errorIconContainer: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        backgroundColor: 'rgba(0,0,0,0.03)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 20,
+        width: 100, height: 100, borderRadius: 50,
+        backgroundColor: 'rgba(0,0,0,0.03)', justifyContent: 'center', alignItems: 'center', marginBottom: 20,
     },
-    scroll: {
-        padding: 20,
-    },
+    scroll: { padding: 20 },
     mainCard: {
-        borderRadius: 24,
-        overflow: 'hidden',
-        elevation: 4,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        marginBottom: 32,
+        borderRadius: 24, overflow: 'hidden', elevation: 4,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, marginBottom: 32,
     },
-    cardAccent: {
-        height: 6,
-        width: '100%',
-    },
-    cardContent: {
-        padding: 24,
-    },
-    quizHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 16,
-        marginBottom: 20,
-    },
+    cardAccent: { height: 6, width: '100%' },
+    cardContent: { padding: 24 },
+    quizHeader: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20 },
     iconContainer: {
-        width: 50,
-        height: 50,
-        borderRadius: 15,
-        backgroundColor: 'rgba(0,0,0,0.05)',
-        justifyContent: 'center',
-        alignItems: 'center',
+        width: 50, height: 50, borderRadius: 15,
+        backgroundColor: 'rgba(0,0,0,0.05)', justifyContent: 'center', alignItems: 'center',
     },
-    quizName: {
-        fontSize: 22,
-        fontWeight: '800',
-        letterSpacing: -0.5,
-    },
-    quizSub: {
-        fontSize: 14,
-        fontWeight: '500',
-    },
-    statusSection: {
-        flexDirection: 'row',
-        marginBottom: 24,
-    },
-    badge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 10,
-    },
-    badgeText: {
-        fontSize: 12,
-        fontWeight: '700',
-        textTransform: 'uppercase',
-    },
+    quizName: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
+    quizSub: { fontSize: 14, fontWeight: '500' },
+    statusSection: { flexDirection: 'row', marginBottom: 24 },
+    badge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
+    badgeText: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
     warningBox: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        backgroundColor: '#FFFBEB',
-        borderColor: '#FEF3C7',
-        borderWidth: 1,
-        borderRadius: 16,
-        marginBottom: 24,
-        gap: 12,
+        flexDirection: 'row', alignItems: 'center', padding: 16,
+        backgroundColor: '#FFFBEB', borderColor: '#FEF3C7', borderWidth: 1,
+        borderRadius: 16, marginBottom: 24, gap: 12,
     },
-    warningText: {
-        fontSize: 14,
-        color: '#92400E',
-        flex: 1,
-        lineHeight: 20,
-        fontWeight: '500',
-    },
-    startBtn: {
-        height: 56,
-        borderRadius: 16,
-    },
-    historySection: {
-        marginTop: 8,
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        marginBottom: 16,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: '800',
-    },
+    warningText: { fontSize: 14, color: '#92400E', flex: 1, lineHeight: 20, fontWeight: '500' },
+    startBtn: { height: 56, borderRadius: 16 },
+    historySection: { marginTop: 8 },
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+    sectionTitle: { fontSize: 18, fontWeight: '800' },
     emptyHistory: {
-        padding: 48,
-        borderRadius: 24,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderStyle: 'dashed',
-        borderColor: 'rgba(0,0,0,0.1)',
+        padding: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center',
+        borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(0,0,0,0.1)',
     },
-    emptyText: {
-        textAlign: 'center',
-        marginTop: 16,
-        fontSize: 15,
-        fontWeight: '500',
-    },
+    emptyText: { textAlign: 'center', marginTop: 16, fontSize: 15, fontWeight: '500' },
     attemptCard: {
-        borderRadius: 20,
-        padding: 20,
-        marginBottom: 16,
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
+        borderRadius: 20, padding: 20, marginBottom: 16,
+        elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8,
     },
-    attemptTop: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 16,
-    },
-    attemptDate: {
-        fontSize: 16,
-        fontWeight: '700',
-    },
-    attemptTime: {
-        fontSize: 13,
-        fontWeight: '500',
-        marginTop: 2,
-    },
-    stateBadge: {
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 8,
-    },
-    stateText: {
-        fontSize: 11,
-        fontWeight: '700',
-        textTransform: 'uppercase',
-    },
+    attemptTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
+    attemptDate: { fontSize: 16, fontWeight: '700' },
+    attemptTime: { fontSize: 13, fontWeight: '500', marginTop: 2 },
+    stateBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+    stateText: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
     gradeBox: {
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(0,0,0,0.05)',
-        paddingTop: 16,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
+        borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)', paddingTop: 16,
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     },
-    gradeLabel: {
-        fontSize: 13,
-        fontWeight: '500',
-    },
-    gradeValue: {
-        fontSize: 20,
-        fontWeight: '900',
-    },
-    reviewAction: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-    },
-    reviewText: {
-        fontSize: 13,
-        fontWeight: '700',
-    },
-    errorText: {
-        fontSize: 16,
-        textAlign: 'center',
-        marginTop: 20,
-        marginBottom: 32,
-        lineHeight: 24,
-    },
-    backBtn: {
-        minWidth: 180,
-    },
-    webview: {
-        flex: 1,
-    },
-    webViewLoading: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.8)',
-    },
+    gradeLabel: { fontSize: 13, fontWeight: '500' },
+    gradeValue: { fontSize: 20, fontWeight: '900' },
+    reviewAction: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    reviewText: { fontSize: 13, fontWeight: '700' },
+    errorText: { fontSize: 16, textAlign: 'center', marginTop: 20, marginBottom: 12, lineHeight: 24, fontWeight: '600' },
+    errorSubText: { fontSize: 14, textAlign: 'center', marginBottom: 32, lineHeight: 22, paddingHorizontal: 12 },
+    backBtn: { minWidth: 180 },
 });
