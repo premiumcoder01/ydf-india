@@ -8,6 +8,7 @@ import {
     ActivityIndicator,
     Alert,
     Dimensions,
+    Platform,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -68,7 +69,7 @@ function CustomHeader({
                 },
             ]}
         >
-            {/* ── Title row ── */}
+            {/* ── Title row — back + share only, no filename text ── */}
             <View style={styles.headerTitleRow}>
                 {/* Back */}
                 <TouchableOpacity
@@ -84,14 +85,8 @@ function CustomHeader({
                     />
                 </TouchableOpacity>
 
-                {/* Filename — fills remaining space */}
-                <Text
-                    style={[styles.headerFilename, { color: isDark ? "#FFFFFF" : "#111111" }]}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                >
-                    {filename || "Document"}
-                </Text>
+                {/* Spacer — pushes share icon to the right */}
+                <View style={{ flex: 1 }} />
 
                 {/* Share — shown once file is ready, otherwise invisible placeholder */}
                 {isReady ? (
@@ -191,23 +186,51 @@ export default function StudentFileViewer() {
                 return;
             }
 
-            taskRef.current = RNBlobUtil.config({
-                path: destPath,
-                trusty: true, // handles self-signed certs on the test server
-            })
-                .fetch("GET", fileurl)
-                .progress({ count: 10 }, (received, total) => {
-                    if (total > 0) setProgress(Math.round((received / total) * 100));
+            if (Platform.OS === "android") {
+                // ─── Android: use JS fetch to avoid the
+                //     "Use of own trust manager but none defined" SSL bug
+                //     in react-native-blob-util on Android.
+                const response = await fetch(fileurl);
+                if (!response.ok) {
+                    throw new Error(`Server responded with status ${response.status}`);
+                }
+
+                // Stream via blob → base64 → write with RNBlobUtil
+                const blob = await response.blob();
+                const reader = new FileReader();
+                const base64Data: string = await new Promise((resolve, reject) => {
+                    reader.onloadend = () => {
+                        const result = reader.result as string;
+                        // strip the "data:...;base64," prefix
+                        resolve(result.split(",")[1]);
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
                 });
 
-            const res = await taskRef.current;
-            const status = res.info().status;
-
-            if (status === 200) {
+                await RNBlobUtil.fs.writeFile(destPath, base64Data, "base64");
                 setLocalPath(destPath);
                 setState("ready");
             } else {
-                throw new Error(`Server responded with status ${status}`);
+                // ─── iOS: use RNBlobUtil native fetch (supports progress + trusty)
+                taskRef.current = RNBlobUtil.config({
+                    path: destPath,
+                    trusty: true, // handles self-signed certs on iOS
+                })
+                    .fetch("GET", fileurl)
+                    .progress({ count: 10 }, (received, total) => {
+                        if (total > 0) setProgress(Math.round((received / total) * 100));
+                    });
+
+                const res = await taskRef.current;
+                const status = res.info().status;
+
+                if (status === 200) {
+                    setLocalPath(destPath);
+                    setState("ready");
+                } else {
+                    throw new Error(`Server responded with status ${status}`);
+                }
             }
         } catch (err: any) {
             if (err?.message?.includes("cancel")) return; // navigated away

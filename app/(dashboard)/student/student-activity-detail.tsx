@@ -15,6 +15,7 @@ import {
     View,
 } from 'react-native';
 import RenderHTML from 'react-native-render-html';
+import { WebView } from 'react-native-webview';
 
 export default function StudentActivityDetail() {
     const { cmid, name } = useLocalSearchParams<{ cmid: string; name: string }>();
@@ -23,7 +24,10 @@ export default function StudentActivityDetail() {
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [notAccessible, setNotAccessible] = useState(false);
     const [htmlContent, setHtmlContent] = useState<string | null>(null);
+    const [webviewUrl, setWebviewUrl] = useState<string | null>(null);
+    const [webviewLoading, setWebviewLoading] = useState(false);
 
     useEffect(() => {
         fetchActivityDetails();
@@ -32,6 +36,8 @@ export default function StudentActivityDetail() {
     const fetchActivityDetails = async () => {
         setLoading(true);
         setError(null);
+        setNotAccessible(false);
+        setWebviewUrl(null);
         try {
             const authData = await AsyncStorage.getItem('authData');
             if (!authData) {
@@ -43,7 +49,19 @@ export default function StudentActivityDetail() {
             const res = await getActivityDetails(token, Number(cmid));
 
             if (!res.success) {
-                setError(res.error || 'Could not load this activity.');
+                const data = res.data?.data || res.data;
+                // Detect "not accessible" response:
+                // success=false AND (message says not accessible OR webview_url is empty)
+                const isNotAccessible =
+                    (res.message &&
+                        res.message.toLowerCase().includes('not accessible')) ||
+                    (data?.content_type === 'webview_only' && !data?.webview_url);
+
+                if (isNotAccessible) {
+                    setNotAccessible(true);
+                } else {
+                    setError(res.error || res.message || 'Could not load this activity.');
+                }
                 return;
             }
 
@@ -53,25 +71,13 @@ export default function StudentActivityDetail() {
                 // Render HTML natively in this screen
                 setHtmlContent(data.content_html || '<p>No content available.</p>');
             } else if (data?.content_type === 'webview_only' && data?.webview_url) {
-                // Redirect immediately to the in-app WebView
-                router.replace({
-                    pathname: '/(dashboard)/student/student-quiz-attempt',
-                    params: {
-                        url: encodeURIComponent(data.webview_url),
-                        title: String(name || 'Activity'),
-                    },
-                });
-                return;
+                // Render webview inline in this screen
+                setWebviewUrl(data.webview_url);
+                setWebviewLoading(true);
             } else if (data?.webview_url) {
-                // Fallback: any response with a webview_url → open it
-                router.replace({
-                    pathname: '/(dashboard)/student/student-quiz-attempt',
-                    params: {
-                        url: encodeURIComponent(data.webview_url),
-                        title: String(name || 'Activity'),
-                    },
-                });
-                return;
+                // Fallback: any response with a webview_url → open inline
+                setWebviewUrl(data.webview_url);
+                setWebviewLoading(true);
             } else {
                 setError('This activity type is not yet supported.');
             }
@@ -92,6 +98,32 @@ export default function StudentActivityDetail() {
                     <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
                         Loading content…
                     </Text>
+                </View>
+            </View>
+        );
+    }
+
+    // ─── Not Accessible ─────────────────────────────────────────────────────────
+    if (notAccessible) {
+        return (
+            <View style={[styles.container, { backgroundColor: isDark ? '#0F0F0F' : '#F8F9FA' }]}>
+                <AppHeader title={name || 'Activity'} onBack={() => router.back()} />
+                <View style={styles.center}>
+                    <View style={[styles.accessIconRing, { backgroundColor: isDark ? '#2A1A00' : '#FFF7ED' }]}>
+                        <Ionicons name="lock-closed-outline" size={52} color="#F59E0B" />
+                    </View>
+                    <Text style={[styles.errorTitle, { color: colors.text }]}>Access Restricted</Text>
+                    <Text style={[styles.errorSub, { color: colors.textSecondary }]}>
+                        You currently don't have access to this activity.{'\n'}
+                        Please contact your instructor or check back later.
+                    </Text>
+                    <TouchableOpacity
+                        style={[styles.backBtn, { borderColor: isDark ? '#333' : '#E5E7EB' }]}
+                        onPress={() => router.back()}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={[styles.backBtnText, { color: colors.textSecondary }]}>Go Back</Text>
+                    </TouchableOpacity>
                 </View>
             </View>
         );
@@ -123,6 +155,35 @@ export default function StudentActivityDetail() {
                     >
                         <Text style={[styles.backBtnText, { color: colors.textSecondary }]}>Go Back</Text>
                     </TouchableOpacity>
+                </View>
+            </View>
+        );
+    }
+
+    // ─── WebView (webview_only) ──────────────────────────────────────────────────
+    if (webviewUrl) {
+        return (
+            <View style={[styles.container, { backgroundColor: isDark ? '#0F0F0F' : '#F8F9FA' }]}>
+                <AppHeader title={name || 'Activity'} onBack={() => router.back()} />
+                <View style={styles.webviewWrapper}>
+                    <WebView
+                        source={{ uri: webviewUrl }}
+                        style={styles.webview}
+                        onLoadStart={() => setWebviewLoading(true)}
+                        onLoadEnd={() => setWebviewLoading(false)}
+                        javaScriptEnabled
+                        domStorageEnabled
+                        startInLoadingState={false}
+                        allowsBackForwardNavigationGestures
+                    />
+                    {webviewLoading && (
+                        <View style={[styles.webviewLoader, { backgroundColor: isDark ? '#0F0F0F' : '#F8F9FA' }]}>
+                            <ActivityIndicator size="large" color={colors.primary} />
+                            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+                                Loading…
+                            </Text>
+                        </View>
+                    )}
                 </View>
             </View>
         );
@@ -196,6 +257,14 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 8,
     },
+    accessIconRing: {
+        width: 88,
+        height: 88,
+        borderRadius: 44,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
     errorTitle: {
         fontSize: 20,
         fontWeight: '800',
@@ -249,5 +318,18 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         fontSize: 15,
         padding: 24,
+    },
+    webviewWrapper: {
+        flex: 1,
+        position: 'relative',
+    },
+    webview: {
+        flex: 1,
+    },
+    webviewLoader: {
+        ...StyleSheet.absoluteFillObject,
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 12,
     },
 });

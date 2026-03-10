@@ -614,7 +614,7 @@ export default function ScholarshipDetailsScreen() {
                         // ── LABEL: admin-only markers — NEVER shown to students ──
                         if (activity.modname === 'label') return null;
 
-                        const isCompleted = activity.completion_state === 1;
+                        const isCompleted = activity.completion_state > 0;
                         const isAssign = activity.modname === 'assign';
                         const isQuiz = activity.modname === 'quiz';
                         const isScheduler = activity.modname === 'scheduler';
@@ -1048,7 +1048,6 @@ export default function ScholarshipDetailsScreen() {
                         }
 
                         // ── FALLBACK → any other unrecognised modtype ─────────
-                        // Render a simple non-tappable info card (no ExternalLink / browser)
                         return (
                           <View
                             key={activity.id}
