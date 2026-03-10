@@ -264,6 +264,8 @@ export default function ScholarshipDetailsScreen() {
   const deadline = scholarship ? (scholarship.application_deadline || scholarship.end_date || scholarship.start_date) : null;
   // Simplify application closed logic: rely on API 'expired' flag primarily
   const isApplicationClosed = scholarship?.expired === true;
+  // True when the student has NOT yet applied — all module activities are locked
+  const isNotApplied = scholarship?.application_status === 'not_applied' || !scholarship?.has_applied;
 
   if (loading) {
     return (
@@ -584,6 +586,21 @@ export default function ScholarshipDetailsScreen() {
         {scholarship.sections && scholarship.sections.length > 0 && (
           <View style={styles.sectionContainer}>
             <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>Scholarship Modules</Text>
+
+            {/* ── Locked banner — shown only before student applies ── */}
+            {isNotApplied && (
+              <View style={styles.lockedBanner}>
+                <View style={styles.lockedBannerIconWrap}>
+                  <Ionicons name="lock-closed" size={22} color="#92400E" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.lockedBannerTitle}>Module Locked</Text>
+                  <Text style={styles.lockedBannerDesc}>
+                    Apply for this scholarship first to unlock and access all modules, quizzes, and document uploads.
+                  </Text>
+                </View>
+              </View>
+            )}
             {scholarship.sections.map((section: any, idx: number) => {
               // Skip sections whose activities are ALL labels (nothing to show students)
               const visibleActivities = (section.activities || []).filter(
@@ -661,6 +678,9 @@ export default function ScholarshipDetailsScreen() {
                         };
 
                         const handleActivityPress = () => {
+                          // Block all interactions until the student has applied
+                          if (isNotApplied) return;
+
                           if (isQuiz) {
                             router.push({
                               pathname: "/(dashboard)/student/student-quiz-webview",
@@ -689,10 +709,11 @@ export default function ScholarshipDetailsScreen() {
 
                         // ── ASSIGN with uploaded files → show file list ──────
                         if (isAssign && hasUploadedFiles) {
+                          const ItemContainer = isNotApplied ? View : TouchableOpacity;
                           return (
                             <View
                               key={activity.id}
-                              style={[styles.activityItem, { borderBottomColor: isDark ? "#333" : "#F3F4F6" }]}
+                              style={[styles.activityItem, { borderBottomColor: isDark ? "#333" : "#F3F4F6" }, isNotApplied && styles.lockedActivityItem]}
                             >
                               {/* Activity header row */}
                               <View style={styles.activityInner}>
@@ -721,61 +742,71 @@ export default function ScholarshipDetailsScreen() {
                                     )}
                                   </View>
                                 </View>
-                                <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                                {isNotApplied ? (
+                                  <View style={[styles.quizChevronBox, { backgroundColor: '#FEF3C7' }]}>
+                                    <Ionicons name="lock-closed" size={14} color="#92400E" />
+                                  </View>
+                                ) : (
+                                  <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                                )}
                               </View>
 
                               {/* Uploaded files list */}
                               <View style={[styles.fileListContainer, { backgroundColor: isDark ? '#161616' : '#F9FAFB', borderColor: isDark ? '#2a2a2a' : '#E5E7EB' }]}>
-                                {uploadedFiles.map((file: any, fi: number) => (
-                                  <TouchableOpacity
-                                    key={file.id ?? fi}
-                                    style={[
-                                      styles.fileRow,
-                                      { borderBottomColor: isDark ? '#252525' : '#F3F4F6' },
-                                      fi === uploadedFiles.length - 1 && { borderBottomWidth: 0 },
-                                    ]}
-                                    activeOpacity={0.7}
-                                    onPress={() => handleFileOpen(file)}
-                                  >
-                                    {/* File type icon */}
-                                    <View style={[styles.fileTypeIcon, { backgroundColor: getFileIconColor(file.mimetype) + '18' }]}>
-                                      <Ionicons
-                                        name={getFileIcon(file.mimetype)}
-                                        size={18}
-                                        color={getFileIconColor(file.mimetype)}
-                                      />
-                                    </View>
-
-                                    {/* File info */}
-                                    <View style={{ flex: 1, minWidth: 0 }}>
-                                      <Text
-                                        style={[styles.fileItemName, { color: colors.text }]}
-                                        numberOfLines={1}
-                                        ellipsizeMode="middle"
-                                      >
-                                        {file.filename}
-                                      </Text>
-                                      <View style={styles.fileMetaRow}>
-                                        {file.filesize > 0 && (
-                                          <Text style={[styles.fileMeta, { color: colors.textSecondary }]}>
-                                            {formatFileSize(file.filesize)}
-                                          </Text>
-                                        )}
-                                        {file.uploaded_at && (
-                                          <Text style={[styles.fileMeta, { color: colors.textSecondary }]}>
-                                            · {new Date(file.uploaded_at).toLocaleDateString()}
-                                          </Text>
-                                        )}
+                                {uploadedFiles.map((file: any, fi: number) => {
+                                  const FileItemContainer = isNotApplied ? View : TouchableOpacity;
+                                  return (
+                                    <FileItemContainer
+                                      key={file.id ?? fi}
+                                      style={[
+                                        styles.fileRow,
+                                        { borderBottomColor: isDark ? '#252525' : '#F3F4F6' },
+                                        fi === uploadedFiles.length - 1 && { borderBottomWidth: 0 },
+                                      ]}
+                                      {...(!isNotApplied ? { onPress: () => handleFileOpen(file), activeOpacity: 0.7 } : {})}
+                                    >
+                                      {/* File type icon */}
+                                      <View style={[styles.fileTypeIcon, { backgroundColor: getFileIconColor(file.mimetype) + '18' }]}>
+                                        <Ionicons
+                                          name={getFileIcon(file.mimetype)}
+                                          size={18}
+                                          color={getFileIconColor(file.mimetype)}
+                                        />
                                       </View>
-                                    </View>
 
-                                    {/* Open indicator */}
-                                    <View style={[styles.openBadge, { backgroundColor: colors.primary + '12' }]}>
-                                      <Ionicons name="eye-outline" size={14} color={colors.primary} />
-                                      <Text style={[styles.openBadgeText, { color: colors.primary }]}>View</Text>
-                                    </View>
-                                  </TouchableOpacity>
-                                ))}
+                                      {/* File info */}
+                                      <View style={{ flex: 1, minWidth: 0 }}>
+                                        <Text
+                                          style={[styles.fileItemName, { color: colors.text }]}
+                                          numberOfLines={1}
+                                          ellipsizeMode="middle"
+                                        >
+                                          {file.filename}
+                                        </Text>
+                                        <View style={styles.fileMetaRow}>
+                                          {file.filesize > 0 && (
+                                            <Text style={[styles.fileMeta, { color: colors.textSecondary }]}>
+                                              {formatFileSize(file.filesize)}
+                                            </Text>
+                                          )}
+                                          {file.uploaded_at && (
+                                            <Text style={[styles.fileMeta, { color: colors.textSecondary }]}>
+                                              · {new Date(file.uploaded_at).toLocaleDateString()}
+                                            </Text>
+                                          )}
+                                        </View>
+                                      </View>
+
+                                      {/* Open indicator */}
+                                      {!isNotApplied && (
+                                        <View style={[styles.openBadge, { backgroundColor: colors.primary + '12' }]}>
+                                          <Ionicons name="eye-outline" size={14} color={colors.primary} />
+                                          <Text style={[styles.openBadgeText, { color: colors.primary }]}>View</Text>
+                                        </View>
+                                      )}
+                                    </FileItemContainer>
+                                  );
+                                })}
                               </View>
                             </View>
                           );
@@ -783,12 +814,12 @@ export default function ScholarshipDetailsScreen() {
 
                         // ── ASSIGN with no files → upload prompt ─────────────
                         if (isAssign && !hasUploadedFiles) {
+                          const ItemContainer = isNotApplied ? View : TouchableOpacity;
                           return (
-                            <TouchableOpacity
+                            <ItemContainer
                               key={activity.id}
-                              style={[styles.activityItem, { borderBottomColor: isDark ? "#333" : "#F3F4F6" }]}
-                              onPress={handleActivityPress}
-                              activeOpacity={0.7}
+                              style={[styles.activityItem, { borderBottomColor: isDark ? "#333" : "#F3F4F6" }, isNotApplied && styles.lockedActivityItem]}
+                              {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.7 } : {})}
                             >
                               <View style={styles.activityInner}>
                                 {activity.modicon ? (
@@ -814,11 +845,17 @@ export default function ScholarshipDetailsScreen() {
                                     )}
                                   </View>
                                 </View>
-                                <View style={[styles.uploadMiniBtn, { backgroundColor: colors.primary }]}>
-                                  <Ionicons name="arrow-up" size={13} color="#FFF" />
-                                </View>
+                                {isNotApplied ? (
+                                  <View style={[styles.quizChevronBox, { backgroundColor: '#FEF3C7' }]}>
+                                    <Ionicons name="lock-closed" size={14} color="#92400E" />
+                                  </View>
+                                ) : (
+                                  <View style={[styles.uploadMiniBtn, { backgroundColor: colors.primary }]}>
+                                    <Ionicons name="arrow-up" size={13} color="#FFF" />
+                                  </View>
+                                )}
                               </View>
-                            </TouchableOpacity>
+                            </ItemContainer>
                           );
                         }
 
@@ -836,16 +873,17 @@ export default function ScholarshipDetailsScreen() {
                             pending: { bg: '#FEF3C7', dot: '#D97706', text: '#92400E', label: 'Pending', icon: 'time' as const },
                           }[quizStatus];
 
+                          const ItemContainer = isNotApplied ? View : TouchableOpacity;
                           return (
-                            <TouchableOpacity
+                            <ItemContainer
                               key={activity.id}
                               style={[
                                 styles.activityItem,
                                 styles.quizActivityItem,
-                                { borderBottomColor: isDark ? '#333' : '#F3F4F6', borderLeftColor: colors.primary },
+                                { borderBottomColor: isDark ? '#333' : '#F3F4F6', borderLeftColor: isNotApplied ? '#D97706' : colors.primary },
+                                isNotApplied && styles.lockedActivityItem,
                               ]}
-                              onPress={handleActivityPress}
-                              activeOpacity={0.75}
+                              {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
                             >
                               <View style={styles.activityInner}>
                                 {/* Quiz icon */}
@@ -869,26 +907,26 @@ export default function ScholarshipDetailsScreen() {
                                 </View>
 
                                 {/* Action indicator */}
-                                <View style={[styles.quizChevronBox, { backgroundColor: colors.primary + '12' }]}>
+                                <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : colors.primary + '12' }]}>
                                   <Ionicons
-                                    name={quizStatus === 'completed' ? 'eye-outline' : 'chevron-forward'}
+                                    name={isNotApplied ? "lock-closed" : (quizStatus === 'completed' ? 'eye-outline' : 'chevron-forward')}
                                     size={14}
-                                    color={colors.primary}
+                                    color={isNotApplied ? "#92400E" : colors.primary}
                                   />
                                 </View>
                               </View>
-                            </TouchableOpacity>
+                            </ItemContainer>
                           );
                         }
 
                         // ── SCHEDULER → tappable standard card ───────────────
                         if (isScheduler) {
+                          const ItemContainer = isNotApplied ? View : TouchableOpacity;
                           return (
-                            <TouchableOpacity
+                            <ItemContainer
                               key={activity.id}
-                              style={[styles.activityItem, { borderBottomColor: isDark ? '333' : '#F3F4F6' }]}
-                              onPress={handleActivityPress}
-                              activeOpacity={0.75}
+                              style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isNotApplied && styles.lockedActivityItem]}
+                              {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
                             >
                               <View style={styles.activityInner}>
                                 <View style={[styles.quizIconBox, { backgroundColor: '#0EA5E915' }]}>
@@ -905,22 +943,26 @@ export default function ScholarshipDetailsScreen() {
                                     </View>
                                   </View>
                                 </View>
-                                <View style={[styles.quizChevronBox, { backgroundColor: '#0EA5E912' }]}>
-                                  <Ionicons name={isCompleted ? 'checkmark-circle' : 'chevron-forward'} size={14} color="#0EA5E9" />
+                                <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : '#0EA5E912' }]}>
+                                  <Ionicons
+                                    name={isNotApplied ? "lock-closed" : (isCompleted ? 'checkmark-circle' : 'chevron-forward')}
+                                    size={14}
+                                    color={isNotApplied ? "#92400E" : "#0EA5E9"}
+                                  />
                                 </View>
                               </View>
-                            </TouchableOpacity>
+                            </ItemContainer>
                           );
                         }
 
                         // ── PAGE → tappable card, renders HTML natively ───────
                         if (isPage) {
+                          const ItemContainer = isNotApplied ? View : TouchableOpacity;
                           return (
-                            <TouchableOpacity
+                            <ItemContainer
                               key={activity.id}
-                              style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }]}
-                              onPress={handleActivityPress}
-                              activeOpacity={0.75}
+                              style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isNotApplied && styles.lockedActivityItem]}
+                              {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
                             >
                               <View style={styles.activityInner}>
                                 <View style={[styles.quizIconBox, { backgroundColor: '#8B5CF615' }]}>
@@ -937,22 +979,26 @@ export default function ScholarshipDetailsScreen() {
                                     </View>
                                   </View>
                                 </View>
-                                <View style={[styles.quizChevronBox, { backgroundColor: '#8B5CF612' }]}>
-                                  <Ionicons name={isCompleted ? 'checkmark-circle' : 'chevron-forward'} size={14} color="#8B5CF6" />
+                                <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : '#8B5CF612' }]}>
+                                  <Ionicons
+                                    name={isNotApplied ? "lock-closed" : (isCompleted ? 'checkmark-circle' : 'chevron-forward')}
+                                    size={14}
+                                    color={isNotApplied ? "#92400E" : "#8B5CF6"}
+                                  />
                                 </View>
                               </View>
-                            </TouchableOpacity>
+                            </ItemContainer>
                           );
                         }
 
                         // ── FORUM → tappable card, opens webview ─────────────
                         if (isForum) {
+                          const ItemContainer = isNotApplied ? View : TouchableOpacity;
                           return (
-                            <TouchableOpacity
+                            <ItemContainer
                               key={activity.id}
-                              style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }]}
-                              onPress={handleActivityPress}
-                              activeOpacity={0.75}
+                              style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isNotApplied && styles.lockedActivityItem]}
+                              {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
                             >
                               <View style={styles.activityInner}>
                                 <View style={[styles.quizIconBox, { backgroundColor: '#14B8A615' }]}>
@@ -969,22 +1015,26 @@ export default function ScholarshipDetailsScreen() {
                                     </View>
                                   </View>
                                 </View>
-                                <View style={[styles.quizChevronBox, { backgroundColor: '#14B8A612' }]}>
-                                  <Ionicons name="chevron-forward" size={14} color="#14B8A6" />
+                                <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : '#14B8A612' }]}>
+                                  <Ionicons
+                                    name={isNotApplied ? "lock-closed" : "chevron-forward"}
+                                    size={14}
+                                    color={isNotApplied ? "#92400E" : "#14B8A6"}
+                                  />
                                 </View>
                               </View>
-                            </TouchableOpacity>
+                            </ItemContainer>
                           );
                         }
 
                         // ── QBANK → tappable card, opens webview ─────────────
                         if (isQbank) {
+                          const ItemContainer = isNotApplied ? View : TouchableOpacity;
                           return (
-                            <TouchableOpacity
+                            <ItemContainer
                               key={activity.id}
-                              style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }]}
-                              onPress={handleActivityPress}
-                              activeOpacity={0.75}
+                              style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isNotApplied && styles.lockedActivityItem]}
+                              {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
                             >
                               <View style={styles.activityInner}>
                                 <View style={[styles.quizIconBox, { backgroundColor: '#F9731615' }]}>
@@ -1001,22 +1051,26 @@ export default function ScholarshipDetailsScreen() {
                                     </View>
                                   </View>
                                 </View>
-                                <View style={[styles.quizChevronBox, { backgroundColor: '#F9731612' }]}>
-                                  <Ionicons name="chevron-forward" size={14} color="#F97316" />
+                                <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : '#F9731612' }]}>
+                                  <Ionicons
+                                    name={isNotApplied ? "lock-closed" : "chevron-forward"}
+                                    size={14}
+                                    color={isNotApplied ? "#92400E" : "#F97316"}
+                                  />
                                 </View>
                               </View>
-                            </TouchableOpacity>
+                            </ItemContainer>
                           );
                         }
 
                         // ── CUSTOMCERT → tappable card, certificate download ──
                         if (isCustomCert) {
+                          const ItemContainer = isNotApplied ? View : TouchableOpacity;
                           return (
-                            <TouchableOpacity
+                            <ItemContainer
                               key={activity.id}
-                              style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }]}
-                              onPress={handleActivityPress}
-                              activeOpacity={0.75}
+                              style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isNotApplied && styles.lockedActivityItem]}
+                              {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
                             >
                               <View style={styles.activityInner}>
                                 <View style={[styles.quizIconBox, { backgroundColor: '#EAB30815' }]}>
@@ -1035,15 +1089,15 @@ export default function ScholarshipDetailsScreen() {
                                     </View>
                                   </View>
                                 </View>
-                                <View style={[styles.quizChevronBox, { backgroundColor: '#EAB30812' }]}>
+                                <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : '#EAB30812' }]}>
                                   <Ionicons
-                                    name={isCompleted ? 'download-outline' : 'chevron-forward'}
+                                    name={isNotApplied ? "lock-closed" : (isCompleted ? 'download-outline' : 'chevron-forward')}
                                     size={14}
-                                    color="#D97706"
+                                    color={isNotApplied ? "#92400E" : "#D97706"}
                                   />
                                 </View>
                               </View>
-                            </TouchableOpacity>
+                            </ItemContainer>
                           );
                         }
 
@@ -1701,6 +1755,44 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     flexShrink: 0,
+  },
+
+  // LOCKED STATE (not_applied)
+  lockedBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+    borderWidth: 1.5,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  lockedBannerIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#FDE68A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  lockedBannerTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#92400E',
+    marginBottom: 4,
+    letterSpacing: 0.1,
+  },
+  lockedBannerDesc: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#B45309',
+    lineHeight: 19,
+  },
+  lockedActivityItem: {
+    opacity: 0.55,
   },
 });
 

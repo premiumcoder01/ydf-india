@@ -48,35 +48,42 @@ export default function StudentActivityDetail() {
 
             const res = await getActivityDetails(token, Number(cmid));
 
+            // ── HTTP-level failure (network / auth errors) ───────────────────────
             if (!res.success) {
-                const data = res.data?.data || res.data;
-                // Detect "not accessible" response:
-                // success=false AND (message says not accessible OR webview_url is empty)
+                setError(res.error || res.message || 'Could not load this activity.');
+                return;
+            }
+
+            // ── The server returns HTTP 200 even for business-logic errors.
+            //    The actual success/failure lives in res.data.success (payload level).
+            const payload = res.data;                          // { success, data, message }
+            const payloadSuccess: boolean = payload?.success !== false; // treat missing as true
+            const payloadData = payload?.data ?? payload;     // nested content object
+            const payloadMessage: string = payload?.message ?? '';
+
+            if (!payloadSuccess) {
+                // Detect "not accessible": message says so OR webview_only + empty URL
                 const isNotAccessible =
-                    (res.message &&
-                        res.message.toLowerCase().includes('not accessible')) ||
-                    (data?.content_type === 'webview_only' && !data?.webview_url);
+                    payloadMessage.toLowerCase().includes('not accessible') ||
+                    (payloadData?.content_type === 'webview_only' && !payloadData?.webview_url);
 
                 if (isNotAccessible) {
                     setNotAccessible(true);
                 } else {
-                    setError(res.error || res.message || 'Could not load this activity.');
+                    setError(payloadMessage || 'Could not load this activity.');
                 }
                 return;
             }
 
-            const data = res.data?.data || res.data;
-
-            if (data?.content_type === 'html_page') {
-                // Render HTML natively in this screen
-                setHtmlContent(data.content_html || '<p>No content available.</p>');
-            } else if (data?.content_type === 'webview_only' && data?.webview_url) {
-                // Render webview inline in this screen
-                setWebviewUrl(data.webview_url);
+            // ── Render content ───────────────────────────────────────────────────
+            if (payloadData?.content_type === 'html_page') {
+                setHtmlContent(payloadData.content_html || '<p>No content available.</p>');
+            } else if (payloadData?.content_type === 'webview_only' && payloadData?.webview_url) {
+                setWebviewUrl(payloadData.webview_url);
                 setWebviewLoading(true);
-            } else if (data?.webview_url) {
+            } else if (payloadData?.webview_url) {
                 // Fallback: any response with a webview_url → open inline
-                setWebviewUrl(data.webview_url);
+                setWebviewUrl(payloadData.webview_url);
                 setWebviewLoading(true);
             } else {
                 setError('This activity type is not yet supported.');

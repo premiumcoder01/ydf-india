@@ -106,21 +106,21 @@ export default function SignInScreen() {
 
         let selectedRole = null;
 
-        // Priority 1: Scholarship Provider
-        if (normalizedRoles.includes("scholarship-provider")) {
+        // Priority 1: Application Reviewer
+        if (normalizedRoles.includes("application-reviewer")) {
+          selectedRole = "application-reviewer";
+        }
+        // Priority 2: Scholarship Provider
+        else if (normalizedRoles.includes("scholarship-provider")) {
           selectedRole = "scholarship-provider";
         }
-        // Priority 2: Student Mobilizer (includes Editingteacher)
+        // Priority 3: Student Mobilizer (includes Editingteacher)
         else if (normalizedRoles.includes("student-mobilizer")) {
           selectedRole = "student-mobilizer";
         }
-        // Priority 3: Student
+        // Priority 4: Student
         else if (normalizedRoles.includes("student")) {
           selectedRole = "student";
-        }
-        // Priority 4: Application Reviewer
-        else if (normalizedRoles.includes("application-reviewer")) {
-          selectedRole = "application-reviewer";
         }
 
         // If no known role found in priority list, verify if any role has a valid route (fallback logic)

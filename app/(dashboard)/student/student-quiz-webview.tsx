@@ -132,7 +132,15 @@ export default function StudentQuizWebView() {
         if (accessInfo?.isfinished) {
             const lastAttempt = attempts[attempts.length - 1];
             if (lastAttempt && baseUrls.review) {
+                // Open review with the specific attempt ID
                 openInApp(`${baseUrls.review}${lastAttempt.id}`);
+            } else if (baseUrls.review) {
+                // Fallback: attempts list is empty but quiz is finished
+                // Open the review URL without appending an attempt ID
+                // — the server will redirect to the correct review page
+                openInApp(baseUrls.review);
+            } else {
+                Alert.alert('Notice', 'Review page is not available at this time.');
             }
             return;
         }
