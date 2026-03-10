@@ -314,7 +314,11 @@ export default function StudentMobilizerDashboard() {
             >
               {profilePhotoUrl ? (
                 <Image
-                  source={{ uri: profilePhotoUrl }}
+                  source={{
+                    uri: profilePhotoUrl.includes('?')
+                      ? `${profilePhotoUrl}&t=${Date.now()}`
+                      : `${profilePhotoUrl}?t=${Date.now()}`
+                  }}
                   style={styles.avatar}
                 />
               ) : (
@@ -447,7 +451,7 @@ export default function StudentMobilizerDashboard() {
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeaderRow}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Upcoming Deadlines</Text>
-           
+
           </View>
           <View style={[styles.cardList, { backgroundColor: colors.card, borderColor: colors.border, overflow: 'hidden' }]}>
             {upcomingDeadlines.map((item, index) => {
@@ -562,7 +566,7 @@ export default function StudentMobilizerDashboard() {
                         <Text style={[styles.studentTabText, { color: isSelected ? colors.primary : colors.text, fontWeight: isSelected ? "700" : "500" }]} numberOfLines={1}>
                           {displayName}
                         </Text>
-                       
+
                       </View>
                     </TouchableOpacity>
                   );

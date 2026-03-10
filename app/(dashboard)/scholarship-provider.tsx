@@ -316,7 +316,11 @@ export default function ScholarshipProviderDashboard() {
             </TouchableOpacity>
             <TouchableOpacity accessibilityRole="button" onPress={() => router.push("/(dashboard)/provider/profile")} activeOpacity={0.8}>
               {profilePhotoUrl ? (
-                <Image source={{ uri: profilePhotoUrl }} style={styles.avatar} />
+                <Image source={{
+                  uri: profilePhotoUrl.includes('?')
+                    ? `${profilePhotoUrl}&t=${Date.now()}`
+                    : `${profilePhotoUrl}?t=${Date.now()}`
+                }} style={styles.avatar} />
               ) : (
                 <View style={[styles.avatarPlaceholder, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
                   <Ionicons name="person-circle-outline" size={36} color={colors.text} />

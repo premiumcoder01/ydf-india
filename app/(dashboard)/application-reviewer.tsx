@@ -199,7 +199,11 @@ export default function ApplicationReviewerDashboard() {
             </TouchableOpacity>
             <TouchableOpacity onPress={() => router.push("/(dashboard)/reviewer/profile")}>
               {profilePhotoUrl ? (
-                <Image source={{ uri: profilePhotoUrl }} style={styles.avatar} />
+                <Image source={{
+                  uri: profilePhotoUrl.includes('?')
+                    ? `${profilePhotoUrl}&t=${Date.now()}`
+                    : `${profilePhotoUrl}?t=${Date.now()}`
+                }} style={styles.avatar} />
               ) : (
                 <View style={[styles.avatarPlaceholder, { borderColor: colors.border }]}>
                   <Ionicons name="person" size={20} color={colors.textSecondary} />

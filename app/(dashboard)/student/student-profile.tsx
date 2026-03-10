@@ -59,7 +59,8 @@ export default function StudentProfileScreen() {
 
           // Call getUserProfile API
           const response = await getUserProfile(token);
-          console.log("response", response);
+          console.log(response)
+
 
           // Response structure: { success: true, data: { success: true, user: {...} } }
           if (response.success && response.data?.user) {
@@ -190,6 +191,8 @@ export default function StudentProfileScreen() {
     },
   ];
 
+  const [hasImageError, setHasImageError] = useState(false);
+
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -208,20 +211,31 @@ export default function StudentProfileScreen() {
         {/* Profile Header */}
         <View style={styles.profileHeader}>
           <View style={styles.profileImageWrapper}>
-            {profilePhotoUrl ? (
-              <Image
-                source={{ uri: profilePhotoUrl }}
-                style={[styles.profileImage, { borderColor: isDark ? colors.card : "#fff" }]}
-              />
-            ) : (
+            {profilePhotoUrl && !hasImageError ? (
               <Image
                 source={{
-                  uri: "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?auto=format&fit=crop&w=200&q=60",
+                  uri: profilePhotoUrl.includes('?')
+                    ? `${profilePhotoUrl}&t=${Date.now()}`
+                    : `${profilePhotoUrl}?t=${Date.now()}`
                 }}
                 style={[styles.profileImage, { borderColor: isDark ? colors.card : "#fff" }]}
+                onError={() => setHasImageError(true)}
               />
+            ) : (
+              <View
+                style={[
+                  styles.profileImage,
+                  {
+                    borderColor: isDark ? colors.card : "#fff",
+                    backgroundColor: isDark ? colors.surface : "#f0f0f0",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  },
+                ]}
+              >
+                <Ionicons name="person" size={60} color={colors.textSecondary} />
+              </View>
             )}
-
           </View>
           <Text style={[styles.profileName, { color: colors.text }]}>{personalInfo.fullName}</Text>
           {personalInfo.email ? (

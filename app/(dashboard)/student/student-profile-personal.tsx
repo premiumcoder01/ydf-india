@@ -4,13 +4,14 @@ import { getUserProfile, updateUserProfile, uploadProfileImage } from "@/utils/a
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Image } from "expo-image";
+
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -184,7 +185,6 @@ export default function StudentProfilePersonalScreen() {
           const response = await getUserProfile(authData.token);
           if (response.success && response.data && response.data.user) {
             const user = response.data.user;
-            console.log(user)
             setPersonalInfo((prev) => ({
               ...prev,
               username: user.username || prev.username,
@@ -607,8 +607,13 @@ export default function StudentProfilePersonalScreen() {
                 </View>
               ) : personalInfo?.profileImageUrl !== "" ? (
                 <Image
-                  source={{ uri: personalInfo?.profileImageUrl }}
+                  source={{
+                    uri: personalInfo.profileImageUrl.includes('?')
+                      ? `${personalInfo.profileImageUrl}&t=${Date.now()}`
+                      : `${personalInfo.profileImageUrl}?t=${Date.now()}`
+                  }}
                   style={[styles.profileImage, { borderColor: isDark ? colors.card : "#fff" }]}
+                  onError={(e) => console.log(e)}
                 />
               ) : (
                 <View style={[styles.placeholderContainer, { backgroundColor: isDark ? colors.surface : "#F0F0F0", borderColor: isDark ? colors.card : "#fff" }]}>

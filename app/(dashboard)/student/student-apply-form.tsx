@@ -24,7 +24,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { z } from "zod";
 
@@ -53,25 +52,6 @@ const formSchema = z.object({
   activities: z.string().optional().default(""),
   financial: z.string().optional().default(""),
 
-  // Docs
-  // Docs
-  documents: z.array(z.any()).optional(),
-  acknowledgedDocIds: z.array(z.string()).optional(),
-
-  // Need Assessment (Static/Mock)
-  assessmentQ1: z.string().optional(),
-  assessmentQ2: z.string().optional(),
-
-  // Interview (Static/Mock)
-  interviewMode: z.string().optional(),
-
-  // Verification (Static/Mock)
-  verificationTime: z
-    .union([z.date(), z.string()])
-    .transform((val) => (typeof val === "string" ? new Date(val) : val))
-    .optional()
-    .nullable(),
-
   // Declaration
   agreed: z.boolean().refine((v) => v, { message: "You must agree before submitting" }),
 });
@@ -82,10 +62,6 @@ const STEPS = [
   { key: "personal", title: "Personal Details" },
   { key: "academic", title: "Academic Info" },
   { key: "family", title: "Family / Income" },
-  { key: "assessment", title: "Need Assessment" },
-  { key: "interview", title: "Interview Details" },
-  { key: "verification", title: "Home Verification" },
-  { key: "documents", title: "Documents" },
   { key: "summary", title: "Summary" },
   { key: "declare", title: "Declaration" },
 ] as const;
@@ -94,10 +70,6 @@ const FIELDS_BY_STEP: Record<string, (keyof FormValues)[]> = {
   personal: ["fullName", "email", "phone", "studentId"],
   academic: ["institution", "major", "gradDate", "currentYear", "gpa"],
   family: ["financial", "activities", "statement"],
-  assessment: ["assessmentQ1", "assessmentQ2"],
-  interview: ["interviewMode"],
-  verification: ["verificationTime"],
-  documents: ["acknowledgedDocIds"],
   summary: [],
   declare: ["agreed"],
 };
@@ -144,27 +116,14 @@ export default function ApplyFormScreen() {
       statement: "",
       activities: "",
       financial: "",
-      documents: [],
-      acknowledgedDocIds: [],
-      assessmentQ1: "",
-      assessmentQ2: "",
-      interviewMode: "",
-      verificationTime: null,
       agreed: false,
     },
     mode: "onSubmit",
     reValidateMode: "onSubmit",
   });
 
-  const hasDocumentRequirements = Boolean(
-    scholarship && Array.isArray(scholarship.documents) && scholarship.documents.length > 0
-  );
 
-  const [pickerState, setPickerState] = useState<{ show: boolean; mode: "date" | "time" | "datetime"; field: keyof FormValues | null }>({
-    show: false,
-    mode: "date",
-    field: null,
-  });
+  // No picker state needed for now since verification step is removed
 
   const [optionPickerState, setOptionPickerState] = useState<{
     visible: boolean;
@@ -200,26 +159,6 @@ export default function ApplyFormScreen() {
     );
   }, [academicDetailsList, academicModalSearch]);
 
-  const openPicker = (field: keyof FormValues, mode: "date" | "time" | "datetime") => {
-    setPickerState({ show: true, mode, field });
-  };
-
-  const handleDateConfirm = (selectedDate: Date) => {
-    const currentField = pickerState.field;
-    setPickerState({ show: false, mode: "date", field: null });
-
-    if (!selectedDate || !currentField) {
-      return;
-    }
-
-    if (currentField === "verificationTime") {
-      setValue("verificationTime" as any, selectedDate as any, { shouldValidate: true });
-    }
-  };
-
-  const handleDateCancel = () => {
-    setPickerState({ show: false, mode: "date", field: null });
-  };
 
 
   // ─── Single unified auth effect: fetch scholarship + profile + draft ───────
@@ -308,12 +247,10 @@ export default function ApplyFormScreen() {
                 {
                   text: "Yes, Resume",
                   onPress: () => {
-                    const restored = { ...values };
-                    if (restored.verificationTime && typeof restored.verificationTime === "string") {
-                      restored.verificationTime = new Date(restored.verificationTime);
-                    }
-                    reset({ ...getValues(), ...restored });
-                    setStepIndex(step || 0);
+                    reset({ ...getValues(), ...values });
+                    // Ensure restored step is within bounds
+                    const safeStep = Math.min(step || 0, STEPS.length - 1);
+                    setStepIndex(safeStep);
                     setToast({ visible: true, message: "Draft restored", type: "success" });
                   },
                 },
@@ -334,7 +271,9 @@ export default function ApplyFormScreen() {
 
   // ─── Academic details: fetch once per session when entering academic step ──
   const academicFetchedRef = useRef(false);
-  const currentStepKey = useMemo(() => STEPS[stepIndex].key, [stepIndex]);
+  const currentStepKey = useMemo(() => {
+    return STEPS[stepIndex]?.key || STEPS[0].key;
+  }, [stepIndex]);
 
   // ─── Save draft in background (never blocks UI) ──────────────────────────
   const saveDraft = useCallback(async (nextStepIndex: number) => {
@@ -379,27 +318,12 @@ export default function ApplyFormScreen() {
       if (!ok) return;
     }
 
-    if (currentStepKey === "documents" && hasDocumentRequirements) {
-      const acknowledged = getValues("acknowledgedDocIds") || [];
-      const requiredDocs = scholarship.documents || [];
-      const allChecked = requiredDocs.every((d: any) => {
-        const id = String(d.id || d.shortname || d.label || d.name || requiredDocs.indexOf(d));
-        return acknowledged.includes(id);
-      });
-      if (!allChecked) {
-        setError("acknowledgedDocIds", { type: "manual", message: "Please confirm all required documents." });
-        return;
-      }
-    } else if (currentStepKey === "documents") {
-      clearErrors("acknowledgedDocIds");
-    }
-
     // Move step immediately (no async inside setStepIndex = no flicker)
     const nextIndex = Math.min(stepIndex + 1, STEPS.length - 1);
     setStepIndex(nextIndex);
     // Save draft in background after state update
     saveDraft(nextIndex);
-  }, [currentStepKey, stepIndex, trigger, getValues, hasDocumentRequirements, scholarship, setError, clearErrors, saveDraft]);
+  }, [currentStepKey, stepIndex, trigger, saveDraft]);
 
   const back = useCallback(() => {
     setStepIndex((i) => Math.max(0, i - 1));
@@ -415,7 +339,7 @@ export default function ApplyFormScreen() {
   const onSubmit = handleSubmit(
     async (values) => {
       try {
-        // Validation for docs is handled in next() step logic now.
+
 
         const authDataStr = await AsyncStorage.getItem("authData");
         if (!authDataStr) {
@@ -442,11 +366,6 @@ export default function ApplyFormScreen() {
           gpa: values.gpa,
           activities: values.activities,
           financial_info: values.financial,
-          assessment_q1: values.assessmentQ1,
-          assessment_q2: values.assessmentQ2,
-          interview_mode: values.interviewMode,
-          verification_time: values.verificationTime ? String(values.verificationTime) : undefined,
-          documents: values.documents, // Pass documents if API supports it or handle separately
         };
 
         const response = await submitApplication(authData.token, submissionData);
@@ -1016,299 +935,7 @@ export default function ApplyFormScreen() {
               </Section>
             )}
 
-            {currentStepKey === "assessment" && (
-              <Section>
-                <Text style={{ fontSize: 14, color: isDark ? colors.textSecondary : "#666", marginBottom: 12 }}>
-                  Please answer the following to help us assess your need level.
-                </Text>
-
-                <Controller control={control} name="assessmentQ1" render={({ field: { value, onChange } }) => (
-                  <TouchableOpacity onPress={() => {
-                    setOptionPickerState({
-                      visible: true,
-                      title: "Do you own any vehicle?",
-                      options: ["Yes", "No"],
-                      onSelect: (val) => onChange(val)
-                    });
-                  }}>
-                    <View pointerEvents="none">
-                      <CustomTextInput
-                        label="Do you own any vehicle (2-wheeler/4-wheeler)? (Optional)"
-                        placeholder="Select Yes/No"
-                        value={value || ""}
-                        editable={false}
-                        onChangeText={() => { }}
-                        inputStyle={{ color: colors.text, opacity: 1 }} // Ensure text is visible
-                        rightIcon="chevron-down"
-                      />
-                    </View>
-                  </TouchableOpacity>
-                )} />
-
-                <Controller control={control} name="assessmentQ2" render={({ field: { value, onChange } }) => (
-                  <TouchableOpacity onPress={() => {
-                    setOptionPickerState({
-                      visible: true,
-                      title: "Type of Housing",
-                      options: ["Owned", "Rented", "Kutcha House", "Pucca House", "Other"],
-                      onSelect: (val) => onChange(val)
-                    });
-                  }}>
-                    <View pointerEvents="none">
-                      <CustomTextInput
-                        label="Type of Housing (Optional)"
-                        placeholder="Select Housing Type"
-                        value={value || ""}
-                        editable={false}
-                        onChangeText={() => { }}
-                        inputStyle={{ color: colors.text, opacity: 1 }}
-                        rightIcon="chevron-down"
-                      />
-                    </View>
-                  </TouchableOpacity>
-                )} />
-
-                <View style={{ marginTop: 8, padding: 12, backgroundColor: isDark ? colors.surface : "#FFF9E6", borderRadius: 8 }}>
-                  <Text style={{ fontSize: 13, color: isDark ? colors.text : "#B45309", fontStyle: 'italic' }}>
-                    Note: This information helps prioritize applications based on socio-economic markers.
-                  </Text>
-                </View>
-              </Section>
-            )}
-
-            {currentStepKey === "interview" && (
-              <Section>
-                <Text style={{ fontSize: 15, fontWeight: "600", color: colors.text, marginBottom: 8 }}>
-                  Preferred Interview Mode
-                </Text>
-                <Text style={{ fontSize: 14, color: isDark ? colors.textSecondary : "#666", marginBottom: 24, lineHeight: 20 }}>
-                  If shortlisted, an interview will be conducted. Please select how you would prefer to give your interview.
-                </Text>
-
-                <Controller
-                  control={control}
-                  name="interviewMode"
-                  render={({ field: { value, onChange } }) => (
-                    <View style={{ gap: 12 }}>
-                      {[
-                        { label: "Online (Video Call)", value: "Online (Video Call)", icon: "videocam-outline", desc: "Interview via Zoom/Google Meet" },
-                        { label: "Telephonic", value: "Telephonic", icon: "call-outline", desc: "Voice call interview on your phone" },
-                        { label: "In-Person", value: "In-Person", icon: "people-outline", desc: "Visit our nearest center for interview" }
-                      ].map((item) => {
-                        const isSelected = value === item.value;
-                        return (
-                          <TouchableOpacity
-                            key={item.value}
-                            onPress={() => onChange(item.value)}
-                            activeOpacity={0.7}
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                              padding: 16,
-                              borderRadius: 16,
-                              borderWidth: isSelected ? 2 : 1,
-                              borderColor: isSelected ? colors.primary : isDark ? colors.border : "#E5E7EB",
-                              backgroundColor: isSelected
-                                ? (isDark ? "rgba(37, 99, 235, 0.1)" : "#F0F9FF")
-                                : (isDark ? colors.surface : "#FFF"),
-                            }}
-                          >
-                            <View
-                              style={{
-                                width: 44,
-                                height: 44,
-                                borderRadius: 12,
-                                backgroundColor: isSelected ? colors.primary : (isDark ? "rgba(255,255,255,0.05)" : "#F3F4F6"),
-                                justifyContent: "center",
-                                alignItems: "center",
-                                marginRight: 16,
-                              }}
-                            >
-                              <Ionicons
-                                name={item.icon as any}
-                                size={22}
-                                color={isSelected ? "#FFF" : colors.textSecondary}
-                              />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                              <Text style={{ fontSize: 16, fontWeight: "600", color: isSelected ? colors.primary : colors.text, marginBottom: 4 }}>
-                                {item.label}
-                              </Text>
-                              <Text style={{ fontSize: 13, color: colors.textSecondary }}>
-                                {item.desc}
-                              </Text>
-                            </View>
-                            <View
-                              style={{
-                                width: 22,
-                                height: 22,
-                                borderRadius: 11,
-                                borderWidth: 2,
-                                borderColor: isSelected ? colors.primary : colors.border,
-                                justifyContent: 'center',
-                                alignItems: 'center'
-                              }}
-                            >
-                              {isSelected && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary }} />}
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  )}
-                />
-              </Section>
-            )}
-
-            {currentStepKey === "verification" && (
-              <Section>
-                <View style={{ marginBottom: 24, padding: 20, backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#F0F9FF", borderRadius: 16, borderLeftWidth: 4, borderLeftColor: "#0284C7" }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
-                    <Ionicons name="home" size={24} color="#0284C7" style={{ marginRight: 12 }} />
-                    <Text style={{ fontSize: 18, fontWeight: "700", color: colors.text }}>Home Verification Visit</Text>
-                  </View>
-                  <Text style={{ fontSize: 14, color: isDark ? colors.textSecondary : "#475569", lineHeight: 22 }}>
-                    A field officer may need to visit your permanent residence for physical verification of documents and living conditions.
-                  </Text>
-                </View>
-
-                <Controller control={control} name="verificationTime" render={({ field: { value } }) => {
-                  // Format Date
-                  let displayValue = "";
-                  if (value) {
-                    const dateObj = new Date(value);
-                    if (!isNaN(dateObj.getTime())) {
-                      displayValue = dateObj.toLocaleString('en-US', {
-                        weekday: 'short',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: 'numeric',
-                        minute: 'numeric',
-                        hour12: true
-                      });
-                    }
-                  }
-
-                  return (
-                    <TouchableOpacity onPress={() => openPicker("verificationTime", "datetime")}>
-                      <View pointerEvents="none">
-                        <CustomTextInput
-                          label="Preferred Date & Time for Visit (Optional)"
-                          placeholder="Select Date & Time"
-                          value={displayValue}
-                          editable={false}
-                          onChangeText={() => { }}
-                          inputStyle={{ color: colors.text, opacity: 1, fontWeight: "600" }}
-                          rightIcon="calendar"
-                        />
-                      </View>
-                    </TouchableOpacity>
-                  );
-                }} />
-
-                <View style={{ flexDirection: "row", gap: 12, marginTop: 12, paddingHorizontal: 4 }}>
-                  <Ionicons name="information-circle-outline" size={20} color={colors.textSecondary} />
-                  <Text style={{ flex: 1, fontSize: 13, color: colors.textSecondary, lineHeight: 18 }}>
-                    By proceeding, you consent to a potential home visit. Our team will contact you to confirm the final slot.
-                  </Text>
-                </View>
-              </Section>
-            )}
-
-            {currentStepKey === "documents" && (
-              <Section>
-                <View style={{ gap: 16 }}>
-                  {scholarship && scholarship.documents && scholarship.documents.length > 0 ? (
-                    <View>
-                      <Text style={{ fontSize: 16, fontWeight: '700', marginBottom: 8, color: colors.text }}>
-                        Document Checklist
-                      </Text>
-                      <Text style={{ fontSize: 14, color: colors.textSecondary, marginBottom: 20 }}>
-                        Please check the boxes below to confirm you have these documents. You will be required to upload them later after submitting the application.
-                      </Text>
-
-                      <View style={{ gap: 12 }}>
-                        {scholarship.documents.map((reqDoc: any, index: number) => {
-                          const docId = String(reqDoc.id || reqDoc.shortname || reqDoc.label || reqDoc.name || index);
-                          const isChecked = (watch("acknowledgedDocIds") || []).includes(docId);
-
-                          return (
-                            <TouchableOpacity
-                              key={docId}
-                              activeOpacity={0.7}
-                              onPress={() => {
-                                const current = getValues("acknowledgedDocIds") || [];
-                                const exists = current.includes(docId);
-                                if (exists) {
-                                  setValue("acknowledgedDocIds", current.filter((id: string) => id !== docId), { shouldValidate: true });
-                                } else {
-                                  setValue("acknowledgedDocIds", [...current, docId], { shouldValidate: true });
-                                }
-                              }}
-                              style={{
-                                flexDirection: "row",
-                                alignItems: "center",
-                                padding: 16,
-                                borderRadius: 12,
-                                borderWidth: 1,
-                                backgroundColor: isChecked
-                                  ? (isDark ? "rgba(37, 99, 235, 0.1)" : "#EFF6FF")
-                                  : (isDark ? colors.surface : "#FFF"),
-                                borderColor: isChecked
-                                  ? "#2563EB"
-                                  : (isDark ? colors.border : "#E5E7EB"),
-                              }}
-                            >
-                              <View
-                                style={{
-                                  width: 24,
-                                  height: 24,
-                                  borderRadius: 6,
-                                  borderWidth: 2,
-                                  borderColor: isChecked ? "#2563EB" : (isDark ? "#6B7280" : "#D1D5DB"),
-                                  backgroundColor: isChecked ? "#2563EB" : "transparent",
-                                  justifyContent: "center",
-                                  alignItems: "center",
-                                  marginRight: 12
-                                }}
-                              >
-                                {isChecked && <Ionicons name="checkmark" size={16} color="#FFF" />}
-                              </View>
-
-                              <View style={{ flex: 1 }}>
-                                <Text style={{ fontSize: 15, fontWeight: "600", color: colors.text }}>
-                                  {reqDoc.label || reqDoc.name || "Required Document"}
-                                  {reqDoc.required !== false && <Text style={{ color: "#EF4444" }}> *</Text>}
-                                </Text>
-                                <Text style={{ fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
-                                  {reqDoc.description || "Required for verification"}
-                                </Text>
-                              </View>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-
-                      {errors.acknowledgedDocIds && (
-                        <Text style={[styles.errorTextInline, { marginTop: 16 }]}>
-                          {String(errors.acknowledgedDocIds.message)}
-                        </Text>
-                      )}
-                    </View>
-                  ) : (
-                    <View style={[styles.noDocNote, {
-                      backgroundColor: isDark ? "rgba(16, 185, 129, 0.1)" : "#ECFDF5",
-                      borderColor: isDark ? "rgba(16, 185, 129, 0.2)" : "#A7F3D0"
-                    }]}>
-                      <Ionicons name="checkmark-circle-outline" size={20} color="#10B981" />
-                      <Text style={[styles.noDocNoteText, { color: isDark ? "#34D399" : "#047857", marginLeft: 8 }]}>
-                        There are no documents required for this scheme. You can proceed further.
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </Section>
-            )}
+            {/* Remaining steps handled below */}
 
             {currentStepKey === "summary" && (
               <View style={{ gap: 16 }}>
@@ -1429,151 +1056,7 @@ export default function ApplyFormScreen() {
                   </View>
                 </Section>
 
-                {/* Need Assessment */}
-                <Section>
-                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
-                    <View style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 8,
-                      backgroundColor: isDark ? "rgba(245, 158, 11, 0.1)" : "#FEF3C7",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      marginRight: 12
-                    }}>
-                      <Ionicons name="clipboard" size={20} color="#F59E0B" />
-                    </View>
-                    <Text style={{ fontSize: 16, fontWeight: "700", color: colors.text }}>Need Assessment</Text>
-                  </View>
-                  {[
-                    ["Do you own any vehicle?", getValues("assessmentQ1") || "Not answered"],
-                    ["Type of Housing", getValues("assessmentQ2") || "Not answered"],
-                  ].map(([label, val]) => (
-                    <View key={label} style={[styles.summaryRow, { borderColor: isDark ? colors.border : "rgba(51,51,51,0.06)" }]}>
-                      <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{label}</Text>
-                      <Text style={[styles.summaryValue, { color: val === "Not answered" ? colors.textSecondary : colors.text }]}>{val}</Text>
-                    </View>
-                  ))}
-                </Section>
-
-                {/* Interview Preference */}
-                <Section>
-                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
-                    <View style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 8,
-                      backgroundColor: isDark ? "rgba(236, 72, 153, 0.1)" : "#FCE7F3",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      marginRight: 12
-                    }}>
-                      <Ionicons name="videocam" size={20} color="#EC4899" />
-                    </View>
-                    <Text style={{ fontSize: 16, fontWeight: "700", color: colors.text }}>Interview Preference</Text>
-                  </View>
-                  <View style={[styles.summaryRow, { borderColor: isDark ? colors.border : "rgba(51,51,51,0.06)" }]}>
-                    <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Preferred Mode</Text>
-                    <Text style={[styles.summaryValue, { color: getValues("interviewMode") ? colors.text : colors.textSecondary }]}>
-                      {getValues("interviewMode") || "Not selected"}
-                    </Text>
-                  </View>
-                </Section>
-
-                {/* Home Verification */}
-                <Section>
-                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
-                    <View style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 8,
-                      backgroundColor: isDark ? "rgba(6, 182, 212, 0.1)" : "#CFFAFE",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      marginRight: 12
-                    }}>
-                      <Ionicons name="location" size={20} color="#06B6D4" />
-                    </View>
-                    <Text style={{ fontSize: 16, fontWeight: "700", color: colors.text }}>Home Verification</Text>
-                  </View>
-                  <View style={[styles.summaryRow, { borderColor: isDark ? colors.border : "rgba(51,51,51,0.06)" }]}>
-                    <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Preferred Date & Time</Text>
-                    <Text style={[styles.summaryValue, { color: getValues("verificationTime") ? colors.text : colors.textSecondary }]}>
-                      {(() => {
-                        const vTime = getValues("verificationTime");
-                        if (!vTime) return "Not selected";
-                        const dateObj = new Date(vTime);
-                        if (isNaN(dateObj.getTime())) return "Not selected";
-                        return dateObj.toLocaleString('en-US', {
-                          weekday: 'short',
-                          month: 'short',
-                          day: 'numeric',
-                          hour: 'numeric',
-                          minute: 'numeric',
-                          hour12: true
-                        });
-                      })()}
-                    </Text>
-                  </View>
-                </Section>
-
-                {/* Documents */}
-                <Section>
-                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
-                    <View style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 8,
-                      backgroundColor: isDark ? "rgba(239, 68, 68, 0.1)" : "#FEE2E2",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      marginRight: 12
-                    }}>
-                      <Ionicons name="document-attach" size={20} color="#EF4444" />
-                    </View>
-                    <Text style={{ fontSize: 16, fontWeight: "700", color: colors.text }}>Documents Acknowledgement</Text>
-                  </View>
-                  {scholarship && scholarship.documents && scholarship.documents.length > 0 ? (
-                    <View>
-                      <Text style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 12 }}>
-                        You have acknowledged the following documents:
-                      </Text>
-                      {scholarship.documents.map((doc: any, idx: number) => {
-                        const docId = String(doc.id || doc.shortname || doc.label || doc.name || idx);
-                        const acknowledged = (getValues("acknowledgedDocIds") || []).includes(docId);
-                        return (
-                          <View
-                            key={docId}
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                              paddingVertical: 10,
-                              borderBottomWidth: idx < scholarship.documents.length - 1 ? 1 : 0,
-                              borderBottomColor: isDark ? colors.border : "rgba(51,51,51,0.06)"
-                            }}
-                          >
-                            <Ionicons
-                              name={acknowledged ? "checkmark-circle" : "close-circle"}
-                              size={20}
-                              color={acknowledged ? "#10B981" : "#EF4444"}
-                              style={{ marginRight: 10 }}
-                            />
-                            <Text style={{ flex: 1, fontSize: 14, color: colors.text }}>
-                              {doc.label || doc.name || "Document"}
-                            </Text>
-                            <Text style={{ fontSize: 12, color: acknowledged ? "#10B981" : "#EF4444" }}>
-                              {acknowledged ? "Acknowledged" : "Not acknowledged"}
-                            </Text>
-                          </View>
-                        );
-                      })}
-                    </View>
-                  ) : (
-                    <Text style={{ fontSize: 14, color: colors.textSecondary, fontStyle: "italic" }}>
-                      No documents required for this scholarship
-                    </Text>
-                  )}
-                </Section>
+                {/* Summary sections for Assessment, Interview, Verification and Documents removed */}
               </View>
             )}
 
@@ -1610,17 +1093,7 @@ export default function ApplyFormScreen() {
           </View>
         </View>
       </KeyboardAvoidingView >
-      <DateTimePickerModal
-        isVisible={pickerState.show}
-        mode={pickerState.mode}
-        onConfirm={handleDateConfirm}
-        onCancel={handleDateCancel}
-        date={new Date()}
-        is24Hour={false}
-        display="spinner"
-        confirmTextIOS="Confirm"
-        cancelTextIOS="Cancel"
-      />
+      {/* DateTimePickerModal removed */}
 
       <Modal
         visible={optionPickerState.visible}
@@ -1785,17 +1258,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  noDocNote: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginBottom: 12
-  },
-  noDocNoteText: {
-    fontSize: 12,
-    flex: 1
-  }
+
 });

@@ -380,7 +380,12 @@ export default function StudentDashboardScreen() {
             >
               {profilePhotoUrl ? (
                 <Image
-                  source={{ uri: profilePhotoUrl }}
+
+                  source={{
+                    uri: profilePhotoUrl.includes('?')
+                      ? `${profilePhotoUrl}&t=${Date.now()}`
+                      : `${profilePhotoUrl}?t=${Date.now()}`
+                  }}
                   style={styles.avatar}
                 />
               ) : (
