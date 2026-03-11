@@ -76,14 +76,17 @@ export default function StudentActivityDetail() {
             }
 
             // ── Render content ───────────────────────────────────────────────────
+            const rawUrl = payloadData?.webview_url;
+            const cleanUrl = rawUrl ? rawUrl.replace(/amp;/g, "") : null;
+
             if (payloadData?.content_type === 'html_page') {
                 setHtmlContent(payloadData.content_html || '<p>No content available.</p>');
-            } else if (payloadData?.content_type === 'webview_only' && payloadData?.webview_url) {
-                setWebviewUrl(payloadData.webview_url);
+            } else if (payloadData?.content_type === 'webview_only' && cleanUrl) {
+                setWebviewUrl(cleanUrl);
                 setWebviewLoading(true);
-            } else if (payloadData?.webview_url) {
+            } else if (cleanUrl) {
                 // Fallback: any response with a webview_url → open inline
-                setWebviewUrl(payloadData.webview_url);
+                setWebviewUrl(cleanUrl);
                 setWebviewLoading(true);
             } else {
                 setError('This activity type is not yet supported.');

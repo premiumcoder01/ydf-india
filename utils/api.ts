@@ -1335,6 +1335,15 @@ const moodleApiRequest = async (
 
       const shouldLogout = await checkAuthenticationError(data);
       if (shouldLogout) return { success: false, error: "Authentication failed" };
+
+      // Check for business logic success field in data
+      if (data && data.success === false) {
+        return {
+          success: false,
+          error: data.error || data.message || "Operation failed",
+          errorcode: data.errorcode
+        };
+      }
     } catch (e) {
       return { success: false, error: "Invalid JSON response" };
     }

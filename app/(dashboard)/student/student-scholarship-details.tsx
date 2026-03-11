@@ -638,9 +638,9 @@ export default function ScholarshipDetailsScreen() {
                 // 1. Hide if explicitly marked as not visible to students
                 if (section.visible_to_students === false) return false;
 
-                // 2. Hide if it has no summary AND no visible activities (no labels)
+                // 2. Hide if it has no summary AND no visible activities (no labels and visible_to_students !== false)
                 const visibleActivities = (section.activities || []).filter(
-                  (a: any) => a.modname !== 'label'
+                  (a: any) => a.modname !== 'label' && a.visible_to_students !== false
                 );
                 return visibleActivities.length > 0 || !!section.summary;
               })
@@ -666,6 +666,9 @@ export default function ScholarshipDetailsScreen() {
                     {section.activities && section.activities.length > 0 && (
                       <View style={styles.activitiesList}>
                         {section.activities.map((activity: any) => {
+                          // ── Skip if not visible to students ──
+                          if (activity.visible_to_students === false) return null;
+
                           // ── LABEL: admin-only markers — NEVER shown to students ──
                           if (activity.modname === 'label') return null;
 
