@@ -1,6 +1,6 @@
 import { AppHeader } from '@/components';
 import { useTheme } from '@/context/ThemeContext';
-import { bookSchedulerSlot, getMySchedulerBookings, getSchedulerSlots } from '@/utils/api';
+import { bookSchedulerSlot, cancelSchedulerBooking, getMySchedulerBookings, getSchedulerSlots } from '@/utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
@@ -9,8 +9,8 @@ import React, { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    Dimensions,
     Modal,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -19,7 +19,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function StudentSchedulerBooking() {
     const { cmid, name } = useLocalSearchParams();
@@ -29,6 +28,8 @@ export default function StudentSchedulerBooking() {
     const [slots, setSlots] = useState<any[]>([]);
     const [bookings, setBookings] = useState<any[]>([]);
     const [bookingInProgress, setBookingInProgress] = useState<number | null>(null);
+    const [cancellingId, setCancellingId] = useState<number | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const inset = useSafeAreaInsets();
 
@@ -40,11 +41,11 @@ export default function StudentSchedulerBooking() {
     useFocusEffect(
         useCallback(() => {
             fetchData();
-        }, [])
+        }, [cmid])
     );
 
-    const fetchData = async () => {
-        setLoading(true);
+    const fetchData = async (isSilent = false) => {
+        if (!isSilent && !refreshing) setLoading(true);
         setError(null);
         try {
             const authData = await AsyncStorage.getItem('authData');
@@ -59,6 +60,9 @@ export default function StudentSchedulerBooking() {
             if (slotsRes.success && slotsRes.data) {
                 const actualData = slotsRes.data.data || slotsRes.data;
                 const rawSlots: any[] = actualData.slots || [];
+
+                // Compare with current slots to avoid unnecessary re-renders if nothing changed
+                // This is optional but helps with performance
                 setSlots(rawSlots);
 
                 const groups: Record<string, any[]> = {};
@@ -69,8 +73,11 @@ export default function StudentSchedulerBooking() {
                 });
                 setGroupedSlots(groups);
 
+                // Only set default selected date if one isn't already selected or if current selection is invalid
                 const sortedDates = Object.keys(groups).sort();
-                if (sortedDates.length > 0) setSelectedDate(sortedDates[0]);
+                if (sortedDates.length > 0 && (!selectedDate || !groups[selectedDate])) {
+                    setSelectedDate(sortedDates[0]);
+                }
             } else if (slotsRes.errorcode === 'invalidrecordunknown') {
                 setSlots([]);
                 setGroupedSlots({});
@@ -84,13 +91,19 @@ export default function StudentSchedulerBooking() {
             }
 
             if (!slotsRes.success && slotsRes.errorcode !== 'invalidrecordunknown') {
-                setError(slotsRes.error || 'Failed to fetch interview slots');
+                if (!isSilent) setError(slotsRes.error || 'Failed to fetch interview slots');
             }
         } catch (err) {
-            setError('Failed to fetch interview details');
+            if (!isSilent) setError('Failed to fetch interview details');
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
+    };
+
+    const handleRefresh = () => {
+        setRefreshing(true);
+        fetchData(true);
     };
 
     const handleBook = async (slotid: number) => {
@@ -121,6 +134,73 @@ export default function StudentSchedulerBooking() {
         } finally {
             setBookingInProgress(null);
         }
+    };
+
+    const handleCancel = async (slotid: number) => {
+        Alert.alert(
+            'Cancel Booking',
+            'Are you sure you want to cancel this interview slot?',
+            [
+                { text: 'No', style: 'cancel' },
+                {
+                    text: 'Yes, Cancel',
+                    style: 'destructive',
+                    onPress: async () => {
+                        setCancellingId(slotid);
+                        try {
+                            const authData = await AsyncStorage.getItem('authData');
+                            if (!authData) return;
+                            const { token } = JSON.parse(authData);
+
+                            const response = await cancelSchedulerBooking(token, Number(cmid), slotid);
+                            if (response.success) {
+                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                                fetchData();
+                            } else {
+                                Alert.alert('Error', response.error || 'Failed to cancel booking');
+                            }
+                        } catch (err) {
+                            Alert.alert('Error', 'An error occurred while cancelling');
+                        } finally {
+                            setCancellingId(null);
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    const handleEdit = (slotid: number) => {
+        Alert.alert(
+            'Change Slot',
+            'To change your slot, we will first cancel your current booking. You can then pick a new one.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Continue',
+                    onPress: async () => {
+                        setCancellingId(slotid);
+                        try {
+                            const authData = await AsyncStorage.getItem('authData');
+                            if (!authData) return;
+                            const { token } = JSON.parse(authData);
+
+                            const response = await cancelSchedulerBooking(token, Number(cmid), slotid);
+                            if (response.success) {
+                                await fetchData();
+                                setModalVisible(true);
+                            } else {
+                                Alert.alert('Error', response.error || 'Failed to cancel current booking');
+                            }
+                        } catch (err) {
+                            Alert.alert('Error', 'An error occurred');
+                        } finally {
+                            setCancellingId(null);
+                        }
+                    },
+                },
+            ]
+        );
     };
 
     const formatDate = (timestamp: number) =>
@@ -183,7 +263,7 @@ export default function StudentSchedulerBooking() {
                     <Text style={[styles.errorSubtitle, { color: colors.textSecondary }]}>{error}</Text>
                     <TouchableOpacity
                         style={[styles.retryBtn, { backgroundColor: colors.primary }]}
-                        onPress={fetchData}
+                        onPress={() => fetchData()}
                     >
                         <Ionicons name="refresh" size={16} color="#fff" />
                         <Text style={styles.retryBtnText}>Try Again</Text>
@@ -206,6 +286,9 @@ export default function StudentSchedulerBooking() {
             <ScrollView
                 contentContainerStyle={styles.scroll}
                 showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
+                }
             >
                 {/* ── Header Banner ── */}
                 <View style={[styles.heroBanner, { backgroundColor: colors.primary }]}>
@@ -235,6 +318,9 @@ export default function StudentSchedulerBooking() {
                                 colors={colors}
                                 formatTime={formatTime}
                                 formatDate={formatDate}
+                                onCancel={() => handleCancel(booking.slotid)}
+                                onEdit={() => handleEdit(booking.slotid)}
+                                isCancelling={cancellingId === booking.slotid}
                             />
                         ))}
                     </View>
@@ -349,6 +435,9 @@ export default function StudentSchedulerBooking() {
                             <ScrollView
                                 contentContainerStyle={styles.modalScroll}
                                 showsVerticalScrollIndicator={false}
+                                refreshControl={
+                                    <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
+                                }
                             >
                                 {currentSlots.length === 0 ? (
                                     <View style={styles.noSlotsWrap}>
@@ -484,7 +573,7 @@ export default function StudentSchedulerBooking() {
 }
 
 /* ── Booking Card Sub-component ─────────────────────────────────── */
-function BookingCard({ booking, cardBg, isDark, colors, formatTime, formatDate }: any) {
+function BookingCard({ booking, cardBg, isDark, colors, formatTime, formatDate, onCancel, onEdit, isCancelling }: any) {
     const isCompleted = booking.attended;
     const statusColor = isCompleted ? '#10B981' : colors.primary;
     const statusLabel = isCompleted ? 'COMPLETED' : 'CONFIRMED';
@@ -524,6 +613,35 @@ function BookingCard({ booking, cardBg, isDark, colors, formatTime, formatDate }
                     </View>
                 </View>
             </View>
+
+            {/* Actions */}
+            {!isCompleted && (
+                <View style={[styles.bookingActions, { borderTopColor: isDark ? '#2A2A2E' : '#EEEEF2' }]}>
+                    <TouchableOpacity
+                        style={[styles.actionBtn, { backgroundColor: isDark ? '#26262C' : '#F4F5F9' }]}
+                        onPress={onEdit}
+                        disabled={isCancelling}
+                    >
+                        <Ionicons name="create-outline" size={16} color={colors.text} />
+                        <Text style={[styles.actionBtnText, { color: colors.text }]}>Change Slot</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.actionBtn, { backgroundColor: '#EF444412' }]}
+                        onPress={onCancel}
+                        disabled={isCancelling}
+                    >
+                        {isCancelling ? (
+                            <ActivityIndicator size="small" color="#EF4444" />
+                        ) : (
+                            <>
+                                <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                                <Text style={[styles.actionBtnText, { color: "#EF4444" }]}>Cancel</Text>
+                            </>
+                        )}
+                    </TouchableOpacity>
+                </View>
+            )}
         </View>
     );
 }
@@ -589,6 +707,28 @@ const styles = StyleSheet.create({
     bookingDetails: { flex: 1, gap: 10, justifyContent: 'center' },
     detailRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     detailLabel: { fontSize: 13, fontWeight: '600', flex: 1 },
+
+    /* Booking Actions */
+    bookingActions: {
+        flexDirection: 'row',
+        marginTop: 18,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        gap: 12,
+    },
+    actionBtn: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 10,
+        borderRadius: 12,
+    },
+    actionBtnText: {
+        fontSize: 13,
+        fontWeight: '700',
+    },
 
     /* Empty State */
     emptyWrap: {
@@ -700,7 +840,7 @@ const styles = StyleSheet.create({
     slotTime: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
     durationPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
     durationPillText: { fontSize: 12, fontWeight: '700' },
-    slotMeta: { flexDirection: 'row', gap: 16 },
+    slotMeta: { flexDirection: 'column', gap: 16 },
     slotMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 5, flex: 1 },
     slotMetaText: { fontSize: 13, fontWeight: '500', flex: 1 },
     slotFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },

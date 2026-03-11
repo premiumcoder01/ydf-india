@@ -1361,6 +1361,9 @@ export const bookSchedulerSlot = (token: string, cmid: number, slotid: number) =
 export const getMySchedulerBookings = (token: string, cmid: number) =>
   moodleApiRequest(token, "local_mobileapi_get_my_scheduler_bookings", { cmid: String(cmid) });
 
+export const cancelSchedulerBooking = (token: string, cmid: number, slotid: number) =>
+  moodleApiRequest(token, "local_mobileapi_cancel_scheduler_booking", { cmid: String(cmid), slotid: String(slotid) });
+
 /**
  * Quiz APIs
  */

@@ -633,534 +633,540 @@ export default function ScholarshipDetailsScreen() {
                 </View>
               </View>
             )}
-            {scholarship.sections.map((section: any, idx: number) => {
-              // Skip sections whose activities are ALL labels (nothing to show students)
-              const visibleActivities = (section.activities || []).filter(
-                (a: any) => a.modname !== 'label'
-              );
-              if (visibleActivities.length === 0 && !section.summary) return null;
+            {scholarship.sections
+              .filter((section: any) => {
+                // 1. Hide if explicitly marked as not visible to students
+                if (section.visible_to_students === false) return false;
 
-              return (
-                <View key={section.id} style={[styles.moduleCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#2a2a2a" : "#E5E7EB" }]}>
-                  {/* Section header */}
-                  <View style={styles.moduleHeader}>
-                    <View style={[styles.moduleIndexBadge, { backgroundColor: colors.primary + "18" }]}>
-                      <Text style={[styles.moduleIndexText, { color: colors.primary }]}>{idx + 1}</Text>
+                // 2. Hide if it has no summary AND no visible activities (no labels)
+                const visibleActivities = (section.activities || []).filter(
+                  (a: any) => a.modname !== 'label'
+                );
+                return visibleActivities.length > 0 || !!section.summary;
+              })
+              .map((section: any, idx: number) => {
+
+                return (
+                  <View key={section.id} style={[styles.moduleCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#2a2a2a" : "#E5E7EB" }]}>
+                    {/* Section header */}
+                    <View style={styles.moduleHeader}>
+                      <View style={[styles.moduleIndexBadge, { backgroundColor: colors.primary + "18" }]}>
+                        <Text style={[styles.moduleIndexText, { color: colors.primary }]}>{idx + 1}</Text>
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 14 }}>
+                        <Text style={[styles.moduleTitle, { color: colors.text }]}>{section.name}</Text>
+                        {section.summary ? (
+                          <Text style={[styles.moduleSummary, { color: colors.textSecondary }]} numberOfLines={3}>
+                            {stripHtml(section.summary)}
+                          </Text>
+                        ) : null}
+                      </View>
                     </View>
-                    <View style={{ flex: 1, marginLeft: 14 }}>
-                      <Text style={[styles.moduleTitle, { color: colors.text }]}>{section.name}</Text>
-                      {section.summary ? (
-                        <Text style={[styles.moduleSummary, { color: colors.textSecondary }]} numberOfLines={3}>
-                          {stripHtml(section.summary)}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </View>
 
-                  {section.activities && section.activities.length > 0 && (
-                    <View style={styles.activitiesList}>
-                      {section.activities.map((activity: any) => {
-                        // ── LABEL: admin-only markers — NEVER shown to students ──
-                        if (activity.modname === 'label') return null;
+                    {section.activities && section.activities.length > 0 && (
+                      <View style={styles.activitiesList}>
+                        {section.activities.map((activity: any) => {
+                          // ── LABEL: admin-only markers — NEVER shown to students ──
+                          if (activity.modname === 'label') return null;
 
-                        const isCompleted = activity.completion_state > 0;
-                        const isAssign = activity.modname === 'assign';
-                        const isQuiz = activity.modname === 'quiz';
-                        const isScheduler = activity.modname === 'scheduler';
-                        const isPage = activity.modname === 'page';
-                        const isForum = activity.modname === 'forum';
-                        const isQbank = activity.modname === 'qbank';
-                        const isCustomCert = activity.modname === 'customcert';
-                        const isGenericActivity = isPage || isForum || isQbank || isCustomCert;
-                        const uploadedFiles: any[] = activity.document?.files || [];
-                        const hasUploadedFiles = uploadedFiles.length > 0;
+                          const isCompleted = activity.completion_state > 0;
+                          const isAssign = activity.modname === 'assign';
+                          const isQuiz = activity.modname === 'quiz';
+                          const isScheduler = activity.modname === 'scheduler';
+                          const isPage = activity.modname === 'page';
+                          const isForum = activity.modname === 'forum';
+                          const isQbank = activity.modname === 'qbank';
+                          const isCustomCert = activity.modname === 'customcert';
+                          const isGenericActivity = isPage || isForum || isQbank || isCustomCert;
+                          const uploadedFiles: any[] = activity.document?.files || [];
+                          const hasUploadedFiles = uploadedFiles.length > 0;
 
-                        // ── Helper: icon for file mimetype ──────────────────
-                        const getFileIcon = (mime: string): any => {
-                          if (mime?.startsWith('image/')) return 'image-outline';
-                          if (mime === 'application/pdf') return 'document-text-outline';
-                          if (mime?.includes('word')) return 'document-outline';
-                          if (mime?.includes('excel') || mime?.includes('spreadsheet')) return 'grid-outline';
-                          return 'attach-outline';
-                        };
+                          // ── Helper: icon for file mimetype ──────────────────
+                          const getFileIcon = (mime: string): any => {
+                            if (mime?.startsWith('image/')) return 'image-outline';
+                            if (mime === 'application/pdf') return 'document-text-outline';
+                            if (mime?.includes('word')) return 'document-outline';
+                            if (mime?.includes('excel') || mime?.includes('spreadsheet')) return 'grid-outline';
+                            return 'attach-outline';
+                          };
 
-                        const getFileIconColor = (mime: string): string => {
-                          if (mime?.startsWith('image/')) return '#8B5CF6';
-                          if (mime === 'application/pdf') return '#EF4444';
-                          if (mime?.includes('word')) return '#3B82F6';
-                          return '#6B7280';
-                        };
+                          const getFileIconColor = (mime: string): string => {
+                            if (mime?.startsWith('image/')) return '#8B5CF6';
+                            if (mime === 'application/pdf') return '#EF4444';
+                            if (mime?.includes('word')) return '#3B82F6';
+                            return '#6B7280';
+                          };
 
-                        const formatFileSize = (bytes: number) => {
-                          if (!bytes) return '';
-                          if (bytes < 1024) return `${bytes} B`;
-                          if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-                          return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-                        };
+                          const formatFileSize = (bytes: number) => {
+                            if (!bytes) return '';
+                            if (bytes < 1024) return `${bytes} B`;
+                            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+                            return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+                          };
 
-                        const handleFileOpen = (file: any) => {
-                          router.push({
-                            pathname: "/(dashboard)/student/student-file-viewer",
-                            params: {
-                              fileurl: file.fileurl,
-                              filename: file.filename,
-                              mimetype: file.mimetype,
-                            },
-                          });
-                        };
-
-                        const handleActivityPress = () => {
-                          // Block all interactions until the student has applied
-                          if (isNotApplied) return;
-
-                          if (isQuiz) {
+                          const handleFileOpen = (file: any) => {
                             router.push({
-                              pathname: "/(dashboard)/student/student-quiz-webview",
-                              params: { cmid: activity.id, name: activity.name }
+                              pathname: "/(dashboard)/student/student-file-viewer",
+                              params: {
+                                fileurl: file.fileurl,
+                                filename: file.filename,
+                                mimetype: file.mimetype,
+                              },
                             });
-                          } else if (isScheduler) {
-                            router.push({
-                              pathname: "/(dashboard)/student/student-scheduler-booking",
-                              params: { cmid: activity.id, name: activity.name }
-                            });
-                          } else if (isAssign && !hasUploadedFiles) {
-                            // No files yet → go to upload screen
-                            router.push({
-                              pathname: "/(dashboard)/student/student-upload-document",
-                              params: { cmid: activity.id, label: activity.name, mode: "scheme" }
-                            });
-                          } else if (isGenericActivity) {
-                            // page / forum / qbank / customcert → let student-activity-detail
-                            // decide html_page vs webview_only
-                            router.push({
-                              pathname: "/(dashboard)/student/student-activity-detail",
-                              params: { cmid: activity.id, name: activity.name }
-                            });
+                          };
+
+                          const handleActivityPress = () => {
+                            // Block all interactions until the student has applied
+                            if (isNotApplied) return;
+
+                            if (isQuiz) {
+                              router.push({
+                                pathname: "/(dashboard)/student/student-quiz-webview",
+                                params: { cmid: activity.id, name: activity.name }
+                              });
+                            } else if (isScheduler) {
+                              router.push({
+                                pathname: "/(dashboard)/student/student-scheduler-booking",
+                                params: { cmid: activity.id, name: activity.name }
+                              });
+                            } else if (isAssign && !hasUploadedFiles) {
+                              // No files yet → go to upload screen
+                              router.push({
+                                pathname: "/(dashboard)/student/student-upload-document",
+                                params: { cmid: activity.id, label: activity.name, mode: "scheme" }
+                              });
+                            } else if (isGenericActivity) {
+                              // page / forum / qbank / customcert → let student-activity-detail
+                              // decide html_page vs webview_only
+                              router.push({
+                                pathname: "/(dashboard)/student/student-activity-detail",
+                                params: { cmid: activity.id, name: activity.name }
+                              });
+                            }
+                          };
+
+                          // ── ASSIGN with uploaded files → show file list ──────
+                          if (isAssign && hasUploadedFiles) {
+                            const ItemContainer = isNotApplied ? View : TouchableOpacity;
+                            return (
+                              <View
+                                key={activity.id}
+                                style={[styles.activityItem, { borderBottomColor: isDark ? "#333" : "#F3F4F6" }, isNotApplied && styles.lockedActivityItem]}
+                              >
+                                {/* Activity header row */}
+                                <View style={styles.activityInner}>
+                                  {activity.modicon ? (
+                                    <Image source={{ uri: activity.modicon }} style={styles.activityIcon} tintColor={colors.text} />
+                                  ) : (
+                                    <View style={[styles.activityIcon, { backgroundColor: '#DCFCE7', borderRadius: 6, justifyContent: 'center', alignItems: 'center' }]}>
+                                      <Ionicons name="folder-open-outline" size={14} color="#16A34A" />
+                                    </View>
+                                  )}
+                                  <View style={{ flex: 1, marginRight: 10 }}>
+                                    <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
+                                      {activity.name}
+                                    </Text>
+                                    <View style={styles.docStatusRow}>
+                                      <View style={[styles.statusMiniBadge, { backgroundColor: '#DCFCE7' }]}>
+                                        <View style={[styles.statusDot, { backgroundColor: '#166534' }]} />
+                                        <Text style={[styles.statusMiniText, { color: '#166534' }]}>
+                                          {uploadedFiles.length} File{uploadedFiles.length > 1 ? 's' : ''} Uploaded
+                                        </Text>
+                                      </View>
+                                      {activity.document?.due_date && (
+                                        <Text style={[styles.activitySubtext, { color: colors.textSecondary }]}>
+                                          Due: {new Date(activity.document.due_date).toLocaleDateString()}
+                                        </Text>
+                                      )}
+                                    </View>
+                                  </View>
+                                  {isNotApplied ? (
+                                    <View style={[styles.quizChevronBox, { backgroundColor: '#FEF3C7' }]}>
+                                      <Ionicons name="lock-closed" size={14} color="#92400E" />
+                                    </View>
+                                  ) : (
+                                    <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                                  )}
+                                </View>
+
+                                {/* Uploaded files list */}
+                                <View style={[styles.fileListContainer, { backgroundColor: isDark ? '#161616' : '#F9FAFB', borderColor: isDark ? '#2a2a2a' : '#E5E7EB' }]}>
+                                  {uploadedFiles.map((file: any, fi: number) => {
+                                    const FileItemContainer = isNotApplied ? View : TouchableOpacity;
+                                    return (
+                                      <FileItemContainer
+                                        key={file.id ?? fi}
+                                        style={[
+                                          styles.fileRow,
+                                          { borderBottomColor: isDark ? '#252525' : '#F3F4F6' },
+                                          fi === uploadedFiles.length - 1 && { borderBottomWidth: 0 },
+                                        ]}
+                                        {...(!isNotApplied ? { onPress: () => handleFileOpen(file), activeOpacity: 0.7 } : {})}
+                                      >
+                                        {/* File type icon */}
+                                        <View style={[styles.fileTypeIcon, { backgroundColor: getFileIconColor(file.mimetype) + '18' }]}>
+                                          <Ionicons
+                                            name={getFileIcon(file.mimetype)}
+                                            size={18}
+                                            color={getFileIconColor(file.mimetype)}
+                                          />
+                                        </View>
+
+                                        {/* File info */}
+                                        <View style={{ flex: 1, minWidth: 0 }}>
+                                          <Text
+                                            style={[styles.fileItemName, { color: colors.text }]}
+                                            numberOfLines={1}
+                                            ellipsizeMode="middle"
+                                          >
+                                            {file.filename}
+                                          </Text>
+                                          <View style={styles.fileMetaRow}>
+                                            {file.filesize > 0 && (
+                                              <Text style={[styles.fileMeta, { color: colors.textSecondary }]}>
+                                                {formatFileSize(file.filesize)}
+                                              </Text>
+                                            )}
+                                            {file.uploaded_at && (
+                                              <Text style={[styles.fileMeta, { color: colors.textSecondary }]}>
+                                                · {new Date(file.uploaded_at).toLocaleDateString()}
+                                              </Text>
+                                            )}
+                                          </View>
+                                        </View>
+
+                                        {/* Open indicator */}
+                                        {!isNotApplied && (
+                                          <View style={[styles.openBadge, { backgroundColor: colors.primary + '12' }]}>
+                                            <Ionicons name="eye-outline" size={14} color={colors.primary} />
+                                            <Text style={[styles.openBadgeText, { color: colors.primary }]}>View</Text>
+                                          </View>
+                                        )}
+                                      </FileItemContainer>
+                                    );
+                                  })}
+                                </View>
+                              </View>
+                            );
                           }
-                        };
 
-                        // ── ASSIGN with uploaded files → show file list ──────
-                        if (isAssign && hasUploadedFiles) {
-                          const ItemContainer = isNotApplied ? View : TouchableOpacity;
+                          // ── ASSIGN with no files → upload prompt ─────────────
+                          if (isAssign && !hasUploadedFiles) {
+                            const ItemContainer = isNotApplied ? View : TouchableOpacity;
+                            return (
+                              <ItemContainer
+                                key={activity.id}
+                                style={[styles.activityItem, { borderBottomColor: isDark ? "#333" : "#F3F4F6" }, isNotApplied && styles.lockedActivityItem]}
+                                {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.7 } : {})}
+                              >
+                                <View style={styles.activityInner}>
+                                  {activity.modicon ? (
+                                    <Image source={{ uri: activity.modicon }} style={styles.activityIcon} tintColor={colors.text} />
+                                  ) : (
+                                    <View style={[styles.activityIcon, { backgroundColor: '#FEF3C7', borderRadius: 6, justifyContent: 'center', alignItems: 'center' }]}>
+                                      <Ionicons name="cloud-upload-outline" size={14} color="#D97706" />
+                                    </View>
+                                  )}
+                                  <View style={{ flex: 1, marginRight: 10 }}>
+                                    <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
+                                      {activity.name}
+                                    </Text>
+                                    <View style={styles.docStatusRow}>
+                                      <View style={[styles.statusMiniBadge, { backgroundColor: '#FEF3C7' }]}>
+                                        <View style={[styles.statusDot, { backgroundColor: '#D97706' }]} />
+                                        <Text style={[styles.statusMiniText, { color: '#92400E' }]}>Upload Required</Text>
+                                      </View>
+                                      {activity.document?.due_date && (
+                                        <Text style={[styles.activitySubtext, { color: colors.textSecondary }]}>
+                                          Due: {new Date(activity.document.due_date).toLocaleDateString()}
+                                        </Text>
+                                      )}
+                                    </View>
+                                  </View>
+                                  {isNotApplied ? (
+                                    <View style={[styles.quizChevronBox, { backgroundColor: '#FEF3C7' }]}>
+                                      <Ionicons name="lock-closed" size={14} color="#92400E" />
+                                    </View>
+                                  ) : (
+                                    <View style={[styles.uploadMiniBtn, { backgroundColor: colors.primary }]}>
+                                      <Ionicons name="arrow-up" size={13} color="#FFF" />
+                                    </View>
+                                  )}
+                                </View>
+                              </ItemContainer>
+                            );
+                          }
+
+                          // ── QUIZ → dedicated status card ─────────────────────
+                          if (isQuiz) {
+                            const quizStatus = isCompleted
+                              ? 'completed'
+                              : activity.state === 'inprogress'
+                                ? 'inprogress'
+                                : 'pending';
+
+                            const quizBadgeConfig = {
+                              completed: { bg: '#DCFCE7', dot: '#166534', text: '#166534', label: 'Completed', icon: 'checkmark-circle' as const },
+                              inprogress: { bg: '#DBEAFE', dot: '#1D4ED8', text: '#1D4ED8', label: 'In Progress', icon: 'play-circle' as const },
+                              pending: { bg: '#FEF3C7', dot: '#D97706', text: '#92400E', label: 'Pending', icon: 'time' as const },
+                            }[quizStatus];
+
+                            const ItemContainer = isNotApplied ? View : TouchableOpacity;
+                            return (
+                              <ItemContainer
+                                key={activity.id}
+                                style={[
+                                  styles.activityItem,
+                                  styles.quizActivityItem,
+                                  { borderBottomColor: isDark ? '#333' : '#F3F4F6', borderLeftColor: isNotApplied ? '#D97706' : colors.primary },
+                                  isNotApplied && styles.lockedActivityItem,
+                                ]}
+                                {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
+                              >
+                                <View style={styles.activityInner}>
+                                  {/* Quiz icon */}
+                                  <View style={[styles.quizIconBox, { backgroundColor: colors.primary + '15' }]}>
+                                    <Ionicons name="document-text" size={15} color={colors.primary} />
+                                  </View>
+
+                                  {/* Name + status */}
+                                  <View style={{ flex: 1, marginRight: 10 }}>
+                                    <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
+                                      {activity.name}
+                                    </Text>
+                                    <View style={styles.docStatusRow}>
+                                      <View style={[styles.statusMiniBadge, { backgroundColor: quizBadgeConfig.bg }]}>
+                                        <Ionicons name={quizBadgeConfig.icon} size={11} color={quizBadgeConfig.dot} />
+                                        <Text style={[styles.statusMiniText, { color: quizBadgeConfig.text }]}>
+                                          {quizBadgeConfig.label}
+                                        </Text>
+                                      </View>
+                                    </View>
+                                  </View>
+
+                                  {/* Action indicator */}
+                                  <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : colors.primary + '12' }]}>
+                                    <Ionicons
+                                      name={isNotApplied ? "lock-closed" : (quizStatus === 'completed' ? 'eye-outline' : 'chevron-forward')}
+                                      size={14}
+                                      color={isNotApplied ? "#92400E" : colors.primary}
+                                    />
+                                  </View>
+                                </View>
+                              </ItemContainer>
+                            );
+                          }
+
+                          // ── SCHEDULER → tappable standard card ───────────────
+                          if (isScheduler) {
+                            const ItemContainer = isNotApplied ? View : TouchableOpacity;
+                            return (
+                              <ItemContainer
+                                key={activity.id}
+                                style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isNotApplied && styles.lockedActivityItem]}
+                                {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
+                              >
+                                <View style={styles.activityInner}>
+                                  <View style={[styles.quizIconBox, { backgroundColor: '#0EA5E915' }]}>
+                                    <Ionicons name="calendar" size={15} color="#0EA5E9" />
+                                  </View>
+                                  <View style={{ flex: 1, marginRight: 10 }}>
+                                    <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
+                                      {activity.name}
+                                    </Text>
+                                    <View style={styles.docStatusRow}>
+                                      <View style={[styles.statusMiniBadge, { backgroundColor: '#E0F2FE' }]}>
+                                        <Ionicons name="calendar-outline" size={11} color="#0369A1" />
+                                        <Text style={[styles.statusMiniText, { color: '#0369A1' }]}>Book Slot</Text>
+                                      </View>
+                                    </View>
+                                  </View>
+                                  <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : '#0EA5E912' }]}>
+                                    <Ionicons
+                                      name={isNotApplied ? "lock-closed" : (isCompleted ? 'checkmark-circle' : 'chevron-forward')}
+                                      size={14}
+                                      color={isNotApplied ? "#92400E" : "#0EA5E9"}
+                                    />
+                                  </View>
+                                </View>
+                              </ItemContainer>
+                            );
+                          }
+
+                          // ── PAGE → tappable card, renders HTML natively ───────
+                          if (isPage) {
+                            const ItemContainer = isNotApplied ? View : TouchableOpacity;
+                            return (
+                              <ItemContainer
+                                key={activity.id}
+                                style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isNotApplied && styles.lockedActivityItem]}
+                                {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
+                              >
+                                <View style={styles.activityInner}>
+                                  <View style={[styles.quizIconBox, { backgroundColor: '#8B5CF615' }]}>
+                                    <Ionicons name="book-outline" size={15} color="#8B5CF6" />
+                                  </View>
+                                  <View style={{ flex: 1, marginRight: 10 }}>
+                                    <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
+                                      {activity.name}
+                                    </Text>
+                                    <View style={styles.docStatusRow}>
+                                      <View style={[styles.statusMiniBadge, { backgroundColor: '#EDE9FE' }]}>
+                                        <Ionicons name="book-outline" size={11} color="#7C3AED" />
+                                        <Text style={[styles.statusMiniText, { color: '#7C3AED' }]}>Read</Text>
+                                      </View>
+                                    </View>
+                                  </View>
+                                  <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : '#8B5CF612' }]}>
+                                    <Ionicons
+                                      name={isNotApplied ? "lock-closed" : (isCompleted ? 'checkmark-circle' : 'chevron-forward')}
+                                      size={14}
+                                      color={isNotApplied ? "#92400E" : "#8B5CF6"}
+                                    />
+                                  </View>
+                                </View>
+                              </ItemContainer>
+                            );
+                          }
+
+                          // ── FORUM → tappable card, opens webview ─────────────
+                          if (isForum) {
+                            const ItemContainer = isNotApplied ? View : TouchableOpacity;
+                            return (
+                              <ItemContainer
+                                key={activity.id}
+                                style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isNotApplied && styles.lockedActivityItem]}
+                                {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
+                              >
+                                <View style={styles.activityInner}>
+                                  <View style={[styles.quizIconBox, { backgroundColor: '#14B8A615' }]}>
+                                    <Ionicons name="chatbubbles-outline" size={15} color="#14B8A6" />
+                                  </View>
+                                  <View style={{ flex: 1, marginRight: 10 }}>
+                                    <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
+                                      {activity.name}
+                                    </Text>
+                                    <View style={styles.docStatusRow}>
+                                      <View style={[styles.statusMiniBadge, { backgroundColor: '#CCFBF1' }]}>
+                                        <Ionicons name="chatbubbles-outline" size={11} color="#0F766E" />
+                                        <Text style={[styles.statusMiniText, { color: '#0F766E' }]}>Forum</Text>
+                                      </View>
+                                    </View>
+                                  </View>
+                                  <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : '#14B8A612' }]}>
+                                    <Ionicons
+                                      name={isNotApplied ? "lock-closed" : "chevron-forward"}
+                                      size={14}
+                                      color={isNotApplied ? "#92400E" : "#14B8A6"}
+                                    />
+                                  </View>
+                                </View>
+                              </ItemContainer>
+                            );
+                          }
+
+                          // ── QBANK → tappable card, opens webview ─────────────
+                          if (isQbank) {
+                            const ItemContainer = isNotApplied ? View : TouchableOpacity;
+                            return (
+                              <ItemContainer
+                                key={activity.id}
+                                style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isNotApplied && styles.lockedActivityItem]}
+                                {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
+                              >
+                                <View style={styles.activityInner}>
+                                  <View style={[styles.quizIconBox, { backgroundColor: '#F9731615' }]}>
+                                    <Ionicons name="help-circle-outline" size={15} color="#F97316" />
+                                  </View>
+                                  <View style={{ flex: 1, marginRight: 10 }}>
+                                    <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
+                                      {activity.name}
+                                    </Text>
+                                    <View style={styles.docStatusRow}>
+                                      <View style={[styles.statusMiniBadge, { backgroundColor: '#FFEDD5' }]}>
+                                        <Ionicons name="library-outline" size={11} color="#C2410C" />
+                                        <Text style={[styles.statusMiniText, { color: '#C2410C' }]}>Question Bank</Text>
+                                      </View>
+                                    </View>
+                                  </View>
+                                  <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : '#F9731612' }]}>
+                                    <Ionicons
+                                      name={isNotApplied ? "lock-closed" : "chevron-forward"}
+                                      size={14}
+                                      color={isNotApplied ? "#92400E" : "#F97316"}
+                                    />
+                                  </View>
+                                </View>
+                              </ItemContainer>
+                            );
+                          }
+
+                          // ── CUSTOMCERT → tappable card, certificate download ──
+                          if (isCustomCert) {
+                            const ItemContainer = isNotApplied ? View : TouchableOpacity;
+                            return (
+                              <ItemContainer
+                                key={activity.id}
+                                style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isNotApplied && styles.lockedActivityItem]}
+                                {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
+                              >
+                                <View style={styles.activityInner}>
+                                  <View style={[styles.quizIconBox, { backgroundColor: '#EAB30815' }]}>
+                                    <Ionicons name="ribbon-outline" size={15} color="#D97706" />
+                                  </View>
+                                  <View style={{ flex: 1, marginRight: 10 }}>
+                                    <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
+                                      {activity.name}
+                                    </Text>
+                                    <View style={styles.docStatusRow}>
+                                      <View style={[styles.statusMiniBadge, { backgroundColor: '#FEF3C7' }]}>
+                                        <Ionicons name="ribbon-outline" size={11} color="#92400E" />
+                                        <Text style={[styles.statusMiniText, { color: '#92400E' }]}>
+                                          {isCompleted ? 'Download Certificate' : 'Certificate'}
+                                        </Text>
+                                      </View>
+                                    </View>
+                                  </View>
+                                  <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : '#EAB30812' }]}>
+                                    <Ionicons
+                                      name={isNotApplied ? "lock-closed" : (isCompleted ? 'download-outline' : 'chevron-forward')}
+                                      size={14}
+                                      color={isNotApplied ? "#92400E" : "#D97706"}
+                                    />
+                                  </View>
+                                </View>
+                              </ItemContainer>
+                            );
+                          }
+
+                          // ── FALLBACK → any other unrecognised modtype ─────────
                           return (
                             <View
                               key={activity.id}
-                              style={[styles.activityItem, { borderBottomColor: isDark ? "#333" : "#F3F4F6" }, isNotApplied && styles.lockedActivityItem]}
-                            >
-                              {/* Activity header row */}
-                              <View style={styles.activityInner}>
-                                {activity.modicon ? (
-                                  <Image source={{ uri: activity.modicon }} style={styles.activityIcon} tintColor={colors.text} />
-                                ) : (
-                                  <View style={[styles.activityIcon, { backgroundColor: '#DCFCE7', borderRadius: 6, justifyContent: 'center', alignItems: 'center' }]}>
-                                    <Ionicons name="folder-open-outline" size={14} color="#16A34A" />
-                                  </View>
-                                )}
-                                <View style={{ flex: 1, marginRight: 10 }}>
-                                  <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
-                                    {activity.name}
-                                  </Text>
-                                  <View style={styles.docStatusRow}>
-                                    <View style={[styles.statusMiniBadge, { backgroundColor: '#DCFCE7' }]}>
-                                      <View style={[styles.statusDot, { backgroundColor: '#166534' }]} />
-                                      <Text style={[styles.statusMiniText, { color: '#166534' }]}>
-                                        {uploadedFiles.length} File{uploadedFiles.length > 1 ? 's' : ''} Uploaded
-                                      </Text>
-                                    </View>
-                                    {activity.document?.due_date && (
-                                      <Text style={[styles.activitySubtext, { color: colors.textSecondary }]}>
-                                        Due: {new Date(activity.document.due_date).toLocaleDateString()}
-                                      </Text>
-                                    )}
-                                  </View>
-                                </View>
-                                {isNotApplied ? (
-                                  <View style={[styles.quizChevronBox, { backgroundColor: '#FEF3C7' }]}>
-                                    <Ionicons name="lock-closed" size={14} color="#92400E" />
-                                  </View>
-                                ) : (
-                                  <Ionicons name="checkmark-circle" size={18} color="#10B981" />
-                                )}
-                              </View>
-
-                              {/* Uploaded files list */}
-                              <View style={[styles.fileListContainer, { backgroundColor: isDark ? '#161616' : '#F9FAFB', borderColor: isDark ? '#2a2a2a' : '#E5E7EB' }]}>
-                                {uploadedFiles.map((file: any, fi: number) => {
-                                  const FileItemContainer = isNotApplied ? View : TouchableOpacity;
-                                  return (
-                                    <FileItemContainer
-                                      key={file.id ?? fi}
-                                      style={[
-                                        styles.fileRow,
-                                        { borderBottomColor: isDark ? '#252525' : '#F3F4F6' },
-                                        fi === uploadedFiles.length - 1 && { borderBottomWidth: 0 },
-                                      ]}
-                                      {...(!isNotApplied ? { onPress: () => handleFileOpen(file), activeOpacity: 0.7 } : {})}
-                                    >
-                                      {/* File type icon */}
-                                      <View style={[styles.fileTypeIcon, { backgroundColor: getFileIconColor(file.mimetype) + '18' }]}>
-                                        <Ionicons
-                                          name={getFileIcon(file.mimetype)}
-                                          size={18}
-                                          color={getFileIconColor(file.mimetype)}
-                                        />
-                                      </View>
-
-                                      {/* File info */}
-                                      <View style={{ flex: 1, minWidth: 0 }}>
-                                        <Text
-                                          style={[styles.fileItemName, { color: colors.text }]}
-                                          numberOfLines={1}
-                                          ellipsizeMode="middle"
-                                        >
-                                          {file.filename}
-                                        </Text>
-                                        <View style={styles.fileMetaRow}>
-                                          {file.filesize > 0 && (
-                                            <Text style={[styles.fileMeta, { color: colors.textSecondary }]}>
-                                              {formatFileSize(file.filesize)}
-                                            </Text>
-                                          )}
-                                          {file.uploaded_at && (
-                                            <Text style={[styles.fileMeta, { color: colors.textSecondary }]}>
-                                              · {new Date(file.uploaded_at).toLocaleDateString()}
-                                            </Text>
-                                          )}
-                                        </View>
-                                      </View>
-
-                                      {/* Open indicator */}
-                                      {!isNotApplied && (
-                                        <View style={[styles.openBadge, { backgroundColor: colors.primary + '12' }]}>
-                                          <Ionicons name="eye-outline" size={14} color={colors.primary} />
-                                          <Text style={[styles.openBadgeText, { color: colors.primary }]}>View</Text>
-                                        </View>
-                                      )}
-                                    </FileItemContainer>
-                                  );
-                                })}
-                              </View>
-                            </View>
-                          );
-                        }
-
-                        // ── ASSIGN with no files → upload prompt ─────────────
-                        if (isAssign && !hasUploadedFiles) {
-                          const ItemContainer = isNotApplied ? View : TouchableOpacity;
-                          return (
-                            <ItemContainer
-                              key={activity.id}
-                              style={[styles.activityItem, { borderBottomColor: isDark ? "#333" : "#F3F4F6" }, isNotApplied && styles.lockedActivityItem]}
-                              {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.7 } : {})}
+                              style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }]}
                             >
                               <View style={styles.activityInner}>
                                 {activity.modicon ? (
                                   <Image source={{ uri: activity.modicon }} style={styles.activityIcon} tintColor={colors.text} />
                                 ) : (
-                                  <View style={[styles.activityIcon, { backgroundColor: '#FEF3C7', borderRadius: 6, justifyContent: 'center', alignItems: 'center' }]}>
-                                    <Ionicons name="cloud-upload-outline" size={14} color="#D97706" />
+                                  <View style={[styles.activityIcon, { backgroundColor: colors.primary + '10', borderRadius: 6, justifyContent: 'center', alignItems: 'center' }]}>
+                                    <Ionicons name="ellipsis-horizontal" size={14} color={colors.primary} />
                                   </View>
                                 )}
-                                <View style={{ flex: 1, marginRight: 10 }}>
-                                  <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={1}>
                                     {activity.name}
                                   </Text>
-                                  <View style={styles.docStatusRow}>
-                                    <View style={[styles.statusMiniBadge, { backgroundColor: '#FEF3C7' }]}>
-                                      <View style={[styles.statusDot, { backgroundColor: '#D97706' }]} />
-                                      <Text style={[styles.statusMiniText, { color: '#92400E' }]}>Upload Required</Text>
-                                    </View>
-                                    {activity.document?.due_date && (
-                                      <Text style={[styles.activitySubtext, { color: colors.textSecondary }]}>
-                                        Due: {new Date(activity.document.due_date).toLocaleDateString()}
-                                      </Text>
-                                    )}
-                                  </View>
                                 </View>
-                                {isNotApplied ? (
-                                  <View style={[styles.quizChevronBox, { backgroundColor: '#FEF3C7' }]}>
-                                    <Ionicons name="lock-closed" size={14} color="#92400E" />
-                                  </View>
-                                ) : (
-                                  <View style={[styles.uploadMiniBtn, { backgroundColor: colors.primary }]}>
-                                    <Ionicons name="arrow-up" size={13} color="#FFF" />
-                                  </View>
-                                )}
-                              </View>
-                            </ItemContainer>
-                          );
-                        }
-
-                        // ── QUIZ → dedicated status card ─────────────────────
-                        if (isQuiz) {
-                          const quizStatus = isCompleted
-                            ? 'completed'
-                            : activity.state === 'inprogress'
-                              ? 'inprogress'
-                              : 'pending';
-
-                          const quizBadgeConfig = {
-                            completed: { bg: '#DCFCE7', dot: '#166534', text: '#166534', label: 'Completed', icon: 'checkmark-circle' as const },
-                            inprogress: { bg: '#DBEAFE', dot: '#1D4ED8', text: '#1D4ED8', label: 'In Progress', icon: 'play-circle' as const },
-                            pending: { bg: '#FEF3C7', dot: '#D97706', text: '#92400E', label: 'Pending', icon: 'time' as const },
-                          }[quizStatus];
-
-                          const ItemContainer = isNotApplied ? View : TouchableOpacity;
-                          return (
-                            <ItemContainer
-                              key={activity.id}
-                              style={[
-                                styles.activityItem,
-                                styles.quizActivityItem,
-                                { borderBottomColor: isDark ? '#333' : '#F3F4F6', borderLeftColor: isNotApplied ? '#D97706' : colors.primary },
-                                isNotApplied && styles.lockedActivityItem,
-                              ]}
-                              {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
-                            >
-                              <View style={styles.activityInner}>
-                                {/* Quiz icon */}
-                                <View style={[styles.quizIconBox, { backgroundColor: colors.primary + '15' }]}>
-                                  <Ionicons name="document-text" size={15} color={colors.primary} />
-                                </View>
-
-                                {/* Name + status */}
-                                <View style={{ flex: 1, marginRight: 10 }}>
-                                  <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
-                                    {activity.name}
-                                  </Text>
-                                  <View style={styles.docStatusRow}>
-                                    <View style={[styles.statusMiniBadge, { backgroundColor: quizBadgeConfig.bg }]}>
-                                      <Ionicons name={quizBadgeConfig.icon} size={11} color={quizBadgeConfig.dot} />
-                                      <Text style={[styles.statusMiniText, { color: quizBadgeConfig.text }]}>
-                                        {quizBadgeConfig.label}
-                                      </Text>
-                                    </View>
-                                  </View>
-                                </View>
-
-                                {/* Action indicator */}
-                                <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : colors.primary + '12' }]}>
-                                  <Ionicons
-                                    name={isNotApplied ? "lock-closed" : (quizStatus === 'completed' ? 'eye-outline' : 'chevron-forward')}
-                                    size={14}
-                                    color={isNotApplied ? "#92400E" : colors.primary}
-                                  />
-                                </View>
-                              </View>
-                            </ItemContainer>
-                          );
-                        }
-
-                        // ── SCHEDULER → tappable standard card ───────────────
-                        if (isScheduler) {
-                          const ItemContainer = isNotApplied ? View : TouchableOpacity;
-                          return (
-                            <ItemContainer
-                              key={activity.id}
-                              style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isNotApplied && styles.lockedActivityItem]}
-                              {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
-                            >
-                              <View style={styles.activityInner}>
-                                <View style={[styles.quizIconBox, { backgroundColor: '#0EA5E915' }]}>
-                                  <Ionicons name="calendar" size={15} color="#0EA5E9" />
-                                </View>
-                                <View style={{ flex: 1, marginRight: 10 }}>
-                                  <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
-                                    {activity.name}
-                                  </Text>
-                                  <View style={styles.docStatusRow}>
-                                    <View style={[styles.statusMiniBadge, { backgroundColor: '#E0F2FE' }]}>
-                                      <Ionicons name="calendar-outline" size={11} color="#0369A1" />
-                                      <Text style={[styles.statusMiniText, { color: '#0369A1' }]}>Book Slot</Text>
-                                    </View>
-                                  </View>
-                                </View>
-                                <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : '#0EA5E912' }]}>
-                                  <Ionicons
-                                    name={isNotApplied ? "lock-closed" : (isCompleted ? 'checkmark-circle' : 'chevron-forward')}
-                                    size={14}
-                                    color={isNotApplied ? "#92400E" : "#0EA5E9"}
-                                  />
-                                </View>
-                              </View>
-                            </ItemContainer>
-                          );
-                        }
-
-                        // ── PAGE → tappable card, renders HTML natively ───────
-                        if (isPage) {
-                          const ItemContainer = isNotApplied ? View : TouchableOpacity;
-                          return (
-                            <ItemContainer
-                              key={activity.id}
-                              style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isNotApplied && styles.lockedActivityItem]}
-                              {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
-                            >
-                              <View style={styles.activityInner}>
-                                <View style={[styles.quizIconBox, { backgroundColor: '#8B5CF615' }]}>
-                                  <Ionicons name="book-outline" size={15} color="#8B5CF6" />
-                                </View>
-                                <View style={{ flex: 1, marginRight: 10 }}>
-                                  <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
-                                    {activity.name}
-                                  </Text>
-                                  <View style={styles.docStatusRow}>
-                                    <View style={[styles.statusMiniBadge, { backgroundColor: '#EDE9FE' }]}>
-                                      <Ionicons name="book-outline" size={11} color="#7C3AED" />
-                                      <Text style={[styles.statusMiniText, { color: '#7C3AED' }]}>Read</Text>
-                                    </View>
-                                  </View>
-                                </View>
-                                <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : '#8B5CF612' }]}>
-                                  <Ionicons
-                                    name={isNotApplied ? "lock-closed" : (isCompleted ? 'checkmark-circle' : 'chevron-forward')}
-                                    size={14}
-                                    color={isNotApplied ? "#92400E" : "#8B5CF6"}
-                                  />
-                                </View>
-                              </View>
-                            </ItemContainer>
-                          );
-                        }
-
-                        // ── FORUM → tappable card, opens webview ─────────────
-                        if (isForum) {
-                          const ItemContainer = isNotApplied ? View : TouchableOpacity;
-                          return (
-                            <ItemContainer
-                              key={activity.id}
-                              style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isNotApplied && styles.lockedActivityItem]}
-                              {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
-                            >
-                              <View style={styles.activityInner}>
-                                <View style={[styles.quizIconBox, { backgroundColor: '#14B8A615' }]}>
-                                  <Ionicons name="chatbubbles-outline" size={15} color="#14B8A6" />
-                                </View>
-                                <View style={{ flex: 1, marginRight: 10 }}>
-                                  <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
-                                    {activity.name}
-                                  </Text>
-                                  <View style={styles.docStatusRow}>
-                                    <View style={[styles.statusMiniBadge, { backgroundColor: '#CCFBF1' }]}>
-                                      <Ionicons name="chatbubbles-outline" size={11} color="#0F766E" />
-                                      <Text style={[styles.statusMiniText, { color: '#0F766E' }]}>Forum</Text>
-                                    </View>
-                                  </View>
-                                </View>
-                                <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : '#14B8A612' }]}>
-                                  <Ionicons
-                                    name={isNotApplied ? "lock-closed" : "chevron-forward"}
-                                    size={14}
-                                    color={isNotApplied ? "#92400E" : "#14B8A6"}
-                                  />
-                                </View>
-                              </View>
-                            </ItemContainer>
-                          );
-                        }
-
-                        // ── QBANK → tappable card, opens webview ─────────────
-                        if (isQbank) {
-                          const ItemContainer = isNotApplied ? View : TouchableOpacity;
-                          return (
-                            <ItemContainer
-                              key={activity.id}
-                              style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isNotApplied && styles.lockedActivityItem]}
-                              {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
-                            >
-                              <View style={styles.activityInner}>
-                                <View style={[styles.quizIconBox, { backgroundColor: '#F9731615' }]}>
-                                  <Ionicons name="help-circle-outline" size={15} color="#F97316" />
-                                </View>
-                                <View style={{ flex: 1, marginRight: 10 }}>
-                                  <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
-                                    {activity.name}
-                                  </Text>
-                                  <View style={styles.docStatusRow}>
-                                    <View style={[styles.statusMiniBadge, { backgroundColor: '#FFEDD5' }]}>
-                                      <Ionicons name="library-outline" size={11} color="#C2410C" />
-                                      <Text style={[styles.statusMiniText, { color: '#C2410C' }]}>Question Bank</Text>
-                                    </View>
-                                  </View>
-                                </View>
-                                <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : '#F9731612' }]}>
-                                  <Ionicons
-                                    name={isNotApplied ? "lock-closed" : "chevron-forward"}
-                                    size={14}
-                                    color={isNotApplied ? "#92400E" : "#F97316"}
-                                  />
-                                </View>
-                              </View>
-                            </ItemContainer>
-                          );
-                        }
-
-                        // ── CUSTOMCERT → tappable card, certificate download ──
-                        if (isCustomCert) {
-                          const ItemContainer = isNotApplied ? View : TouchableOpacity;
-                          return (
-                            <ItemContainer
-                              key={activity.id}
-                              style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isNotApplied && styles.lockedActivityItem]}
-                              {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
-                            >
-                              <View style={styles.activityInner}>
-                                <View style={[styles.quizIconBox, { backgroundColor: '#EAB30815' }]}>
-                                  <Ionicons name="ribbon-outline" size={15} color="#D97706" />
-                                </View>
-                                <View style={{ flex: 1, marginRight: 10 }}>
-                                  <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
-                                    {activity.name}
-                                  </Text>
-                                  <View style={styles.docStatusRow}>
-                                    <View style={[styles.statusMiniBadge, { backgroundColor: '#FEF3C7' }]}>
-                                      <Ionicons name="ribbon-outline" size={11} color="#92400E" />
-                                      <Text style={[styles.statusMiniText, { color: '#92400E' }]}>
-                                        {isCompleted ? 'Download Certificate' : 'Certificate'}
-                                      </Text>
-                                    </View>
-                                  </View>
-                                </View>
-                                <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : '#EAB30812' }]}>
-                                  <Ionicons
-                                    name={isNotApplied ? "lock-closed" : (isCompleted ? 'download-outline' : 'chevron-forward')}
-                                    size={14}
-                                    color={isNotApplied ? "#92400E" : "#D97706"}
-                                  />
-                                </View>
-                              </View>
-                            </ItemContainer>
-                          );
-                        }
-
-                        // ── FALLBACK → any other unrecognised modtype ─────────
-                        return (
-                          <View
-                            key={activity.id}
-                            style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }]}
-                          >
-                            <View style={styles.activityInner}>
-                              {activity.modicon ? (
-                                <Image source={{ uri: activity.modicon }} style={styles.activityIcon} tintColor={colors.text} />
-                              ) : (
-                                <View style={[styles.activityIcon, { backgroundColor: colors.primary + '10', borderRadius: 6, justifyContent: 'center', alignItems: 'center' }]}>
-                                  <Ionicons name="ellipsis-horizontal" size={14} color={colors.primary} />
-                                </View>
-                              )}
-                              <View style={{ flex: 1 }}>
-                                <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={1}>
-                                  {activity.name}
-                                </Text>
                               </View>
                             </View>
-                          </View>
-                        );
-                      })}
-                    </View>
-                  )}
-                </View>
-              );
-            })}
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
           </View>
         )}
 
