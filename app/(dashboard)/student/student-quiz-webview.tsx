@@ -433,7 +433,6 @@ export default function StudentQuizWebView() {
                 {/* ── Attempt History ────────────────────────────────────── */}
                 <View style={styles.historySection}>
                     <View style={styles.sectionHeader}>
-                        <Ionicons name="list" size={20} color={colors.primary} />
                         <Text style={[styles.sectionTitle, { color: colors.text }]}>
                             Attempt History
                         </Text>

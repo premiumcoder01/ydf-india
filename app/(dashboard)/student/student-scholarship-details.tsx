@@ -8,7 +8,7 @@ import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Dimensions, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import RenderHTML from "react-native-render-html";
 import Svg, { Circle } from 'react-native-svg';
@@ -95,6 +95,20 @@ export default function ScholarshipDetailsScreen() {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState<"success" | "error" | "info">("success");
+  const isDataLoaded = useRef(false);
+
+  // Update data loaded ref
+  useEffect(() => {
+    if (scholarship) {
+      isDataLoaded.current = true;
+    }
+  }, [scholarship]);
+
+  // Reset when scholarship ID changes
+  useEffect(() => {
+    isDataLoaded.current = false;
+    setScholarship(null);
+  }, [scholarshipId]);
 
   // Fetch scholarship details — runs every time screen gains focus
   // (e.g. when navigating back from the upload-document screen)
@@ -108,7 +122,11 @@ export default function ScholarshipDetailsScreen() {
         }
 
         try {
-          setLoading(true);
+          // Only show initial loading screen if we don't have any data yet
+          // This prevents the ScrollView from unmounting and losing scroll position on refocus
+          if (!isDataLoaded.current) {
+            setLoading(true);
+          }
           setError(null);
 
           const authDataString = await AsyncStorage.getItem("authData");

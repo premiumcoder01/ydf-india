@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -27,10 +27,20 @@ export default function ApplicationStatusScreen() {
   const [pastApplications, setPastApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const isDataLoaded = useRef(false);
+
+  // Update data loaded ref
+  useEffect(() => {
+    if (activeApplications.length > 0 || pastApplications.length > 0) {
+      isDataLoaded.current = true;
+    }
+  }, [activeApplications, pastApplications]);
 
   const fetchApplications = useCallback(async () => {
     try {
-      setLoading(true);
+      if (!isDataLoaded.current) {
+        setLoading(true);
+      }
       const authDataString = await AsyncStorage.getItem("authData");
       if (!authDataString) {
         setLoading(false);
