@@ -1,5 +1,6 @@
 import { Button, CustomTextInput, Toast } from "@/components";
 import { registerUser } from "@/utils/api";
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, router } from "expo-router";
@@ -13,7 +14,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -33,8 +34,10 @@ export default function SignUpScreen() {
     phone?: string;
     password?: string;
     confirmPassword?: string;
+    consent?: string;
   }>({});
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [consentChecked, setConsentChecked] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [showToast, setShowToast] = useState(false);
 
@@ -99,6 +102,7 @@ export default function SignUpScreen() {
       phone?: string;
       password?: string;
       confirmPassword?: string;
+      consent?: string;
     } = {};
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
@@ -133,6 +137,11 @@ export default function SignUpScreen() {
       password !== confirmPassword
     )
       nextErrors.confirmPassword = "Passwords do not match";
+
+    if (!consentChecked) {
+      nextErrors.consent = "Please agree to the terms to continue";
+    }
+
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -369,6 +378,52 @@ export default function SignUpScreen() {
               showPasswordToggle={true}
               forceLight={true}
             />
+
+            {/* Consent Section */}
+            <View style={styles.consentContainer}>
+              <View style={[styles.consentBox, errors.consent && styles.consentBoxError]}>
+                <Text style={styles.consentHeader}>Consent for Use of Information</Text>
+                <Text style={styles.consentText}>
+                  By signing up, you consent to the collection and use of the personal, academic, and financial information you provide solely for the purpose of processing and managing your scholarship application.
+                </Text>
+                <Text style={styles.consentText}>
+                  Your information will be kept confidential and used only for scholarship-related activities, as required by the program or policy.
+                </Text>
+
+                <View style={styles.consentDivider} />
+
+                <Text style={[styles.consentHeader, { marginTop: 0 }]}>जानकारी के उपयोग के लिए सहमति</Text>
+                <Text style={styles.consentTextHindi}>
+                  साइन अप करके आप अपनी व्यक्तिगत, शैक्षणिक और वित्तीय जानकारी के संग्रह और उपयोग के लिए सहमति देते हैं, जिसका उपयोग केवल आपकी छात्रवृत्ति आवेदन प्रक्रिया को संचालित और प्रबंधित करने के उद्देश्य से किया जाएगा।
+                </Text>
+                <Text style={styles.consentTextHindi}>
+                  आपकी जानकारी गोपनीय रखी जाएगी और केवल छात्रवृत्ति से संबंधित गतिविधियों के लिए ही उपयोग की जाएगी, जैसा कि कार्यक्रम या नीति के अनुसार आवश्यक है।
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.checkboxRow}
+                activeOpacity={0.8}
+                onPress={() => {
+                  setConsentChecked(!consentChecked);
+                  if (!consentChecked) setErrors(prev => ({ ...prev, consent: undefined }));
+                }}
+              >
+                <View style={[
+                  styles.checkbox,
+                  consentChecked && styles.checkboxActive,
+                  errors.consent && styles.checkboxError
+                ]}>
+                  {consentChecked && <Ionicons name="checkmark" size={16} color="#FFF" />}
+                </View>
+                <Text style={[styles.checkboxLabel, errors.consent && { color: "rgba(239, 68, 68, 1)" }]}>
+                  I agree to the above terms and provide my consent
+                </Text>
+                {errors.consent && (
+                  <Ionicons name="alert-circle" size={18} color="rgba(239, 68, 68, 1)" style={{ marginLeft: "auto" }} />
+                )}
+              </TouchableOpacity>
+            </View>
 
             {/* Create Account Button */}
             <Button
@@ -621,5 +676,76 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 16,
     marginLeft: 4,
+  },
+
+  // Consent Styles
+  consentContainer: {
+    marginVertical: 24,
+  },
+  consentBox: {
+    backgroundColor: "rgba(0, 0, 0, 0.03)",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.06)",
+    marginBottom: 16,
+  },
+  consentBoxError: {
+    borderColor: "rgba(239, 68, 68, 0.3)",
+    backgroundColor: "rgba(239, 68, 68, 0.02)",
+  },
+  consentHeader: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#333",
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  consentText: {
+    fontSize: 12,
+    color: "#555",
+    lineHeight: 18,
+    marginBottom: 10,
+  },
+  consentTextHindi: {
+    fontSize: 12,
+    color: "#555",
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+  consentDivider: {
+    height: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.05)",
+    marginVertical: 12,
+  },
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingHorizontal: 4,
+    paddingBottom: 24, // Increased space before button
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: "#333",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+    marginTop: 2, // Align with first line of text
+  },
+  checkboxActive: {
+    backgroundColor: "#333",
+    borderColor: "#333",
+  },
+  checkboxError: {
+    borderColor: "rgba(239, 68, 68, 1)",
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#555",
+    flex: 1,
   },
 });
