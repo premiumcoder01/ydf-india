@@ -108,6 +108,7 @@ export default function ProviderAddScholarshipScreen() {
   const { isDark, colors } = useTheme();
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Form State
   const [formData, setFormData] = useState<FormData>({
@@ -235,11 +236,58 @@ export default function ProviderAddScholarshipScreen() {
     }
   };
 
+  const validateStep = (step: number) => {
+    const newErrors: Record<string, string> = {};
+
+    if (step === 0) {
+      if (!formData.schemeName.trim()) newErrors.schemeName = "Scheme name is required";
+      if (!formData.category) newErrors.category = "Category is required";
+      if (!formData.providerName.trim()) newErrors.providerName = "Provider name is required";
+      if (!formData.description.trim()) newErrors.description = "Description is required";
+      if (!formData.startDate) newErrors.startDate = "Start date is required";
+      if (!formData.endDate) newErrors.endDate = "End date is required";
+      if (formData.startDate && formData.endDate && formData.startDate > formData.endDate) {
+        newErrors.endDate = "End date must be after start date";
+      }
+      if (!formData.totalSeats.trim()) newErrors.totalSeats = "Total seats is required";
+      if (formData.amountType === "fixed" && !formData.fixedAmount.trim()) {
+        newErrors.fixedAmount = "Fixed amount is required";
+      }
+      if (formData.amountType === "actuals" && !formData.actualAmountLimit.trim()) {
+        newErrors.actualAmountLimit = "Actual amount limit is required";
+      }
+      if (parseInt(formData.distributionStudent) + parseInt(formData.distributionInstitute) !== 100) {
+        newErrors.distribution = "Total distribution must be 100%";
+      }
+    } else if (step === 1) {
+      if (formData.gender.length === 0) newErrors.gender = "Select at least one gender option";
+      if (formData.casteCategory.length === 0) newErrors.casteCategory = "Select at least one caste category";
+      if (!formData.incomeLimit.trim()) newErrors.incomeLimit = "Income limit is required";
+      if (formData.educationLevel.length === 0) newErrors.educationLevel = "Select at least one education level";
+    } else if (step === 2) {
+      if (formData.requiredDocuments.length === 0) {
+        newErrors.requiredDocuments = "Please select at least one required document";
+      } else {
+        const incompleteDoc = formData.requiredDocuments.find(d => !d.description);
+        if (incompleteDoc) {
+          newErrors.requiredDocuments = `Please specify document name for ${incompleteDoc.category}`;
+        }
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleNext = () => {
-    if (currentStep < STEPS.length - 1) {
-      setCurrentStep(currentStep + 1);
+    if (validateStep(currentStep)) {
+      if (currentStep < STEPS.length - 1) {
+        setCurrentStep(currentStep + 1);
+      } else {
+        handleSubmit();
+      }
     } else {
-      handleSubmit();
+      Alert.alert("Required Fields", "Please check the required fields.");
     }
   };
 
@@ -380,6 +428,8 @@ export default function ProviderAddScholarshipScreen() {
     if (numVal > 100) numVal = 100;
     const otherVal = (100 - numVal).toString();
 
+    if (errors.distribution) setErrors(prev => ({ ...prev, distribution: "" }));
+
     if (field === "distributionStudent") {
       setFormData(prev => ({ ...prev, distributionStudent: numVal.toString(), distributionInstitute: otherVal }));
     } else {
@@ -479,27 +529,41 @@ export default function ProviderAddScholarshipScreen() {
             label="Scheme Full Name"
             placeholder="e.g. National Merit Scholarship 2025"
             value={formData.schemeName}
-            onChangeText={(v) => updateField("schemeName", v)}
+            onChangeText={(v) => {
+              updateField("schemeName", v);
+              if (errors.schemeName) setErrors(prev => ({ ...prev, schemeName: "" }));
+            }}
+            required
+            error={errors.schemeName}
           />
         </View>
 
 
         <View style={{ flex: 1, marginRight: 8, marginBottom: 10 }}>
-          <Text style={[styles.label, { color: colors.text, marginTop: 0 }]}>Category</Text>
+          <Text style={[styles.label, { color: colors.text, marginTop: 0 }]}>
+            Category <Text style={{ color: '#EF4444' }}>*</Text>
+          </Text>
           <TouchableOpacity
-            style={[styles.dropdownTrigger, { backgroundColor: colors.surface, borderColor: colors.border }]}
-            onPress={() => setSelectionModal({
-              show: true,
-              title: "Select Category",
-              options: ["Merit-based", "Need-based", "Minority", "Talent-based", "Sports", "Special Ability", "General Research", "Other"],
-              field: "category"
-            })}
+            style={[
+              styles.dropdownTrigger,
+              { backgroundColor: colors.surface, borderColor: errors.category ? '#EF4444' : colors.border }
+            ]}
+            onPress={() => {
+              setErrors(prev => ({ ...prev, category: "" }));
+              setSelectionModal({
+                show: true,
+                title: "Select Category",
+                options: ["Merit-based", "Need-based", "Minority", "Talent-based", "Sports", "Special Ability", "General Research", "Other"],
+                field: "category"
+              });
+            }}
           >
             <Text style={[styles.inputValue, { color: formData.category ? colors.text : colors.textSecondary }]}>
               {formData.category || "Select Type"}
             </Text>
             <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
           </TouchableOpacity>
+          {errors.category && <Text style={styles.errorTextSmall}>{errors.category}</Text>}
         </View>
 
         <View style={{ flex: 1, marginVertical: 10 }}>
@@ -507,7 +571,12 @@ export default function ProviderAddScholarshipScreen() {
             label="Provider Name"
             placeholder="Organization / Dept"
             value={formData.providerName}
-            onChangeText={(v) => updateField("providerName", v)}
+            onChangeText={(v) => {
+              updateField("providerName", v);
+              if (errors.providerName) setErrors(prev => ({ ...prev, providerName: "" }));
+            }}
+            required
+            error={errors.providerName}
             mainStyle={{ marginBottom: 0 }}
           />
         </View>
@@ -518,8 +587,13 @@ export default function ProviderAddScholarshipScreen() {
             label="Brief Description"
             placeholder="Describe the scholarship objective and benefits..."
             value={formData.description}
-            onChangeText={(v) => updateField("description", v)}
+            onChangeText={(v) => {
+              updateField("description", v);
+              if (errors.description) setErrors(prev => ({ ...prev, description: "" }));
+            }}
             multiline
+            required
+            error={errors.description}
           />
         </View>
       </View>
@@ -580,28 +654,46 @@ export default function ProviderAddScholarshipScreen() {
 
         <View style={styles.row}>
           <View style={{ flex: 1, marginRight: 8 }}>
-            <Text style={[styles.label, { color: colors.text }]}>Starts On</Text>
+            <Text style={[styles.label, { color: colors.text }]}>
+              Starts On <Text style={{ color: '#EF4444' }}>*</Text>
+            </Text>
             <TouchableOpacity
-              style={[styles.dateInput, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              onPress={() => setDatePicker({ show: true, field: "startDate", type: "start" })}
+              style={[
+                styles.dateInput,
+                { backgroundColor: colors.surface, borderColor: errors.startDate ? '#EF4444' : colors.border }
+              ]}
+              onPress={() => {
+                setErrors(prev => ({ ...prev, startDate: "" }));
+                setDatePicker({ show: true, field: "startDate", type: "start" });
+              }}
             >
               <Ionicons name="calendar" size={18} color={colors.textSecondary} />
               <Text style={[styles.dateText, { color: formData.startDate ? colors.text : colors.textSecondary }]}>
                 {formData.startDate ? formData.startDate.toLocaleDateString() : "Select Date"}
               </Text>
             </TouchableOpacity>
+            {errors.startDate && <Text style={styles.errorTextSmall}>{errors.startDate}</Text>}
           </View>
           <View style={{ flex: 1, marginLeft: 8 }}>
-            <Text style={[styles.label, { color: colors.text }]}>Ends On</Text>
+            <Text style={[styles.label, { color: colors.text }]}>
+              Ends On <Text style={{ color: '#EF4444' }}>*</Text>
+            </Text>
             <TouchableOpacity
-              style={[styles.dateInput, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              onPress={() => setDatePicker({ show: true, field: "endDate", type: "end" })}
+              style={[
+                styles.dateInput,
+                { backgroundColor: colors.surface, borderColor: errors.endDate ? '#EF4444' : colors.border }
+              ]}
+              onPress={() => {
+                setErrors(prev => ({ ...prev, endDate: "" }));
+                setDatePicker({ show: true, field: "endDate", type: "end" });
+              }}
             >
               <Ionicons name="calendar" size={18} color={colors.textSecondary} />
               <Text style={[styles.dateText, { color: formData.endDate ? colors.text : colors.textSecondary }]}>
                 {formData.endDate ? formData.endDate.toLocaleDateString() : "Select Date"}
               </Text>
             </TouchableOpacity>
+            {errors.endDate && <Text style={styles.errorTextSmall}>{errors.endDate}</Text>}
           </View>
         </View>
       </View>
@@ -708,7 +800,12 @@ export default function ProviderAddScholarshipScreen() {
               placeholder="0"
               keyboardType="numeric"
               value={formData.totalSeats}
-              onChangeText={(v) => updateField("totalSeats", v)}
+              onChangeText={(v) => {
+                updateField("totalSeats", v);
+                if (errors.totalSeats) setErrors(prev => ({ ...prev, totalSeats: "" }));
+              }}
+              required
+              error={errors.totalSeats}
               mainStyle={{ marginBottom: 0 }}
             />
           </View>
@@ -752,12 +849,21 @@ export default function ProviderAddScholarshipScreen() {
             placeholder="₹ 0.00"
             keyboardType="numeric"
             value={formData.amountType === "fixed" ? formData.fixedAmount : formData.actualAmountLimit}
-            onChangeText={(v) => updateField(formData.amountType === "fixed" ? "fixedAmount" : "actualAmountLimit", v)}
+            onChangeText={(v) => {
+              const field = formData.amountType === "fixed" ? "fixedAmount" : "actualAmountLimit";
+              updateField(field, v);
+              if (errors[field]) setErrors(prev => ({ ...prev, [field]: "" }));
+            }}
+            required
+            error={formData.amountType === "fixed" ? errors.fixedAmount : errors.actualAmountLimit}
           />
         </View>
 
-        <View style={[styles.distributionBox, { backgroundColor: isDark ? colors.surface : "#F9FAFB", borderColor: colors.border }]}>
-          <Text style={[styles.label, { color: colors.text, marginBottom: 12 }]}>Fund Distribution</Text>
+        <View style={[styles.distributionBox, { backgroundColor: isDark ? colors.surface : "#F9FAFB", borderColor: errors.distribution ? '#EF4444' : colors.border }]}>
+          <Text style={[styles.label, { color: colors.text, marginBottom: 12 }]}>
+            Fund Distribution <Text style={{ color: '#EF4444' }}>*</Text>
+          </Text>
+          {errors.distribution && <Text style={[styles.errorTextSmall, { marginBottom: 8 }]}>{errors.distribution}</Text>}
 
           <View style={styles.distBarWrapper}>
             <View style={[styles.distBarFill, { width: `${formData.distributionStudent}%` as DimensionValue, backgroundColor: colors.primary }]} />
@@ -858,7 +964,10 @@ export default function ProviderAddScholarshipScreen() {
         </View>
 
         <View style={{ marginBottom: 20 }}>
-          <Text style={[styles.label, { color: colors.text }]}>Gender</Text>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Gender <Text style={{ color: '#EF4444' }}>*</Text>
+          </Text>
+          {errors.gender && <Text style={[styles.errorTextSmall, { marginBottom: 8 }]}>{errors.gender}</Text>}
           <View style={styles.chipGrid}>
             {["Male", "Female", "Transgender", "Any gender"].map((g) => {
               const isSelected = formData.gender.includes(g);
@@ -873,6 +982,7 @@ export default function ProviderAddScholarshipScreen() {
                     }
                   ]}
                   onPress={() => {
+                    setErrors(prev => ({ ...prev, gender: "" }));
                     if (g === "Any gender") {
                       updateField("gender", isSelected ? [] : ["Any gender"]);
                     } else {
@@ -890,7 +1000,10 @@ export default function ProviderAddScholarshipScreen() {
         </View>
 
         <View style={{ marginBottom: 20 }}>
-          <Text style={[styles.label, { color: colors.text }]}>Caste Category</Text>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Caste Category <Text style={{ color: '#EF4444' }}>*</Text>
+          </Text>
+          {errors.casteCategory && <Text style={[styles.errorTextSmall, { marginBottom: 8 }]}>{errors.casteCategory}</Text>}
           <View style={styles.chipGrid}>
             {["SC", "ST", "OBC", "General", "Any category"].map((c) => {
               const isSelected = formData.casteCategory.includes(c);
@@ -905,6 +1018,7 @@ export default function ProviderAddScholarshipScreen() {
                     }
                   ]}
                   onPress={() => {
+                    setErrors(prev => ({ ...prev, casteCategory: "" }));
                     if (c === "Any category") {
                       updateField("casteCategory", isSelected ? [] : ["Any category"]);
                     } else {
@@ -958,8 +1072,13 @@ export default function ProviderAddScholarshipScreen() {
             label="Family Annual Income Limit"
             placeholder="e.g. 250000"
             value={formData.incomeLimit}
-            onChangeText={(v) => updateField("incomeLimit", v)}
+            onChangeText={(v) => {
+              updateField("incomeLimit", v);
+              if (errors.incomeLimit) setErrors(prev => ({ ...prev, incomeLimit: "" }));
+            }}
             keyboardType="numeric"
+            required
+            error={errors.incomeLimit}
             mainStyle={{ marginBottom: 0 }}
           />
         </View>
@@ -971,8 +1090,11 @@ export default function ProviderAddScholarshipScreen() {
           <View style={[styles.cardIconBox, { backgroundColor: isDark ? "rgba(245, 158, 11, 0.1)" : "#FFFBEB" }]}>
             <Ionicons name="school-outline" size={20} color="#F59E0B" />
           </View>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Academic Qualifications</Text>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>
+            Academic Qualifications <Text style={{ color: '#EF4444' }}>*</Text>
+          </Text>
         </View>
+        {errors.educationLevel && <Text style={[styles.errorTextSmall, { marginLeft: 16, marginBottom: 8 }]}>{errors.educationLevel}</Text>}
 
         {/* Education Levels List */}
         <View style={{ gap: 12 }}>
@@ -988,7 +1110,10 @@ export default function ProviderAddScholarshipScreen() {
               <View key={level.label} style={[styles.stageItem, { backgroundColor: isDark ? colors.surface : "#F9FAFB", borderColor: colors.border, padding: 0, overflow: 'hidden' }]}>
                 <TouchableOpacity
                   style={{ flexDirection: 'row', alignItems: 'center', padding: 12 }}
-                  onPress={() => toggleSelection("educationLevel", level.label)}
+                  onPress={() => {
+                    setErrors(prev => ({ ...prev, educationLevel: "" }));
+                    toggleSelection("educationLevel", level.label);
+                  }}
                 >
                   <View style={[styles.checkbox, isLvlSelected && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
                     {isLvlSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
@@ -1112,7 +1237,6 @@ export default function ProviderAddScholarshipScreen() {
             />
           </View>
         </View>
-
       </View>
     </MotiView>
   );
@@ -1130,10 +1254,13 @@ export default function ProviderAddScholarshipScreen() {
             <Ionicons name="document-text-outline" size={20} color="#10B981" />
           </View>
           <View style={{ flex: 1, marginLeft: 4 }}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Required Documents</Text>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>
+              Required Documents <Text style={{ color: '#EF4444' }}>*</Text>
+            </Text>
             <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>Select documents applicants must submit</Text>
           </View>
         </View>
+        {errors.requiredDocuments && <Text style={[styles.errorTextSmall, { marginLeft: 16, marginBottom: 8 }]}>{errors.requiredDocuments}</Text>}
 
         <View style={{ gap: 8 }}>
           {[
@@ -1167,7 +1294,10 @@ export default function ProviderAddScholarshipScreen() {
                       borderColor: isSelected ? "#10B981" : colors.border
                     }
                   ]}
-                  onPress={() => toggleSelection("requiredDocuments", docCategory)}
+                  onPress={() => {
+                    setErrors(prev => ({ ...prev, requiredDocuments: "" }));
+                    toggleSelection("requiredDocuments", docCategory);
+                  }}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <View style={[
@@ -1233,6 +1363,7 @@ export default function ProviderAddScholarshipScreen() {
       </View>
     </MotiView>
   );
+
 
   return (
     <KeyboardAvoidingView
@@ -1991,6 +2122,12 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 14,
     fontWeight: "600",
+  },
+  errorTextSmall: {
+    color: '#EF4444',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 4,
   },
   addStageBtnSmall: {
     flexDirection: "row",

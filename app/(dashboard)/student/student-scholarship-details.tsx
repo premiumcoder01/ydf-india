@@ -96,6 +96,8 @@ export default function ScholarshipDetailsScreen() {
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState<"success" | "error" | "info">("success");
   const isDataLoaded = useRef(false);
+  const scrollY = useRef(0);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Update data loaded ref
   useEffect(() => {
@@ -171,6 +173,13 @@ export default function ScholarshipDetailsScreen() {
       };
 
       fetchScholarshipDetails();
+
+      // Restore scroll position after a short delay
+      setTimeout(() => {
+        if (scrollViewRef.current && scrollY.current > 0) {
+          scrollViewRef.current.scrollTo({ y: scrollY.current, animated: false });
+        }
+      }, 300);
     }, [scholarshipId])
   );
 
@@ -410,9 +419,14 @@ export default function ScholarshipDetailsScreen() {
       />
 
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 150 }}
+        onScroll={(e) => {
+          scrollY.current = e.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
       >
         {/* HERO IMAGE SECTION */}
         {scholarship.image ? (
@@ -1267,7 +1281,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.3)",
   },
   bannerTitle: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: "800",
     color: "#FFF",
     lineHeight: 34,

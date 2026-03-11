@@ -3,8 +3,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { getQuizAccessInfo, getQuizMyAttempts, startQuizAttempt } from '@/utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -53,14 +53,12 @@ export default function StudentQuizWebView() {
         ]).start();
     };
 
-    useEffect(() => {
-        fetchQuizData();
-    }, []);
+
 
     // ─────────────────────────────────────────────────────────────────────────
     // Data fetch
     // ─────────────────────────────────────────────────────────────────────────
-    const fetchQuizData = async () => {
+    const fetchQuizData = useCallback(async () => {
         setLoading(true);
         try {
             const authData = await AsyncStorage.getItem('authData');
@@ -112,7 +110,13 @@ export default function StudentQuizWebView() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [cmid]);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchQuizData();
+        }, [fetchQuizData])
+    );
 
     // ─────────────────────────────────────────────────────────────────────────
     // Navigation helper — open URL in in-app WebView
@@ -128,6 +132,7 @@ export default function StudentQuizWebView() {
     // Start / Resume / Review quiz
     // ─────────────────────────────────────────────────────────────────────────
     const handleStartQuiz = async () => {
+
         // ── If already finished → open review ────────────────────────────────
         if (accessInfo?.isfinished) {
             const lastAttempt = attempts[attempts.length - 1];
