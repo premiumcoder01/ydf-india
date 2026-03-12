@@ -142,7 +142,7 @@ export default function DocumentUploadScreen() {
           id: item.id,
           name: item.filename,
           fileType: item.mimetype && item.mimetype.includes('image') ? 'Image' : 'PDF', // Simple inference
-          uri: item.fileurl,
+          uri: item.fileurl ? item.fileurl.replace(/&amp;/g, "&") : "",
           size: (item.filesize / 1024).toFixed(2) + ' KB', // Assuming bytes
           uploadDate: item.uploaded_at,
         }));

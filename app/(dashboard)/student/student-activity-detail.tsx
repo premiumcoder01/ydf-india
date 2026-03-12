@@ -77,7 +77,7 @@ export default function StudentActivityDetail() {
 
             // ── Render content ───────────────────────────────────────────────────
             const rawUrl = payloadData?.webview_url;
-            const cleanUrl = rawUrl ? rawUrl.replace(/amp;/g, "") : null;
+            const cleanUrl = rawUrl ? rawUrl.replace(/&amp;/g, "&") : null;
 
             if (payloadData?.content_type === 'html_page') {
                 setHtmlContent(payloadData.content_html || '<p>No content available.</p>');

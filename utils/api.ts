@@ -1373,6 +1373,16 @@ export const getMySchedulerBookings = (token: string, cmid: number) =>
 export const cancelSchedulerBooking = (token: string, cmid: number, slotid: number) =>
   moodleApiRequest(token, "local_mobileapi_cancel_scheduler_booking", { cmid: String(cmid), slotid: String(slotid) });
 
+export const createSchedulerSlots = (token: string, cmid: number, slots: any[]) => {
+  const params: Record<string, string> = { cmid: String(cmid) };
+  slots.forEach((slot, index) => {
+    Object.keys(slot).forEach((key) => {
+      params[`slots[${index}][${key}]`] = String(slot[key]);
+    });
+  });
+  return moodleApiRequest(token, "local_mobileapi_create_scheduler_slots", params);
+};
+
 /**
  * Quiz APIs
  */

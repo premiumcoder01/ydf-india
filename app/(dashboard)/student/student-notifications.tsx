@@ -251,7 +251,7 @@ export default function NotificationsScreen() {
             message: n.message || "",
             is_read: !!n.is_read,
             created_at: n.created_at,
-            context_url: n.context_url || null,
+            context_url: n.context_url ? n.context_url.replace(/&amp;/g, "&") : null,
             component: n.component || "",
             event_type: n.event_type || "system",
             timeAgo: getTimeAgo(date),

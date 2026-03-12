@@ -163,14 +163,15 @@ export default function StudentFileViewer() {
             setState("error");
             return;
         }
-        downloadFile();
+        const sanitizedUrl = fileurl.replace(/&amp;/g, "&");
+        downloadFile(sanitizedUrl);
 
         return () => {
             if (taskRef.current) taskRef.current.cancel();
         };
     }, [fileurl]);
 
-    const downloadFile = async () => {
+    const downloadFile = async (currentUrl: string) => {
         setState("downloading");
         setProgress(0);
         setError(null);
@@ -190,7 +191,7 @@ export default function StudentFileViewer() {
                 // ─── Android: use JS fetch to avoid the
                 //     "Use of own trust manager but none defined" SSL bug
                 //     in react-native-blob-util on Android.
-                const response = await fetch(fileurl);
+                const response = await fetch(currentUrl);
                 if (!response.ok) {
                     throw new Error(`Server responded with status ${response.status}`);
                 }
@@ -217,7 +218,7 @@ export default function StudentFileViewer() {
                     path: destPath,
                     trusty: true, // handles self-signed certs on iOS
                 })
-                    .fetch("GET", fileurl)
+                    .fetch("GET", currentUrl)
                     .progress({ count: 10 }, (received, total) => {
                         if (total > 0) setProgress(Math.round((received / total) * 100));
                     });
@@ -267,7 +268,9 @@ export default function StudentFileViewer() {
         RNBlobUtil.fs
             .exists(destPath)
             .then((exists) => { if (exists) RNBlobUtil.fs.unlink(destPath).catch(() => { }); });
-        downloadFile();
+        
+        const sanitizedUrl = fileurl.replace(/&amp;/g, "&");
+        downloadFile(sanitizedUrl);
     };
 
     // ─── Render: Downloading ────────────────────────────────────────────────────

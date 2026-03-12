@@ -124,7 +124,7 @@ export default function StudentQuizAttempt() {
         }
     };
 
-    const decodedUrl = decodeURIComponent(url);
+    const decodedUrl = decodeURIComponent(url).replace(/&amp;/g, '&');
     console.log(decodedUrl)
 
     return (

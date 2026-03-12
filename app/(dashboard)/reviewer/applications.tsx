@@ -2,6 +2,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { getReviewerSchemes } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -12,7 +13,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { ReviewerHeader } from "../../../components";
 
@@ -46,14 +47,30 @@ function getStatusInfo(s: Scholarship) {
   const total = s.applications_total ?? 0;
   const approved = s.applications_approved ?? 0;
   const pending = s.applications_pending ?? 0;
-  const rejected = s.applications_rejected ?? 0;
 
-  if (total === 0) return { label: "No Applications", color: "#94A3B8", bg: "rgba(148,163,184,0.12)" };
-  if (pending === total) return { label: "All Pending", color: "#F59E0B", bg: "rgba(245,158,11,0.12)" };
-  if (approved > 0 && pending === 0) return { label: "Completed", color: "#10B981", bg: "rgba(16,185,129,0.12)" };
-  return { label: "In Progress", color: "#6366F1", bg: "rgba(99,102,241,0.12)" };
+  if (total === 0) return {
+    label: "Empty",
+    color: "#94A3B8",
+    gradient: ["#94A3B8", "#64748B"]
+  };
+  if (pending === total) return {
+    label: "Pending",
+    color: "#F59E0B",
+    gradient: ["#FBBF24", "#F59E0B"]
+  };
+  if (approved > 0 && pending === 0) return {
+    label: "Completed",
+    color: "#10B981",
+    gradient: ["#34D399", "#10B981"]
+  };
+  return {
+    label: "Active",
+    color: "#6366F1",
+    gradient: ["#818CF8", "#6366F1"]
+  };
 }
 
+// ─── Scheme Card ──────────────────────────────────────────────────────────────
 // ─── Scheme Card ──────────────────────────────────────────────────────────────
 function SchemeCard({ s, isDark, colors, onPress }: {
   s: Scholarship;
@@ -61,11 +78,11 @@ function SchemeCard({ s, isDark, colors, onPress }: {
   colors: any;
   onPress: () => void;
 }) {
+
   const total = s.applications_total ?? 0;
   const approved = s.applications_approved ?? 0;
   const pending = s.applications_pending ?? 0;
   const rejected = s.applications_rejected ?? 0;
-  const notApplied = s.participants_not_applied ?? 0;
   const assignedToMe = s.assigned_to_me ?? 0;
 
   const approvedPct = total > 0 ? (approved / total) * 100 : 0;
@@ -73,172 +90,125 @@ function SchemeCard({ s, isDark, colors, onPress }: {
   const rejectedPct = total > 0 ? (rejected / total) * 100 : 0;
 
   const status = getStatusInfo(s);
+  const border = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)";
+  const subText = isDark ? "#94A3B8" : "#64748B";
 
-  const cardBg = isDark ? "#000" : "#FFFFFF";
-  const borderColor = isDark ? "rgba(99,102,241,0.2)" : "rgba(99,102,241,0.12)";
-  const dividerColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)";
-  const statBg = isDark ? "rgba(255,255,255,0.04)" : "rgba(99,102,241,0.04)";
 
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.85}
-      style={[styles.card, { backgroundColor: cardBg, borderColor }]}
-    >
-      {/* ── Top accent line ── */}
-      <View style={styles.cardTopAccent} />
+    <View style={styles.cardContainer}>
+      <LinearGradient
+        colors={isDark ? ["rgba(255,255,255,0.05)", "rgba(255,255,255,0.02)"] : ["#FFFFFF", "#F9FAFB"]}
+        style={[styles.card, { borderColor: border }]}
+      >
+        {/* Header Section */}
+        <View style={styles.cardHeader}>
+          <LinearGradient
+            colors={status.gradient as [string, string]}
+            style={styles.schemeIconBox}
+          >
+            <Ionicons name="school" size={18} color="#fff" />
+          </LinearGradient>
 
-      {/* ── Header row ── */}
-      <View style={styles.cardHeader}>
-        {/* Icon badge */}
-        <View style={[styles.iconBadge, { backgroundColor: isDark ? "rgba(99,102,241,0.18)" : "#EEF2FF" }]}>
-          <Ionicons name="school" size={22} color="#6366F1" />
-        </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <Text style={[styles.schemeName, { color: colors.text, flex: 1 }]} numberOfLines={2}>
+                {s.title}
+              </Text>
 
-        {/* Title block */}
-        <View style={styles.titleBlock}>
-          <Text style={[styles.schemeTitle, { color: colors.text }]} numberOfLines={2}>
-            {s.title}
-          </Text>
-          {s.shortname ? (
-            <Text style={[styles.shortName, { color: colors.textSecondary }]} numberOfLines={1}>
-              {s.shortname}
-            </Text>
-          ) : null}
-        </View>
-
-        {/* Status pill */}
-        <View style={[styles.statusPill, { backgroundColor: status.bg }]}>
-          <View style={[styles.statusDot, { backgroundColor: status.color }]} />
-          <Text style={[styles.statusLabel, { color: status.color }]}>{status.label}</Text>
-        </View>
-      </View>
-
-      {/* ── Category + Date row ── */}
-      <View style={styles.metaRow}>
-        <View style={[styles.metaChip, { backgroundColor: isDark ? "rgba(99,102,241,0.1)" : "#EEF2FF" }]}>
-          <Ionicons name="location-outline" size={12} color="#6366F1" />
-          <Text style={[styles.metaChipText, { color: "#6366F1" }]}>{s.category || "General"}</Text>
-        </View>
-        <View style={[styles.metaChip, { backgroundColor: isDark ? "rgba(100,116,139,0.12)" : "#F1F5F9" }]}>
-          <Ionicons name="calendar-outline" size={12} color={colors.textSecondary} />
-          <Text style={[styles.metaChipText, { color: colors.textSecondary }]}>
-            {formatDate(s.start_date)} – {formatDate(s.end_date)}
-          </Text>
-        </View>
-      </View>
-
-      {/* ── Divider ── */}
-      <View style={[styles.divider, { backgroundColor: dividerColor }]} />
-
-      {/* ── Stats grid ── */}
-      <View style={styles.statsGrid}>
-        <StatBox
-          label="Total"
-          value={total}
-          icon="people-outline"
-          iconColor="#6366F1"
-          bg={statBg}
-          textColor={colors.text}
-          subColor={colors.textSecondary}
-        />
-        <StatBox
-          label="Pending"
-          value={pending}
-          icon="time-outline"
-          iconColor="#F59E0B"
-          bg={isDark ? "rgba(245,158,11,0.08)" : "rgba(245,158,11,0.06)"}
-          textColor={colors.text}
-          subColor={colors.textSecondary}
-        />
-        <StatBox
-          label="Approved"
-          value={approved}
-          icon="checkmark-circle-outline"
-          iconColor="#10B981"
-          bg={isDark ? "rgba(16,185,129,0.08)" : "rgba(16,185,129,0.06)"}
-          textColor={colors.text}
-          subColor={colors.textSecondary}
-        />
-        <StatBox
-          label="Rejected"
-          value={rejected}
-          icon="close-circle-outline"
-          iconColor="#EF4444"
-          bg={isDark ? "rgba(239,68,68,0.08)" : "rgba(239,68,68,0.06)"}
-          textColor={colors.text}
-          subColor={colors.textSecondary}
-        />
-      </View>
-
-      {/* ── Progress bar ── */}
-      {total > 0 && (
-        <View style={styles.progressSection}>
-          <View style={styles.progressLegendRow}>
-            <Text style={[styles.progressTitle, { color: colors.textSecondary }]}>Application Progress</Text>
-            <Text style={[styles.progressPct, { color: colors.text }]}>
-              {approvedPct.toFixed(0)}% approved
-            </Text>
-          </View>
-          <View style={[styles.progressTrack, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#F1F5F9" }]}>
-            <View style={[styles.progressFillApproved, { width: `${approvedPct}%` as any }]} />
-            <View style={[styles.progressFillPending, { width: `${pendingPct}%` as any }]} />
-            <View style={[styles.progressFillRejected, { width: `${rejectedPct}%` as any }]} />
-          </View>
-          <View style={styles.progressLegendItems}>
-            <LegendDot color="#10B981" label={`${approved} Approved`} labelColor={colors.textSecondary} />
-            <LegendDot color="#F59E0B" label={`${pending} Pending`} labelColor={colors.textSecondary} />
-            {rejected > 0 && <LegendDot color="#EF4444" label={`${rejected} Rejected`} labelColor={colors.textSecondary} />}
-          </View>
-        </View>
-      )}
-
-      {/* ── Bottom row ── */}
-      <View style={[styles.cardFooter, { borderTopColor: dividerColor }]}>
-        <View style={styles.footerLeft}>
-          {notApplied > 0 && (
-            <View style={[styles.footerChip, { backgroundColor: isDark ? "rgba(239,68,68,0.1)" : "rgba(239,68,68,0.06)" }]}>
-              <Ionicons name="alert-circle-outline" size={12} color="#EF4444" />
-              <Text style={[styles.footerChipText, { color: "#EF4444" }]}>{notApplied} not applied</Text>
             </View>
-          )}
-          {assignedToMe > 0 && (
-            <View style={[styles.footerChip, { backgroundColor: isDark ? "rgba(99,102,241,0.1)" : "#EEF2FF" }]}>
-              <Ionicons name="person-outline" size={12} color="#6366F1" />
-              <Text style={[styles.footerChipText, { color: "#6366F1" }]}>{assignedToMe} assigned to me</Text>
+
+            <View style={styles.catRow}>
+              <Ionicons name="location-sharp" size={9} color="#6366F1" />
+              <Text style={[styles.categoryText, { color: "#6366F1" }]}>{s.category || "All India"}</Text>
+              <View style={[styles.dot, { backgroundColor: subText }]} />
+              <Text style={[styles.dateRangeText, { color: subText }]}>
+                {formatDate(s.start_date)}
+              </Text>
             </View>
-          )}
+          </View>
         </View>
-        <View style={styles.reviewBtn}>
-          <Text style={styles.reviewBtnText}>Review</Text>
-          <Ionicons name="arrow-forward" size={14} color="#6366F1" />
+
+        {/* Stats Grid */}
+        <View style={styles.statsRow}>
+          <StatBox icon="people" label="Total" value={total} color="#6366F1" isDark={isDark} />
+          <StatBox icon="time" label="Pending" value={pending} color="#F59E0B" isDark={isDark} />
+          <StatBox icon="checkmark-circle" label="Approved" value={approved} color="#10B981" isDark={isDark} />
+          <StatBox icon="close-circle" label="Rejected" value={rejected} color="#EF4444" isDark={isDark} />
         </View>
-      </View>
-    </TouchableOpacity>
+
+        {/* Progress Section */}
+        {total > 0 && (
+          <View style={styles.progressArea}>
+            <View style={styles.progressTextRow}>
+              <Text style={[styles.progressLabel, { color: subText }]}>Fulfillment</Text>
+              <Text style={[styles.progressValue, { color: colors.text }]}>{approvedPct.toFixed(0)}%</Text>
+            </View>
+            <View style={[styles.progressTrack, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#E2E8F0" }]}>
+              {approvedPct > 0 && <View style={[styles.pFill, { width: `${approvedPct}%` as any, backgroundColor: "#10B981" }]} />}
+              {pendingPct > 0 && <View style={[styles.pFill, { width: `${pendingPct}%` as any, backgroundColor: "#F59E0B" }]} />}
+              {rejectedPct > 0 && <View style={[styles.pFill, { width: `${rejectedPct}%` as any, backgroundColor: "#EF4444" }]} />}
+            </View>
+          </View>
+        )}
+
+        {/* Card Footer */}
+        <View style={[styles.cardFooter, { borderTopColor: border }]}>
+          <View style={styles.footerLeftSide}>
+            <View style={[styles.statusTag, { backgroundColor: isDark ? "rgba(99,102,241,0.12)" : "#EEF2FF", marginRight: 8 }]}>
+              <Text style={[styles.statusTagText, { color: "#6366F1" }]}>{status.label}</Text>
+            </View>
+            {assignedToMe > 0 ? (
+              <View style={styles.assignmentPill}>
+                <Ionicons name="person" size={8} color="#6366F1" />
+                <Text style={styles.assignmentText}>{assignedToMe} Assigned</Text>
+              </View>
+            ) : (
+              <Text style={[styles.updatedText, { color: subText }]}>
+                Upd. {s.updated_at?.split(" ")[0]}
+              </Text>
+            )}
+          </View>
+
+          <View style={styles.actionButtonGroup}>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.detailsBtn]}
+              onPress={() => router.push({
+                pathname: "/(dashboard)/reviewer/scholarship-details",
+                params: { scholarshipId: s.id }
+              })}
+            >
+              <Text style={styles.detailsBtnText}>Details</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.applicationsBtn]}
+              onPress={onPress}
+            >
+              <Text style={styles.applicationsBtnText}>Applicants</Text>
+              <Ionicons name="chevron-forward" size={12} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </LinearGradient>
+    </View>
   );
 }
 
-function StatBox({ label, value, icon, iconColor, bg, textColor, subColor }: {
-  label: string; value: number; icon: any; iconColor: string;
-  bg: string; textColor: string; subColor: string;
+function StatBox({ icon, label, value, color, isDark }: {
+  icon: any; label: string; value: number; color: string; isDark: boolean;
 }) {
   return (
-    <View style={[styles.statBox, { backgroundColor: bg }]}>
-      <Ionicons name={icon} size={16} color={iconColor} />
-      <Text style={[styles.statValue, { color: textColor }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: subColor }]}>{label}</Text>
+    <View style={styles.statBox}>
+      <View style={[styles.statIconWrap, { backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "#F8FAFC" }]}>
+        <Ionicons name={icon} size={14} color={color} />
+      </View>
+      <Text style={[styles.statNum, { color: isDark ? "#fff" : "#1E293B" }]}>{value}</Text>
+      <Text style={[styles.statSubText, { color: isDark ? "#94A3B8" : "#64748B" }]}>{label}</Text>
     </View>
   );
 }
 
-function LegendDot({ color, label, labelColor }: { color: string; label: string; labelColor: string }) {
-  return (
-    <View style={styles.legendItem}>
-      <View style={[styles.legendDot, { backgroundColor: color }]} />
-      <Text style={[styles.legendText, { color: labelColor }]}>{label}</Text>
-    </View>
-  );
-}
+
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function ReviewerApplicationsScreen() {
@@ -291,33 +261,40 @@ export default function ReviewerApplicationsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <LinearGradient
+        colors={isDark ? ["#0f0f0f", "#1e1e1e", "#000"] : ["#F9FAFB", "#F3F4F6", "#E5E7EB"]}
+        style={StyleSheet.absoluteFill}
+      />
+
       <ReviewerHeader
-        title="Schemes"
-        subtitle="Select a scheme to review applications"
+        title="Scholarship Schemes"
+        subtitle="Review and manage scholarship cycles"
         showBackButton={true}
         onBackPress={() => router.back()}
       />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-        {/* ── Search bar ── */}
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* ── Search Bar ── */}
         {!loading && (
-          <View style={[styles.searchRow, {
-            backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#FFFFFF",
-            borderColor: isDark ? "rgba(255,255,255,0.08)" : "#E5E7EB",
-          }]}>
-            <Ionicons name="search-outline" size={18} color={colors.textSecondary} />
-            <TextInput
-              placeholder="Search schemes or category…"
-              placeholderTextColor={colors.textSecondary}
-              style={[styles.searchInput, { color: colors.text }]}
-              value={query}
-              onChangeText={setQuery}
-            />
-            {query.length > 0 && (
-              <TouchableOpacity onPress={() => setQuery("")}>
-                <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
-              </TouchableOpacity>
-            )}
+          <View style={styles.searchContainer}>
+            <View style={[styles.searchRow, {
+              backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "#FFFFFF",
+              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)"
+            }]}>
+              <Ionicons name="search" size={18} color={colors.textSecondary} />
+              <TextInput
+                placeholder="Search schemes, states, categories…"
+                placeholderTextColor={colors.textSecondary}
+                style={[styles.searchInput, { color: colors.text }]}
+                value={query}
+                onChangeText={setQuery}
+              />
+              {query.length > 0 && (
+                <TouchableOpacity onPress={() => setQuery("")}>
+                  <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         )}
 
@@ -368,171 +345,98 @@ export default function ReviewerApplicationsScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 16, gap: 14, paddingBottom: 32 },
+  content: { padding: 16, gap: 16, paddingBottom: 40 },
 
   // Search
+  searchContainer: { marginBottom: 4 },
   searchRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
     borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-  },
-  searchInput: { flex: 1, fontSize: 14, fontWeight: "500" },
-
-  // Loading
-  loadingContainer: { alignItems: "center", justifyContent: "center", paddingVertical: 60, gap: 12 },
-  loadingText: { fontSize: 15, fontWeight: "500" },
-
-  // Card shell
-  card: {
-    borderRadius: 20,
-    borderWidth: 1,
-    overflow: "hidden",
-    shadowColor: "#6366F1",
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.07,
-    shadowRadius: 12,
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  searchInput: { flex: 1, fontSize: 13, fontWeight: "600" },
+
+  loadingContainer: { alignItems: "center", justifyContent: "center", paddingVertical: 100, gap: 16 },
+  loadingText: { fontSize: 15, fontWeight: "700" },
+
+  // Updated Card Design
+  cardContainer: {
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
     elevation: 3,
   },
-  cardTopAccent: {
-    height: 3,
-    backgroundColor: "#6366F1",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-  },
-
-  // Header
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    padding: 16,
-    paddingBottom: 10,
-    gap: 12,
-  },
-  iconBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  titleBlock: { flex: 1, gap: 3 },
-  schemeTitle: { fontSize: 15, fontWeight: "700", letterSpacing: -0.3, lineHeight: 21 },
-  shortName: { fontSize: 12, fontWeight: "500", opacity: 0.75 },
-
-  // Status pill
-  statusPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 20,
-    flexShrink: 0,
-  },
-  statusDot: { width: 6, height: 6, borderRadius: 3 },
-  statusLabel: { fontSize: 11, fontWeight: "700" },
-
-  // Meta chips (category, date)
-  metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16, paddingBottom: 12 },
-  metaChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  metaChipText: { fontSize: 11, fontWeight: "600" },
-
-  divider: { height: 1, marginHorizontal: 16 },
-
-  // Stats grid
-  statsGrid: {
-    flexDirection: "row",
-    gap: 8,
-    padding: 14,
-    paddingBottom: 12,
-  },
-  statBox: {
-    flex: 1,
-    borderRadius: 12,
-    paddingVertical: 10,
-    alignItems: "center",
-    gap: 4,
-  },
-  statValue: { fontSize: 18, fontWeight: "800", letterSpacing: -0.5 },
-  statLabel: { fontSize: 10, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 },
-
-  // Progress
-  progressSection: { paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
-  progressLegendRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  progressTitle: { fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 },
-  progressPct: { fontSize: 12, fontWeight: "700" },
-  progressTrack: {
-    height: 7,
-    borderRadius: 6,
-    flexDirection: "row",
-    overflow: "hidden",
-  },
-  progressFillApproved: { height: "100%", backgroundColor: "#10B981" },
-  progressFillPending: { height: "100%", backgroundColor: "#F59E0B" },
-  progressFillRejected: { height: "100%", backgroundColor: "#EF4444" },
-  progressLegendItems: { flexDirection: "row", gap: 14, flexWrap: "wrap" },
-  legendItem: { flexDirection: "row", alignItems: "center", gap: 5 },
-  legendDot: { width: 7, height: 7, borderRadius: 4 },
-  legendText: { fontSize: 11, fontWeight: "500" },
-
-  // Footer
-  cardFooter: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-  },
-  footerLeft: { flexDirection: "row", gap: 8, flexWrap: "wrap", flex: 1 },
-  footerChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  footerChipText: { fontSize: 11, fontWeight: "600" },
-  reviewBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: "rgba(99,102,241,0.1)",
-  },
-  reviewBtnText: { fontSize: 13, fontWeight: "700", color: "#6366F1" },
-
-  // Empty state
-  emptyState: {
-    alignItems: "center",
-    padding: 48,
+  card: {
+    padding: 12,
     borderRadius: 20,
     borderWidth: 1,
-    gap: 10,
+    gap: 12,
   },
-  emptyIconRing: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+
+  cardHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
+  schemeIconBox: {
+    width: 36, height: 36, borderRadius: 10,
+    alignItems: "center", justifyContent: "center",
+  },
+  schemeName: { fontSize: 13, fontWeight: "700", letterSpacing: -0.2, lineHeight: 18 },
+  catRow: { flexDirection: "row", alignItems: "center", gap: 3, marginTop: 1 },
+  categoryText: { fontSize: 9, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.2 },
+  dot: { width: 2, height: 2, borderRadius: 1, marginHorizontal: 2, opacity: 0.5 },
+  dateRangeText: { fontSize: 10, fontWeight: "500" },
+
+  statusTag: { paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6 },
+  statusTagText: { fontSize: 8, fontWeight: "800", textTransform: "uppercase" },
+
+  statsRow: { flexDirection: "row", gap: 6 },
+  statBox: { flex: 1, alignItems: "center", gap: 2 },
+  statIconWrap: { width: 28, height: 28, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  statNum: { fontSize: 12, fontWeight: "800" },
+  statSubText: { fontSize: 8, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.1 },
+
+  progressArea: { gap: 4 },
+  progressTextRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
+  progressLabel: { fontSize: 9, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3 },
+  progressValue: { fontSize: 11, fontWeight: "800" },
+  progressTrack: { height: 4, borderRadius: 2, flexDirection: "row", overflow: "hidden" },
+  pFill: { height: "100%" },
+
+  cardFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderTopWidth: 1, paddingTop: 10 },
+  footerLeftSide: { flex: 1, flexDirection: "row", alignItems: "center" },
+  assignmentPill: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(99,102,241,0.1)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  assignmentText: { color: "#6366F1", fontSize: 9, fontWeight: "700" },
+  updatedText: { fontSize: 9, fontWeight: "500" },
+
+  viewAction: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "rgba(99,102,241,0.08)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  viewActionText: { color: "#6366F1", fontSize: 11, fontWeight: "700" },
+
+  actionButtonGroup: { flexDirection: "row", gap: 8 },
+  actionBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 6,
+    gap: 6,
+    justifyContent: "center"
   },
-  emptyTitle: { fontSize: 17, fontWeight: "700" },
-  emptyText: { fontSize: 13, textAlign: "center" },
+  detailsBtn: { backgroundColor: "rgba(99,102,241,0.1)" },
+  detailsBtnText: { color: "#6366F1", fontSize: 12, fontWeight: "700" },
+  applicationsBtn: { backgroundColor: "#6366F1", minWidth: 100 },
+  applicationsBtnText: { color: "#fff", fontSize: 12, fontWeight: "700" },
+
+  emptyState: { alignItems: "center", padding: 40, borderRadius: 24, gap: 12 },
+  emptyIconRing: { width: 60, height: 60, borderRadius: 30, alignItems: "center", justifyContent: "center", marginBottom: 8 },
+  emptyTitle: { fontSize: 16, fontWeight: "800" },
+  emptyText: { fontSize: 13, textAlign: "center", opacity: 0.8 },
 });

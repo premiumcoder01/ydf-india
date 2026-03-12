@@ -2,8 +2,10 @@ import { useTheme } from "@/context/ThemeContext";
 import { getReviewerApplications } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -13,7 +15,7 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View,
+    View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ReviewerHeader } from "../../../components";
@@ -39,7 +41,7 @@ type AppItem = {
     id: number;
     user: ApplicationUser;
     application_text: string | null;
-    status: "approved" | "rejected" | "not_applied" | null;
+    status: "approved" | "rejected" | "not_applied" | "new" | null;
     priority: number;
     assigned_reviewer_id: number | null;
     is_bookmarked: boolean;
@@ -70,8 +72,9 @@ type ParsedApplicationData = {
     financial_info?: string;
 };
 
-const STATUS_TABS: Array<"All" | "approved" | "rejected" | "not_applied"> = [
+const STATUS_TABS: Array<"All" | "new" | "approved" | "rejected" | "not_applied"> = [
     "All",
+    "new",
     "approved",
     "rejected",
     "not_applied",
@@ -80,14 +83,51 @@ const STATUS_TABS: Array<"All" | "approved" | "rejected" | "not_applied"> = [
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getStatusConfig(status: AppItem["status"]) {
     switch (status) {
+        case "new":
+            return {
+                color: "#6366F1",
+                bg: "rgba(99,102,241,0.1)",
+                bg2: "#EEF2FF",
+                label: "New",
+                icon: "sparkles" as const,
+                gradient: ["#818CF8", "#6366F1"]
+            };
         case "approved":
-            return { color: "#10B981", bg: "rgba(16,185,129,0.12)", bg2: "#D1FAE5", label: "Approved", icon: "checkmark-circle" as const };
+            return {
+                color: "#059669",
+                bg: "rgba(16,185,129,0.1)",
+                bg2: "#D1FAE5",
+                label: "Approved",
+                icon: "checkmark-circle" as const,
+                gradient: ["#10B981", "#059669"]
+            };
         case "rejected":
-            return { color: "#EF4444", bg: "rgba(239,68,68,0.12)", bg2: "#FEE2E2", label: "Rejected", icon: "close-circle" as const };
+            return {
+                color: "#DC2626",
+                bg: "rgba(239,68,68,0.1)",
+                bg2: "#FEE2E2",
+                label: "Rejected",
+                icon: "close-circle" as const,
+                gradient: ["#EF4444", "#DC2626"]
+            };
         case "not_applied":
-            return { color: "#94A3B8", bg: "rgba(148,163,184,0.12)", bg2: "#F1F5F9", label: "Not Applied", icon: "document-outline" as const };
+            return {
+                color: "#475569",
+                bg: "rgba(148,163,184,0.1)",
+                bg2: "#F1F5F9",
+                label: "Not Applied",
+                icon: "document-outline" as const,
+                gradient: ["#94A3B8", "#475569"]
+            };
         default:
-            return { color: "#6366F1", bg: "rgba(99,102,241,0.12)", bg2: "#EEF2FF", label: "Pending", icon: "time-outline" as const };
+            return {
+                color: "#4F46E5",
+                bg: "rgba(99,102,241,0.1)",
+                bg2: "#EEF2FF",
+                label: "Pending",
+                icon: "time-outline" as const,
+                gradient: ["#6366F1", "#4F46E5"]
+            };
     }
 }
 
@@ -115,11 +155,7 @@ function formatDate(dateStr: string) {
     }
 }
 
-function formatBytes(bytes: number) {
-    if (bytes < 1024) return `${bytes}B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-}
+
 
 function parseApplicationText(text: string | null): ParsedApplicationData | null {
     if (!text) return null;
@@ -167,9 +203,9 @@ function ApplicationCard({
     const getFieldTag = (key: string, value: string) => {
         const config = FIELD_CONFIGS[key] || { icon: "information-circle-outline", color: "#64748B", bg: "#F8FAFC", darkBg: "rgba(100,116,139,0.1)" };
         return (
-            <View key={key} style={[styles.noteItem, { backgroundColor: isDark ? config.darkBg : config.bg }]}>
+            <View key={key} style={[styles.noteItem, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)" }]}>
                 <Ionicons name={config.icon} size={11} color={config.color} />
-                <Text style={[styles.noteItemText, { color: isDark ? "#fff" : config.color }]} numberOfLines={1}>
+                <Text style={[styles.noteItemText, { color: isDark ? "#fff" : "#475569" }]} numberOfLines={1}>
                     {key === 'gpa' ? `GPA: ${value}` : value}
                 </Text>
             </View>
@@ -179,10 +215,10 @@ function ApplicationCard({
         (item.user.firstname?.charAt(0) ?? "") +
         (item.user.lastname?.charAt(0) ?? "");
 
-    const cardBg = isDark ? "#000" : "#FFFFFF";
-    const borderColor = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
-    const dividerColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)";
-    const subTextColor = isDark ? "#94A3B8" : "#64748B";
+    const cardBg = isDark ? "#121212" : "#FFFFFF";
+    const borderColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)";
+    const dividerColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
+    const subTextColor = isDark ? "#94A3B8" : "#6B7280";
 
     const hasAttachments = item.attachments && item.attachments.length > 0;
     const isHighPriority = item.priority >= 7;
@@ -190,196 +226,118 @@ function ApplicationCard({
     return (
         <TouchableOpacity
             onPress={onPress}
-            activeOpacity={0.82}
-            style={[styles.card, { backgroundColor: cardBg, borderColor }]}
+            activeOpacity={0.85}
+            style={[styles.cardContainer]}
         >
-            {/* Priority accent */}
-            {isHighPriority && <View style={styles.priorityAccent} />}
-
-            {/* ── Top row: Avatar + User Info + Bookmark ── */}
-            <View style={styles.cardTop}>
-                {/* Avatar */}
-                <View style={[styles.avatar, { backgroundColor: isDark ? "rgba(99,102,241,0.18)" : avatarColor.bg }]}>
-                    <Text style={[styles.avatarText, { color: isDark ? "#A5B4FC" : avatarColor.text }]}>
-                        {initials.toUpperCase()}
-                    </Text>
-                </View>
-
-                {/* User info */}
-                <View style={styles.userBlock}>
-                    <Text style={[styles.userName, { color: colors.text }]} numberOfLines={1}>
-                        {item.user.fullname}
-                    </Text>
-                    <View style={styles.emailRow}>
-                        <Ionicons name="mail-outline" size={12} color={subTextColor} />
-                        <Text style={[styles.userEmail, { color: subTextColor }]} numberOfLines={1}>
-                            {item.user.email}
+            <View style={[styles.card, { backgroundColor: cardBg, borderColor }]}>
+                {/* ── Top row: Avatar + User Info + Priority ── */}
+                <View style={styles.cardTop}>
+                    <LinearGradient
+                        colors={[avatarColor.bg, isDark ? "#334155" : avatarColor.bg]}
+                        style={styles.avatar}
+                    >
+                        <Text style={[styles.avatarText, { color: isDark ? "#fff" : avatarColor.text }]}>
+                            {initials.toUpperCase()}
                         </Text>
-                    </View>
-                    <View style={styles.idRow}>
-                        <Ionicons name="person-circle-outline" size={12} color={subTextColor} />
-                        <Text style={[styles.userId, { color: subTextColor }]}>
-                            User #{item.user.id}
-                        </Text>
-                        <View style={[styles.idSeparator, { backgroundColor: subTextColor }]} />
+                    </LinearGradient>
 
-                    </View>
-                </View>
-
-                {/* Bookmark icon */}
-                {/* <View style={styles.bookmarkWrap}>
-                    {item.is_bookmarked ? (
-                        <View style={styles.bookmarkActive}>
-                            <Ionicons name="bookmark" size={22} color="#F59E0B" />
+                    <View style={styles.userBlock}>
+                        <View style={styles.userNameRow}>
+                            <Text style={[styles.userName, { color: colors.text }]} numberOfLines={1}>
+                                {item.user.fullname}
+                            </Text>
+                            {isHighPriority && (
+                                <View style={styles.priorityPill}>
+                                    <Ionicons name="flash" size={10} color="#EF4444" />
+                                    <Text style={styles.priorityText}>High</Text>
+                                </View>
+                            )}
                         </View>
-                    ) : (
-                        <Ionicons name="bookmark-outline" size={22} color={isDark ? "#475569" : "#CBD5E1"} />
-                    )}
-                </View> */}
-            </View>
+                        <View style={styles.emailRow}>
+                            <Text style={[styles.userEmail, { color: subTextColor }]} numberOfLines={1}>
+                                {item.user.email}
+                            </Text>
+                            <View style={[styles.dot, { backgroundColor: subTextColor }]} />
+                            <Text style={[styles.userId, { color: subTextColor }]}>
+                                ID: {item.user.id}
+                            </Text>
+                        </View>
+                    </View>
 
-            {/* ── Divider ── */}
-            <View style={[styles.divider, { backgroundColor: dividerColor }]} />
+                    <TouchableOpacity style={styles.moreOptions}>
+                        <Ionicons name="chevron-forward" size={18} color={isDark ? "#475569" : "#CBD5E1"} />
+                    </TouchableOpacity>
+                </View>
 
-            {/* ── Application text or placeholder ── */}
-            <View style={styles.textSection}>
-                {item.application_text && item.application_text.trim() ? (() => {
-                    const parsed = parseApplicationText(item.application_text);
-                    if (parsed) {
+                {/* ── Content Section ── */}
+                <View style={styles.contentSection}>
+                    {item.application_text && item.application_text.trim() ? (() => {
+                        const parsed = parseApplicationText(item.application_text);
+                        if (parsed) {
+                            return (
+                                <View style={styles.parsedContent}>
+                                    {parsed.application_text?.trim() ? (
+                                        <Text style={[styles.appText, { color: colors.text }]} numberOfLines={2}>
+                                            "{parsed.application_text}"
+                                        </Text>
+                                    ) : null}
+
+                                    <View style={styles.tagsContainer}>
+                                        {parsed.institution && getFieldTag('institution', parsed.institution)}
+                                        {parsed.major && getFieldTag('major', parsed.major)}
+                                        {parsed.gpa && getFieldTag('gpa', parsed.gpa)}
+                                        {parsed.phone && getFieldTag('phone', parsed.phone)}
+                                    </View>
+                                </View>
+                            );
+                        }
                         return (
-                            <>
-                                <View style={styles.textLabelRow}>
-                                    <Ionicons name="document-text-outline" size={13} color={subTextColor} />
-                                    <Text style={[styles.textLabel, { color: subTextColor }]}>Application details</Text>
-                                </View>
-                                {parsed.application_text?.trim() ? (
-                                    <Text style={[styles.appText, { color: colors.text, marginBottom: 4 }]} numberOfLines={3}>
-                                        {parsed.application_text}
-                                    </Text>
-                                ) : null}
-
-                                <View style={styles.noteGrid}>
-                                    {parsed.fullname && parsed.fullname !== item.user.fullname && getFieldTag('fullname', parsed.fullname)}
-                                    {parsed.phone && getFieldTag('phone', parsed.phone)}
-                                    {parsed.institution && getFieldTag('institution', parsed.institution)}
-                                    {parsed.major && getFieldTag('major', parsed.major)}
-                                    {parsed.gpa && getFieldTag('gpa', parsed.gpa)}
-                                    {parsed.financial_info && getFieldTag('financial_info', parsed.financial_info)}
-                                </View>
-                            </>
-                        );
-                    }
-                    return (
-                        <>
-                            <View style={styles.textLabelRow}>
-                                <Ionicons name="document-text-outline" size={13} color={subTextColor} />
-                                <Text style={[styles.textLabel, { color: subTextColor }]}>Application Note</Text>
-                            </View>
                             <Text style={[styles.appText, { color: colors.text }]} numberOfLines={2}>
                                 {item.application_text}
                             </Text>
-                        </>
-                    );
-                })() : (
-                    <View style={[styles.noTextRow, { backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "#F8FAFC" }]}>
-                        <Ionicons name="document-outline" size={14} color={subTextColor} />
-                        <Text style={[styles.noText, { color: subTextColor }]}>No application text provided</Text>
-                    </View>
-                )}
-            </View>
-
-            {/* ── Meta chips row ── */}
-            <View style={styles.metaRow}>
-                {/* Date created */}
-                <View style={[styles.metaChip, { backgroundColor: isDark ? "rgba(99,102,241,0.1)" : "#EEF2FF" }]}>
-                    <Ionicons name="calendar-outline" size={11} color="#6366F1" />
-                    <Text style={[styles.metaChipText, { color: "#6366F1" }]}>
-                        {formatDate(item.timecreated)}
-                    </Text>
-                </View>
-
-                {/* Assigned reviewer */}
-                {item.assigned_reviewer_id ? (
-                    <View style={[styles.metaChip, { backgroundColor: isDark ? "rgba(16,185,129,0.1)" : "#D1FAE5" }]}>
-                        <Ionicons name="person-outline" size={11} color="#059669" />
-                        <Text style={[styles.metaChipText, { color: "#059669" }]}>Assigned</Text>
-                    </View>
-                ) : (
-                    <View style={[styles.metaChip, { backgroundColor: isDark ? "rgba(148,163,184,0.1)" : "#F1F5F9" }]}>
-                        <Ionicons name="person-outline" size={11} color={subTextColor} />
-                        <Text style={[styles.metaChipText, { color: subTextColor }]}>Unassigned</Text>
-                    </View>
-                )}
-
-                {/* Attachments */}
-                {hasAttachments && (
-                    <View style={[styles.metaChip, { backgroundColor: isDark ? "rgba(245,158,11,0.1)" : "#FEF3C7" }]}>
-                        <Ionicons name="attach" size={11} color="#D97706" />
-                        <Text style={[styles.metaChipText, { color: "#D97706" }]}>
-                            {item.attachments.length} file{item.attachments.length > 1 ? "s" : ""}
-                        </Text>
-                    </View>
-                )}
-            </View>
-
-            {/* ── Attachments list (if any) ── */}
-            {hasAttachments && (
-                <View style={[styles.attachmentsList, { borderColor: dividerColor }]}>
-                    {item.attachments.slice(0, 2).map((att) => (
-                        <View
-                            key={att.id}
-                            style={[styles.attachmentItem, { backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "#F8FAFC" }]}
-                        >
-                            <Ionicons
-                                name={
-                                    att.mimetype?.includes("image") ? "image-outline" :
-                                        att.mimetype?.includes("pdf") ? "document-outline" :
-                                            "document-attach-outline"
-                                }
-                                size={14}
-                                color={isDark ? "#A5B4FC" : "#6366F1"}
-                            />
-                            <Text style={[styles.attachmentName, { color: colors.text }]} numberOfLines={1}>
-                                {att.filename}
-                            </Text>
-                            {att.filesize > 0 && (
-                                <Text style={[styles.attachmentSize, { color: subTextColor }]}>
-                                    {formatBytes(att.filesize)}
-                                </Text>
-                            )}
+                        );
+                    })() : (
+                        <View style={styles.placeholderBox}>
+                            <Text style={[styles.placeholderText, { color: subTextColor }]}>No application statement provided</Text>
                         </View>
-                    ))}
-                    {item.attachments.length > 2 && (
-                        <Text style={[styles.moreAttachments, { color: "#6366F1" }]}>
-                            +{item.attachments.length - 2} more
-                        </Text>
                     )}
                 </View>
-            )}
 
-            {/* ── Footer: Status + Review button ── */}
-            <View style={[styles.cardFooter, { borderTopColor: dividerColor }]}>
-                {/* Status badge */}
-                <View style={[styles.statusBadge, { backgroundColor: isDark ? statusCfg.bg : statusCfg.bg2 }]}>
-                    <Ionicons name={statusCfg.icon} size={13} color={statusCfg.color} />
-                    <Text style={[styles.statusText, { color: statusCfg.color }]}>
-                        {statusCfg.label}
-                    </Text>
+                {/* ── Meta row ── */}
+                <View style={styles.footerRow}>
+                    <View style={styles.metaInfo}>
+                        <View style={styles.metaItem}>
+                            <Ionicons name="calendar-outline" size={13} color={subTextColor} />
+                            <Text style={[styles.metaText, { color: subTextColor }]}>
+                                {formatDate(item.timecreated)}
+                            </Text>
+                        </View>
+                        {hasAttachments && (
+                            <View style={styles.metaItem}>
+                                <Ionicons name="attach-outline" size={14} color={subTextColor} />
+                                <Text style={[styles.metaText, { color: subTextColor }]}>
+                                    {item.attachments.length}
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+
+                    <LinearGradient
+                        colors={statusCfg.gradient as [string, string]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.statusPill}
+                    >
+                        <Text style={styles.statusLabel}>{statusCfg.label}</Text>
+                    </LinearGradient>
                 </View>
-
-                {/* Review CTA */}
-                <TouchableOpacity
-                    onPress={onPress}
-                    style={styles.reviewBtn}
-                    activeOpacity={0.8}
-                >
-                    <Text style={styles.reviewBtnText}>Review</Text>
-                    <Ionicons name="arrow-forward" size={14} color="#fff" />
-                </TouchableOpacity>
             </View>
         </TouchableOpacity>
     );
 }
+
+// ─── State Cache ─────────────────────────────────────────────────────────────
+const screenStateCache = new Map<number, { query: string; activeTab: any; page: number }>();
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function SchemeApplicationsScreen() {
@@ -389,9 +347,10 @@ export default function SchemeApplicationsScreen() {
     const schemeId = params.id ? Number(params.id) : null;
     const schemeTitle = params.title ? String(params.title) : "Scheme";
 
-    const [query, setQuery] = useState("");
-    const [activeTab, setActiveTab] = useState<(typeof STATUS_TABS)[number]>("All");
-    const [page, setPage] = useState(1);
+    const [query, setQuery] = useState(() => (schemeId ? screenStateCache.get(schemeId)?.query : "") || "");
+    const [activeTab, setActiveTab] = useState(() => (schemeId ? screenStateCache.get(schemeId)?.activeTab : "All") || "All");
+    const [page, setPage] = useState(() => (schemeId ? screenStateCache.get(schemeId)?.page : 1) || 1);
+    
     const pageSize = 10;
 
     const [applications, setApplications] = useState<AppItem[]>([]);
@@ -399,6 +358,13 @@ export default function SchemeApplicationsScreen() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [showFilterModal, setShowFilterModal] = useState(false);
+
+    // Sync state to cache whenever it changes
+    useEffect(() => {
+        if (schemeId) {
+            screenStateCache.set(schemeId, { query, activeTab, page });
+        }
+    }, [schemeId, query, activeTab, page]);
 
     const fetchApplications = async (targetPage: number) => {
         if (!schemeId) return;
@@ -412,7 +378,7 @@ export default function SchemeApplicationsScreen() {
 
             const isNotAppliedTab = activeTab === "not_applied";
             const apiParams: {
-                status: "approved" | "rejected" | "not_applied" | "";
+                status: "approved" | "rejected" | "not_applied" | "new" | "";
                 page: number;
                 per_page: number;
             } = {
@@ -453,9 +419,18 @@ export default function SchemeApplicationsScreen() {
     };
 
     // Re-fetch whenever the page or tab changes
-    useEffect(() => {
-        if (schemeId) fetchApplications(page);
-    }, [schemeId, page, activeTab]);
+    // useEffect(() => {
+    //     if (schemeId) fetchApplications(page);
+    // }, [schemeId, page, activeTab]);
+
+    // Use useFocusEffect to fetch when focus returns (e.g. going back from details)
+    useFocusEffect(
+        useCallback(() => {
+            if (schemeId) {
+                fetchApplications(page);
+            }
+        }, [schemeId, page, activeTab])
+    );
 
     // Client-side search filters the current page only (API has no search param)
     const filtered = useMemo(() => {
@@ -499,6 +474,11 @@ export default function SchemeApplicationsScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <LinearGradient
+                colors={isDark ? ["#0f0f0f", "#1e1e1e"] : ["#F9FAFB", "#F3F4F6"]}
+                style={StyleSheet.absoluteFill}
+            />
+
             <ReviewerHeader
                 title="Applications"
                 subtitle={schemeTitle}
@@ -522,7 +502,7 @@ export default function SchemeApplicationsScreen() {
 
                         {/* ── Search + Filter ── */}
                         <View style={styles.searchRow}>
-                            <View style={[styles.searchBox, { backgroundColor: searchBg, borderColor: searchBorder }]}>
+                            <View style={[styles.searchBox, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#FFFFFF", borderColor: searchBorder }]}>
                                 <Ionicons name="search-outline" size={18} color={colors.textSecondary} />
                                 <TextInput
                                     placeholder="Search by name, email, ID…"
@@ -540,7 +520,7 @@ export default function SchemeApplicationsScreen() {
                             <TouchableOpacity
                                 style={[
                                     styles.filterBtn,
-                                    { backgroundColor: activeTab !== "All" ? "#6366F1" : (isDark ? "rgba(255,255,255,0.06)" : "#FFFFFF") },
+                                    { backgroundColor: activeTab !== "All" ? "#6366F1" : (isDark ? "rgba(255,255,255,0.05)" : "#FFFFFF") },
                                     { borderColor: activeTab !== "All" ? "#6366F1" : searchBorder },
                                 ]}
                                 onPress={() => setShowFilterModal(true)}
@@ -682,21 +662,24 @@ export default function SchemeApplicationsScreen() {
 
             {/* ── Fixed Pagination Footer ── */}
             {!loading && totalPages > 1 && (
-                <View style={[
-                    styles.paginationFooter,
-                    {
-                        backgroundColor: isDark ? "#000" : "#FFFFFF",
-                        borderTopColor: isDark ? "rgba(255,255,255,0.07)" : "#E2E8F0",
-                        paddingBottom: insets.bottom + 10,
-                    },
-                ]}>
+                <BlurView
+                    intensity={isDark ? 50 : 80}
+                    tint={isDark ? "dark" : "light"}
+                    style={[
+                        styles.paginationFooter,
+                        {
+                            borderTopColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)",
+                            paddingBottom: insets.bottom + 12,
+                        },
+                    ]}
+                >
                     {/* Controls row */}
                     <View style={styles.paginationControls}>
                         {/* Prev */}
                         <TouchableOpacity
                             style={[
                                 styles.pageBtn,
-                                { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#F1F5F9", opacity: page === 1 ? 0.4 : 1 },
+                                { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#F1F5F9", opacity: page === 1 ? 0.4 : 1 },
                             ]}
                             onPress={() => setPage((p) => Math.max(1, p - 1))}
                             disabled={page === 1}
@@ -717,7 +700,7 @@ export default function SchemeApplicationsScreen() {
                                         style={[
                                             styles.pageNumBtn,
                                             isActive && styles.pageNumBtnActive,
-                                            !isActive && { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#F1F5F9" },
+                                            !isActive && { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#F1F5F9" },
                                         ]}
                                     >
                                         <Text style={[
@@ -734,7 +717,7 @@ export default function SchemeApplicationsScreen() {
                         <TouchableOpacity
                             style={[
                                 styles.pageBtn,
-                                { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#F1F5F9", opacity: page === totalPages ? 0.4 : 1 },
+                                { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#F1F5F9", opacity: page === totalPages ? 0.4 : 1 },
                             ]}
                             onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
                             disabled={page === totalPages}
@@ -743,65 +726,70 @@ export default function SchemeApplicationsScreen() {
                             <Ionicons name="chevron-forward" size={16} color={colors.text} />
                         </TouchableOpacity>
                     </View>
-                </View>
+                </BlurView>
             )}
         </View>
     );
 }
 
-// ─── Status helpers (kept for backward compat) ────────────────────────────────
-function getStatusColor(status: AppItem["status"]) {
-    return getStatusConfig(status).color;
-}
-
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    content: { padding: 16, gap: 14, paddingBottom: 100 },
+    background: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0 },
+    content: { padding: 16, gap: 16, paddingBottom: 110 },
 
     // Loading
-    loadingWrap: { alignItems: "center", justifyContent: "center", paddingVertical: 80, gap: 14 },
-    loadingText: { fontSize: 15, fontWeight: "500" },
+    loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 100, gap: 16 },
+    loadingText: { fontSize: 15, fontWeight: "600", color: "#6366F1" },
 
     // Search row
-    searchRow: { flexDirection: "row", gap: 10, alignItems: "center" },
+    searchRow: { flexDirection: "row", gap: 12, alignItems: "center", marginBottom: 4 },
     searchBox: {
         flex: 1,
         flexDirection: "row",
         alignItems: "center",
         gap: 10,
-        borderWidth: 1,
-        borderRadius: 14,
-        paddingHorizontal: 14,
+        borderRadius: 16,
+        paddingHorizontal: 16,
         paddingVertical: 12,
+        borderWidth: 1,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
     },
-    searchInput: { flex: 1, fontSize: 14, fontWeight: "500" },
+    searchInput: { flex: 1, fontSize: 15, fontWeight: "500" },
     filterBtn: {
         width: 48,
         height: 48,
-        borderRadius: 14,
+        borderRadius: 16,
         borderWidth: 1,
         alignItems: "center",
         justifyContent: "center",
-        position: "relative",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
     },
     filterDot: {
         position: "absolute",
-        top: 8,
-        right: 8,
-        width: 7,
-        height: 7,
+        top: 10,
+        right: 10,
+        width: 8,
+        height: 8,
         borderRadius: 4,
         backgroundColor: "#fff",
-        borderWidth: 1.5,
+        borderWidth: 2,
         borderColor: "#6366F1",
     },
 
-    // Active filter
     activeFilterRow: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
+        marginTop: -4,
     },
     activeFilterPill: {
         flexDirection: "row",
@@ -809,270 +797,212 @@ const styles = StyleSheet.create({
         gap: 6,
         paddingHorizontal: 12,
         paddingVertical: 6,
-        borderRadius: 20,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "rgba(99,102,241,0.2)",
     },
     activeFilterText: { fontSize: 12, fontWeight: "700", color: "#6366F1" },
-    resultsCount: { fontSize: 12, fontWeight: "500" },
+    resultsCount: { fontSize: 12, fontWeight: "600" },
     pageInfoRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 5,
+        gap: 6,
+        opacity: 0.8,
     },
-    pageInfoText: { fontSize: 12, fontWeight: "500" },
+    pageInfoText: { fontSize: 12, fontWeight: "600" },
 
     // Filter modal
     modalBackdrop: {
         flex: 1,
-        backgroundColor: "rgba(0,0,0,0.45)",
+        backgroundColor: "rgba(0,0,0,0.6)",
         justifyContent: "flex-end",
     },
     filterModal: {
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        paddingBottom: 32,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        paddingBottom: 40,
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 16,
-        elevation: 10,
+        shadowOffset: { width: 0, height: -10 },
+        shadowOpacity: 0.2,
+        shadowRadius: 20,
+        elevation: 20,
     },
     modalHandle: {
-        width: 40,
-        height: 4,
-        borderRadius: 2,
+        width: 44,
+        height: 5,
+        borderRadius: 3,
         alignSelf: "center",
-        marginTop: 12,
-        marginBottom: 4,
+        marginTop: 14,
+        marginBottom: 6,
     },
     modalHeader: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        paddingHorizontal: 20,
-        paddingVertical: 16,
+        paddingHorizontal: 24,
+        paddingVertical: 20,
     },
-    modalTitle: { fontSize: 18, fontWeight: "700" },
+    modalTitle: { fontSize: 20, fontWeight: "800", letterSpacing: -0.3 },
     modalCloseBtn: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         alignItems: "center",
         justifyContent: "center",
     },
-    filterList: { paddingHorizontal: 16, maxHeight: 380 },
+    filterList: { paddingHorizontal: 20, maxHeight: 400 },
     filterOption: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 14,
-        padding: 14,
-        borderRadius: 14,
-        marginBottom: 8,
+        gap: 16,
+        padding: 16,
+        borderRadius: 20,
+        marginBottom: 10,
         borderWidth: 1.5,
     },
     filterOptionIcon: {
-        width: 38,
-        height: 38,
-        borderRadius: 12,
+        width: 42,
+        height: 42,
+        borderRadius: 14,
         alignItems: "center",
         justifyContent: "center",
     },
-    filterOptionText: { flex: 1, fontSize: 15, fontWeight: "600" },
+    filterOptionText: { flex: 1, fontSize: 16, fontWeight: "700" },
 
     // Card list
-    cardList: { gap: 12 },
+    cardList: { gap: 16 },
 
     // ── Application Card ──
+    cardContainer: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 10,
+        elevation: 4,
+    },
     card: {
-        borderRadius: 20,
+        borderRadius: 24,
         borderWidth: 1,
         overflow: "hidden",
-        shadowColor: "#6366F1",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
-        elevation: 3,
     },
-    priorityAccent: {
-        height: 3,
-        backgroundColor: "#EF4444",
-    },
-
-    // Card top row
     cardTop: {
         flexDirection: "row",
-        alignItems: "flex-start",
+        alignItems: "center",
         padding: 16,
-        paddingBottom: 14,
         gap: 12,
     },
     avatar: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
+        width: 48,
+        height: 48,
+        borderRadius: 24,
         alignItems: "center",
         justifyContent: "center",
-        flexShrink: 0,
     },
     avatarText: {
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: "800",
-        letterSpacing: 0.5,
     },
-    userBlock: { flex: 1, gap: 3 },
-    userName: { fontSize: 15, fontWeight: "700", letterSpacing: -0.3 },
-    emailRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-    userEmail: { fontSize: 12, fontWeight: "500", flex: 1 },
-    idRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+    userBlock: { flex: 1, gap: 2 },
+    userNameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    userName: { fontSize: 16, fontWeight: "800", letterSpacing: -0.4 },
+    priorityPill: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 3,
+        backgroundColor: "rgba(239,68,68,0.1)",
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 6,
+    },
+    priorityText: { fontSize: 10, fontWeight: "800", color: "#EF4444", textTransform: "uppercase" },
+    emailRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+    userEmail: { fontSize: 12, fontWeight: "500", opacity: 0.9 },
+    dot: { width: 3, height: 3, borderRadius: 1.5 },
     userId: { fontSize: 11, fontWeight: "600" },
-    idSeparator: { width: 3, height: 3, borderRadius: 1.5, opacity: 0.5 },
+    moreOptions: { padding: 4 },
 
-    // Bookmark
-    bookmarkWrap: { paddingTop: 2 },
-    bookmarkActive: {
-        // golden glow effect
-        shadowColor: "#F59E0B",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.5,
-        shadowRadius: 6,
-    },
-
-    // Divider
-    divider: { height: 1, marginHorizontal: 16 },
-
-    // Application text section
-    textSection: { paddingHorizontal: 16, paddingVertical: 12, gap: 6 },
-    textLabelRow: { flexDirection: "row", alignItems: "center", gap: 5 },
-    textLabel: { fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 },
-    appText: { fontSize: 13, lineHeight: 18, fontWeight: "500" },
-    noteGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 },
-    noteItem: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 5,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 8,
-        maxWidth: "100%",
-    },
-    noteItemText: { fontSize: 11, fontWeight: "600" },
-    noTextRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        borderRadius: 10,
-    },
-    noText: { fontSize: 13, fontStyle: "italic" },
-
-    // Meta chips
-    metaRow: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        gap: 7,
+    contentSection: {
         paddingHorizontal: 16,
-        paddingBottom: 12,
+        paddingBottom: 16,
     },
-    metaChip: {
+    parsedContent: { gap: 10 },
+    appText: { fontSize: 14, lineHeight: 20, fontWeight: "500", fontStyle: "italic", opacity: 0.8 },
+    tagsContainer: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    noteItem: {
         flexDirection: "row",
         alignItems: "center",
         gap: 5,
         paddingHorizontal: 10,
         paddingVertical: 5,
-        borderRadius: 20,
+        borderRadius: 10,
     },
-    metaChipText: { fontSize: 11, fontWeight: "600" },
-
-    // Attachments
-    attachmentsList: {
-        marginHorizontal: 16,
-        marginBottom: 12,
+    noteItemText: { fontSize: 11, fontWeight: "700" },
+    placeholderBox: {
+        padding: 12,
+        borderRadius: 14,
+        backgroundColor: "rgba(0,0,0,0.02)",
+        borderStyle: "dashed",
         borderWidth: 1,
-        borderRadius: 12,
-        overflow: "hidden",
-        gap: 1,
+        borderColor: "rgba(0,0,0,0.05)",
     },
-    attachmentItem: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 9,
-    },
-    attachmentName: { flex: 1, fontSize: 12, fontWeight: "500" },
-    attachmentSize: { fontSize: 11, fontWeight: "500" },
-    moreAttachments: {
-        fontSize: 12,
-        fontWeight: "700",
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        color: "#6366F1",
-    },
+    placeholderText: { fontSize: 13, fontStyle: "italic" },
 
-    // Card footer
-    cardFooter: {
+    footerRow: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+        padding: 16,
         borderTopWidth: 1,
+        borderColor: "rgba(0,0,0,0.03)",
     },
-    statusBadge: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 6,
-        paddingHorizontal: 12,
-        paddingVertical: 7,
+    metaInfo: { flexDirection: "row", alignItems: "center", gap: 12 },
+    metaItem: { flexDirection: "row", alignItems: "center", gap: 4 },
+    metaText: { fontSize: 12, fontWeight: "600" },
+    statusPill: {
+        paddingHorizontal: 14,
+        paddingVertical: 6,
         borderRadius: 20,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
     },
-    statusText: { fontSize: 12, fontWeight: "700" },
-    reviewBtn: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 6,
-        backgroundColor: "#6366F1",
-        paddingVertical: 9,
-        paddingHorizontal: 18,
-        borderRadius: 20,
-        shadowColor: "#6366F1",
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.3,
-        shadowRadius: 6,
-        elevation: 3,
-    },
-    reviewBtnText: { fontSize: 13, fontWeight: "700", color: "#fff" },
+    statusLabel: { color: "#fff", fontSize: 11, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5 },
 
     // Empty state
     emptyState: {
         alignItems: "center",
-        padding: 48,
-        borderRadius: 20,
+        padding: 60,
+        borderRadius: 32,
         borderWidth: 1,
-        gap: 10,
+        gap: 16,
+        marginTop: 40,
     },
     emptyIconRing: {
-        width: 72,
-        height: 72,
-        borderRadius: 36,
+        width: 80,
+        height: 80,
+        borderRadius: 40,
         alignItems: "center",
         justifyContent: "center",
-        marginBottom: 6,
     },
-    emptyTitle: { fontSize: 17, fontWeight: "700" },
-    emptyText: { fontSize: 13, textAlign: "center" },
+    emptyTitle: { fontSize: 18, fontWeight: "800" },
+    emptyText: { fontSize: 14, textAlign: "center", lineHeight: 20 },
 
-    // Pagination footer (fixed at bottom)
+    // Pagination footer
     paginationFooter: {
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
         borderTopWidth: 1,
-        paddingTop: 10,
-        paddingHorizontal: 16,
-        gap: 8,
+        paddingTop: 12,
+        paddingHorizontal: 20,
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: -3 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-        elevation: 8,
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 12,
     },
     paginationControls: {
         flexDirection: "row",
@@ -1080,9 +1010,9 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
     },
     pageBtn: {
-        width: 38,
-        height: 38,
-        borderRadius: 12,
+        width: 44,
+        height: 44,
+        borderRadius: 16,
         alignItems: "center",
         justifyContent: "center",
     },
@@ -1091,30 +1021,18 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "center",
         alignItems: "center",
-        gap: 6,
+        gap: 8,
     },
     pageNumBtn: {
-        minWidth: 38,
-        height: 38,
-        borderRadius: 12,
+        width: 40,
+        height: 40,
+        borderRadius: 14,
         alignItems: "center",
         justifyContent: "center",
-        paddingHorizontal: 6,
     },
     pageNumBtnActive: {
         backgroundColor: "#6366F1",
-        shadowColor: "#6366F1",
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.35,
-        shadowRadius: 6,
-        elevation: 4,
     },
-    pageNumText: { fontSize: 14, fontWeight: "700" },
+    pageNumText: { fontSize: 15, fontWeight: "700" },
     pageNumTextActive: { color: "#fff" },
-    pageCaption: {
-        textAlign: "center",
-        fontSize: 12,
-        fontWeight: "500",
-        marginTop: -6,
-    },
 });

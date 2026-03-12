@@ -96,9 +96,10 @@ export default function StudentQuizWebView() {
             if (attemptsRes.success && attemptsRes.data) {
                 const actualData = attemptsRes.data.data || attemptsRes.data;
                 setAttempts(actualData.attempts || []);
+                const sanitize = (u: string) => (u ? u.replace(/&amp;/g, '&') : '');
                 setBaseUrls({
-                    attempt: actualData.attempt_url,
-                    review: actualData.review_url,
+                    attempt: sanitize(actualData.attempt_url),
+                    review: sanitize(actualData.review_url),
                 });
             } else {
                 setAttempts([]);
@@ -122,9 +123,10 @@ export default function StudentQuizWebView() {
     // Navigation helper — open URL in in-app WebView
     // ─────────────────────────────────────────────────────────────────────────
     const openInApp = (url: string) => {
+        const cleanedUrl = url.replace(/&amp;/g, '&');
         router.push({
             pathname: '/(dashboard)/student/student-quiz-attempt',
-            params: { url: encodeURIComponent(url), title: String(name) },
+            params: { url: encodeURIComponent(cleanedUrl), title: String(name) },
         });
     };
 
