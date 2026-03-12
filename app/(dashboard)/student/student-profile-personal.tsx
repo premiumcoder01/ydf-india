@@ -1177,50 +1177,55 @@ export default function StudentProfilePersonalScreen() {
             onPress={() => setShowImageOptions(false)}
             activeOpacity={1}
           />
-          <View style={[styles.imageOptionsContent, { backgroundColor: colors.surface, borderColor: colors.border, paddingBottom: insets.bottom || 20 }]}>
-            <View style={styles.imageOptionsHandle}>
-              <View style={[styles.handleBar, { backgroundColor: colors.border }]} />
+          <View style={{ paddingHorizontal: 16, paddingBottom: (insets.bottom || 20) + 10, width: "100%", position: "absolute", bottom: 0 }}>
+            <View style={{ backgroundColor: colors.card, borderRadius: 20, overflow: "hidden", marginBottom: 12 }}>
+              <View style={{ alignItems: "center", paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                <Text style={{ fontSize: 15, fontWeight: "600", color: colors.textSecondary }}>Change Profile Picture</Text>
+              </View>
+
+              <TouchableOpacity
+                style={{ flexDirection: "row", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}
+                onPress={handleTakePhoto}
+                activeOpacity={0.7}
+              >
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(0, 86, 210, 0.08)", justifyContent: "center", alignItems: "center", marginRight: 16 }}>
+                  <Ionicons name="camera" size={22} color={colors.primary} />
+                </View>
+                <Text style={{ fontSize: 17, fontWeight: "500", color: colors.text }}>Take Photo</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{ flexDirection: "row", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}
+                onPress={handlePickFromGallery}
+                activeOpacity={0.7}
+              >
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(0, 86, 210, 0.08)", justifyContent: "center", alignItems: "center", marginRight: 16 }}>
+                  <Ionicons name="images" size={22} color={colors.primary} />
+                </View>
+                <Text style={{ fontSize: 17, fontWeight: "500", color: colors.text }}>Choose from Gallery</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{ flexDirection: "row", alignItems: "center", padding: 16, opacity: !personalInfo.profileImageUrl || isRemovingImage ? 0.5 : 1 }}
+                onPress={handleRemoveProfileImage}
+                activeOpacity={0.7}
+                disabled={!personalInfo.profileImageUrl || isRemovingImage}
+              >
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(239, 68, 68, 0.08)", justifyContent: "center", alignItems: "center", marginRight: 16 }}>
+                  <Ionicons name="trash" size={22} color="#ef4444" />
+                </View>
+                <Text style={{ fontSize: 17, fontWeight: "500", color: "#ef4444" }}>
+                  {isRemovingImage ? "Removing..." : "Remove Photo"}
+                </Text>
+              </TouchableOpacity>
             </View>
 
-            <Text style={[styles.imageOptionsTitle, { color: colors.text }]}>Change Profile Picture</Text>
-
             <TouchableOpacity
-              style={[styles.imageOptionButton, { borderBottomColor: colors.border }]}
-              onPress={handleTakePhoto}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="camera" size={24} color={colors.primary} />
-              <Text style={[styles.imageOptionText, { color: colors.text }]}>Take Photo</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.imageOptionButton, { borderBottomColor: colors.border }]}
-              onPress={handlePickFromGallery}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="images" size={24} color={colors.primary} />
-              <Text style={[styles.imageOptionText, { color: colors.text }]}>Choose from Gallery</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.imageOptionButton, { opacity: !personalInfo.profileImageUrl || isRemovingImage ? 0.5 : 1 }]}
-              onPress={handleRemoveProfileImage}
-              activeOpacity={0.7}
-              disabled={!personalInfo.profileImageUrl || isRemovingImage}
-            >
-              <Ionicons name="trash-outline" size={24} color={colors.textSecondary} />
-              <Text style={[styles.imageOptionText, { color: colors.textSecondary }]}>
-                {isRemovingImage ? "Removing..." : "Remove Photo"}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.imageOptionButton}
+              style={{ backgroundColor: colors.card, borderRadius: 20, padding: 16, alignItems: "center" }}
               onPress={() => setShowImageOptions(false)}
               activeOpacity={0.7}
             >
-              <Ionicons name="close-circle" size={24} color={colors.textSecondary} />
-              <Text style={[styles.imageOptionText, { color: colors.textSecondary }]}>Cancel</Text>
+              <Text style={{ fontSize: 18, fontWeight: "600", color: colors.primary }}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>

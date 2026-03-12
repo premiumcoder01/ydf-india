@@ -185,7 +185,6 @@ function SchemeCard({ s, isDark, colors, onPress }: {
               onPress={onPress}
             >
               <Text style={styles.applicationsBtnText}>Applicants</Text>
-              <Ionicons name="chevron-forward" size={12} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
@@ -381,7 +380,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 20,
     borderWidth: 1,
-    gap: 12,
+    gap: 10,
   },
 
   cardHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
@@ -420,14 +419,14 @@ const styles = StyleSheet.create({
   viewAction: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "rgba(99,102,241,0.08)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   viewActionText: { color: "#6366F1", fontSize: 11, fontWeight: "700" },
 
-  actionButtonGroup: { flexDirection: "row", gap: 8 },
+  actionButtonGroup: { flexDirection: "row", gap: 5 },
   actionBtn: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 12,
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
     justifyContent: "center"
   },
   detailsBtn: { backgroundColor: "rgba(99,102,241,0.1)" },
@@ -435,7 +434,7 @@ const styles = StyleSheet.create({
   applicationsBtn: { backgroundColor: "#6366F1", minWidth: 100 },
   applicationsBtnText: { color: "#fff", fontSize: 12, fontWeight: "700" },
 
-  emptyState: { alignItems: "center", padding: 40, borderRadius: 24, gap: 12 },
+  emptyState: { alignItems: "center", padding: 40, borderRadius: 24, gap: 10 },
   emptyIconRing: { width: 60, height: 60, borderRadius: 30, alignItems: "center", justifyContent: "center", marginBottom: 8 },
   emptyTitle: { fontSize: 16, fontWeight: "800" },
   emptyText: { fontSize: 13, textAlign: "center", opacity: 0.8 },

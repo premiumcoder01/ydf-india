@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function OtpScreen() {
   const params = useLocalSearchParams<{
@@ -289,10 +290,13 @@ export default function OtpScreen() {
         >
           {/* Header Section */}
           <View style={styles.header}>
+            <View style={styles.iconContainer}>
+              <Ionicons name="mail-unread" size={36} color="#333" />
+            </View>
             <Text style={styles.title}>Enter OTP</Text>
             <Text style={styles.subtitle}>
-              We have sent a 6-digit code to your email
-              {email ? ` (${email})` : ""}
+              We have sent a 6-digit verification code to
+              <Text style={styles.emailText}>{email ? `\n${email}` : ""}</Text>
             </Text>
           </View>
 
@@ -325,13 +329,15 @@ export default function OtpScreen() {
                   maxLength={1}
                   selectTextOnFocus
                   textAlign="center"
+                  placeholder="-"
+                  placeholderTextColor="rgba(51, 51, 51, 0.3)"
                 />
               ))}
             </View>
 
             {/* Verify Button */}
             <Button
-              title={loading ? "Verifying..." : "Verify"}
+              title={loading ? "Verifying..." : "Verify Code"}
               onPress={handleVerify}
               variant="primary"
               disabled={loading || otp.join("").length !== 6}
@@ -389,12 +395,25 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingVertical: 40,
   },
   header: {
     alignItems: "center",
-    marginBottom: 48,
+    marginBottom: 36,
+  },
+  iconContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
   logo: {
     fontSize: 64,
@@ -410,72 +429,74 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: "800",
     color: "#333",
-    marginBottom: 8,
+    marginBottom: 12,
     textAlign: "center",
-    textShadowColor: "rgba(255, 255, 255, 0.5)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
   },
   subtitle: {
     fontSize: 15,
-    color: "#666",
+    color: "rgba(51, 51, 51, 0.8)",
     textAlign: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     lineHeight: 22,
   },
+  emailText: {
+    fontWeight: "700",
+    color: "#333",
+  },
   card: {
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderRadius: 28,
-    padding: 36,
+    backgroundColor: "rgba(255, 255, 255, 0.98)",
+    borderRadius: 24,
+    paddingHorizontal: 24,
+    paddingVertical: 32,
     borderWidth: 1,
-    borderColor: "rgba(51, 51, 51, 0.15)",
-    shadowColor: "#333",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
-    elevation: 12,
-    gap: 36,
+    borderColor: "rgba(255, 255, 255, 0.5)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 8,
+    gap: 32,
   },
   otpContainer: {
     flexDirection: "row",
-    gap: 8,
-    justifyContent: "center",
+    justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 8,
+    width: "100%",
+    paddingVertical: 4,
   },
   otpBox: {
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: "rgba(51, 51, 51, 0.25)",
-    backgroundColor: "#FFFFFF",
-    width: 48,
-    height: 56,
-    fontSize: 24,
-    fontWeight: "700",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "rgba(51, 51, 51, 0.15)",
+    backgroundColor: "#F9FAFB",
+    width: "14.5%", 
+    aspectRatio: 0.85, 
+    fontSize: 22,
+    fontWeight: "800",
     color: "#333",
-    shadowColor: "rgba(0, 0, 0, 0.1)",
+    shadowColor: "rgba(0, 0, 0, 0.04)",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 1,
+    shadowRadius: 2,
+    elevation: 1,
   },
   otpBoxFilled: {
-    borderColor: "#f2c44d",
-    backgroundColor: "#FFFEF5",
-    borderWidth: 2.5,
-    shadowColor: "#f2c44d",
+    borderColor: "#333",
+    backgroundColor: "#fff",
+    borderWidth: 2,
+    shadowColor: "rgba(51, 51, 51, 0.15)",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    shadowOpacity: 1,
+    shadowRadius: 6,
     elevation: 3,
   },
   otpBoxFocused: {
-    borderColor: "#f2c44d",
-    backgroundColor: "#FFFEF5",
-    borderWidth: 3,
-    shadowColor: "#f2c44d",
+    borderColor: "#333",
+    backgroundColor: "#fff",
+    borderWidth: 2.5,
+    shadowColor: "rgba(51, 51, 51, 0.2)",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 1,
     shadowRadius: 8,
     elevation: 4,
   },
