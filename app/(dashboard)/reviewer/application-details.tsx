@@ -5,7 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useRef } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -55,6 +55,60 @@ interface DocumentGroup {
   files: DocumentFile[];
 }
 
+interface QuizQuestion {
+  slot: number;
+  question: string;
+  answer: string;
+  right_answer: string;
+  state: string;
+}
+
+interface QuizAttempt {
+  attempt_id: number;
+  attempt: number;
+  state: string;
+  timestart: number;
+  timefinish: number;
+  sumgrades?: number;
+  questions: QuizQuestion[];
+}
+
+interface Quiz {
+  cmid: number;
+  quizid: number;
+  name: string;
+  attempts: QuizAttempt[];
+}
+
+interface InterviewBooking {
+  slotid: number;
+  appointment_id: number;
+  starttime: number;
+  starttime_iso: string;
+  endtime: number;
+  duration_minutes: number;
+  teacher_name: string;
+  location: string;
+  attended: boolean;
+}
+
+interface InterviewSlot {
+  cmid: number;
+  scheduler_id: number;
+  name: string;
+  bookings: InterviewBooking[];
+}
+
+interface ReviewerComment {
+  id: number;
+  comment: string;
+  reviewer: {
+    id: number;
+    name: string;
+  };
+  created_at: string;
+}
+
 interface ApplicationDetails {
   id: number;
   user: User;
@@ -64,8 +118,11 @@ interface ApplicationDetails {
   assigned_reviewer: AssignedReviewer;
   is_bookmarked: boolean;
   comments_count: number;
+  comments?: ReviewerComment[];
   attachments: any[];
   documents: DocumentGroup[];
+  quiz_attempts?: Quiz[];
+  interview_slots?: InterviewSlot[];
   timecreated: string;
   timemodified: string;
 }
@@ -203,13 +260,15 @@ export default function ReviewerApplicationDetailsScreen() {
   const [rejectionReason, setRejectionReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const isFirstLoad = useRef(true);
+
   useFocusEffect(
     useCallback(() => { fetchDetails(); }, [])
   );
 
   const fetchDetails = async () => {
     try {
-      setLoading(true);
+      if (isFirstLoad.current) setLoading(true);
       setError(null);
       const appId = Number(params.id);
       if (!params.id || isNaN(appId) || appId <= 0) throw new Error("Invalid application ID");
@@ -226,6 +285,7 @@ export default function ReviewerApplicationDetailsScreen() {
       setError(err.message || "Failed to load details");
       Alert.alert("Error", err.message);
     } finally {
+      isFirstLoad.current = false;
       setLoading(false);
     }
   };
@@ -404,6 +464,31 @@ export default function ReviewerApplicationDetailsScreen() {
           </View>
         </View>
 
+        {/* ── Rejection Comments ── */}
+        {application.status === "rejected" && application.comments && application.comments.length > 0 && (
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: border, marginTop: 16 }]}>
+            <SectionHeader
+              icon="alert-circle-outline"
+              iconBg={isDark ? "rgba(239,68,68,0.15)" : "#FEE2E2"}
+              iconColor="#EF4444"
+              title="Rejection Reason"
+              textColor={colors.text}
+              noMargin
+            />
+            <View style={{ gap: 12, marginTop: 16 }}>
+              {application.comments.map(comment => (
+                <View key={comment.id} style={{ backgroundColor: isDark ? "rgba(239,68,68,0.05)" : "#FEF2F2", padding: 16, borderRadius: 16, borderWidth: 1, borderColor: isDark ? "rgba(239,68,68,0.1)" : "#FECACA" }}>
+                  <Text style={{ fontSize: 14, color: isDark ? "#F87171" : "#B91C1C", lineHeight: 22, fontWeight: "500" }}>"{comment.comment}"</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
+                    <Text style={{ fontSize: 12, color: subText, fontWeight: "600" }}>- {comment.reviewer.name}</Text>
+                    <Text style={{ fontSize: 11, color: subText }}>{formatDate(comment.created_at)}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* ── Application Data Sections ── */}
         {application.application_text && application.application_text.trim() ? (() => {
           const parsed = parseApplicationText(application.application_text);
@@ -476,8 +561,112 @@ export default function ReviewerApplicationDetailsScreen() {
           );
         })() : null}
 
+        {/* ── Quizzes / Assessments ── */}
+        {application.quiz_attempts && application.quiz_attempts.length > 0 && (
+          <View style={{ gap: 16, marginTop: 16 }}>
+            <SectionHeader
+              icon="help-circle-outline"
+              iconBg={isDark ? "rgba(245,158,11,0.15)" : "#FEF3C7"}
+              iconColor="#F59E0B"
+              title="Assessment Quizzes"
+              textColor={colors.text}
+              noMargin
+            />
+            {application.quiz_attempts.map(quiz => (
+              <View key={quiz.cmid} style={[styles.card, { backgroundColor: cardBg, borderColor: border, padding: 20 }]}>
+                <Text style={[styles.docGroupLabel, { color: colors.text, marginBottom: 12 }]}>{quiz.name}</Text>
+                {quiz.attempts.map((attempt, index) => (
+                  <View key={attempt.attempt_id} style={{ marginBottom: index === quiz.attempts.length - 1 ? 0 : 20, backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "#F8FAFC", padding: 16, borderRadius: 20, borderWidth: 1, borderColor: border }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 12, alignItems: "center" }}>
+                      <Text style={{ fontSize: 13, fontWeight: "700", color: colors.textSecondary }}>Attempt {attempt.attempt}</Text>
+                      <View style={[shStyles.badge, { backgroundColor: attempt.state === "finished" ? (isDark ? "rgba(16,185,129,0.15)" : "#D1FAE5") : (isDark ? "rgba(245,158,11,0.15)" : "#FEF3C7") }]}>
+                        <Text style={[shStyles.badgeText, { color: attempt.state === "finished" ? "#10B981" : "#F59E0B", fontSize: 10, textTransform: "uppercase" }]}>
+                          {attempt.state}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={{ gap: 16 }}>
+                      {attempt.questions && attempt.questions.length > 0 ? (
+                        attempt.questions.map(q => (
+                          <View key={q.slot} style={{ gap: 6 }}>
+                            <Text style={{ fontSize: 14, color: colors.text, fontWeight: "600", lineHeight: 20 }}>{q.slot}. {q.question.replace(/\s+/g, ' ').trim()}</Text>
+                            <View style={{ backgroundColor: isDark ? "rgba(0,0,0,0.3)" : "#FFFFFF", padding: 12, borderRadius: 16, borderWidth: 1, borderColor: border }}>
+                              <Text style={{ fontSize: 14, color: colors.textSecondary }}>Answer: <Text style={{ fontWeight: "600", color: colors.text }}>{q.answer || "No answer"}</Text></Text>
+                              {q.state === "Correct" && <Text style={{ fontSize: 12, color: "#10B981", marginTop: 4, fontWeight: "600" }}>Correct ✓</Text>}
+                              {q.state === "Incorrect" && <Text style={{ fontSize: 12, color: "#EF4444", marginTop: 4, fontWeight: "600" }}>Incorrect ✗</Text>}
+                              {q.state === "Requires grading" && <Text style={{ fontSize: 12, color: "#F59E0B", marginTop: 4, fontWeight: "600" }}>Needs grading ⏳</Text>}
+                              {["Correct", "Incorrect", "Requires grading", "Not answered", "Not yet answered"].indexOf(q.state) === -1 && <Text style={{ fontSize: 12, color: subText, marginTop: 4, fontWeight: "600" }}>{q.state}</Text>}
+                              {["Not answered", "Not yet answered"].indexOf(q.state) !== -1 && <Text style={{ fontSize: 12, color: subText, marginTop: 4, fontWeight: "600" }}>No Answer Given</Text>}
+                            </View>
+                          </View>
+                        ))
+                      ) : (
+                        <Text style={{ fontSize: 13, color: subText, fontStyle: "italic" }}>No questions data found.</Text>
+                      )}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* ── Interview Sessions ── */}
+        {application.interview_slots && application.interview_slots.length > 0 && (
+          <View style={{ gap: 16, marginTop: 16 }}>
+            <SectionHeader
+              icon="calendar-outline"
+              iconBg={isDark ? "rgba(236,72,153,0.15)" : "#FCE7F3"}
+              iconColor="#DB2777"
+              title="Interview Sessions"
+              textColor={colors.text}
+              noMargin
+            />
+            {application.interview_slots.map(slot => (
+              <View key={slot.cmid} style={[styles.card, { backgroundColor: cardBg, borderColor: border, padding: 20 }]}>
+                <Text style={[styles.docGroupLabel, { color: colors.text, marginBottom: 12 }]}>{slot.name}</Text>
+                {slot.bookings.length > 0 ? slot.bookings.map((booking, index) => (
+                  <View key={booking.slotid} style={{ marginBottom: index === slot.bookings.length - 1 ? 0 : 16, backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "#F9FAFB", padding: 16, borderRadius: 20, borderWidth: 1, borderColor: border }}>
+                    <View style={{ flexDirection: "row", gap: 12, alignItems: "center", marginBottom: 10 }}>
+                      <View style={[styles.fileIconPlate, { backgroundColor: isDark ? "rgba(236,72,153,0.1)" : "#FCE7F3", width: 40, height: 40 }]}>
+                        <Ionicons name="time-outline" size={20} color="#DB2777" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.text }}>
+                          {new Date(booking.starttime * 1000).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                        </Text>
+                        <Text style={{ fontSize: 12, color: subText, marginTop: 2 }}>Duration: {booking.duration_minutes} mins</Text>
+                      </View>
+                      <View style={[shStyles.badge, { backgroundColor: booking.attended ? (isDark ? "rgba(16,185,129,0.15)" : "#D1FAE5") : (isDark ? "rgba(255,255,255,0.08)" : "#E2E8F0") }]}>
+                        <Text style={[shStyles.badgeText, { color: booking.attended ? "#10B981" : subText, fontSize: 10, textTransform: "uppercase" }]}>
+                          {booking.attended ? "ATTENDED" : "SCHEDULED"}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 }}>
+                      <Ionicons name="person-circle-outline" size={16} color={subText} />
+                      <Text style={{ fontSize: 13, color: colors.textSecondary }}>Reviewer: <Text style={{ fontWeight: "700", color: colors.text }}>{booking.teacher_name}</Text></Text>
+                    </View>
+                    {booking.location && !booking.location.startsWith("http") && (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 }}>
+                        <Ionicons name="location-outline" size={16} color={subText} />
+                        <Text style={{ fontSize: 13, color: colors.textSecondary }}>Location: {booking.location}</Text>
+                      </View>
+                    )}
+                  </View>
+                )) : (
+                  <View style={{ backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "#F9FAFB", padding: 16, borderRadius: 20, borderWidth: 1, borderColor: border, alignItems: "center" }}>
+                    <Ionicons name="calendar-outline" size={24} color={subText} style={{ marginBottom: 8, opacity: 0.5 }} />
+                    <Text style={{ fontSize: 14, color: subText, fontStyle: "italic" }}>No bookings found.</Text>
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* ── Documents Section ── */}
-        <View style={styles.sectionHeaderWrap}>
+        <View style={[styles.sectionHeaderWrap, { marginTop: 24 }]}>
           <View style={{ flex: 1 }}>
             <SectionHeader
               icon="folder-open-outline"

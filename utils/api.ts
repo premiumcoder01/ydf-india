@@ -3053,6 +3053,23 @@ export const getReviewerApplications = async (
     // Check if request was successful
     if (response.ok) {
       if (data.exception || data.errorcode) {
+        // Moodle workaround: if no applications are found, it might return an invalid response exception 
+        // because an empty list doesn't match the strictly typed return structure.
+        if (
+          data.errorcode === "invalidresponse" || 
+          data.exception === "invalid_response_exception" ||
+          (data.message && data.message.includes("Invalid response value detected"))
+        ) {
+          return {
+            success: true,
+            data: { 
+              applications: [], 
+              pagination: { page: params?.page || 1, per_page: params?.per_page || 10, total: 0, total_pages: 1 } 
+            },
+            message: "No applications found",
+          };
+        }
+
         return {
           success: false,
           error: data.message || data.errorcode || "An error occurred",
