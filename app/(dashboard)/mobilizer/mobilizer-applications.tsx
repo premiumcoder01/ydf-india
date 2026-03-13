@@ -214,10 +214,10 @@ export default function MobilizerApplicationsScreen() {
                             },
                             pressed && { opacity: 0.8, backgroundColor: isDark ? `${colors.primary}20` : '#F3F4F6' }
                         ]}
-                        onPress={() => router.push({
-                            pathname: "/(dashboard)/mobilizer/mobilizer-scholarship-details",
-                            params: { scholarshipId: item.scholarship.id }
-                        })}
+                    // onPress={() => router.push({
+                    //     pathname: "/(dashboard)/mobilizer/mobilizer-scholarship-details",
+                    //     params: { scholarshipId: item.scholarship.id }
+                    // })}
                     >
                         <View style={styles.scholarshipIconBox}>
                             <Ionicons name="school" size={16} color={colors.primary} />
@@ -228,7 +228,7 @@ export default function MobilizerApplicationsScreen() {
                                 {item.scholarship.name}
                             </Text>
                         </View>
-                        <Ionicons name="arrow-forward" size={16} color={colors.primary} />
+                        {/* <Ionicons name="arrow-forward" size={16} color={colors.primary} /> */}
                     </Pressable>
 
                     {/* Bottom: Date & Footer */}

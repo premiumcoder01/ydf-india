@@ -138,10 +138,12 @@ export default function StudentFileViewer() {
     const filename = params.filename as string;
     const mimetype = params.mimetype as string;
 
+
     const [state, setState] = useState<ViewerState>("idle");
     const [progress, setProgress] = useState(0);
     const [localPath, setLocalPath] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [errorCode, setErrorCode] = useState<string | null>(null);
     const [imageZoomed, setImageZoomed] = useState(false);
 
     const taskRef = useRef<any>(null);
@@ -175,6 +177,7 @@ export default function StudentFileViewer() {
         setState("downloading");
         setProgress(0);
         setError(null);
+        setErrorCode(null);
 
         const destPath = getTempPath();
 
@@ -193,7 +196,16 @@ export default function StudentFileViewer() {
                 //     in react-native-blob-util on Android.
                 const response = await fetch(currentUrl);
                 if (!response.ok) {
-                    throw new Error(`Server responded with status ${response.status}`);
+                    const status = response.status;
+                    let errorMsg = `Server responded with status ${status}`;
+                    try {
+                        const json = await response.json();
+                        if (json.error) errorMsg = json.error;
+                        if (json.code) setErrorCode(json.code);
+                    } catch (e) {
+                        if (status === 404) setErrorCode("file_not_found");
+                    }
+                    throw new Error(errorMsg);
                 }
 
                 // Stream via blob → base64 → write with RNBlobUtil
@@ -230,6 +242,7 @@ export default function StudentFileViewer() {
                     setLocalPath(destPath);
                     setState("ready");
                 } else {
+                    if (status === 404) setErrorCode("file_not_found");
                     throw new Error(`Server responded with status ${status}`);
                 }
             }
@@ -268,7 +281,7 @@ export default function StudentFileViewer() {
         RNBlobUtil.fs
             .exists(destPath)
             .then((exists) => { if (exists) RNBlobUtil.fs.unlink(destPath).catch(() => { }); });
-        
+
         const sanitizedUrl = fileurl.replace(/&amp;/g, "&");
         downloadFile(sanitizedUrl);
     };
@@ -302,27 +315,82 @@ export default function StudentFileViewer() {
     );
 
     // ─── Render: Error ──────────────────────────────────────────────────────────
-    const renderError = () => (
-        <View style={styles.centerContainer}>
-            <View style={[styles.stateCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF" }]}>
-                <View style={[styles.stateIconRing, { borderColor: "#FCA5A530" }]}>
-                    <View style={[styles.stateIconInner, { backgroundColor: "#FEE2E2" }]}>
-                        <Ionicons name="cloud-offline-outline" size={36} color="#EF4444" />
+    const renderError = () => {
+        const isNotFound = errorCode === "file_not_found" || error?.includes("404");
+
+        return (
+            <View style={styles.centerContainer}>
+                <View style={[styles.stateCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF" }]}>
+                    <View
+                        style={[
+                            styles.stateIconRing,
+                            { borderColor: isNotFound ? "#FBBF2430" : "#FCA5A530" },
+                        ]}
+                    >
+                        <View
+                            style={[
+                                styles.stateIconInner,
+                                { backgroundColor: isNotFound ? "#FEF3C7" : "#FEE2E2" },
+                            ]}
+                        >
+                            <Ionicons
+                                name={isNotFound ? "alert-circle-outline" : "cloud-offline-outline"}
+                                size={36}
+                                color={isNotFound ? "#D97706" : "#EF4444"}
+                            />
+                        </View>
+                    </View>
+                    <Text style={[styles.stateTitle, { color: colors.text }]}>
+                        {isNotFound ? "File Not Found" : "Download Failed"}
+                    </Text>
+                    <Text style={[styles.errorMsg, { color: colors.textSecondary }]}>
+                        {isNotFound
+                            ? "The requested document could not be found or has been removed from the server. Please check the link and try again."
+                            : error}
+                    </Text>
+
+                    <View style={{ gap: 12, width: "100%" }}>
+                        {!isNotFound && (
+                            <TouchableOpacity
+                                style={[styles.actionBtn, { backgroundColor: colors.primary, width: '100%', justifyContent: 'center' }]}
+                                onPress={handleRetry}
+                                activeOpacity={0.8}
+                            >
+                                <Ionicons name="refresh" size={18} color="#FFF" />
+                                <Text style={styles.actionBtnText}>Try Again</Text>
+                            </TouchableOpacity>
+                        )}
+
+                        <TouchableOpacity
+                            style={[
+                                styles.actionBtn,
+                                {
+                                    backgroundColor: isNotFound ? colors.primary : "transparent",
+                                    borderWidth: isNotFound ? 0 : 1,
+                                    borderColor: colors.border,
+                                    width: '100%',
+                                    justifyContent: 'center'
+                                },
+                            ]}
+                            onPress={() => router.back()}
+                            activeOpacity={0.8}
+                        >
+                            <Ionicons
+                                name="arrow-back"
+                                size={18}
+                                color={isNotFound ? "#FFF" : colors.text}
+                            />
+                            <Text
+                                style={[styles.actionBtnText, { color: isNotFound ? "#FFF" : colors.text }]}
+                            >
+                                Go Back
+                            </Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
-                <Text style={[styles.stateTitle, { color: colors.text }]}>Download Failed</Text>
-                <Text style={[styles.errorMsg, { color: colors.textSecondary }]}>{error}</Text>
-                <TouchableOpacity
-                    style={[styles.actionBtn, { backgroundColor: colors.primary }]}
-                    onPress={handleRetry}
-                    activeOpacity={0.8}
-                >
-                    <Ionicons name="refresh" size={18} color="#FFF" />
-                    <Text style={styles.actionBtnText}>Try Again</Text>
-                </TouchableOpacity>
             </View>
-        </View>
-    );
+        );
+    };
 
     // ─── Render: Image ──────────────────────────────────────────────────────────
     const renderImage = () => (

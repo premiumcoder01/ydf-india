@@ -960,7 +960,7 @@ export default function MobilizerScholarshipListingScreen() {
                 onRequestClose={() => setShowStudentModal(false)}
             >
                 <View style={[styles.fullScreenModal, { backgroundColor: isDark ? "#121212" : "#f5f5f5" }]}>
-                    <View style={[styles.modalHeader, { paddingTop: 20, backgroundColor: isDark ? "#1E1E1E" : "#fff", borderBottomColor: colors.border }]}>
+                    <View style={[styles.modalHeader, { paddingTop: inset.top + 12, backgroundColor: isDark ? "#1E1E1E" : "#fff", borderBottomColor: colors.border }]}>
                         <View style={styles.modalHeaderTop}>
                             <TouchableOpacity onPress={() => setShowStudentModal(false)} style={styles.closeBtn}>
                                 <Ionicons name="close" size={24} color={colors.text} />

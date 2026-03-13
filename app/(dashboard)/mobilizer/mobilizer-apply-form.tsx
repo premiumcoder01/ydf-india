@@ -293,7 +293,7 @@ export default function MobilizerApplyFormScreen() {
                 uri: asset.uri,
                 mimeType: asset.mimeType ?? undefined,
                 size: asset.size ?? undefined,
-                documentId: reqDoc.id || reqDoc.shortname,
+                documentId: reqDoc.id || reqDoc.shortname || reqDoc.name || reqDoc.label,
                 label: reqDoc.label || reqDoc.name
             };
             const existing = getValues("documents") || [];
@@ -477,11 +477,12 @@ export default function MobilizerApplyFormScreen() {
             <KeyboardAvoidingView
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
                 style={{ flex: 1 }}
+                keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
             >
                 <ScrollView
                     ref={scrollRef}
                     style={styles.scrollView}
-                    contentContainerStyle={{ paddingBottom: 150 }}
+                    contentContainerStyle={{ paddingBottom: 300 }}
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                 >
@@ -703,7 +704,8 @@ export default function MobilizerApplyFormScreen() {
                                             {scholarship.documents
                                                 .filter((reqDoc: any) => !reqDoc.name?.toLowerCase().includes("structured feedback"))
                                                 .map((reqDoc: any, index: number) => {
-                                                    const uploadedDoc = documents.find(d => d.documentId === (reqDoc.id || reqDoc.shortname));
+                                                    const docIdentifier = reqDoc.id || reqDoc.shortname || reqDoc.name || reqDoc.label;
+                                                    const uploadedDoc = documents.find(d => d.documentId === docIdentifier);
                                                     return (
                                                         <View key={reqDoc.id || index} style={[styles.docReqItem, { borderColor: colors.border, backgroundColor: isDark ? colors.surface : '#fafafa' }]}>
                                                             <View style={{ flex: 1 }}>

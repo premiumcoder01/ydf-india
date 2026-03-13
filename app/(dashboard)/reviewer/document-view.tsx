@@ -41,6 +41,8 @@ export default function DocumentViewScreen() {
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [newRejectionReason, setNewRejectionReason] = useState("");
     const [submitting, setSubmitting] = useState(false);
+    const [errorCode, setErrorCode] = useState<string | null>(null);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     const isImage = mimetype?.toString().includes("image") || fileName?.toString().match(/\.(jpg|jpeg|png|gif|webp)$/i);
     const isPdf = mimetype?.toString().includes("pdf") || fileName?.toString().match(/\.pdf$/i);
@@ -163,6 +165,50 @@ export default function DocumentViewScreen() {
         }
     };
 
+    React.useEffect(() => {
+        if (!url) {
+            setLoading(false);
+            return;
+        }
+
+        const checkDocument = async () => {
+            try {
+                setLoading(true);
+                const response = await fetch(url.toString());
+                if (!response.ok) {
+                    const status = response.status;
+                    let msg = "The document could not be loaded.";
+                    try {
+                        const json = await response.json();
+                        if (json.code) setErrorCode(json.code);
+                        if (json.error) {
+                            setErrorMessage(json.error);
+                            msg = json.error;
+                        }
+                    } catch (e) {
+                        if (status === 404) {
+                            setErrorCode("file_not_found");
+                            setErrorMessage("Document not found.");
+                            msg = "Document not found.";
+                        }
+                    }
+                    setLoadError(true);
+                } else {
+                    setLoadError(false);
+                    setErrorCode(null);
+                    setErrorMessage(null);
+                }
+            } catch (err) {
+                console.log("Document check error:", err);
+                // If fetch fails (CORS/Network), we let the components try anyway
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        checkDocument();
+    }, [url]);
+
     const rawTitle = title?.toString() || "";
     const headerTitle = rawTitle.includes("/") ? rawTitle.split("/")[0].trim() : (rawTitle || 'Review Details');
 
@@ -178,22 +224,32 @@ export default function DocumentViewScreen() {
         }
 
         if (loadError) {
+            const isNotFound = errorCode === "file_not_found" || errorMessage?.includes("not found");
             return (
-                <View style={[styles.stateContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
-                    <View style={styles.errorIconBox}>
-                        <Ionicons name="cloud-offline-outline" size={48} color="#F44336" />
+                <View style={[styles.stateContainer, { borderColor: colors.border, backgroundColor: colors.card, borderStyle: isNotFound ? 'solid' : 'dashed' }]}>
+                    <View style={[styles.errorIconBox, isNotFound && { backgroundColor: isDark ? "rgba(251, 191, 36, 0.1)" : "#FFF9E6" }]}>
+                        <Ionicons
+                            name={isNotFound ? "alert-circle-outline" : "cloud-offline-outline"}
+                            size={48}
+                            color={isNotFound ? "#FBBF24" : "#F44336"}
+                        />
                     </View>
-                    <Text style={[styles.stateTitle, { color: colors.text }]}>Preview Failed</Text>
-                    <Text style={[styles.stateSub, { color: colors.textSecondary }]}>
-                        The document could  not found.
+                    <Text style={[styles.stateTitle, { color: colors.text }]}>
+                        {isNotFound ? "Document Missing" : "Load Failed"}
                     </Text>
-                    <TouchableOpacity
-                        style={[styles.primaryActionBtn, { backgroundColor: colors.primary }]}
-                        onPress={handleDownload}
-                    >
-                        <Ionicons name="open-outline" size={20} color="#fff" />
-                        <Text style={styles.primaryActionText}>Open in Browser</Text>
-                    </TouchableOpacity>
+                    <Text style={[styles.stateSub, { color: colors.textSecondary }]}>
+                        {errorMessage || "The document could not be found."}
+                    </Text>
+
+                    {!isNotFound && (
+                        <TouchableOpacity
+                            style={[styles.primaryActionBtn, { backgroundColor: colors.primary }]}
+                            onPress={handleDownload}
+                        >
+                            <Ionicons name="open-outline" size={20} color="#fff" />
+                            <Text style={styles.primaryActionText}>Open in Browser</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
             );
         }
@@ -328,7 +384,7 @@ export default function DocumentViewScreen() {
             </View>
 
             {/* Modern Bottom Actions - Sticky */}
-            {!isProcessed && (
+            {!isProcessed && errorCode !== "file_not_found" && (
                 <View style={[styles.footer, { paddingBottom: inset.bottom || 24, backgroundColor: colors.card, borderTopColor: colors.border }]}>
                     <TouchableOpacity
                         style={[styles.actionBtn, styles.rejectBtn, submitting && { opacity: 0.7 }]}

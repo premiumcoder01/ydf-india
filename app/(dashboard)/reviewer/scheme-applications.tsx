@@ -10,6 +10,7 @@ import {
     ActivityIndicator,
     Alert,
     Modal,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -663,13 +664,14 @@ export default function SchemeApplicationsScreen() {
             {/* ── Fixed Pagination Footer ── */}
             {!loading && totalPages > 1 && (
                 <BlurView
-                    intensity={isDark ? 50 : 80}
+                    intensity={Platform.OS === "android" ? (isDark ? 100 : 95) : (isDark ? 50 : 80)}
                     tint={isDark ? "dark" : "light"}
                     style={[
                         styles.paginationFooter,
                         {
                             borderTopColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)",
                             paddingBottom: insets.bottom + 12,
+                            backgroundColor: Platform.OS === "android" ? (isDark ? "#0f0f0f" : "#FFFFFF") : "transparent",
                         },
                     ]}
                 >

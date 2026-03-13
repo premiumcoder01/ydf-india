@@ -9,17 +9,17 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Image,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -495,7 +495,7 @@ export default function ReviewerEditProfileScreen() {
 
         // Navigate back to dashboard after a delay
         setTimeout(() => {
-          router.replace("/student-dashboard");
+          router.replace("/application-reviewer");
         }, 1500);
       } else {
         setToastMessage(response.error || "Failed to update profile");
@@ -761,7 +761,7 @@ export default function ReviewerEditProfileScreen() {
           </View>
 
           {/* Section: Educational & Application Details */}
-        
+
 
           {/* Section 2: Basic Details */}
           <View style={styles.section}>
