@@ -41,12 +41,13 @@ type Document = {
 };
 
 type DigiLockerFileItem = {
-  type: "file";
+  type: "file" | "dir";
   name: string;
   mime: string;
   uri: string;
   date?: string;
   size?: string | number;
+  itemsCount?: string | number;
   issuer?: string;
   description?: string;
   id?: string;
@@ -71,6 +72,7 @@ export default function DocumentUploadScreen() {
   const [digilockerModalVisible, setDigilockerModalVisible] = useState(false);
   const [digilockerLoading, setDigilockerLoading] = useState(false);
   const [digilockerAccessToken, setDigilockerAccessToken] = useState<string | null>(null);
+  const [digilockerHistory, setDigilockerHistory] = useState<{ id: string; name: string }[]>([]);
   const [downloadingUri, setDownloadingUri] = useState<string | null>(null);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewFile, setPreviewFile] = useState<{
@@ -237,21 +239,30 @@ export default function DocumentUploadScreen() {
     await uploadFile(selectedFile);
   };
 
-  const fetchDigiLockerFiles = async (accessToken: string) => {
-    const response = await fetch("https://digilocker.meripehchaan.gov.in/public/oauth2/1/files", {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-    });
-    const result = await response.json();
-    if (!response.ok) {
-      throw new Error(result?.error_description || result?.error || "Failed to fetch DigiLocker files");
-    }
-    const items = Array.isArray(result?.items) ? result.items : [];
+  const fetchDigiLockerFiles = async (accessToken: string, folderId: string = "") => {
+    setDigilockerLoading(true);
+    try {
+      const url = folderId 
+        ? `https://digilocker.meripehchaan.gov.in/public/oauth2/1/files/${folderId}`
+        : "https://digilocker.meripehchaan.gov.in/public/oauth2/1/files";
 
-    setDigilockerFiles(items);
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      });
+      const result = await response.json();
+      console.log(result, "digicloker ka response");
+      if (!response.ok) {
+        throw new Error(result?.error_description || result?.error || "Failed to fetch DigiLocker files");
+      }
+      const items = Array.isArray(result?.items) ? result.items : [];
+      setDigilockerFiles(items);
+    } finally {
+      setDigilockerLoading(false);
+    }
   };
 
 
@@ -275,6 +286,17 @@ export default function DocumentUploadScreen() {
       Alert.alert("Error", "DigiLocker access token missing. Please reconnect.");
       return;
     }
+
+    if (file.type === "dir") {
+      try {
+        setDigilockerHistory(prev => [...prev, { id: file.id || "", name: file.name }]);
+        await fetchDigiLockerFiles(digilockerAccessToken, file.id);
+      } catch (error: any) {
+        Alert.alert("Error", error.message || "Failed to opening folder");
+      }
+      return;
+    }
+
     try {
       setDownloadingUri(file.uri);
       const localUri = await downloadDigiLockerFile(file);
@@ -285,7 +307,6 @@ export default function DocumentUploadScreen() {
       const nextPreview = { uri: localUri, mime: file.mime, name: displayName };
       setPreviewFile(nextPreview);
       setPreviewVisible(true);
-      setDigilockerModalVisible(false);
       console.log("Preview file set:", nextPreview);
       return;
     } catch (error) {
@@ -293,6 +314,21 @@ export default function DocumentUploadScreen() {
       Alert.alert("Error", "Unable to open this file. Please try again.");
     } finally {
       setDownloadingUri(null);
+    }
+  };
+
+  const handleDigiLockerBack = async () => {
+    if (!digilockerAccessToken || digilockerHistory.length === 0) return;
+
+    const newHistory = [...digilockerHistory];
+    newHistory.pop();
+    setDigilockerHistory(newHistory);
+
+    const parentFolderId = newHistory.length > 0 ? newHistory[newHistory.length - 1].id : "";
+    try {
+      await fetchDigiLockerFiles(digilockerAccessToken, parentFolderId);
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to navigate back");
     }
   };
 
@@ -368,6 +404,7 @@ export default function DocumentUploadScreen() {
 
       setDigilockerLoading(true);
       setDigilockerAccessToken(data.access_token);
+      setDigilockerHistory([]); // Reset history on new login
       await fetchDigiLockerFiles(data.access_token);
       setDigilockerModalVisible(true);
     } catch (error) {
@@ -439,8 +476,33 @@ export default function DocumentUploadScreen() {
       >
         <View style={[styles.modalContainer, { backgroundColor: colors.card, paddingTop: inset.top }]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>DigiLocker Files</Text>
-            <TouchableOpacity onPress={() => setDigilockerModalVisible(false)} style={styles.modalCloseAbsolute}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              {digilockerHistory.length > 0 && (
+                <TouchableOpacity onPress={handleDigiLockerBack} style={styles.modalBackBtn}>
+                  <Ionicons name="arrow-back" size={24} color={colors.text} />
+                </TouchableOpacity>
+              )}
+              <View>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>
+                  {digilockerHistory.length > 0 ? digilockerHistory[digilockerHistory.length - 1].name : "DigiLocker Files"}
+                </Text>
+                {digilockerHistory.length > 0 && (
+                  <Text style={{ fontSize: 12, color: colors.textSecondary }}>DigiLocker Drive</Text>
+                )}
+              </View>
+            </View>
+            <TouchableOpacity 
+              onPress={() => {
+                if (digilockerHistory.length > 0) {
+                  // If in a subfolder, X returns to the root list instead of closing everything
+                  setDigilockerHistory([]);
+                  if (digilockerAccessToken) fetchDigiLockerFiles(digilockerAccessToken, "");
+                } else {
+                  setDigilockerModalVisible(false);
+                }
+              }} 
+              style={styles.modalCloseAbsolute}
+            >
               <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
@@ -488,14 +550,18 @@ export default function DocumentUploadScreen() {
                       const mimeColor = getMimeColor(file.mime);
                       return (
                         <TouchableOpacity
-                          key={file.uri}
+                          key={file.id || file.uri}
                           style={[styles.digiFileCard, { backgroundColor: colors.card, borderColor: colors.border }]}
                           onPress={() => viewDigiLockerFile(file)}
                           activeOpacity={0.8}
                         >
                           <View style={styles.digiFileRow}>
-                            <View style={[styles.digiFileIcon, { backgroundColor: `${mimeColor}1A` }]}>
-                              <Ionicons name={getMimeIcon(file.mime) as any} size={22} color={mimeColor} />
+                            <View style={[styles.digiFileIcon, { backgroundColor: file.type === "dir" ? "rgba(33,150,243,0.1)" : `${mimeColor}1A` }]}>
+                              <Ionicons 
+                                name={file.type === "dir" ? "folder" : getMimeIcon(file.mime) as any} 
+                                size={22} 
+                                color={file.type === "dir" ? "#2196F3" : mimeColor} 
+                              />
                             </View>
                             <View style={styles.digiFileInfo}>
                               <Text style={[styles.fileItemName, { color: colors.text }]} numberOfLines={1}>
@@ -503,11 +569,11 @@ export default function DocumentUploadScreen() {
                               </Text>
                               <View style={styles.digiMetaRow}>
                                 <Text style={[styles.fileItemMeta, { color: colors.textSecondary }]} numberOfLines={1}>
-                                  {file.mime}
+                                  {file.type === "dir" ? "Folder" : file.mime}
                                 </Text>
                                 <View style={styles.metaDot} />
                                 <Text style={[styles.fileItemMeta, { color: colors.textSecondary }]}>
-                                  {formatFileSize(file.size)}
+                                  {file.type === "dir" ? `${file.itemsCount || "—"} items` : formatFileSize(file.size)}
                                 </Text>
                                 <View style={styles.metaDot} />
                                 <Text style={[styles.fileItemMeta, { color: colors.textSecondary }]}>
@@ -524,7 +590,11 @@ export default function DocumentUploadScreen() {
                               {downloadingUri === file.uri ? (
                                 <ActivityIndicator size="small" color={colors.primary} />
                               ) : (
-                                <Ionicons name="eye-outline" size={20} color={isDark ? colors.primary : "#2B5CAD"} />
+                                <Ionicons 
+                                  name={file.type === "dir" ? "chevron-forward" : "eye-outline"} 
+                                  size={20} 
+                                  color={isDark ? colors.primary : "#2B5CAD"} 
+                                />
                               )}
                             </View>
                           </View>
@@ -923,10 +993,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalHeader: {
-    height: 56,
-    alignItems: "center",
-    justifyContent: "center",
+    padding: 16,
     borderBottomWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  modalBackBtn: {
+    marginRight: 4,
+    padding: 4,
   },
   previewHeader: {
     paddingHorizontal: 16,

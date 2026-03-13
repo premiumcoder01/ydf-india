@@ -344,8 +344,13 @@ export default function StudentDashboardScreen() {
           <View style={styles.welcomeSection}>
             <Text style={[styles.welcomeText, { color: isDark ? colors.textSecondary : "#666" }]}>Hi,</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-
-              <Text style={[styles.userName, { color: colors.text }]}>{studentName}</Text>
+              <Text
+                style={[styles.userName, { color: colors.text, flexShrink: 1 }]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {studentName}
+              </Text>
               <HelloWave />
             </View>
           </View>
@@ -380,7 +385,6 @@ export default function StudentDashboardScreen() {
             >
               {profilePhotoUrl ? (
                 <Image
-
                   source={{
                     uri: profilePhotoUrl.includes('?')
                       ? `${profilePhotoUrl}&t=${Date.now()}`

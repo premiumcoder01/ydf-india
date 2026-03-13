@@ -161,11 +161,11 @@ interface ValidationErrors {
 const getBankGradient = (bankName: string): readonly [string, string, ...string[]] => {
     const name = bankName.toLowerCase();
 
-    // SBI - Iconic Blue
+    // SBI - Blue
     if (name.includes('state bank of india') || name.includes('sbi')) {
         return ['#1a237e', '#283593', '#1e88e5'];
     }
-    // HDFC - Navy Blue & Red (Using Navy primarily for card)
+    // HDFC - Navy Blue
     if (name.includes('hdfc')) {
         return ['#00103a', '#002663', '#004c8f'];
     }
@@ -177,11 +177,11 @@ const getBankGradient = (bankName: string): readonly [string, string, ...string[
     if (name.includes('axis')) {
         return ['#58081f', '#8e1233', '#ae2848'];
     }
-    // Kotak - Red/Blue (Using Deep Red)
+    // Kotak - Red
     if (name.includes('kotak')) {
         return ['#a30000', '#da1710', '#ed1c24'];
     }
-    // PNB - Maroon/Mustard
+    // PNB - Maroon
     if (name.includes('punjab national') || name.includes('pnb')) {
         return ['#6e1220', '#a21a2e', '#cf2840'];
     }
@@ -189,28 +189,90 @@ const getBankGradient = (bankName: string): readonly [string, string, ...string[
     if (name.includes('baroda') || name.includes('bob')) {
         return ['#d35400', '#e67e22', '#f39c12'];
     }
-    // IDFC First - Burgundy/Red
+    // IDFC First - Red/Burnt Orange
     if (name.includes('idfc')) {
         return ['#680811', '#93121b', '#b91c26'];
     }
-    // Union Bank - Red/Blue
+    // Union Bank - Red/Dark Blue
     if (name.includes('union bank')) {
-        return ['#c0392b', '#e74c3c', '#ff7675'];
+        return ['#c0392b', '#2980b9', '#1a237e'];
     }
-    // Canara - Blue
+    // Canara - Blue/Yellow
     if (name.includes('canara')) {
         return ['#004886', '#0065bd', '#007fff'];
     }
-    // IndusInd - Deep Red
+    // IndusInd - Crimson
     if (name.includes('indusind')) {
         return ['#570814', '#851020', '#b31b30'];
     }
-    // Yes Bank - Blue
+    // Yes Bank - Deep Blue
     if (name.includes('yes bank')) {
-        return ['#002d6b', '#0045a5', '#0063e5'];
+        return ['#002d6b', '#0045a5', '#01579b'];
+    }
+    // Bank of India (BOI) - Blue/Red
+    if (name.includes('bank of india') || name.includes('boi')) {
+        return ['#003366', '#0055a4', '#d41113'];
+    }
+    // Central Bank of India - Blue/Yellow
+    if (name.includes('central bank')) {
+        return ['#004b93', '#0067b1', '#ffcc00'];
+    }
+    // Indian Bank - Blue/Gold
+    if (name.includes('indian bank')) {
+        return ['#1a3c61', '#214e7a', '#c29b40'];
+    }
+    // Bank of Maharashtra - Blue
+    if (name.includes('maharashtra')) {
+        return ['#004b91', '#0069c0', '#42a5f5'];
+    }
+    // UCO Bank - Blue/Yellow
+    if (name.includes('uco bank')) {
+        return ['#005ca8', '#0077c8', '#ffdf00'];
+    }
+    // Federal Bank - Blue/Green
+    if (name.includes('federal bank')) {
+        return ['#004a99', '#0067b1', '#579d42'];
+    }
+    // Bandhan Bank - Blue/Yellow
+    if (name.includes('bandhan')) {
+        return ['#004b91', '#006bd1', '#ffc107'];
+    }
+    // IDBI - Green/Blue
+    if (name.includes('idbi')) {
+        return ['#006a4d', '#004a99', '#00966b'];
+    }
+    // Paytm - Cyan/Blue
+    if (name.includes('paytm')) {
+        return ['#00baf2', '#002e6e', '#002970'];
+    }
+    // Airtel Payments Bank - Red
+    if (name.includes('airtel')) {
+        return ['#e40000', '#f12711', '#f5af19'];
+    }
+    // Post Office / IPPB - Blue/Red
+    if (name.includes('post office') || name.includes('ippb')) {
+        return ['#004fa3', '#e31e24', '#003366'];
+    }
+    // Karnataka Bank - Red/Yellow
+    if (name.includes('karnataka bank')) {
+        return ['#ed1c24', '#fcee21', '#c1272d'];
+    }
+    // AU Small Finance Bank - Deep Blue/Orange
+    if (name.includes('au small') || name.includes('au bank')) {
+        return ['#152e5d', '#3154a1', '#f15a24'];
     }
 
-    // Default Premium Gradient (Blue/Purple)
+    // American Express - Iconic Platinum/Silver
+    if (name.includes('american express') || name.includes('amex')) {
+        return ['#8e9eab', '#abbaba', '#8e9eab'];
+    }
+
+    // RRBs / Grameen Banks - Generic Premium Blue/Light Blue
+    if (name.includes('grameen') || name.includes('rural') || name.includes('gramin')) {
+        return ['#0d47a1', '#1976d2', '#64b5f6'];
+    }
+
+    // Default Premium Royal Gradient
     return ['#1a237e', '#283593', '#3949ab'];
 };
 
@@ -440,9 +502,9 @@ export default function StudentProfileFinancialScreen() {
                             >
                                 {/* Card Header: Bank Name & Edit */}
                                 <View style={styles.cardHeader}>
-                                    <View>
+                                    <View style={{ flex: 1 }}>
                                         <Text style={styles.bankLabel}>Bank Name</Text>
-                                        <Text style={styles.bankName}>
+                                        <Text style={styles.bankName} numberOfLines={1} ellipsizeMode="tail">
                                             {financialInfo.bankName || "Your Bank Name"}
                                         </Text>
                                     </View>
@@ -451,34 +513,38 @@ export default function StudentProfileFinancialScreen() {
                                         onPress={openEditModal}
                                         activeOpacity={0.8}
                                     >
-                                        <Ionicons name="pencil" size={18} color="#fff" />
+                                        <Ionicons name="create-outline" size={18} color="#fff" />
                                     </TouchableOpacity>
                                 </View>
 
                                 {/* Chip & Contactless */}
                                 <View style={styles.cardChipRow}>
                                     <View style={styles.chip} />
-                                    <Ionicons name="wifi" size={24} color="rgba(255,255,255,0.6)" style={{ transform: [{ rotate: '90deg' }] }} />
+                                    <Ionicons name="wifi" size={20} color="rgba(255,255,255,0.4)" style={{ transform: [{ rotate: '90deg' }] }} />
                                 </View>
 
                                 {/* Card Number */}
-                                <Text style={styles.cardNumber}>
-                                    {financialInfo.bankAccountNo ? (financialInfo.bankAccountNo.match(/.{1,4}/g)?.join(' ') || financialInfo.bankAccountNo) : "•••• •••• •••• ••••"}
-                                </Text>
+                                <View style={styles.cardNumberContainer}>
+                                    <Text style={styles.cardNumber}>
+                                        {financialInfo.bankAccountNo ? (financialInfo.bankAccountNo.match(/.{1,4}/g)?.join(' ') || financialInfo.bankAccountNo) : "•••• •••• •••• ••••"}
+                                    </Text>
+                                </View>
 
-                                {/* Card Footer: Holder & IFSC */}
-                                <View style={styles.cardFooter}>
-                                    <View>
-                                        <Text style={styles.cardLabel}>Account Holder</Text>
-                                        <Text style={styles.cardValue} numberOfLines={1}>
-                                            {financialInfo.accountHolderName || "STUDENT NAME"}
-                                        </Text>
-                                    </View>
-                                    <View style={{ alignItems: 'flex-end' }}>
-                                        <Text style={styles.cardLabel}>IFSC Code</Text>
-                                        <Text style={styles.cardValue}>
-                                            {financialInfo.ifscCode || "IFSCXXXX"}
-                                        </Text>
+                                {/* Card Footer: Redesigned Stacking */}
+                                <View style={styles.cardFooterNew}>
+                                    <View style={styles.glassContainer}>
+                                        <View style={styles.holderSection}>
+                                            <Text style={styles.cardLabelSmall}>Account Holder</Text>
+                                            <Text style={styles.cardValueLarge} numberOfLines={1} ellipsizeMode="tail">
+                                                {financialInfo.accountHolderName || "STUDENT NAME"}
+                                            </Text>
+                                        </View>
+                                        <View style={styles.ifscSection}>
+                                            <Text style={styles.cardLabelSmall}>IFSC Code</Text>
+                                            <Text style={styles.ifscValue}>
+                                                {financialInfo.ifscCode || "IFSCXXXX"}
+                                            </Text>
+                                        </View>
                                     </View>
                                 </View>
 
@@ -757,77 +823,104 @@ const styles = StyleSheet.create({
     cardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         zIndex: 1,
+        marginBottom: 8,
     },
     bankLabel: {
-        color: 'rgba(255,255,255,0.7)',
-        fontSize: 12,
+        color: 'rgba(255,255,255,0.6)',
+        fontSize: 10,
         fontWeight: '600',
         textTransform: 'uppercase',
-        letterSpacing: 1,
-        marginBottom: 4,
+        letterSpacing: 1.2,
+        marginBottom: 2,
     },
     bankName: {
         color: '#fff',
-        fontSize: 20,
-        fontWeight: '800',
-        letterSpacing: 0.5,
+        fontSize: 16,
+        fontWeight: '700',
+        letterSpacing: 0.3,
     },
     editIconBtn: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(255,255,255,0.15)',
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.2)',
+        position: "absolute",
+        top: -15,
+        right: -15,
     },
     cardChipRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
-        marginVertical: 10,
+        marginBottom: 15,
         zIndex: 1,
     },
     chip: {
-        width: 45,
-        height: 34,
+        width: 40,
+        height: 30,
         borderRadius: 6,
-        backgroundColor: '#e0c9a6', // gold-ish
+        backgroundColor: '#e0c9a6',
         borderWidth: 1,
         borderColor: '#bfa780',
     },
+    cardNumberContainer: {
+        marginVertical: 5,
+        zIndex: 1,
+    },
     cardNumber: {
         color: '#fff',
-        fontSize: 22,
+        fontSize: 20,
         fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-        letterSpacing: 2,
-        marginVertical: 10,
-        zIndex: 1,
+        letterSpacing: 3,
         textShadowColor: 'rgba(0,0,0,0.3)',
         textShadowOffset: { width: 1, height: 1 },
         textShadowRadius: 2,
     },
-    cardFooter: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-end',
+    cardFooterNew: {
+        marginTop: 15,
         zIndex: 1,
     },
-    cardLabel: {
-        color: 'rgba(255,255,255,0.6)',
-        fontSize: 10,
-        fontWeight: '600',
-        textTransform: 'uppercase',
-        marginBottom: 4,
+    glassContainer: {
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        padding: 12,
+        borderRadius: 12,
+        gap: 10,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
     },
-    cardValue: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
+    holderSection: {
+        flex: 2,
+        marginRight: 10,
+    },
+    ifscSection: {
+        flex: 1,
+
+    },
+    cardLabelSmall: {
+        color: 'rgba(255,255,255,0.5)',
+        fontSize: 9,
+        fontWeight: '700',
+        textTransform: 'uppercase',
         letterSpacing: 1,
+        marginBottom: 2,
+    },
+    cardValueLarge: {
+        color: '#fff',
+        fontSize: 15,
+        fontWeight: '700',
+        letterSpacing: 0.2,
+    },
+    ifscValue: {
+        color: 'rgba(255,255,255,0.9)',
+        fontSize: 13,
+        fontWeight: '600',
+        letterSpacing: 0.5,
     },
     updatedAtContainer: {
         position: 'absolute',
