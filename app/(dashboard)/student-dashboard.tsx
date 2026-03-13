@@ -1,7 +1,7 @@
 import { HelloWave } from "@/components";
 import Toast from "@/components/Toast";
 import { useTheme } from "@/context/ThemeContext";
-import { bookmarkScholarship, getApplicationProgress, getDashboardStats, getRecommendedScholarships, getUpcomingDeadlines, getUserProfile } from "@/utils/api";
+import { bookmarkScholarship, getApplicationProgress, getDashboardStats, getMyApplications, getRecommendedScholarships, getUpcomingDeadlines, getUserProfile } from "@/utils/api";
 import { getCategoryColor, getDaysRemaining } from "@/utils/dashboard-helpers";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -174,6 +174,17 @@ export default function StudentDashboardScreen() {
     rejected: 0
   });
 
+  const [activeApplications, setActiveApplications] = useState<Array<{
+    id: number;
+    scholarshipId: number;
+    title: string;
+    shortname: string;
+    status: string;
+    statusText: string;
+    submittedDate: string;
+    color: string;
+  }>>([]);
+
 
 
 
@@ -235,11 +246,12 @@ export default function StudentDashboardScreen() {
       const authData = JSON.parse(authDataData);
       if (!authData.token) return;
 
-      const [statsRes, deadlinesRes, recRes, progRes] = await Promise.all([
+      const [statsRes, deadlinesRes, recRes, progRes, appsRes] = await Promise.all([
         getDashboardStats(authData.token),
         getUpcomingDeadlines(authData.token),
         getRecommendedScholarships(authData.token, { page: 1, per_page: 5 }),
-        getApplicationProgress(authData.token)
+        getApplicationProgress(authData.token),
+        getMyApplications(authData.token)
       ]);
 
       if (statsRes.success && statsRes.data?.stats) {
@@ -296,6 +308,37 @@ export default function StudentDashboardScreen() {
           pending: progRes.data.pending || 0,
           rejected: progRes.data.rejected || 0
         });
+      }
+
+      if (appsRes.success && appsRes.data) {
+        const statusColors: Record<string, string> = {
+          submitted: "#2196F3",
+          review: "#FF9800",
+          approved: "#4CAF50",
+          rejected: "#F44336",
+          new: "#2196F3",
+          under_review: "#FF9800"
+        };
+        const formatDate = (dateStr: string) => {
+          if (!dateStr) return "N/A";
+          try {
+            return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+          } catch { return dateStr.split(' ')[0]; }
+        };
+        const mapped = (appsRes.data.active || []).map((app: any) => {
+          const status = app.status || "new";
+          return {
+            id: app.id,
+            scholarshipId: app.scholarship_id,
+            title: app.scholarship_title || "Scholarship Application",
+            shortname: app.scholarship_shortname || "General",
+            status,
+            statusText: status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' '),
+            submittedDate: formatDate(app.submitted_at),
+            color: statusColors[status] || "#666"
+          };
+        });
+        setActiveApplications(mapped);
       }
     } catch (error) {
       console.error("Failed to fetch dashboard data", error);
@@ -507,6 +550,107 @@ export default function StudentDashboardScreen() {
                 </View>
               </View>
             </View>
+          </View>
+        </View>
+
+        {/* Pending Applications Section */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeaderRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={[styles.pendingSectionIcon, { backgroundColor: '#673AB715' }]}>
+                <Ionicons name="hourglass-outline" size={16} color="#673AB7" />
+              </View>
+              <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 0 }]}>Pending Applications</Text>
+            </View>
+            {activeApplications.length > 0 && (
+              <TouchableOpacity
+                onPress={() => router.push("/(dashboard)/student/student-application-status")}
+                activeOpacity={0.7}
+                style={styles.pendingViewAllBtn}
+              >
+                <Text style={styles.pendingViewAllText}>View All</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View style={{ gap: 14, marginTop: 14 }}>
+            {activeApplications.slice(0, 5).map((item, index) => (
+              <TouchableOpacity
+                key={item.id}
+                activeOpacity={0.85}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(dashboard)/student/student-scholarship-details",
+                    params: { scholarshipId: item.scholarshipId }
+                  })
+                }
+              >
+                <View style={[
+                  styles.pendingCard,
+                  { backgroundColor: isDark ? colors.card : '#fff', borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }
+                ]}>
+                  {/* Top colored band */}
+                  <View style={[styles.pendingCardBand, { backgroundColor: item.color + '18' }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10 }}>
+
+                      <Text style={[styles.pendingBandTitle, { color: colors.text }]} numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                    </View>
+                    {/* Status pill */}
+                    <View style={[styles.pendingStatusPill, { backgroundColor: item.color, shadowColor: item.color }]}>
+                      <View style={styles.pendingStatusDot} />
+                      <Text style={styles.pendingStatusLabel}>{item.statusText}</Text>
+                    </View>
+                  </View>
+
+                  {/* Bottom info row */}
+                  <View style={styles.pendingCardFooter}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                      <View style={[styles.pendingFooterIcon, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : '#f3f3f3' }]}>
+                        <Ionicons name="school-outline" size={13} color={colors.textSecondary} />
+                      </View>
+                      <Text style={[styles.pendingSchoolName, { color: colors.textSecondary }]} numberOfLines={1}>
+                        {item.shortname}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                      <Ionicons name="calendar-outline" size={12} color={colors.textSecondary} />
+                      <Text style={[styles.pendingDateChip, { color: colors.textSecondary }]}>
+                        {item.submittedDate}
+                      </Text>
+                    </View>
+                    <View style={[styles.pendingArrowBox, { backgroundColor: item.color + '15' }]}>
+                      <Ionicons name="arrow-forward" size={14} color={item.color} />
+                    </View>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+
+            {activeApplications.length === 0 && (
+              <View style={[styles.pendingEmptyBox, { backgroundColor: isDark ? colors.card : '#fafafa', borderColor: colors.border }]}>
+                <View style={[styles.pendingEmptyIcon, { backgroundColor: '#673AB715' }]}>
+                  <Ionicons name="document-text-outline" size={28} color="#673AB7" />
+                </View>
+                <Text style={[{ fontSize: 15, fontWeight: '600', color: colors.text, marginTop: 12 }]}>No Pending Applications</Text>
+                <Text style={[{ fontSize: 13, color: colors.textSecondary, marginTop: 4, textAlign: 'center' }]}>Apply for scholarships to track them here</Text>
+              </View>
+            )}
+
+            {activeApplications.length > 5 && (
+              <TouchableOpacity
+                onPress={() => router.push("/(dashboard)/student/student-application-status")}
+                activeOpacity={0.8}
+                style={[styles.viewMoreBtn, { borderColor: '#673AB730', backgroundColor: isDark ? '#673AB715' : '#673AB708' }]}
+              >
+                <Ionicons name="apps-outline" size={16} color="#673AB7" />
+                <Text style={[styles.viewMoreText, { color: '#673AB7' }]}>
+                  View {activeApplications.length - 5} More Applications
+                </Text>
+                <Ionicons name="chevron-forward" size={15} color="#673AB7" />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -788,6 +932,8 @@ export default function StudentDashboardScreen() {
             </View>
           </View>
         </View>
+
+
 
         {/* Quick Actions Grid */}
         <View style={styles.featuresContainer}>
@@ -1289,5 +1435,149 @@ const styles = StyleSheet.create({
   deadlineSubtitle: {
     fontSize: 13,
     fontWeight: '500',
+  },
+  // Pending Applications — redesigned styles
+  pendingSectionIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingViewAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#673AB712',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  pendingViewAllText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#673AB7',
+  },
+  pendingCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+  },
+  pendingCardBand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  pendingIndexBubble: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  pendingIndexText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 0.3,
+  },
+  pendingBandTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    flex: 1,
+    lineHeight: 18,
+  },
+  pendingStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 20,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 3,
+    flexShrink: 0,
+  },
+  pendingStatusDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+  },
+  pendingStatusLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 0.4,
+  },
+  pendingCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  pendingFooterIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingSchoolName: {
+    fontSize: 11,
+    fontWeight: '500',
+    flex: 1,
+  },
+  pendingDateChip: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  pendingArrowBox: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  pendingEmptyBox: {
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingVertical: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  pendingEmptyIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 13,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 2,
+  },
+  viewMoreText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
