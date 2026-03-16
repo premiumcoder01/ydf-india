@@ -525,8 +525,38 @@ export default function ReviewerApplicationDetailsScreen() {
                   <View style={styles.gridContainer}>
                     {Object.entries(parsed).map(([key, value]) => {
                       if (key === "application_text" || !value || value === "[]") return null;
+
                       const config = FIELD_CONFIGS[key] || { icon: "information-circle-outline", color: "#64748B", bg: "#F8FAFC", darkBg: "rgba(100,116,139,0.1)" };
                       const label = key.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+
+                      // Handle object values (e.g. financial_info)
+                      if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+                        return (
+                          <View key={key} style={[styles.gridItem, { flexDirection: 'column', alignItems: 'flex-start', gap: 8 }]}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                              <View style={[styles.smallIconBox, { backgroundColor: isDark ? config.darkBg : config.bg }]}>
+                                <Ionicons name={config.icon} size={14} color={config.color} />
+                              </View>
+                              <Text style={[styles.gridLabel, { color: subText, fontSize: 13, fontWeight: '700' }]}>{label}</Text>
+                            </View>
+                            <View style={{ width: '100%', backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#F8FAFC', borderRadius: 10, padding: 10, gap: 6, borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.06)' : '#E2E8F0' }}>
+                              {Object.entries(value as Record<string, string>).map(([subKey, subVal]) => (
+                                <View key={subKey} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
+                                  <Text style={[styles.gridLabel, { color: subText, flex: 1 }]}>
+                                    {subKey.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
+                                  </Text>
+                                  <Text style={[styles.gridValue, { color: colors.text, flex: 1.2, textAlign: 'right' }]} numberOfLines={2}>
+                                    {String(subVal ?? "")}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+                          </View>
+                        );
+                      }
+
+                      // Handle array values
+                      if (Array.isArray(value)) return null;
 
                       return (
                         <View key={key} style={styles.gridItem}>
@@ -536,7 +566,7 @@ export default function ReviewerApplicationDetailsScreen() {
                           <View style={{ flex: 1 }}>
                             <Text style={[styles.gridLabel, { color: subText }]}>{label}</Text>
                             <Text style={[styles.gridValue, { color: colors.text }]} numberOfLines={2}>
-                              {value}
+                              {String(value)}
                             </Text>
                           </View>
                         </View>
