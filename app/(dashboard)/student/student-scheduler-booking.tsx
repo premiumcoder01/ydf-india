@@ -21,7 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
 export default function StudentSchedulerBooking() {
-    const { cmid, name } = useLocalSearchParams();
+    const { cmid, name, studentId } = useLocalSearchParams<{ cmid: string; name: string; studentId?: string }>();
     const { colors, isDark } = useTheme();
 
     const [loading, setLoading] = useState(true);
@@ -53,8 +53,8 @@ export default function StudentSchedulerBooking() {
             const { token } = JSON.parse(authData);
 
             const [slotsRes, bookingsRes] = await Promise.all([
-                getSchedulerSlots(token, Number(cmid)),
-                getMySchedulerBookings(token, Number(cmid)),
+                getSchedulerSlots(token, Number(cmid), studentId),
+                getMySchedulerBookings(token, Number(cmid), studentId),
             ]);
 
             if (slotsRes.success && slotsRes.data) {
@@ -114,7 +114,7 @@ export default function StudentSchedulerBooking() {
             if (!authData) return;
             const { token } = JSON.parse(authData);
 
-            const response = await bookSchedulerSlot(token, Number(cmid), slotid);
+            const response = await bookSchedulerSlot(token, Number(cmid), slotid, studentId);
             if (response.success) {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 Alert.alert('Booked!', 'Your interview slot has been confirmed.', [
@@ -152,7 +152,7 @@ export default function StudentSchedulerBooking() {
                             if (!authData) return;
                             const { token } = JSON.parse(authData);
 
-                            const response = await cancelSchedulerBooking(token, Number(cmid), slotid);
+                            const response = await cancelSchedulerBooking(token, Number(cmid), slotid, studentId);
                             if (response.success) {
                                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                                 fetchData();
@@ -185,7 +185,7 @@ export default function StudentSchedulerBooking() {
                             if (!authData) return;
                             const { token } = JSON.parse(authData);
 
-                            const response = await cancelSchedulerBooking(token, Number(cmid), slotid);
+                            const response = await cancelSchedulerBooking(token, Number(cmid), slotid, studentId);
                             if (response.success) {
                                 await fetchData();
                                 setModalVisible(true);

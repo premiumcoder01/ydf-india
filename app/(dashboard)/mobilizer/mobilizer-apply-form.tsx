@@ -5,7 +5,7 @@ import { getMobilizerStudentProfile, getScholarshipDetails, mobilizerApplyForStu
 import { Ionicons } from "@expo/vector-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as DocumentPicker from "expo-document-picker";
+
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { MotiView } from "moti";
@@ -15,6 +15,7 @@ import {
     ActivityIndicator,
     Alert,
     Dimensions,
+    FlatList,
     KeyboardAvoidingView,
     Modal,
     Platform,
@@ -22,6 +23,7 @@ import {
     StatusBar,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View
 } from "react-native";
@@ -30,14 +32,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import StepIndicator from "react-native-step-indicator";
 import { z } from "zod";
 
-type DocumentItem = {
-    name: string;
-    uri: string;
-    mimeType?: string | null;
-    size?: number | null;
-    documentId?: number | string;
-    label?: string;
-};
+
 
 const formSchema = z.object({
     fullName: z.string().min(2, "Full name is required"),
@@ -48,25 +43,13 @@ const formSchema = z.object({
     major: z.string().min(2, "Major is required"),
     gradDate: z.string().min(4, "Graduation date is required"),
     currentYear: z.string().min(1, "Current year is required"),
-    gpa: z.string().refine((v) => v === "" || (!Number.isNaN(Number(v)) && Number(v) <= 10.0), {
-        message: "CGPA must be a number up to 10.0",
+    gpa: z.string().refine((v) => v === "" || (!Number.isNaN(Number(v)) && Number(v) <= 100.0 && Number(v) >= 0), {
+        message: "Please enter a valid percentage (0-100)",
     }),
-    statement: z.string().min(1, "Statement is required"),
+    statement: z.string().optional().default(""),
     activities: z.string().optional().default(""),
     financial: z.string().optional().default(""),
-    documents: z.array(
-        z.object({
-            name: z.string(),
-            uri: z.string(),
-            mimeType: z.string().nullable().optional(),
-            size: z.number().nullable().optional(),
-            documentId: z.union([z.string(), z.number()]).optional(),
-            label: z.string().optional(),
-        })
-    ).min(1, "Please upload required documents"),
-    assessmentQ1: z.string().optional(),
-    assessmentQ2: z.string().optional(),
-    interviewMode: z.string().optional(),
+
     agreed: z.boolean().refine((v) => v, { message: "You must agree before submitting" }),
 });
 
@@ -76,8 +59,6 @@ const STEPS = [
     { key: "personal", title: "Personal" },
     { key: "academic", title: "Academic" },
     { key: "narrative", title: "Narrative" },
-    { key: "assessment", title: "Assessment" },
-    { key: "documents", title: "Documents" },
     { key: "summary", title: "Review" },
     { key: "declare", title: "Submit" },
 ] as const;
@@ -86,8 +67,6 @@ const FIELDS_BY_STEP: Record<string, (keyof FormValues)[]> = {
     personal: ["fullName", "email", "phone", "studentId"],
     academic: ["institution", "major", "gradDate", "currentYear", "gpa"],
     narrative: ["financial", "activities", "statement"],
-    assessment: ["assessmentQ1", "assessmentQ2"],
-    documents: ["documents"],
     summary: [],
     declare: ["agreed"],
 };
@@ -124,6 +103,13 @@ export default function MobilizerApplyFormScreen() {
         onSelect: (val: string) => void;
     }>({ visible: false, title: "", options: [], onSelect: () => { } });
 
+    const [searchQuery, setSearchQuery] = useState("");
+    const filteredOptions = useMemo(() => {
+        return (optionPickerState.options || []).filter((o) =>
+            o.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }, [optionPickerState.options, searchQuery]);
+
     const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
         setToastMessage(message);
         setToastType(type);
@@ -154,17 +140,14 @@ export default function MobilizerApplyFormScreen() {
             statement: "",
             activities: "",
             financial: "",
-            documents: [],
-            assessmentQ1: "",
-            assessmentQ2: "",
-            interviewMode: "",
+
             agreed: false,
         },
         mode: "onSubmit",
         reValidateMode: "onSubmit",
     });
 
-    const documents = watch("documents") || [];
+
 
     const currentStepKey = useMemo(() => STEPS[stepIndex].key, [stepIndex]);
 
@@ -275,40 +258,7 @@ export default function MobilizerApplyFormScreen() {
         }
     };
 
-    const onPickGlobalDocuments = async () => {
-        const res = await DocumentPicker.getDocumentAsync({ type: "*/*", multiple: true, copyToCacheDirectory: true });
-        if (res.canceled) return;
-        const picked: DocumentItem[] = res.assets.map((a) => ({ name: a.name, uri: a.uri, mimeType: a.mimeType ?? undefined, size: a.size ?? undefined }));
-        const existing = getValues("documents");
-        setValue("documents", [...existing, ...picked], { shouldDirty: true, shouldValidate: true });
-    };
 
-    const onPickSpecificDocument = async (reqDoc: any) => {
-        try {
-            const res = await DocumentPicker.getDocumentAsync({ type: "*/*", multiple: false, copyToCacheDirectory: true });
-            if (res.canceled) return;
-            const asset = res.assets[0];
-            const newItem: DocumentItem = {
-                name: asset.name,
-                uri: asset.uri,
-                mimeType: asset.mimeType ?? undefined,
-                size: asset.size ?? undefined,
-                documentId: reqDoc.id || reqDoc.shortname || reqDoc.name || reqDoc.label,
-                label: reqDoc.label || reqDoc.name
-            };
-            const existing = getValues("documents") || [];
-            const filtered = existing.filter(d => d.documentId !== newItem.documentId);
-            setValue("documents", [...filtered, newItem], { shouldDirty: true, shouldValidate: true });
-        } catch (err) {
-            console.log("Picker error", err);
-        }
-    };
-
-    const removeDocument = (index: number) => {
-        const existing = getValues("documents");
-        const nextDocs = existing.filter((_, i) => i !== index);
-        setValue("documents", nextDocs, { shouldDirty: true, shouldValidate: true });
-    };
 
     const onSubmit = handleSubmit(
         async (values) => {
@@ -338,10 +288,7 @@ export default function MobilizerApplyFormScreen() {
                     gpa: values.gpa,
                     activities: values.activities,
                     financial_info: values.financial,
-                    assessment_q1: values.assessmentQ1,
-                    assessment_q2: values.assessmentQ2,
-                    interview_mode: values.interviewMode,
-                    documents: values.documents,
+
                 };
                 console.log("Submission Data:", JSON.stringify(submissionData, null, 2));
                 const response = await mobilizerApplyForStudent(token, submissionData as any);
@@ -352,7 +299,7 @@ export default function MobilizerApplyFormScreen() {
                         Alert.alert(
                             "Application Submitted",
                             `Application for ${selectedStudent.fullname || selectedStudent.firstname} has been submitted successfully!`,
-                            [{ text: "OK", onPress: () => router.replace("/(dashboard)/mobilizer/mobilizer-applications") }]
+                            [{ text: "OK", onPress: () => router.replace({ pathname: "/(dashboard)/mobilizer/mobilizer-scholarship-details", params: { scholarshipId: String(scholarshipId), studentId: String(studentId), studentName: selectedStudent?.fullname || `${selectedStudent?.firstname || ""} ${selectedStudent?.lastname || ""}`.trim() } }) }]
                         );
                     }, 1000);
                 } else {
@@ -529,52 +476,49 @@ export default function MobilizerApplyFormScreen() {
                                 <Controller control={control} name="institution" render={({ field: { onChange, value, onBlur } }) => (
                                     <CustomTextInput label="Institution Name" placeholder="Enter institution" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.institution?.message} required />
                                 )} />
-                                <Controller control={control} name="major" render={({ field: { onChange, value, onBlur } }) => (
-                                    <CustomTextInput label="Major / Field of Study" placeholder="e.g., Computer Science" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.major?.message} required />
-                                )} />
-                                <Controller control={control} name="gradDate" render={({ field: { value } }) => (
-                                    <TouchableOpacity onPress={() => openDatePicker("gradDate", "date")}>
+                                <Controller control={control} name="major" render={({ field: { onChange, value } }) => (
+                                    <TouchableOpacity onPress={() => {
+                                        setOptionPickerState({
+                                            visible: true,
+                                            title: "Select Major / Field of Study",
+                                            options: [
+                                                "Computer Science", "Information Technology", "Data Science / AI", "Mechanical Engineering", "Civil Engineering", "Electrical / Electronics Engineering", "Biomedical Engineering", "Chemical Engineering", "Aerospace / Aeronautical Engineering", "Medicine (MBBS)", "Dental (BDS)", "Nursing", "Pharmacy", "Business Administration (BBA/MBA)", "Finance / Accounting", "Economics", "Marketing", "Law (LLB/LLM)", "History", "Political Science", "Psychology", "Sociology", "English / Literature", "Physics", "Chemistry", "Mathematics", "Biology / Biotechnology", "Environmental Science", "Architecture", "Design (Fashion/Graphic/Interior)", "Journalism / Mass Communication", "Agriculture / Horticulture", "Veterinary Science", "Education / Teaching", "Hotel Management / Hospitality", "Vocational Training (ITI)", "Polytechnic / Diploma", "10th Grade (Secondary)", "12th Grade (Higher Secondary)", "Other"
+                                            ],
+                                            onSelect: (val) => onChange(val)
+                                        });
+                                    }}>
                                         <View pointerEvents="none">
-                                            <CustomTextInput
-                                                label="Expected Graduation"
-                                                placeholder="MM/YYYY"
-                                                value={value}
-                                                editable={false}
-                                                error={errors.gradDate?.message}
-                                                onChangeText={() => { }}
-                                                required
-                                                icon="calendar-outline"
-                                            />
+                                            <CustomTextInput label="Major / Field of Study" placeholder="Select major" value={value} editable={false} onChangeText={() => { }} error={errors.major?.message} required rightIcon="chevron-down" />
                                         </View>
                                     </TouchableOpacity>
                                 )} />
-                                <Controller control={control} name="currentYear" render={({ field: { value } }) => (
-                                    <TouchableOpacity onPress={() => openDatePicker("currentYear", "date")}>
+                                <Controller control={control} name="gradDate" render={({ field: { onChange, value } }) => (
+                                    <TouchableOpacity onPress={() => {
+                                        const currentYear = new Date().getFullYear();
+                                        const years = Array.from({ length: 10 }, (_, i) => String(currentYear + i));
+                                        setOptionPickerState({ visible: true, title: "Select Graduation Year", options: years, onSelect: (val) => onChange(val) });
+                                    }}>
                                         <View pointerEvents="none">
-                                            <CustomTextInput
-                                                label="Current Year of Study"
-                                                placeholder="YYYY"
-                                                value={value}
-                                                editable={false}
-                                                error={errors.currentYear?.message}
-                                                onChangeText={() => { }}
-                                                required
-                                                icon="school-outline"
-                                            />
+                                            <CustomTextInput label="Expected Graduation Year" placeholder="Select Year" value={value} editable={false} error={errors.gradDate?.message} onChangeText={() => { }} required rightIcon="calendar-outline" />
+                                        </View>
+                                    </TouchableOpacity>
+                                )} />
+                                <Controller control={control} name="currentYear" render={({ field: { onChange, value } }) => (
+                                    <TouchableOpacity onPress={() => {
+                                        setOptionPickerState({ visible: true, title: "Current Year of Study", options: ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year", "Internship", "PhD"], onSelect: (val) => onChange(val) });
+                                    }}>
+                                        <View pointerEvents="none">
+                                            <CustomTextInput label="Current Year of Study" placeholder="Select Year" value={value} editable={false} error={errors.currentYear?.message} onChangeText={() => { }} required rightIcon="school-outline" />
                                         </View>
                                     </TouchableOpacity>
                                 )} />
                                 <Controller control={control} name="gpa" render={({ field: { onChange, value, onBlur } }) => (
-                                    <CustomTextInput
-                                        label="Current CGPA/% (Max 10)"
-                                        placeholder="e.g., 8.5"
-                                        value={value}
-                                        onChangeText={onChange}
-                                        onBlur={onBlur}
-                                        keyboardType="decimal-pad"
-                                        error={errors.gpa?.message}
-                                        icon="analytics-outline"
-                                    />
+                                    <View style={{ marginBottom: 16 }}>
+                                        <CustomTextInput label="Last Exam Percentage (%) (Optional)" placeholder="e.g. 82.5" value={value} onChangeText={onChange} onBlur={onBlur} keyboardType="numeric" error={errors.gpa?.message} maxLength={5} />
+                                        <Text style={{ fontSize: 12, color: colors.textSecondary, marginLeft: 4, marginTop: 4 }}>
+                                            If the institute provides CGPA, please convert it to percentage (e.g., CGPA × 9.5).
+                                        </Text>
+                                    </View>
                                 )} />
                             </Section>
                         )}
@@ -582,31 +526,37 @@ export default function MobilizerApplyFormScreen() {
                         {/* STEP 3: Narrative */}
                         {currentStepKey === "narrative" && (
                             <Section title="Personal Statement & Background">
-                                <Controller control={control} name="financial" render={({ field: { onChange, value, onBlur } }) => (
-                                    <CustomTextInput
-                                        label="Family / Financial Information"
-                                        placeholder="Describe your family's financial situation"
-                                        value={value}
-                                        onChangeText={onChange}
-                                        onBlur={onBlur}
-                                        inputStyle={{ minHeight: 80, textAlignVertical: "top" }}
-                                        multiline
-                                    />
+                                <Controller control={control} name="financial" render={({ field: { onChange, value } }) => (
+                                    <TouchableOpacity onPress={() => {
+                                        setOptionPickerState({
+                                            visible: true,
+                                            title: "Family Annual Income",
+                                            options: ["Less than ₹1 Lakh", "₹1 Lakh - ₹3 Lakhs", "₹3 Lakhs - ₹5 Lakhs", "₹5 Lakhs - ₹8 Lakhs", "More than ₹8 Lakhs"],
+                                            onSelect: (val) => onChange(val)
+                                        });
+                                    }}>
+                                        <View pointerEvents="none">
+                                            <CustomTextInput label="Family Annual Income (Optional)" placeholder="Select income range" value={value} editable={false} onChangeText={() => { }} error={errors.financial?.message} rightIcon="chevron-down" />
+                                        </View>
+                                    </TouchableOpacity>
                                 )} />
-                                <Controller control={control} name="activities" render={({ field: { onChange, value, onBlur } }) => (
-                                    <CustomTextInput
-                                        label="Extracurricular Activities"
-                                        placeholder="List achievements, volunteer work, etc."
-                                        value={value}
-                                        onChangeText={onChange}
-                                        onBlur={onBlur}
-                                        inputStyle={{ minHeight: 80, textAlignVertical: "top" }}
-                                        multiline
-                                    />
+                                <Controller control={control} name="activities" render={({ field: { onChange, value } }) => (
+                                    <TouchableOpacity onPress={() => {
+                                        setOptionPickerState({
+                                            visible: true,
+                                            title: "Extracurricular Activities",
+                                            options: ["Sports (Team/Individual)", "Music / Performing Arts", "Debate / Public Speaking", "Volunteering / Social Work", "Student Council / Leadership", "Tech / Coding Clubs", "Arts & Crafts", "None", "Other"],
+                                            onSelect: (val) => onChange(val)
+                                        });
+                                    }}>
+                                        <View pointerEvents="none">
+                                            <CustomTextInput label="Extracurricular Activities (Optional)" placeholder="Select primary activity" value={value} editable={false} onChangeText={() => { }} rightIcon="chevron-down" />
+                                        </View>
+                                    </TouchableOpacity>
                                 )} />
                                 <Controller control={control} name="statement" render={({ field: { onChange, value, onBlur } }) => (
                                     <CustomTextInput
-                                        label="Personal Statement"
+                                        label="Personal Statement (Optional)"
                                         placeholder="Why does this student deserve this scholarship?"
                                         value={value}
                                         onChangeText={onChange}
@@ -614,158 +564,8 @@ export default function MobilizerApplyFormScreen() {
                                         error={errors.statement?.message}
                                         inputStyle={{ minHeight: 120, textAlignVertical: "top" }}
                                         multiline
-                                        required
                                     />
                                 )} />
-                            </Section>
-                        )}
-
-                        {/* STEP 4: Assessment */}
-                        {currentStepKey === "assessment" && (
-                            <Section title="Need Assessment">
-                                <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-                                    These questions help us assess the student's socio-economic background
-                                </Text>
-                                <Controller control={control} name="assessmentQ1" render={({ field: { value, onChange } }) => (
-                                    <TouchableOpacity onPress={() => {
-                                        setOptionPickerState({
-                                            visible: true,
-                                            title: "Vehicle Ownership",
-                                            options: ["Yes", "No"],
-                                            onSelect: (val) => onChange(val)
-                                        });
-                                    }}>
-                                        <View pointerEvents="none">
-                                            <CustomTextInput
-                                                label="Does the student's family own a vehicle?"
-                                                placeholder="Select Yes/No"
-                                                value={value || ""}
-                                                editable={false}
-                                                onChangeText={() => { }}
-                                                icon="car-outline"
-                                            />
-                                        </View>
-                                    </TouchableOpacity>
-                                )} />
-                                <Controller control={control} name="assessmentQ2" render={({ field: { value, onChange } }) => (
-                                    <TouchableOpacity onPress={() => {
-                                        setOptionPickerState({
-                                            visible: true,
-                                            title: "Housing Type",
-                                            options: ["Owned", "Rented", "Kutcha House", "Pucca House", "Other"],
-                                            onSelect: (val) => onChange(val)
-                                        });
-                                    }}>
-                                        <View pointerEvents="none">
-                                            <CustomTextInput
-                                                label="Type of Housing"
-                                                placeholder="Select housing type"
-                                                value={value || ""}
-                                                editable={false}
-                                                onChangeText={() => { }}
-                                                icon="home-outline"
-                                            />
-                                        </View>
-                                    </TouchableOpacity>
-                                )} />
-                                <Controller control={control} name="interviewMode" render={({ field: { value, onChange } }) => (
-                                    <View style={{ marginTop: 8 }}>
-                                        <Text style={[styles.inputLabel, { color: colors.text }]}>Preferred Interview Mode</Text>
-                                        <View style={styles.chipContainer}>
-                                            {["Online (Video Call)", "Telephonic", "In-Person"].map((mode) => (
-                                                <TouchableOpacity
-                                                    key={mode}
-                                                    onPress={() => onChange(mode)}
-                                                    style={[
-                                                        styles.chip,
-                                                        {
-                                                            borderColor: value === mode ? colors.primary : colors.border,
-                                                            backgroundColor: value === mode ? `${colors.primary}15` : "transparent"
-                                                        }
-                                                    ]}
-                                                >
-                                                    <Text style={[styles.chipText, { color: value === mode ? colors.primary : colors.textSecondary }]}>
-                                                        {mode}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </View>
-                                    </View>
-                                )} />
-                            </Section>
-                        )}
-
-                        {/* STEP 5: Documents */}
-                        {currentStepKey === "documents" && (
-                            <Section title="Required Documents">
-                                <View style={{ gap: 16 }}>
-                                    {scholarship?.documents && scholarship.documents.length > 0 ? (
-                                        <View>
-                                            {scholarship.documents
-                                                .filter((reqDoc: any) => !reqDoc.name?.toLowerCase().includes("structured feedback"))
-                                                .map((reqDoc: any, index: number) => {
-                                                    const docIdentifier = reqDoc.id || reqDoc.shortname || reqDoc.name || reqDoc.label;
-                                                    const uploadedDoc = documents.find(d => d.documentId === docIdentifier);
-                                                    return (
-                                                        <View key={reqDoc.id || index} style={[styles.docReqItem, { borderColor: colors.border, backgroundColor: isDark ? colors.surface : '#fafafa' }]}>
-                                                            <View style={{ flex: 1 }}>
-                                                                <Text style={[styles.reqDocLabel, { color: colors.text }]}>
-                                                                    {reqDoc.label || reqDoc.name || "Document"}
-                                                                    {reqDoc.required !== false && <Text style={{ color: '#EF4444' }}> *</Text>}
-                                                                </Text>
-                                                                {uploadedDoc ? (
-                                                                    <View style={styles.uploadedBadge}>
-                                                                        <Ionicons name="checkmark-circle" size={16} color="#10B981" />
-                                                                        <Text numberOfLines={1} style={[styles.uploadedText, { color: '#10B981' }]}>{uploadedDoc.name}</Text>
-                                                                    </View>
-                                                                ) : (
-                                                                    <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 4 }}>Not uploaded yet</Text>
-                                                                )}
-                                                            </View>
-                                                            <TouchableOpacity
-                                                                onPress={() => onPickSpecificDocument(reqDoc)}
-                                                                style={[styles.uploadBtn, { backgroundColor: uploadedDoc ? (isDark ? colors.surface : '#f0fdf4') : colors.primary }]}
-                                                            >
-                                                                <Ionicons name={uploadedDoc ? "refresh" : "cloud-upload-outline"} size={18} color={uploadedDoc ? colors.text : '#fff'} />
-                                                                <Text style={{ color: uploadedDoc ? colors.text : '#fff', fontSize: 13, fontWeight: '600', marginLeft: 6 }}>
-                                                                    {uploadedDoc ? "Change" : "Upload"}
-                                                                </Text>
-                                                            </TouchableOpacity>
-                                                        </View>
-                                                    );
-                                                })}
-                                        </View>
-                                    ) : (
-                                        <Button variant="secondary" onPress={onPickGlobalDocuments}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                                <Ionicons name="cloud-upload-outline" size={20} color={colors.text} />
-                                                <Text style={{ fontWeight: "700", color: colors.text }}>Pick Documents</Text>
-                                            </View>
-                                        </Button>
-                                    )}
-
-                                    <View style={{ marginTop: 16 }}>
-                                        <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>Attached Files ({documents.length})</Text>
-                                        {documents.length === 0 && (
-                                            <Text style={{ fontStyle: 'italic', color: colors.textSecondary, fontSize: 13, marginTop: 8 }}>No documents selected</Text>
-                                        )}
-                                        {documents.map((doc, idx) => (
-                                            <View key={`${doc.uri}-${idx}`} style={[styles.docItem, { backgroundColor: isDark ? colors.surface : "#fff", borderColor: colors.border }]}>
-                                                <Ionicons name="document-attach-outline" size={22} color={colors.primary} />
-                                                <View style={{ flex: 1, marginLeft: 12 }}>
-                                                    <Text numberOfLines={1} style={[styles.docName, { color: colors.text }]}>{doc.name}</Text>
-                                                    {doc.label && <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>{doc.label}</Text>}
-                                                </View>
-                                                <TouchableOpacity onPress={() => removeDocument(idx)} style={styles.docRemove}>
-                                                    <Ionicons name="trash-outline" size={20} color="#EF4444" />
-                                                </TouchableOpacity>
-                                            </View>
-                                        ))}
-                                        {errors.documents?.message && (
-                                            <Text style={styles.errorText}>{String(errors.documents.message)}</Text>
-                                        )}
-                                    </View>
-                                </View>
                             </Section>
                         )}
 
@@ -797,25 +597,7 @@ export default function MobilizerApplyFormScreen() {
                                         <SummaryRow label="Statement" value={allValues.statement ? `${allValues.statement.substring(0, 100)}...` : "Not provided"} />
                                     </View>
 
-                                    <View style={styles.summarySection}>
-                                        <Text style={[styles.summarySectionTitle, { color: colors.primary }]}>Assessment</Text>
-                                        <SummaryRow label="Vehicle Ownership" value={allValues.assessmentQ1 || "Not answered"} />
-                                        <SummaryRow label="Housing Type" value={allValues.assessmentQ2 || "Not answered"} />
-                                        <SummaryRow label="Interview Mode" value={allValues.interviewMode || "Not selected"} />
-                                    </View>
 
-                                    <View style={styles.summarySection}>
-                                        <Text style={[styles.summarySectionTitle, { color: colors.primary }]}>Documents</Text>
-                                        <View style={{ marginTop: 8 }}>
-                                            <Text style={[styles.summaryValue, { color: colors.text }]}>{documents.length} document(s) attached</Text>
-                                            {documents.map((doc, idx) => (
-                                                <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
-                                                    <Ionicons name="checkmark-circle" size={16} color="#10B981" />
-                                                    <Text style={{ fontSize: 13, color: colors.textSecondary, marginLeft: 6 }}>{doc.name}</Text>
-                                                </View>
-                                            ))}
-                                        </View>
-                                    </View>
                                 </View>
                             </Section>
                         )}
@@ -856,7 +638,7 @@ export default function MobilizerApplyFormScreen() {
                             <Button title="Next" onPress={next} variant="primary" style={[styles.footerBtn, stepIndex === 0 && { flex: 1 }]} />
                         ) : (
                             <Button
-                                title={isSubmitting ? "Submitting..." : "Submit Application"}
+                                title={isSubmitting ? "Submitting..." : "Submit"}
                                 onPress={onSubmit}
                                 variant="primary"
                                 style={styles.footerBtn}
@@ -878,31 +660,60 @@ export default function MobilizerApplyFormScreen() {
             />
 
             {/* Option Picker Modal */}
-            <Modal visible={optionPickerState.visible} transparent animationType="slide">
-                <View style={styles.modalBackdrop}>
-                    <View style={[styles.optionModalContent, { backgroundColor: isDark ? colors.card : '#fff' }]}>
-                        <Text style={[styles.modalTitle, { color: colors.text, marginBottom: 20 }]}>{optionPickerState.title}</Text>
-                        {optionPickerState.options.map((option, index) => (
-                            <TouchableOpacity
-                                key={index}
-                                onPress={() => {
-                                    optionPickerState.onSelect(option);
-                                    setOptionPickerState({ ...optionPickerState, visible: false });
-                                }}
-                                style={[styles.optionItem, { borderBottomColor: colors.border }]}
-                            >
-                                <Text style={[styles.optionText, { color: colors.text }]}>{option}</Text>
-                                <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-                            </TouchableOpacity>
-                        ))}
-                        <Button
-                            title="Cancel"
-                            onPress={() => setOptionPickerState({ ...optionPickerState, visible: false })}
-                            variant="secondary"
-                            style={{ marginTop: 16 }}
-                        />
+            <Modal
+                visible={optionPickerState.visible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => {
+                    setOptionPickerState(prev => ({ ...prev, visible: false }));
+                    setSearchQuery("");
+                }}
+            >
+                <TouchableOpacity
+                    style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: 'center', padding: 20 }}
+                    activeOpacity={1}
+                    onPress={() => {
+                        setOptionPickerState(prev => ({ ...prev, visible: false }));
+                        setSearchQuery("");
+                    }}
+                >
+                    <View style={{ backgroundColor: isDark ? colors.card : "#fff", borderRadius: 12, overflow: 'hidden', maxHeight: '70%' }}>
+                        <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: isDark ? colors.border : '#eee' }}>
+                            <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>{optionPickerState.title}</Text>
+                        </View>
+
+                        <View style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: isDark ? colors.border : '#eee' }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? colors.surface : '#F3F4F6', borderRadius: 8, paddingHorizontal: 12, height: 44 }}>
+                                <Ionicons name="search" size={20} color={colors.textSecondary} />
+                                <TextInput value={searchQuery} onChangeText={setSearchQuery} placeholder="Search..." placeholderTextColor={colors.textSecondary} style={{ flex: 1, marginLeft: 8, fontSize: 15, color: colors.text, paddingVertical: 0 }} />
+                                {searchQuery.length > 0 && (
+                                    <TouchableOpacity onPress={() => setSearchQuery("")}>
+                                        <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        </View>
+
+                        {filteredOptions.length > 0 ? (
+                            <FlatList
+                                data={filteredOptions}
+                                keyExtractor={(item) => item}
+                                keyboardShouldPersistTaps="always"
+                                renderItem={({ item }) => (
+                                    <TouchableOpacity style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: isDark ? colors.border : '#f5f5f5' }} onPress={() => { optionPickerState.onSelect(item); setOptionPickerState(prev => ({ ...prev, visible: false })); setSearchQuery(""); }}>
+                                        <Text style={{ fontSize: 16, color: colors.text }}>{item}</Text>
+                                    </TouchableOpacity>
+                                )}
+                            />
+                        ) : (
+                            <View style={{ padding: 32, alignItems: 'center' }}>
+                                <Ionicons name="search-outline" size={48} color={colors.textSecondary} />
+                                <Text style={{ fontSize: 15, color: colors.textSecondary, marginTop: 12, textAlign: 'center' }}>No results found</Text>
+                            </View>
+                        )}
+                        <Button title="Cancel" onPress={() => { setOptionPickerState({ ...optionPickerState, visible: false }); setSearchQuery(""); }} variant="secondary" style={{ margin: 16, marginTop: 0 }} />
                     </View>
-                </View>
+                </TouchableOpacity>
             </Modal>
 
             <Toast
@@ -925,7 +736,7 @@ const styles = StyleSheet.create({
     formCard: { borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
     sectionIconBox: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-    sectionTitle: { fontSize: 18, fontWeight: '700' },
+    sectionTitle: { fontSize: 15, fontWeight: '700' },
     sectionSubtitle: { fontSize: 14, fontWeight: '600', marginBottom: 12 },
     illustrationBox: { width: 100, height: 100, borderRadius: 50, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
     stepDescription: { fontSize: 16, fontWeight: '500', textAlign: 'center', marginBottom: 16, paddingHorizontal: 20 },

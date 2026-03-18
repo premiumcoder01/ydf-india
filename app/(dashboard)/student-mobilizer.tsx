@@ -1,13 +1,12 @@
 import { HelloWave, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { bookmarkScholarship, getMobilizerDashboardStats, getMobilizerRecommendedScholarships, getMobilizerStudents, getMobilizerUpcomingDeadlines, getUserProfile } from "@/utils/api";
+import { getMobilizerDashboardStats, getMobilizerStudents, getMobilizerUpcomingDeadlines, getUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   BackHandler,
   Image,
@@ -21,14 +20,14 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const mobilizerFeatures = [
-  {
-    id: 1,
-    title: "View Scholarships",
-    description: "Browse all available scholarships",
-    icon: "search-outline",
-    color: "#4CAF50",
-    route: "/(dashboard)/mobilizer/mobilizer-scholarship-listing"
-  },
+  // {
+  //   id: 1,
+  //   title: "View Scholarships",
+  //   description: "Browse all available scholarships",
+  //   icon: "search-outline",
+  //   color: "#4CAF50",
+  //   route: "/(dashboard)/mobilizer/mobilizer-scholarship-listing"
+  // },
   {
     id: 2,
     title: "My Students",
@@ -45,14 +44,14 @@ const mobilizerFeatures = [
     color: "#FF9800",
     route: "/(dashboard)/mobilizer/mobilizer-applications"
   },
-  {
-    id: 4,
-    title: "Bookmarked",
-    description: "View saved scholarships",
-    icon: "bookmark",
-    color: "#FFB400",
-    route: "/(dashboard)/mobilizer/mobilizer-bookmarked-scholarships"
-  },
+  // {
+  //   id: 4,
+  //   title: "Bookmarked",
+  //   description: "View saved scholarships",
+  //   icon: "bookmark",
+  //   color: "#FFB400",
+  //   route: "/(dashboard)/mobilizer/mobilizer-bookmarked-scholarships"
+  // },
   {
     id: 5,
     title: "Add Student",
@@ -86,10 +85,8 @@ export default function StudentMobilizerDashboard() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<any[]>([]);
-  const [recommendedScholarships, setRecommendedScholarships] = useState<any[]>([]);
 
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
-  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: "", type: "success" as "success" | "error" | "info" });
 
   // Reuse student dashboard progress logic
@@ -169,25 +166,9 @@ export default function StudentMobilizerDashboard() {
           if (Array.isArray(studentList)) {
             setStudents(studentList);
 
-            // If we have students, fetch recommended scholarships for the first one (or currently selected)
-            if (studentList.length > 0) {
-              const targetId = selectedStudentId || studentList[0].id;
-              if (!selectedStudentId) setSelectedStudentId(targetId);
-
-              setLoadingRecommendations(true);
-              try {
-                const recRes = await getMobilizerRecommendedScholarships(token, targetId);
-                if (recRes.success) {
-                  const recs = recRes.data?.students || recRes.data?.data || recRes.data?.scholarships || [];
-                  if (Array.isArray(recs)) {
-                    setRecommendedScholarships(recs);
-                  }
-                }
-              } catch (err) {
-                console.log("Error fetching recommended scholarships", err);
-              } finally {
-                setLoadingRecommendations(false);
-              }
+            // Optional: If we need any initial selection logic, but for now we just show the student cards
+            if (studentList.length > 0 && !selectedStudentId) {
+              setSelectedStudentId(studentList[0].id);
             }
           }
         }
@@ -213,61 +194,25 @@ export default function StudentMobilizerDashboard() {
     fetchData();
   };
 
-  const handleStudentSelect = async (studentId: number) => {
-    if (studentId === selectedStudentId) return;
-
-    setSelectedStudentId(studentId);
-    setRecommendedScholarships([]); // Clear current list
-    setLoadingRecommendations(true);
-
-    try {
-      const authDataStr = await AsyncStorage.getItem("authData");
-      if (!authDataStr) return;
-      const { token } = JSON.parse(authDataStr);
-
-      const recRes = await getMobilizerRecommendedScholarships(token, studentId);
-      if (recRes.success) {
-        const recs = recRes.data?.data || recRes.data?.scholarships || [];
-        if (Array.isArray(recs)) {
-          setRecommendedScholarships(recs);
-        }
-      }
-    } catch (err) {
-      console.log("Error fetching recommended scholarships", err);
-    } finally {
-      setLoadingRecommendations(false);
-    }
+  const getInitials = (firstname?: string, lastname?: string) => {
+    const first = (firstname || "S").charAt(0).toUpperCase();
+    const last = (lastname || "").charAt(0).toUpperCase();
+    return last ? `${first}${last}` : first;
   };
 
-  const handleBookmark = async (scholarshipId: number, currentStatus: boolean, studentId: number) => {
-    // Optimistic update
-    setRecommendedScholarships(prev => prev.map(s =>
-      (s.scholarship_id === scholarshipId || s.id === scholarshipId)
-        ? { ...s, bookmarked: !currentStatus }
-        : s
-    ));
-
-    try {
-      const authDataStr = await AsyncStorage.getItem("authData");
-      if (!authDataStr) return;
-      const { token } = JSON.parse(authDataStr);
-
-      const action = !currentStatus ? "bookmark" : "unbookmark";
-      const response = await bookmarkScholarship(token, scholarshipId, action);
-      if (!response.success) {
-        throw new Error(response.message || "Failed to update bookmark");
-      }
-      setToast({ visible: true, message: response.message || `Scholarship ${action === "bookmark" ? "bookmarked" : "removed from bookmarks"}`, type: "success" });
-    } catch (error: any) {
-      // Revert
-      setRecommendedScholarships(prev => prev.map(s =>
-        (s.scholarship_id === scholarshipId || s.id === scholarshipId)
-          ? { ...s, bookmarked: currentStatus }
-          : s
-      ));
-      setToast({ visible: true, message: error.message || "Failed to update bookmark", type: "error" });
-    }
+  const getAvatarColor = (id: number) => {
+    const colorsList = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8", "#6C5CE7", "#A29BFE", "#FD79A8", "#FDCB6E", "#00B894", "#0984E3", "#E17055"];
+    return colorsList[id % colorsList.length];
   };
+
+  const handleStudentPress = (student: any) => {
+    const name = student.fullname || `${student.firstname || ""} ${student.lastname || ""}`.trim() || "Student";
+    router.push({
+      pathname: "/(dashboard)/mobilizer/student-scholarships",
+      params: { studentId: student.id, studentName: name }
+    });
+  };
+
 
   return (
     <View style={styles.container}>
@@ -511,179 +456,85 @@ export default function StudentMobilizerDashboard() {
 
 
 
-        {/* Recommended Scholarships */}
+        {/* Recommended Scholarship Eligibility Section */}
         <View style={styles.sectionContainer}>
           <View style={styles.recommendedHeader}>
             <View>
-              <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 4 }]}>Recommended Scholarships</Text>
-              {students.length > 0 && selectedStudentId && (() => {
-                const selected = students.find((s) => s.id === selectedStudentId);
-                const name = selected?.fullname || (selected ? `${selected.firstname || ""} ${selected.lastname || ""}`.trim() : "");
-                return name ? (
-                  <Text style={[styles.recommendedSubtitle, { color: colors.textSecondary }]}>
-                    Matching scholarships for {name}
-                  </Text>
-                ) : null;
-              })()}
+              <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 4 }]}>Find Scholarships for Students</Text>
+              <Text style={[styles.recommendedSubtitle, { color: colors.textSecondary }]}>
+                Select a student to view personalized scholarship recommendations
+              </Text>
             </View>
           </View>
 
           {students.length > 0 ? (
-            <View>
-              {/* Student selector */}
-              <Text style={[styles.studentSelectorLabel, { color: colors.textSecondary }]}>Select student</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.studentTabsContainer}
-                style={styles.studentTabsScroll}
-              >
-                {students.map((student) => {
-                  const isSelected = selectedStudentId === student.id;
-                  const appCount = student.applications_count ?? 0;
-                  const displayName = student.fullname || `${student.firstname || ""} ${student.lastname || ""}`.trim() || "Student";
-                  return (
-                    <TouchableOpacity
-                      key={student.id}
-                      style={[
-                        styles.studentTab,
-                        {
-                          borderColor: isSelected ? colors.primary : colors.border,
-                          backgroundColor: isSelected ? colors.primary + "18" : (isDark ? colors.card : "#f8f8f8"),
-                          shadowColor: isSelected ? colors.primary : "#000",
-                          shadowOpacity: isSelected ? 0.15 : 0.04,
-                        }
-                      ]}
-                      onPress={() => handleStudentSelect(student.id)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={[styles.studentTabAvatar, { backgroundColor: isSelected ? colors.primary : (isDark ? "#555" : "#ccc") }]}>
-                        <Text style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}>
-                          {(student.firstname || displayName).charAt(0).toUpperCase()}
-                        </Text>
-                      </View>
-                      <View style={styles.studentTabTextWrap}>
-                        <Text style={[styles.studentTabText, { color: isSelected ? colors.primary : colors.text, fontWeight: isSelected ? "700" : "500" }]} numberOfLines={1}>
-                          {displayName}
-                        </Text>
+            <View style={styles.studentCardGrid}>
+              {students.slice(0, 4).map((student) => {
+                const avatarColor = getAvatarColor(student.id);
+                const initials = getInitials(student.firstname, student.lastname);
+                const displayName = student.fullname || `${student.firstname || ""} ${student.lastname || ""}`.trim() || "Student";
 
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+                let customFields: any = {};
+                try {
+                  if (typeof student.custom_fields === 'string') customFields = JSON.parse(student.custom_fields);
+                  else if (typeof student.custom_fields === 'object') customFields = student.custom_fields;
+                } catch (e) { }
 
-              {/* Scholarship List */}
-              {loadingRecommendations ? (
-                <View style={[styles.loadingContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                  <Text style={{ marginTop: 10, color: colors.textSecondary, fontSize: 13 }}>Loading recommendations for this student...</Text>
-                </View>
-              ) : (
-                <View style={styles.cardGrid}>
-                  {recommendedScholarships.map((item, index) => {
-                    const isActive = item.status === "active" && !item.expired;
-                    const summaryText = item.summary ? item.summary.replace(/<[^>]+>/g, "").trim() : "";
-                    const categoryColor = item.category ? (isDark ? "#5C6BC0" : "#5C6BC0") : colors.primary;
+                const academic = student.academic_level || customFields?.course || "N/A";
 
-                    return (
-                      <TouchableOpacity
-                        key={item.id || item.scholarship_id || index}
-                        activeOpacity={0.95}
-                        onPress={() => router.push({ pathname: "/(dashboard)/mobilizer/mobilizer-scholarship-details", params: { scholarshipId: item.id || item.scholarship_id } })}
-                        style={[
-                          styles.scholarshipCard,
-                          {
-                            backgroundColor: colors.card,
-                            borderColor: item.expired ? (isDark ? "#444" : "#e0e0e0") : colors.border,
-                            borderLeftWidth: 4,
-                            borderLeftColor: item.has_applied ? "#4CAF50" : item.expired ? "#9E9E9E" : categoryColor,
-                            opacity: item.expired ? 0.85 : 1,
-                          }
-                        ]}
-                      >
-                        <View style={styles.recCardTop}>
-                          <View style={styles.recCardTitleRow}>
-                            {item.category ? (
-                              <View style={[styles.recCategoryPill, { backgroundColor: categoryColor + "22" }]}>
-                                <View style={[styles.recCategoryDot, { backgroundColor: categoryColor }]} />
-                                <Text style={[styles.recCategoryText, { color: categoryColor }]} numberOfLines={1}>
-                                  {item.category}
-                                </Text>
-                              </View>
-                            ) : null}
-                            <View style={{ flex: 1 }} />
-                            <TouchableOpacity
-                              onPress={(e) => { e?.stopPropagation?.(); handleBookmark(item.id || item.scholarship_id, item.bookmarked, selectedStudentId || 0); }}
-                              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                              style={styles.recBookmarkWrap}
-                            >
-                              <Ionicons name={item.bookmarked ? "bookmark" : "bookmark-outline"} size={22} color={item.bookmarked ? colors.primary : colors.textSecondary} />
-                            </TouchableOpacity>
-                          </View>
-                          <Text style={[styles.recCardTitle, { color: colors.text }]} numberOfLines={2}>
-                            {item.name || item.scholarship_name}
-                          </Text>
-                          {item.provider ? (
-                            <Text style={[styles.recCardProvider, { color: colors.textSecondary }]} numberOfLines={1}>
-                              by {item.provider}
-                            </Text>
-                          ) : null}
-                        </View>
-
-                        {summaryText ? (
-                          <Text style={[styles.recCardSummary, { color: colors.textSecondary }]} numberOfLines={2}>
-                            {summaryText}
-                          </Text>
-                        ) : null}
-
-                        <View style={[styles.recCardDivider, { backgroundColor: colors.border }]} />
-
-                        <View style={styles.recCardFooter}>
-                          <View style={styles.recDeadlineWrap}>
-                            {item.expired ? (
-                              <>
-                                <Ionicons name="close-circle-outline" size={16} color="#F44336" />
-                                <Text style={[styles.recDeadlineText, { color: "#F44336" }]}>Expired</Text>
-                              </>
-                            ) : item.has_applied ? (
-                              <>
-                                <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
-                                <Text style={[styles.recDeadlineText, { color: "#4CAF50" }]}>Applied</Text>
-                              </>
-                            ) : item.deadline ? (
-                              <>
-                                <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
-                                <Text style={[styles.recDeadlineText, { color: colors.textSecondary }]}>
-                                  Due {new Date(item.deadline).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
-                                </Text>
-                              </>
-                            ) : (
-                              <>
-                                <Ionicons name="infinite-outline" size={16} color={colors.textSecondary} />
-                                <Text style={[styles.recDeadlineText, { color: colors.textSecondary }]}>Always open</Text>
-                              </>
-                            )}
-                          </View>
-                          <View style={[styles.recViewBtn, { backgroundColor: colors.primary }]}>
-                            <Text style={styles.recViewBtnText}>View Details</Text>
-                            <Ionicons name="arrow-forward" size={14} color="#fff" />
-                          </View>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                  {recommendedScholarships.length === 0 && (
-                    <View style={[styles.recEmptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                      <Ionicons name="school-outline" size={48} color={colors.textSecondary} style={{ opacity: 0.5 }} />
-                      <Text style={[styles.recEmptyTitle, { color: colors.text }]}>No recommendations yet</Text>
-                      <Text style={[styles.recEmptySub, { color: colors.textSecondary }]}>
-                        Recommendations are based on this student&apos;s profile. Add more students or try another.
-                      </Text>
+                return (
+                  <TouchableOpacity
+                    key={student.id}
+                    style={[
+                      styles.studentHorizontalCard,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                      }
+                    ]}
+                    onPress={() => handleStudentPress(student)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.studentCardAvatar, { backgroundColor: avatarColor + "20" }]}>
+                      {student.picture && !student.picture.includes("gravatar.com/avatar/default") ? (
+                        <Image source={{ uri: student.picture }} style={styles.studentAvatarImg} />
+                      ) : (
+                        <Text style={[styles.studentInitials, { color: avatarColor }]}>{initials}</Text>
+                      )}
                     </View>
-                  )}
-                </View>
-              )}
+
+                    <View style={styles.studentCardInfo}>
+                      <Text style={[styles.studentCardName, { color: colors.text }]} numberOfLines={1}>
+                        {displayName}
+                      </Text>
+                      <View style={styles.studentCardDetailRow}>
+                        <Ionicons name="school-outline" size={12} color={colors.textSecondary} />
+                        <Text style={[styles.studentCardDetail, { color: colors.textSecondary }]} numberOfLines={1}>
+                          {academic}
+                        </Text>
+                      </View>
+                      <View style={styles.studentCardDetailRow}>
+                        <Ionicons name="location-outline" size={12} color={colors.textSecondary} />
+                        <Text style={[styles.studentCardDetail, { color: colors.textSecondary }]} numberOfLines={1}>
+                          {student.city || "India"}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={[styles.studentCardAction, { backgroundColor: colors.primary + "15" }]}>
+                      <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+
+              <TouchableOpacity
+                style={[styles.viewAllStudentsBtn, { borderColor: colors.primary }]}
+                onPress={() => router.push("/(dashboard)/mobilizer/mobilizer-students")}
+              >
+                <Text style={[styles.viewAllStudentsText, { color: colors.primary }]}>View All Students</Text>
+                <Ionicons name="arrow-forward" size={16} color={colors.primary} />
+              </TouchableOpacity>
             </View>
           ) : (
             <View style={[styles.recEmptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -692,6 +543,12 @@ export default function StudentMobilizerDashboard() {
               <Text style={[styles.recEmptySub, { color: colors.textSecondary }]}>
                 Add students from My Students to see personalized scholarship recommendations here.
               </Text>
+              <TouchableOpacity
+                style={[styles.emptyActionBtn, { backgroundColor: colors.primary }]}
+                onPress={() => router.push("/(dashboard)/mobilizer/mobilizer-add-student")}
+              >
+                <Text style={styles.emptyActionText}>Add Student</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -1321,5 +1178,89 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 10,
     fontWeight: '700',
+  },
+  studentCardGrid: {
+    gap: 12,
+  },
+  studentHorizontalCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  studentCardAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    overflow: 'hidden',
+  },
+  studentAvatarImg: {
+    width: '100%',
+    height: '100%',
+  },
+  studentInitials: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  studentCardInfo: {
+    flex: 1,
+  },
+  studentCardName: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  studentCardDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
+  },
+  studentCardDetail: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  studentCardAction: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  viewAllStudentsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    marginTop: 8,
+    gap: 8,
+  },
+  viewAllStudentsText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  emptyActionBtn: {
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  emptyActionText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
   },
 });

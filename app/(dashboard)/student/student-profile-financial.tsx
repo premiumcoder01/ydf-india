@@ -649,6 +649,28 @@ export default function StudentProfileFinancialScreen() {
                                         keyboardShouldPersistTaps="handled"
                                         showsVerticalScrollIndicator={true}
                                     >
+                                        {bankSearchQuery.trim().length > 0 && (
+                                            <TouchableOpacity
+                                                style={[
+                                                    styles.inlineBankOption,
+                                                    {
+                                                        backgroundColor: 'transparent',
+                                                        borderBottomColor: colors.border
+                                                    }
+                                                ]}
+                                                onPress={() => {
+                                                    handleEditChange("bankName", bankSearchQuery.trim());
+                                                    setShowBankPicker(false);
+                                                    setBankSearchQuery("");
+                                                }}
+                                            >
+                                                <Ionicons name="add-circle" size={18} color={colors.primary} />
+                                                <Text style={[styles.inlineBankOptionText, { color: colors.primary, fontWeight: '600' }]}>
+                                                    Use "{bankSearchQuery}"
+                                                </Text>
+                                            </TouchableOpacity>
+                                        )}
+
                                         {INDIAN_BANKS
                                             .filter(bank =>
                                                 bank.toLowerCase().includes(bankSearchQuery.toLowerCase())
@@ -697,9 +719,9 @@ export default function StudentProfileFinancialScreen() {
                                             bank.toLowerCase().includes(bankSearchQuery.toLowerCase())
                                         ).length === 0 && (
                                                 <View style={styles.inlineNoResults}>
-                                                    <Ionicons name="search-outline" size={40} color={colors.textSecondary} />
+                                                    <Ionicons name="search" size={32} color={colors.textSecondary} />
                                                     <Text style={[styles.inlineNoResultsText, { color: colors.textSecondary }]}>
-                                                        No banks found matching "{bankSearchQuery}"
+                                                        Can't find your bank? You can type its full name above and select Use "{bankSearchQuery}".
                                                     </Text>
                                                 </View>
                                             )}

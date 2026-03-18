@@ -7,7 +7,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
@@ -39,6 +39,7 @@ const getCategoryColor = (category: string): string => {
 };
 
 export default function MobilizerBookmarkedScholarshipsScreen() {
+    const { studentId, studentName } = useLocalSearchParams<{ studentId?: string; studentName?: string }>();
     const { isDark, colors } = useTheme();
     const [apiScholarships, setApiScholarships] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -91,6 +92,7 @@ export default function MobilizerBookmarkedScholarshipsScreen() {
             const response = await getBookmarkedScholarships(token, {
                 page: isRefreshing ? 1 : page,
                 per_page: 200,
+                ...(studentId ? { studentId } : {})
             });
             if (response.success && response.data) {
                 const apiResponse = response.data;
@@ -221,7 +223,7 @@ export default function MobilizerBookmarkedScholarshipsScreen() {
                 return;
             }
             const action = newBookmarkState ? "bookmark" : "unbookmark";
-            const response = await bookmarkScholarship(token, id, action);
+            const response = await bookmarkScholarship(token, id, action, studentId);
             if (response.success) {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 showToast(
@@ -394,7 +396,7 @@ export default function MobilizerBookmarkedScholarshipsScreen() {
                             onPress={() =>
                                 router.push({
                                     pathname: "/(dashboard)/mobilizer/mobilizer-scholarship-details",
-                                    params: { scholarshipId: item.id },
+                                    params: { scholarshipId: item.id, studentId: studentId ? String(studentId) : '' },
                                 })
                             }
                             style={[styles.viewBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#F9FAFB", borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB" }]}
@@ -406,15 +408,22 @@ export default function MobilizerBookmarkedScholarshipsScreen() {
                         {!isExpired && !hasApplied ? (
                             <TouchableOpacity
                                 onPress={() => {
-                                    setSelectedScholarshipForApply(item.id);
-                                    setShowStudentModal(true);
+                                    if (studentId) {
+                                        router.push({
+                                            pathname: "/(dashboard)/mobilizer/mobilizer-apply-form",
+                                            params: { scholarshipId: item.id, studentId: studentId },
+                                        });
+                                    } else {
+                                        setSelectedScholarshipForApply(item.id);
+                                        setShowStudentModal(true);
+                                    }
                                 }}
                                 style={[
                                     styles.applyBtn,
                                     { backgroundColor: categoryColor }
                                 ]}
                             >
-                                <Text style={[styles.applyBtnText, { color: "#FFF" }]}>Apply For</Text>
+                                <Text style={[styles.applyBtnText, { color: "#FFF" }]}>Apply</Text>
                                 <Ionicons name="arrow-forward" size={16} color="#FFF" />
                             </TouchableOpacity>
                         ) : (
@@ -480,8 +489,8 @@ export default function MobilizerBookmarkedScholarshipsScreen() {
                             </LinearGradient>
                         </View>
                         <View style={styles.headerTextContainer}>
-                            <Text style={[styles.headerInfoTitle, { color: colors.text }]}>
-                                Your Collection
+                            <Text style={[styles.headerInfoTitle, { color: colors.text }]} numberOfLines={1}>
+                                {studentId && studentName ? `${studentName}'s Saved` : "Your Collection"}
                             </Text>
                             <Text style={[styles.headerInfoSubtitle, { color: colors.textSecondary }]}>
                                 {apiScholarships.length} {apiScholarships.length === 1 ? "scholarship" : "scholarships"} saved
@@ -520,23 +529,7 @@ export default function MobilizerBookmarkedScholarshipsScreen() {
                                 ? "Please wait while we fetch your bookmarked scholarships"
                                 : "Start bookmarking scholarships to build your personalized collection"}
                         </Text>
-                        {!loading && (
-                            <TouchableOpacity
-                                onPress={() => router.push("/(dashboard)/mobilizer/mobilizer-scholarship-listing")}
-                                style={styles.browseButton}
-                                activeOpacity={0.8}
-                            >
-                                <LinearGradient
-                                    colors={["#4CAF50", "#45a049"]}
-                                    style={styles.browseButtonGradient}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                >
-                                    <Ionicons name="search" size={20} color="#fff" />
-                                    <Text style={styles.browseButtonText}>Explore Scholarships</Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        )}
+
                     </View>
                 }
                 ListFooterComponent={

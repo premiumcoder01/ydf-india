@@ -21,7 +21,7 @@ import {
 export default function StudentUploadDocumentScreen() {
     const { isDark, colors } = useTheme();
     const params = useLocalSearchParams();
-    const { cmid, label, mode } = params;
+    const { cmid, label, mode, studentId } = params;
     const [file, setFile] = useState<any>(null);
     const [uploading, setUploading] = useState(false);
     const [toastVisible, setToastVisible] = useState(false);
@@ -111,6 +111,9 @@ export default function StudentUploadDocumentScreen() {
             } as any);
             formData.append('mode', 'scheme');
             formData.append('cmid', cmid as any);
+            if (studentId) {
+                formData.append('student_id', studentId as string);
+            }
 
             console.log('Upload URL:', uploadUrl);
             console.log('Form Data:', JSON.stringify(formData));

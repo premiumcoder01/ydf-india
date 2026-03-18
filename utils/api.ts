@@ -788,6 +788,8 @@ export const getAcademicDetails = async (token: string): Promise<ApiResponse<Aca
     urlObj.searchParams.append("wsfunction", "local_mobileapi_get_academic_details");
     urlObj.searchParams.append("moodlewsrestformat", "json");
 
+    console.log("Academic Details URL:", urlObj.toString());
+
     const response = await fetch(urlObj.toString(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1208,7 +1210,8 @@ export const getAllScholarships = async (
  */
 export const getScholarshipDetails = async (
   token: string,
-  scholarshipId: number
+  scholarshipId: number,
+  studentId?: number
 ): Promise<ApiResponse> => {
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
@@ -1219,6 +1222,7 @@ export const getScholarshipDetails = async (
     urlObj.searchParams.append("wsfunction", "local_mobileapi_get_scholarship_details");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("scholarship_id", String(scholarshipId));
+    if (studentId) urlObj.searchParams.append("student_id", String(studentId));
 
     const finalUrl = urlObj.toString();
     console.log("Get Scholarship Details URL:", finalUrl);
@@ -1361,17 +1365,17 @@ const moodleApiRequest = async (
 /**
  * Scheduler (Interview) APIs
  */
-export const getSchedulerSlots = (token: string, cmid: number) =>
-  moodleApiRequest(token, "local_mobileapi_get_scheduler_slots", { cmid: String(cmid) });
+export const getSchedulerSlots = (token: string, cmid: number, studentId?: number | string) =>
+  moodleApiRequest(token, "local_mobileapi_get_scheduler_slots", { cmid: String(cmid), ...(studentId ? { student_id: String(studentId) } : {}) });
 
-export const bookSchedulerSlot = (token: string, cmid: number, slotid: number) =>
-  moodleApiRequest(token, "local_mobileapi_book_scheduler_slot", { cmid: String(cmid), slotid: String(slotid) });
+export const bookSchedulerSlot = (token: string, cmid: number, slotid: number, studentId?: number | string) =>
+  moodleApiRequest(token, "local_mobileapi_book_scheduler_slot", { cmid: String(cmid), slotid: String(slotid), ...(studentId ? { student_id: String(studentId) } : {}) });
 
-export const getMySchedulerBookings = (token: string, cmid: number) =>
-  moodleApiRequest(token, "local_mobileapi_get_my_scheduler_bookings", { cmid: String(cmid) });
+export const getMySchedulerBookings = (token: string, cmid: number, studentId?: number | string) =>
+  moodleApiRequest(token, "local_mobileapi_get_my_scheduler_bookings", { cmid: String(cmid), ...(studentId ? { student_id: String(studentId) } : {}) });
 
-export const cancelSchedulerBooking = (token: string, cmid: number, slotid: number) =>
-  moodleApiRequest(token, "local_mobileapi_cancel_scheduler_booking", { cmid: String(cmid), slotid: String(slotid) });
+export const cancelSchedulerBooking = (token: string, cmid: number, slotid: number, studentId?: number | string) =>
+  moodleApiRequest(token, "local_mobileapi_cancel_scheduler_booking", { cmid: String(cmid), slotid: String(slotid), ...(studentId ? { student_id: String(studentId) } : {}) });
 
 export const createSchedulerSlots = (token: string, cmid: number, slots: any[]) => {
   const params: Record<string, string> = { cmid: String(cmid) };
@@ -1386,11 +1390,11 @@ export const createSchedulerSlots = (token: string, cmid: number, slots: any[]) 
 /**
  * Quiz APIs
  */
-export const getQuizAccessInfo = (token: string, cmid: number) =>
-  moodleApiRequest(token, "local_mobileapi_get_quiz_access_info", { cmid: String(cmid) });
+export const getQuizAccessInfo = (token: string, cmid: number, studentId?: number | string) =>
+  moodleApiRequest(token, "local_mobileapi_get_quiz_access_info", { cmid: String(cmid), ...(studentId ? { student_id: String(studentId) } : {}) });
 
-export const getQuizMyAttempts = (token: string, cmid: number) =>
-  moodleApiRequest(token, "local_mobileapi_get_quiz_my_attempts", { cmid: String(cmid) });
+export const getQuizMyAttempts = (token: string, cmid: number, studentId?: number | string) =>
+  moodleApiRequest(token, "local_mobileapi_get_quiz_my_attempts", { cmid: String(cmid), ...(studentId ? { student_id: String(studentId) } : {}) });
 
 /**
  * Get generic activity details (for page, forum, qbank, customcert, etc.)
@@ -1398,20 +1402,21 @@ export const getQuizMyAttempts = (token: string, cmid: number) =>
  *   - html_page    → use content_html to render natively
  *   - webview_only → open webview_url in the in-app WebView
  */
-export const getActivityDetails = (token: string, cmid: number) =>
-  moodleApiRequest(token, "local_mobileapi_get_activity_details", { cmid: String(cmid) });
+export const getActivityDetails = (token: string, cmid: number, studentId?: number | string) =>
+  moodleApiRequest(token, "local_mobileapi_get_activity_details", { cmid: String(cmid), ...(studentId ? { student_id: String(studentId) } : {}) });
 
 export const startQuizAttempt = (
   token: string,
   cmid: number,
   preflightdata: Record<string, string> = {},
-  forcenew: boolean = false
+  forcenew: boolean = false,
+  studentId?: number | string
 ) =>
   moodleApiRequest(token, "local_mobileapi_start_quiz_attempt", {
     cmid: String(cmid),
-    // preflightdata is sent as an empty object unless a password/preflight is required
     ...preflightdata,
     forcenew: forcenew ? "1" : "0",
+    ...(studentId ? { student_id: String(studentId) } : {})
   });
 
 /**
@@ -1421,7 +1426,8 @@ export const startQuizAttempt = (
 export const bookmarkScholarship = async (
   token: string,
   scholarshipId: number,
-  action: "bookmark" | "unbookmark"
+  action: "bookmark" | "unbookmark",
+  studentId?: number | string
 ): Promise<ApiResponse> => {
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
@@ -1433,6 +1439,9 @@ export const bookmarkScholarship = async (
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("scholarship_id", String(scholarshipId));
     urlObj.searchParams.append("action", action);
+    if (studentId) {
+      urlObj.searchParams.append("student_id", String(studentId));
+    }
 
     const finalUrl = urlObj.toString();
     console.log("Bookmark Scholarship URL:", finalUrl);
@@ -1513,6 +1522,7 @@ export const getBookmarkedScholarships = async (
   params?: {
     page?: number;
     per_page?: number;
+    studentId?: number | string;
   }
 ): Promise<ApiResponse> => {
   try {
@@ -1530,6 +1540,9 @@ export const getBookmarkedScholarships = async (
     }
     if (params?.per_page) {
       urlObj.searchParams.append("per_page", String(params.per_page));
+    }
+    if (params?.studentId) {
+      urlObj.searchParams.append("student_id", String(params.studentId));
     }
 
     const finalUrl = urlObj.toString();
@@ -3056,15 +3069,15 @@ export const getReviewerApplications = async (
         // Moodle workaround: if no applications are found, it might return an invalid response exception 
         // because an empty list doesn't match the strictly typed return structure.
         if (
-          data.errorcode === "invalidresponse" || 
+          data.errorcode === "invalidresponse" ||
           data.exception === "invalid_response_exception" ||
           (data.message && data.message.includes("Invalid response value detected"))
         ) {
           return {
             success: true,
-            data: { 
-              applications: [], 
-              pagination: { page: params?.page || 1, per_page: params?.per_page || 10, total: 0, total_pages: 1 } 
+            data: {
+              applications: [],
+              pagination: { page: params?.page || 1, per_page: params?.per_page || 10, total: 0, total_pages: 1 }
             },
             message: "No applications found",
           };
@@ -4744,7 +4757,7 @@ export const getMobilizerRecommendedScholarships = async (
   token: string,
   studentId: number,
   page: number = 1,
-  perPage: number = 5
+  perPage: number = 100
 ): Promise<ApiResponse> => {
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
@@ -4803,6 +4816,77 @@ export const getMobilizerRecommendedScholarships = async (
       success: false,
       error: error.message || "Network error. Please check your connection.",
       message: "Failed to connect to server"
+    };
+  }
+};
+
+/**
+ * Get Mobilizer Scholarships for a specific student
+ * Uses: local_mobileapi_mobilizer_get_scholarships
+ */
+export const getMobilizerStudentScholarships = async (
+  token: string,
+  studentId: number,
+  page: number = 1,
+  perPage: number = 100
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_get_scholarships");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("student_id", studentId.toString());
+    urlObj.searchParams.append("page", page.toString());
+    urlObj.searchParams.append("per_page", perPage.toString());
+
+    const finalUrl = urlObj.toString();
+    console.log("Get Mobilizer Student Scholarships URL:", finalUrl);
+
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    if (response.ok) {
+      if (data.exception) {
+        return {
+          success: false,
+          error: data.message || data.exception,
+          message: data.message || "Failed to get scholarships",
+        };
+      }
+      return {
+        success: true,
+        data: data,
+        message: "Scholarships retrieved successfully",
+      };
+    } else {
+      return {
+        success: false,
+        error: data.error || data.message || "Failed to retrieve scholarships",
+        message: data.message || "Failed to retrieve scholarships",
+      };
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server",
     };
   }
 };
@@ -5206,13 +5290,14 @@ export const addMobilizerStudent = async (
 
     // Add all fields from studentData
     Object.keys(studentData).forEach(key => {
-      if (studentData[key] !== undefined && studentData[key] !== null && studentData[key] !== '') {
-        // Encode both key and value to ensure safety, although Moodle accepts raw brackets in keys too,
-        // it is safer to send as standard form-data where browser/client libraries handle it.
-        // However, since we are building standard x-www-form-urlencoded string manually:
-        const encodedKey = encodeURIComponent(key);
-        const encodedValue = encodeURIComponent(String(studentData[key]));
-        params.push(`${encodedKey}=${encodedValue}`);
+      const value = studentData[key];
+      if (key === 'customfields' && Array.isArray(value)) {
+        value.forEach((field: any, index: number) => {
+          params.push(`customfields[${index}][shortname]=${encodeURIComponent(field.shortname)}`);
+          params.push(`customfields[${index}][value]=${encodeURIComponent(field.value)}`);
+        });
+      } else if (value !== undefined && value !== null && value !== '') {
+        params.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
       }
     });
 

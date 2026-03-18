@@ -110,9 +110,7 @@ export default function WelcomeScreen() {
             ]}
           >
             <Text style={styles.brandTitle}>Welcome</Text>
-            <Text style={styles.brandSubtitle}>
-              Empowering Dreams, Building Futures
-            </Text>
+
           </Animated.View>
         </View>
 

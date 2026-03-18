@@ -1,6 +1,7 @@
 import { AppHeader, Button } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
 import { API_CONFIG } from "@/utils/apiConfig";
+import { getUserProfile } from "@/utils/api";
 import { exchangeAuthorizationCodeForToken, loginWithDigiLocker, useDigiLockerWebView } from "@/utils/digilockerAuth";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -35,6 +36,7 @@ type Document = {
   id: number;
   name: string; // The "Save as" name provided by user
   fileType: string;
+  mimeType: string;
   uri: string;
   size: string;
   uploadDate: string;
@@ -65,6 +67,7 @@ export default function DocumentUploadScreen() {
     size: number;
   } | null>(null);
   const [saveAsName, setSaveAsName] = useState("");
+  const [authorName, setAuthorName] = useState("Student Ydf");
   const inset = useSafeAreaInsets();
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -79,6 +82,7 @@ export default function DocumentUploadScreen() {
     uri: string;
     mime: string;
     name: string;
+    isUploaded?: boolean;
   } | null>(null);
   const [savingPreview, setSavingPreview] = useState(false);
   const [uploadingPreview, setUploadingPreview] = useState(false);
@@ -135,6 +139,18 @@ export default function DocumentUploadScreen() {
         console.error("No token found");
         return;
       }
+
+      // Load user profile for Author name
+      getUserProfile(token).then((res) => {
+        if (res.success && res.data) {
+          const u = res.data.student || res.data.user || res.data;
+          if (u.firstname && u.lastname) {
+            setAuthorName(`${u.firstname} ${u.lastname}`);
+          } else if (u.fullname) {
+            setAuthorName(u.fullname);
+          }
+        }
+      }).catch(err => console.error(err));
       const url = `${API_CONFIG.BASE_URL}webservice/rest/server.php?wsfunction=local_mobileapi_get_my_documents&moodlewsrestformat=json&wstoken=${token}&page=1&per_page=100`;
       console.log("Fetching documents from:", url);
       const response = await fetch(url);
@@ -144,6 +160,7 @@ export default function DocumentUploadScreen() {
           id: item.id,
           name: item.filename,
           fileType: item.mimetype && item.mimetype.includes('image') ? 'Image' : 'PDF', // Simple inference
+          mimeType: item.mimetype || (item.mimetype && item.mimetype.includes('image') ? 'image/jpeg' : 'application/pdf'),
           uri: item.fileurl ? item.fileurl.replace(/&amp;/g, "&") : "",
           size: (item.filesize / 1024).toFixed(2) + ' KB', // Assuming bytes
           uploadDate: item.uploaded_at,
@@ -311,6 +328,27 @@ export default function DocumentUploadScreen() {
       return;
     } catch (error) {
       console.error("Failed to open DigiLocker file:", error);
+      Alert.alert("Error", "Unable to open this file. Please try again.");
+    } finally {
+      setDownloadingUri(null);
+    }
+  };
+
+  const viewUploadedFile = async (doc: Document) => {
+    try {
+      setDownloadingUri(doc.uri);
+      const filePath = FileSystem.documentDirectory + doc.name;
+      const result = await FileSystem.downloadAsync(doc.uri, filePath);
+      const nextPreview = { 
+        uri: result.uri, 
+        mime: doc.mimeType, 
+        name: doc.name,
+        isUploaded: true 
+      };
+      setPreviewFile(nextPreview);
+      setPreviewVisible(true);
+    } catch (error) {
+      console.error("Failed to open uploaded file:", error);
       Alert.alert("Error", "Unable to open this file. Please try again.");
     } finally {
       setDownloadingUri(null);
@@ -657,14 +695,16 @@ export default function DocumentUploadScreen() {
               <Text style={[styles.modalLoadingText, { color: colors.textSecondary }]}>Preparing preview...</Text>
             </View>
           )}
-          <View style={[styles.previewFooter, { borderTopColor: colors.border, backgroundColor: colors.card }]}>
-            <Button
-              title={uploadingPreview || isUploading ? "Uploading..." : "Upload to My Files"}
-              onPress={handleUploadPreviewFile}
-              disabled={uploadingPreview || isUploading}
-              variant="primary"
-            />
-          </View>
+          {!previewFile?.isUploaded && (
+            <View style={[styles.previewFooter, { borderTopColor: colors.border, backgroundColor: colors.card }]}>
+              <Button
+                title={uploadingPreview || isUploading ? "Uploading..." : "Upload to My Files"}
+                onPress={handleUploadPreviewFile}
+                disabled={uploadingPreview || isUploading}
+                variant="primary"
+              />
+            </View>
+          )}
         </View>
       </Modal>
       <KeyboardAvoidingView
@@ -725,7 +765,7 @@ export default function DocumentUploadScreen() {
               <Text style={[styles.label, { color: colors.text }]}>Author</Text>
               <TextInput
                 style={[styles.textInput, { backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "#f5f5f5", color: colors.textSecondary, borderColor: colors.border }]}
-                value="Student Ydf"
+                value={authorName}
                 editable={false}
               />
             </View>
@@ -749,42 +789,72 @@ export default function DocumentUploadScreen() {
             ) : (
               <View style={styles.filesList}>
                 {documents.map((doc) => (
-                  <View key={doc.id} style={[styles.fileItemCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
-                    {/* Image Preview for images */}
-                    {doc.fileType === "Image" && (
+                  <TouchableOpacity 
+                    key={doc.id} 
+                    style={[styles.fileItemCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}
+                    onPress={() => viewUploadedFile(doc)}
+                    activeOpacity={0.9}
+                  >
+                    {/* Image/File Preview at the top */}
+                    {doc.fileType === "Image" ? (
                       <View style={[styles.filePreview, { backgroundColor: isDark ? "#222" : "#eee" }]}>
                         <Image source={{ uri: doc.uri }} style={styles.previewImage} resizeMode="cover" />
                       </View>
+                    ) : (
+                      <View style={[styles.filePreview, { backgroundColor: isDark ? "#222" : "#eee", justifyContent: "center", alignItems: "center" }]}>
+                        <Ionicons name="document-text" size={48} color="#F44336" />
+                      </View>
                     )}
 
-                    <View style={styles.fileItemRow}>
-                      <View style={[styles.fileIconWrapper, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5" }]}>
-                        <Ionicons
-                          name={doc.fileType === "PDF" ? "document-text" : "image"}
-                          size={24}
-                          color={doc.fileType === "PDF" ? "#F44336" : (isDark ? colors.primary : "#2196F3")}
-                        />
-                      </View>
-                      <View style={styles.fileItemInfo}>
-                        <Text style={[styles.fileItemName, { color: colors.text }]} numberOfLines={1}>{doc.name}</Text>
-                        <Text style={[styles.fileItemMeta, { color: colors.textSecondary }]}>{doc.size} • {doc.uploadDate}</Text>
-                      </View>
-                      <View style={styles.actionButtons}>
+                    <View style={{ padding: 16 }}>
+                      <Text style={[styles.fileItemName, { color: colors.text, fontSize: 16 }]} numberOfLines={1}>
+                        {doc.name}
+                      </Text>
+                      <Text style={[styles.fileItemMeta, { color: colors.textSecondary, marginBottom: 12 }]}>
+                        {doc.size} • {doc.uploadDate}
+                      </Text>
+
+                      {/* Action Buttons at the bottom row */}
+                      <View style={{ 
+                        flexDirection: "row", 
+                        borderTopWidth: 1, 
+                        borderTopColor: colors.border, 
+                        paddingTop: 12, 
+                        marginTop: 4,
+                        justifyContent: "space-between" 
+                      }}>
+                        {downloadingUri === doc.uri ? (
+                          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+                            <ActivityIndicator size="small" color={colors.primary} />
+                          </View>
+                        ) : (
+                          <TouchableOpacity
+                            onPress={() => viewUploadedFile(doc)}
+                            style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }}
+                          >
+                            <Ionicons name="eye-outline" size={20} color={isDark ? colors.primary : "#2B5CAD"} />
+                            <Text style={{ color: colors.text, fontSize: 13 }}>View</Text>
+                          </TouchableOpacity>
+                        )}
+
                         <TouchableOpacity
                           onPress={() => Linking.openURL(doc.uri)}
-                          style={[styles.actionBtn, { marginRight: 8 }]}
+                          style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderLeftWidth: 1, borderRightWidth: 1, borderColor: colors.border }}
                         >
                           <Ionicons name="cloud-download-outline" size={20} color={isDark ? colors.primary : "#2196F3"} />
+                          <Text style={{ color: colors.text, fontSize: 13 }}>Download</Text>
                         </TouchableOpacity>
+
                         <TouchableOpacity
                           onPress={() => handleDeleteDocument(doc.id)}
-                          style={styles.actionBtn}
+                          style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }}
                         >
                           <Ionicons name="trash-outline" size={20} color="#F44336" />
+                          <Text style={{ color: "#F44336", fontSize: 13 }}>Delete</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             )}

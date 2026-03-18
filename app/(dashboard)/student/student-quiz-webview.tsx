@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 
 export default function StudentQuizWebView() {
-    const { cmid, name } = useLocalSearchParams();
+    const { cmid, name, studentId } = useLocalSearchParams<{ cmid: string; name: string; studentId?: string }>();
     const { colors, isDark } = useTheme();
 
     // ── Core state ────────────────────────────────────────────────────────────
@@ -66,9 +66,12 @@ export default function StudentQuizWebView() {
             const { token } = JSON.parse(authData);
 
             const [accessRes, attemptsRes] = await Promise.all([
-                getQuizAccessInfo(token, Number(cmid)),
-                getQuizMyAttempts(token, Number(cmid)),
+                getQuizAccessInfo(token, Number(cmid), studentId),
+                getQuizMyAttempts(token, Number(cmid), studentId),
             ]);
+
+            console.log(accessRes, "accessRes")
+            console.log(attemptsRes, "attemptsRes")
 
             // ── Parse access info ────────────────────────────────────────────
             let accessData: any = null;
@@ -84,6 +87,7 @@ export default function StudentQuizWebView() {
             } else if (!accessRes.success) {
                 const errCode = (accessRes as any).errorcode;
                 if (errCode === 'requireloginerror' || errCode === 'nopermissions') {
+                    0
                     accessError = 'This quiz is not yet available to you.';
                 } else {
                     accessError = accessRes.error || 'This quiz information could not be retrieved.';
@@ -105,7 +109,11 @@ export default function StudentQuizWebView() {
                 setAttempts([]);
             }
 
-            if (accessError && !accessData) setError(accessError);
+            if (attemptsRes && !attemptsRes.success && attemptsRes.error) {
+                setError(attemptsRes.error);
+            } else if (accessError && !accessData) {
+                setError(accessError);
+            }
         } catch (err) {
             setError('An error occurred while loading quiz');
         } finally {
@@ -126,7 +134,7 @@ export default function StudentQuizWebView() {
         const cleanedUrl = url.replace(/&amp;/g, '&');
         router.push({
             pathname: '/(dashboard)/student/student-quiz-attempt',
-            params: { url: encodeURIComponent(cleanedUrl), title: String(name) },
+            params: { url: encodeURIComponent(cleanedUrl), title: String(name), studentId: studentId ? String(studentId) : '' },
         });
     };
 
@@ -180,7 +188,7 @@ export default function StudentQuizWebView() {
             if (!authData) return;
             const { token } = JSON.parse(authData);
 
-            const response = await startQuizAttempt(token, Number(cmid), preflightdata, false);
+            const response = await startQuizAttempt(token, Number(cmid), preflightdata, false, studentId);
             const actualData = response.data?.data || response.data;
 
             if ((response.success || actualData?.success) && actualData?.attempt_url) {

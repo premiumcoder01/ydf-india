@@ -439,7 +439,9 @@ function FilterModal({ visible, onClose, filters, onApply, availableCategories, 
           {/* Native Date Picker — renders inside this Modal context */}
           <DateTimePickerModal
             isVisible={datePickerTarget !== null}
+            display="spinner"
             mode="date"
+            textColor={isDark ? "#FFFFFF" : "#000000"}
             onConfirm={handleDateConfirm}
             onCancel={() => setDatePickerTarget(null)}
             minimumDate={datePickerMinDate}

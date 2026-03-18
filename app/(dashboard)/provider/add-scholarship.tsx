@@ -122,7 +122,7 @@ export default function ProviderAddScholarshipScreen() {
     endDate: null,
     numStages: 1,
     stages: [
-      { id: "1", name: "Application", mode: "Online", startDate: null, endDate: null },
+      { id: "1", name: "Eligibility check", mode: "Online", startDate: null, endDate: null },
     ],
     totalSeats: "",
     amountType: "fixed",
@@ -321,14 +321,15 @@ export default function ProviderAddScholarshipScreen() {
       }
 
       const categoryMap: Record<string, number> = {
-        "Merit-based": 1,
-        "Need-based": 2,
-        "Minority": 3,
-        "Talent-based": 4,
-        "Sports": 5,
-        "Special Ability": 6,
-        "General Research": 7,
-        "Other": 8,
+        "All India": 1,
+        "Bihar": 2,
+        "Punjab": 3,
+        "Maharashtra": 4,
+        "Rajasthan": 5,
+        "Delhi": 6,
+        "Gujarat": 7,
+        "Sikar": 8,
+        "Archived Courses": 9,
       };
 
       let logo_draftitemid = null;
@@ -373,7 +374,7 @@ export default function ProviderAddScholarshipScreen() {
         enddate: formEndDate ? Math.floor(formEndDate.getTime() / 1000) : 0,
         total_seats: parseInt(formData.totalSeats) || 0,
         scholarship_amount: parseFloat(formData.amountType === "fixed" ? formData.fixedAmount : formData.actualAmountLimit) || 0,
-        fund_amount: (parseInt(formData.totalSeats) || 0) * (parseFloat(formData.amountType === "fixed" ? formData.fixedAmount : formData.actualAmountLimit) || 0),
+        fund_amount: parseFloat(formData.amountType === "fixed" ? formData.fixedAmount : formData.actualAmountLimit) || 0,
         scholarship_cycle: formData.paymentCycle,
         student_pct: parseFloat(formData.distributionStudent) || 100,
         institute_pct: parseFloat(formData.distributionInstitute) || 0,
@@ -441,7 +442,7 @@ export default function ProviderAddScholarshipScreen() {
     const nextId = (formData.stages.length + 1).toString();
     const newStage: Stage = {
       id: nextId,
-      name: `Stage ${nextId}`,
+      name: "Eligibility check",
       mode: "Online",
       startDate: null,
       endDate: null,
@@ -527,7 +528,7 @@ export default function ProviderAddScholarshipScreen() {
         <View style={styles.inputGroup}>
           <CustomTextInput
             label="Scheme Full Name"
-            placeholder="e.g. National Merit Scholarship 2025"
+            placeholder="scheme name"
             value={formData.schemeName}
             onChangeText={(v) => {
               updateField("schemeName", v);
@@ -541,7 +542,7 @@ export default function ProviderAddScholarshipScreen() {
 
         <View style={{ flex: 1, marginRight: 8, marginBottom: 10 }}>
           <Text style={[styles.label, { color: colors.text, marginTop: 0 }]}>
-            Category <Text style={{ color: '#EF4444' }}>*</Text>
+            Course category <Text style={{ color: '#EF4444' }}>*</Text>
           </Text>
           <TouchableOpacity
             style={[
@@ -552,8 +553,8 @@ export default function ProviderAddScholarshipScreen() {
               setErrors(prev => ({ ...prev, category: "" }));
               setSelectionModal({
                 show: true,
-                title: "Select Category",
-                options: ["Merit-based", "Need-based", "Minority", "Talent-based", "Sports", "Special Ability", "General Research", "Other"],
+                title: "Select Course Category",
+                options: ["All India", "Bihar", "Punjab", "Maharashtra", "Rajasthan", "Delhi", "Gujarat", "Sikar", "Archived Courses"],
                 field: "category"
               });
             }}
@@ -729,34 +730,54 @@ export default function ProviderAddScholarshipScreen() {
                 <View style={[styles.stageNumberBadge, { backgroundColor: colors.primary }]}>
                   <Text style={styles.stageNumberText}>{idx + 1}</Text>
                 </View>
-                <TextInput
-                  style={[styles.stageNameInput, { color: colors.text }]}
-                  value={stage.name}
-                  placeholder="Stage Name"
-                  placeholderTextColor={colors.textSecondary}
-                  onChangeText={(v) => {
-                    const updated = formData.stages.map(s => s.id === stage.id ? { ...s, name: v } : s);
-                    updateField("stages", updated);
-                  }}
-                />
+
                 <View style={styles.stageActions}>
-                  <TouchableOpacity
-                    style={[styles.modePill, { backgroundColor: colors.card, borderColor: colors.border }]}
-                    onPress={() => setSelectionModal({
-                      show: true,
-                      title: "Select Mode",
-                      options: ["Online", "Offline", "Hybrid"],
-                      field: "stages_mode",
-                      stageId: stage.id
-                    })}
-                  >
-                    <Text style={[styles.modePillText, { color: colors.textSecondary }]}>{stage.mode}</Text>
-                    <Ionicons name="chevron-down" size={12} color={colors.textSecondary} />
-                  </TouchableOpacity>
                   <TouchableOpacity onPress={() => removeStage(stage.id)} style={styles.removeStageBtn}>
                     <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
+              </View>
+              <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 20,
+                    paddingHorizontal: 12,
+                    paddingVertical: 5,
+                    marginLeft: 10,
+                    marginRight: 6,
+                    gap: 6
+                  }}
+                  onPress={() => setSelectionModal({
+                    show: true,
+                    title: "Select Stage Name",
+                    options: ["Eligibility check", "Need validation", "Documents verification", "Interviews", "Screening test"],
+                    field: "stages_name",
+                    stageId: stage.id
+                  })}
+                >
+                  <Text style={{ flex: 1, fontSize: 13, fontWeight: "600", color: stage.name ? colors.text : colors.textSecondary }} numberOfLines={1}>
+                    {stage.name || "Select"}
+                  </Text>
+                  <Ionicons name="chevron-down" size={12} color={colors.textSecondary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modePill, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => setSelectionModal({
+                    show: true,
+                    title: "Select Mode",
+                    options: ["Home visits", "Online form", "Video interview", "Custom assessment"],
+                    field: "stages_mode",
+                    stageId: stage.id
+                  })}
+                >
+                  <Text style={[styles.modePillText, { color: colors.textSecondary }]}>{stage.mode}</Text>
+                  <Ionicons name="chevron-down" size={12} color={colors.textSecondary} />
+                </TouchableOpacity>
               </View>
 
               <View style={styles.stageDatesRow}>
@@ -1467,6 +1488,10 @@ export default function ProviderAddScholarshipScreen() {
                     const { field, stageId, isMulti } = selectionModal;
                     if (isMulti) {
                       toggleSelection(field as any, option);
+                    } else if (field === "stages_name" && stageId) {
+                      const updated = formData.stages.map(s => s.id === stageId ? { ...s, name: option } : s);
+                      updateField("stages", updated);
+                      setSelectionModal({ ...selectionModal, show: false });
                     } else if (field === "stages_mode" && stageId) {
                       const updated = formData.stages.map(s => s.id === stageId ? { ...s, mode: option } : s);
                       updateField("stages", updated);
@@ -1484,6 +1509,7 @@ export default function ProviderAddScholarshipScreen() {
                   {(
                     (selectionModal.isMulti && Array.isArray(formData[selectionModal.field as keyof FormData]) && (formData[selectionModal.field as keyof FormData] as string[]).includes(option)) ||
                     (!selectionModal.isMulti && formData[selectionModal.field as keyof FormData] === option) ||
+                    (selectionModal.field === "stages_name" && formData.stages.find(s => s.id === selectionModal.stageId)?.name === option) ||
                     (selectionModal.field === "stages_mode" && formData.stages.find(s => s.id === selectionModal.stageId)?.mode === option) ||
                     (selectionModal.field === "document_description" && formData.requiredDocuments.find(d => d.category === selectionModal.stageId)?.description === option)
                   ) && (
@@ -2153,6 +2179,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 12,
+    justifyContent: "space-between",
     gap: 10,
   },
   stageNumberBadge: {

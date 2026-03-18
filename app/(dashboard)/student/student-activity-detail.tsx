@@ -18,7 +18,7 @@ import RenderHTML from 'react-native-render-html';
 import { WebView } from 'react-native-webview';
 
 export default function StudentActivityDetail() {
-    const { cmid, name } = useLocalSearchParams<{ cmid: string; name: string }>();
+    const { cmid, name, studentId } = useLocalSearchParams<{ cmid: string; name: string; studentId?: string }>();
     const { colors, isDark } = useTheme();
     const { width } = Dimensions.get('window');
 
@@ -46,7 +46,7 @@ export default function StudentActivityDetail() {
             }
             const { token } = JSON.parse(authData);
 
-            const res = await getActivityDetails(token, Number(cmid));
+            const res = await getActivityDetails(token, Number(cmid), studentId);
 
             // ── HTTP-level failure (network / auth errors) ───────────────────────
             if (!res.success) {

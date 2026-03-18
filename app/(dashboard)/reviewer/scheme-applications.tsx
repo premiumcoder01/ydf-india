@@ -351,8 +351,8 @@ export default function SchemeApplicationsScreen() {
     const [query, setQuery] = useState(() => (schemeId ? screenStateCache.get(schemeId)?.query : "") || "");
     const [activeTab, setActiveTab] = useState(() => (schemeId ? screenStateCache.get(schemeId)?.activeTab : "All") || "All");
     const [page, setPage] = useState(() => (schemeId ? screenStateCache.get(schemeId)?.page : 1) || 1);
-    
-    const pageSize = 10;
+
+    const pageSize = 100;
 
     const [applications, setApplications] = useState<AppItem[]>([]);
     const [pagination, setPagination] = useState<PaginationData | null>(null);

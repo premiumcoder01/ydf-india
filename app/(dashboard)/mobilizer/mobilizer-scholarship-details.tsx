@@ -1,34 +1,56 @@
-import { AppHeader, Button, SearchBar } from "@/components";
+import { AppHeader, Button } from "@/components";
 import Toast from "@/components/Toast";
 import { useTheme } from "@/context/ThemeContext";
-import { bookmarkScholarship, getMobilizerStudents, getScholarshipDetails } from "@/utils/api";
-import { API_CONFIG } from "@/utils/apiConfig";
+import { bookmarkScholarship, getScholarshipDetails } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as DocumentPicker from "expo-document-picker";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
-import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Modal,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Dimensions, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import RenderHTML from "react-native-render-html";
+import Svg, { Circle } from 'react-native-svg';
 
-// LayoutAnimation is enabled by default in the new architecture
-// No need for UIManager.setLayoutAnimationEnabledExperimental(true) on Android
+// Colorful Circular Progress Component
+const CircularProgress = ({ size = 52, strokeWidth = 5, percentage = 0, color = "#007AFF", isDark = false }: any) => {
+    const radius = (size - strokeWidth) / 2;
+    const circumference = radius * 2 * Math.PI;
+    const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
-// Helper function to strip HTML tags
+    return (
+        <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+            <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
+                {/* Background Circle */}
+                <Circle
+                    cx={size / 2}
+                    cy={size / 2}
+                    r={radius}
+                    stroke={isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"}
+                    strokeWidth={strokeWidth}
+                    fill="transparent"
+                />
+                {/* Progress Circle */}
+                <Circle
+                    cx={size / 2}
+                    cy={size / 2}
+                    r={radius}
+                    stroke={color}
+                    strokeWidth={strokeWidth}
+                    fill="transparent"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={strokeDashoffset}
+                    strokeLinecap="round"
+                />
+            </Svg>
+            <View style={{ position: 'absolute' }}>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: color }}>{Math.round(percentage)}%</Text>
+            </View>
+        </View>
+    );
+};
+
 const stripHtml = (html: string): string => {
     if (!html) return "";
     return html
@@ -38,6 +60,7 @@ const stripHtml = (html: string): string => {
         .replace(/&lt;/g, "<")
         .replace(/&gt;/g, ">")
         .replace(/&quot;/g, '"')
+        .replace(/\s+/g, ' ')
         .trim();
 };
 
@@ -56,12 +79,17 @@ const getCategoryColor = (category: string): string => {
     return colors[category] || "#666";
 };
 
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 export default function MobilizerScholarshipDetailsScreen() {
     const { isDark, colors } = useTheme();
     const params = useLocalSearchParams();
     const insets = useSafeAreaInsets();
+    const { width } = Dimensions.get("window");
     const scholarshipId = params.scholarshipId ? Number(params.scholarshipId) : null;
-
+    const studentId = params.studentId ? Number(params.studentId) : null;
+    console.log(studentId)
+    const studentName = params.studentName as string | undefined;
     const [saved, setSaved] = useState(false);
     const [loading, setLoading] = useState(true);
     const [scholarship, setScholarship] = useState<any>(null);
@@ -70,79 +98,93 @@ export default function MobilizerScholarshipDetailsScreen() {
     const [toastVisible, setToastVisible] = useState(false);
     const [toastMessage, setToastMessage] = useState("");
     const [toastType, setToastType] = useState<"success" | "error" | "info">("success");
+    const isDataLoaded = useRef(false);
+    const scrollY = useRef(0);
+    const scrollViewRef = useRef<ScrollView>(null);
 
-    // Document upload modal (mobilizer has no separate upload screen)
-    const [docModalVisible, setDocModalVisible] = useState(false);
-    const [docModalDoc, setDocModalDoc] = useState<{ cmid: string; label: string; mode: string } | null>(null);
-    const [docModalFile, setDocModalFile] = useState<any>(null);
-    const [docModalUploading, setDocModalUploading] = useState(false);
-
-    // Student Selection Modal State
-    const [showStudentModal, setShowStudentModal] = useState(false);
-    const [students, setStudents] = useState<any[]>([]);
-    const [studentSearchQuery, setStudentSearchQuery] = useState("");
-    const [loadingStudents, setLoadingStudents] = useState(false);
-    const [selectedStudent, setSelectedStudent] = useState<number | null>(null);
-
-    const refetchScholarshipDetails = useCallback(async () => {
-        if (!scholarshipId) return;
-        try {
-            const authDataString = await AsyncStorage.getItem("authData");
-            if (!authDataString) return;
-            const authData = JSON.parse(authDataString);
-            const token = authData?.token;
-            if (!token) return;
-            const response = await getScholarshipDetails(token, scholarshipId);
-            if (response.success && response.data) {
-                const raw = response.data;
-                const apiData = raw?.data?.data || raw?.data || raw;
-                setScholarship(apiData);
-            }
-        } catch (e) {
-            console.error("Refetch scholarship details:", e);
-        }
-    }, [scholarshipId]);
-
-    // Fetch scholarship details from API
+    // Update data loaded ref
     useEffect(() => {
-        const run = async () => {
-            if (!scholarshipId) {
-                setError("Scholarship ID is missing");
-                setLoading(false);
-                return;
-            }
-            try {
-                setLoading(true);
-                setError(null);
-                const authDataString = await AsyncStorage.getItem("authData");
-                if (!authDataString) {
-                    setError("Authentication token not found. Please login again.");
-                    setLoading(false);
-                    return;
-                }
-                const authData = JSON.parse(authDataString);
-                const token = authData?.token;
-                if (!token) {
-                    setError("Authentication token not found. Please login again.");
-                    setLoading(false);
-                    return;
-                }
-                const response = await getScholarshipDetails(token, scholarshipId);
-                if (response.success && response.data) {
-                    const raw = response.data;
-                    const apiData = raw?.data?.data || raw?.data || raw;
-                    setScholarship(apiData);
-                } else {
-                    setError(response.error || response.message || "Failed to load scholarship details");
-                }
-            } catch (err: any) {
-                setError(err.message || "Failed to load scholarship details");
-            } finally {
-                setLoading(false);
-            }
-        };
-        run();
+        if (scholarship) {
+            isDataLoaded.current = true;
+        }
+    }, [scholarship]);
+
+    // Reset when scholarship ID changes
+    useEffect(() => {
+        isDataLoaded.current = false;
+        setScholarship(null);
     }, [scholarshipId]);
+
+    // Fetch scholarship details — runs every time screen gains focus
+    // (e.g. when navigating back from the upload-document screen)
+    useFocusEffect(
+        useCallback(() => {
+            const fetchScholarshipDetails = async () => {
+                if (!scholarshipId) {
+                    setError("Scholarship ID is missing");
+                    setLoading(false);
+                    return;
+                }
+
+                try {
+                    // Only show initial loading screen if we don't have any data yet
+                    // This prevents the ScrollView from unmounting and losing scroll position on refocus
+                    if (!isDataLoaded.current) {
+                        setLoading(true);
+                    }
+                    setError(null);
+
+                    const authDataString = await AsyncStorage.getItem("authData");
+                    if (!authDataString) {
+                        setError("Authentication token not found. Please login again.");
+                        setLoading(false);
+                        return;
+                    }
+
+                    const authData = JSON.parse(authDataString);
+                    const token = authData?.token;
+
+                    if (!token) {
+                        setError("Authentication token not found. Please login again.");
+                        setLoading(false);
+                        return;
+                    }
+
+                    const response = await getScholarshipDetails(token, scholarshipId, studentId ?? undefined);
+                    if (response.success && response.data) {
+                        // Updated mapping based on new response structure
+                        const apiData = response.data.data || response.data;
+
+                        // Flatten application fields for easier access in UI
+                        if (apiData.application) {
+                            apiData.application_status = apiData.application.status;
+                            apiData.application_step = apiData.application.application_step;
+                            apiData.progress_percent = apiData.application.progress_percent;
+                            apiData.has_applied = true;
+                        }
+
+                        setScholarship(apiData);
+                    } else {
+                        setError(response.error || response.message || "Failed to load scholarship details");
+                    }
+                } catch (err: any) {
+                    console.error("Error fetching scholarship details:", err);
+                    setError(err.message || "Failed to load scholarship details");
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            fetchScholarshipDetails();
+
+            // Restore scroll position after a short delay
+            setTimeout(() => {
+                if (scrollViewRef.current && scrollY.current > 0) {
+                    scrollViewRef.current.scrollTo({ y: scrollY.current, animated: false });
+                }
+            }, 300);
+        }, [scholarshipId])
+    );
 
     // Update saved state when scholarship data changes
     useEffect(() => {
@@ -156,132 +198,6 @@ export default function MobilizerScholarshipDetailsScreen() {
         setToastMessage(message);
         setToastType(type);
         setToastVisible(true);
-    };
-
-    // Fetch Students for Selection Modal
-    const fetchStudents = async () => {
-        try {
-            setLoadingStudents(true);
-            const authDataStr = await AsyncStorage.getItem("authData");
-            if (!authDataStr) return;
-            const { token } = JSON.parse(authDataStr);
-
-            const response = await getMobilizerStudents(token, 1, 100, studentSearchQuery);
-            if (response.success && response.data?.students) {
-                setStudents(response.data.students);
-            } else {
-                setStudents([]);
-            }
-        } catch (error) {
-            console.error("Error fetching students:", error);
-        } finally {
-            setLoadingStudents(false);
-        }
-    };
-
-    // Effect to fetch students when modal opens or search changes
-    useEffect(() => {
-        if (showStudentModal) {
-            fetchStudents();
-        }
-    }, [showStudentModal, studentSearchQuery]);
-
-    const openDocModal = (doc: { cmid: string | number; label: string; mode?: string }) => {
-        setDocModalDoc({
-            cmid: String(doc.cmid),
-            label: doc.label || "Document",
-            mode: doc.mode || "scheme",
-        });
-        setDocModalFile(null);
-        setDocModalVisible(true);
-    };
-
-    const closeDocModal = () => {
-        setDocModalVisible(false);
-        setDocModalDoc(null);
-        setDocModalFile(null);
-        refetchScholarshipDetails();
-    };
-
-    const pickDocModalFile = async () => {
-        try {
-            const result = await DocumentPicker.getDocumentAsync({
-                type: ["application/pdf", "image/*"],
-                multiple: false,
-            });
-            if (result.assets && result.assets.length > 0) {
-                const asset = result.assets[0];
-                const fileSizeInBytes = asset.size;
-                const maxSizeInBytes = 10 * 1024 * 1024;
-                if (fileSizeInBytes && fileSizeInBytes > maxSizeInBytes) {
-                    showToast("File size exceeds 10MB limit.", "error");
-                    return;
-                }
-                setDocModalFile({
-                    uri: asset.uri,
-                    name: asset.name,
-                    mimeType: asset.mimeType || "application/unknown",
-                    size: asset.size || 0,
-                });
-            }
-        } catch (err) {
-            showToast("Failed to pick document", "error");
-        }
-    };
-
-    const performDocModalUpload = async () => {
-        if (!docModalFile || !docModalDoc) return;
-        setDocModalUploading(true);
-        try {
-            const authDataStr = await AsyncStorage.getItem("authData");
-            const authData = authDataStr ? JSON.parse(authDataStr) : null;
-            const token = authData?.token;
-            if (!token) {
-                showToast("Please login again.", "error");
-                setDocModalUploading(false);
-                return;
-            }
-            const uploadUrl = `${API_CONFIG.BASE_URL}local/mobileapi/upload_document.php?wstoken=${token}`;
-            const formData = new FormData();
-            formData.append("file", { uri: docModalFile.uri, name: docModalFile.name, type: docModalFile.mimeType } as any);
-            formData.append("mode", docModalDoc.mode || "scheme");
-            formData.append("cmid", docModalDoc.cmid);
-
-            const response = await fetch(uploadUrl, {
-                method: "POST",
-                headers: { "Content-Type": "multipart/form-data" },
-                body: formData,
-            });
-            const result = await response.json();
-            if (response.ok && (result.success || result.status === true || result[0]?.status === true)) {
-                showToast("Document uploaded successfully!", "success");
-                closeDocModal();
-            } else {
-                closeDocModal();
-                showToast(result.message || "Upload failed.", "error");
-
-            }
-        } catch (e) {
-            showToast("Failed to upload. Try again.", "error");
-            closeDocModal();
-        } finally {
-            setDocModalUploading(false);
-        }
-    };
-
-    const handleDocModalUploadPress = () => {
-        if (!docModalFile) {
-            showToast("Please select a document first", "error");
-            return;
-        }
-        Alert.alert(
-            "Confirm Upload",
-            `Upload "${docModalFile.name}" for ${docModalDoc?.label || "this document"}?`,
-            [
-                { text: "Cancel", style: "cancel" },
-                { text: "Upload", onPress: performDocModalUpload },
-            ]
-        );
     };
 
     // Handle bookmark/unbookmark with API
@@ -334,7 +250,7 @@ export default function MobilizerScholarshipDetailsScreen() {
 
             // Call bookmark API
             const action = newBookmarkState ? "bookmark" : "unbookmark";
-            const response = await bookmarkScholarship(token, scholarshipId, action);
+            const response = await bookmarkScholarship(token, scholarshipId, action, studentId ?? undefined);
 
             if (response.success) {
                 // Success haptic feedback
@@ -376,8 +292,10 @@ export default function MobilizerScholarshipDetailsScreen() {
     };
 
     const deadline = scholarship ? (scholarship.application_deadline || scholarship.end_date || scholarship.start_date) : null;
-
+    // Simplify application closed logic: rely on API 'expired' flag primarily
     const isApplicationClosed = scholarship?.expired === true;
+    // True when the student has NOT yet applied — all module activities are locked
+    const isNotApplied = scholarship?.application_status === 'not_applied' || !scholarship?.has_applied;
 
     if (loading) {
         return (
@@ -409,461 +327,894 @@ export default function MobilizerScholarshipDetailsScreen() {
         );
     }
 
-    const categoryColor = getCategoryColor(scholarship.category || "");
-    const description = stripHtml(scholarship.description || "");
+
+    // Custom styles for HTML rendering
+    const tagsStyles: any = {
+        body: {
+            color: colors.textSecondary,
+            fontSize: 15,
+            lineHeight: 24,
+            textAlign: 'left',
+        },
+        p: {
+            marginBottom: 16,
+            marginTop: 0,
+        },
+        div: {
+            marginBottom: 12,
+            marginTop: 0,
+        },
+        strong: {
+            fontWeight: '700',
+            color: colors.text,
+        },
+        ul: {
+            marginBottom: 16,
+            marginTop: 8,
+            paddingLeft: 10,
+        },
+        ol: {
+            marginBottom: 16,
+            marginTop: 8,
+            paddingLeft: 10,
+        },
+        li: {
+            marginBottom: 12,
+            fontSize: 15,
+            lineHeight: 24,
+        },
+        h1: {
+            color: colors.text,
+            fontSize: 22,
+            fontWeight: '800',
+            marginBottom: 16,
+            marginTop: 20,
+            letterSpacing: -0.5,
+        },
+        h2: {
+            color: colors.text,
+            fontSize: 20,
+            fontWeight: '700',
+            marginBottom: 14,
+            marginTop: 18,
+            letterSpacing: -0.4,
+        },
+        h3: {
+            color: colors.text,
+            fontSize: 18,
+            fontWeight: '700',
+            marginBottom: 12,
+            marginTop: 16,
+            letterSpacing: -0.3,
+        },
+    };
+
+
+    const getStatusColor = (status: string) => {
+        const s = status?.toLowerCase();
+        if (s === 'approved' || s === 'applied' || s === 'success') return "#10B981";
+        if (s === 'rejected' || s === 'expired') return "#EF4444";
+        if (s === 'pending' || s === 'processing') return "#F59E0B";
+        return "#6366F1";
+    };
 
     return (
         <View style={[styles.container, { backgroundColor: isDark ? "#0f0f0f" : "#F8F9FA" }]}>
             <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#0f0f0f" : "#F8F9FA"} />
-            <AppHeader title="Scholarship Details" onBack={() => router.back()} />
 
+            <AppHeader
+                title="Scholarship Details"
+                onBack={() => router.back()}
+                rightElement={
+                    <TouchableOpacity
+                        onPress={handleBookmark}
+                        style={styles.headerBookmarkBtn}
+                        activeOpacity={0.7}
+                        disabled={bookmarking}
+                    >
+                        <Ionicons
+                            name={saved || scholarship?.bookmarked ? "bookmark" : "bookmark-outline"}
+                            size={22}
+                            color={isDark ? "#FFF" : "#333"}
+                        />
+                    </TouchableOpacity>
+                }
+            />
+            {studentName && (
+                <View style={[styles.studentBanner, { backgroundColor: isDark ? "#141520" : "#EEF2FF", borderBottomColor: isDark ? "#2A2D3C" : "#C7D2FE", borderBottomWidth: 1 }]}>
+                    <Ionicons name="person-circle" size={16} color={isDark ? "#818CF8" : "#4F46E5"} />
+                    <Text style={[styles.studentBannerText, { color: isDark ? "#A5B4FC" : "#3730A3" }]}>
+                        Viewing scholarship for <Text style={{ fontWeight: '700' }}>{studentName}</Text>
+                    </Text>
+                </View>
+            )}
             <ScrollView
+                ref={scrollViewRef}
                 style={styles.scrollView}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 150 }}
+                onScroll={(e) => {
+                    scrollY.current = e.nativeEvent.contentOffset.y;
+                }}
+                scrollEventThrottle={16}
             >
-                {/* HERO CARD - same as student */}
-                <View style={styles.heroContainer}>
-                    <LinearGradient
-                        colors={[
-                            getCategoryColor(scholarship.category || "General"),
-                            getCategoryColor(scholarship.category || "General") + "DD",
-                            getCategoryColor(scholarship.category || "General") + "BB"
-                        ]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.heroCard}
-                    >
-                        <View style={[styles.decorativeCircle1, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
-                        <View style={[styles.decorativeCircle2, { backgroundColor: 'rgba(255,255,255,0.08)' }]} />
-                        <View style={styles.heroHeaderRow}>
-                            <View style={[styles.categoryPill, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
-                                <Ionicons name="location" size={14} color="#FFF" />
-                                <Text style={styles.categoryPillText}>{scholarship.category || "General"}</Text>
+                {/* HERO IMAGE SECTION */}
+                {scholarship.image ? (
+                    <View style={styles.imageHeaderContainer}>
+                        <Image
+                            source={{ uri: scholarship.image }}
+                            style={styles.heroBannerImage}
+                            contentFit="cover"
+                            transition={1000}
+                        />
+                        <LinearGradient
+                            colors={["transparent", "rgba(0,0,0,0.8)"]}
+                            style={styles.imageGradient}
+                        />
+                        <View style={styles.imageOverlayContent}>
+                            <View style={styles.categoryRow}>
+                                <View style={[styles.categoryBadge, { backgroundColor: getCategoryColor(scholarship.category || "General") }]}>
+                                    <Text style={styles.categoryBadgeText}>{scholarship.category || "General"}</Text>
+                                </View>
                             </View>
-                            <View style={[
-                                styles.statusPill,
-                                { backgroundColor: 'rgba(255,255,255,0.95)' }
-                            ]}>
-                                <Text style={[
-                                    styles.statusPillText,
-                                    {
-                                        color: scholarship.has_applied ? "#4CAF50" : scholarship.expired ? "#EF4444" : getCategoryColor(scholarship.category || "General")
-                                    }
-                                ]}>
-                                    {scholarship.has_applied ? "APPLIED" : scholarship.expired ? "EXPIRED" : "OPEN"}
-                                </Text>
-                            </View>
+                            <Text style={styles.bannerTitle} numberOfLines={2}>{scholarship.title}</Text>
+                            {scholarship.scholarship_tags && scholarship.scholarship_tags.length > 0 && (
+                                <View style={styles.tagList}>
+                                    {scholarship.scholarship_tags.map((tag: any) => (
+                                        <View key={tag.id} style={styles.tagItem}>
+                                            <Text style={styles.tagText}>#{tag.tag_name}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            )}
                         </View>
-                        <Text style={styles.heroTitle}>{scholarship.title}</Text>
-                        {scholarship.shortname && <Text style={styles.heroSubtitle}>{scholarship.shortname}</Text>}
-                        <View style={styles.heroDivider} />
-                        <View style={styles.heroFooterRow}>
-                            <View style={styles.deadlineInfo}>
-                                <Text style={styles.deadlineLabel}>DEADLINE</Text>
-                                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                                    <Ionicons name="calendar-outline" size={16} color="rgba(255,255,255,0.9)" />
-                                    <Text style={styles.deadlineValue}>
-                                        {deadline ? new Date(deadline).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "No Deadline"}
+                    </View>
+                ) : (
+                    /* FALLBACK HERO CARD */
+                    <View style={styles.heroContainer}>
+                        <LinearGradient
+                            colors={[
+                                getCategoryColor(scholarship.category || "General"),
+                                getCategoryColor(scholarship.category || "General") + "DD",
+                                getCategoryColor(scholarship.category || "General") + "BB"
+                            ]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.heroCard}
+                        >
+                            <View style={[styles.decorativeCircle1, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
+                            <View style={[styles.decorativeCircle2, { backgroundColor: 'rgba(255,255,255,0.08)' }]} />
+
+                            <View style={styles.heroHeaderRow}>
+                                <View style={[styles.categoryPill, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
+                                    <Ionicons name="location" size={14} color="#FFF" />
+                                    <Text style={styles.categoryPillText}>{scholarship.category || "General"}</Text>
+                                </View>
+
+                                <View style={[styles.statusPill, { backgroundColor: 'rgba(255,255,255,0.95)' }]}>
+                                    <Text style={[styles.statusPillText, { color: getStatusColor(scholarship.application_status || (scholarship.has_applied ? "applied" : "open")) }]}>
+                                        {scholarship.application_status ? scholarship.application_status.replace(/_/g, ' ').toUpperCase() : (scholarship.has_applied ? "APPLIED" : scholarship.expired ? "EXPIRED" : "OPEN")}
                                     </Text>
                                 </View>
                             </View>
-                            <TouchableOpacity onPress={handleBookmark} style={[styles.heroBookmarkBtn, { backgroundColor: 'rgba(255,255,255,0.2)' }]} activeOpacity={0.8} disabled={bookmarking}>
-                                <Ionicons name={saved || scholarship?.bookmarked ? "bookmark" : "bookmark-outline"} size={24} color="#FFF" />
-                            </TouchableOpacity>
-                        </View>
-                    </LinearGradient>
-                </View>
 
-                {/* Application Progress - same as student */}
-                {scholarship.progress_percent !== undefined && (
+                            <Text style={styles.heroTitle}>{scholarship.title}</Text>
+                            {scholarship.shortname && <Text style={styles.heroSubtitle}>{scholarship.shortname}</Text>}
+
+                            {scholarship.scholarship_tags && scholarship.scholarship_tags.length > 0 && (
+                                <View style={[styles.tagList, { marginTop: 0, marginBottom: 12 }]}>
+                                    {scholarship.scholarship_tags.map((tag: any) => (
+                                        <View key={tag.id} style={[styles.tagItem, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+                                            <Text style={styles.tagText}>#{tag.tag_name}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            )}
+
+                            <View style={styles.heroDivider} />
+
+                            <View style={styles.heroFooterRow}>
+                                <View style={styles.deadlineInfo}>
+                                    <Text style={styles.deadlineLabel}>DEADLINE</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                        <Ionicons name="calendar-outline" size={16} color="rgba(255,255,255,0.9)" />
+                                        <Text style={styles.deadlineValue}>
+                                            {deadline ? new Date(deadline).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "No Deadline"}
+                                        </Text>
+                                    </View>
+                                </View>
+                            </View>
+                        </LinearGradient>
+                    </View>
+                )}
+
+                {/* APPLICATION STATUS CARD (New Layout) */}
+                {(scholarship.application_status || scholarship.application_step) && (
+                    <View style={styles.sectionContainer}>
+                        <View style={[styles.premiumCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
+                            <View style={styles.cardHeader}>
+                                <View style={[styles.iconBox, { backgroundColor: getStatusColor(scholarship.application_status) + "20" }]}>
+                                    <Ionicons name="shield-checkmark" size={20} color={getStatusColor(scholarship.application_status)} />
+                                </View>
+                                <View style={{ flex: 1, marginLeft: 12 }}>
+                                    <Text style={[styles.cardTag, { color: colors.textSecondary }]}>APPLICATION STATUS</Text>
+                                    <Text style={[styles.cardValue, { color: colors.text, textTransform: 'uppercase' }]}>
+                                        {scholarship.application_status?.replace(/_/g, ' ') || 'NOT APPLIED'}
+                                    </Text>
+                                </View>
+                                {scholarship.application_progress !== undefined && (
+                                    <CircularProgress
+                                        percentage={scholarship.application_progress}
+                                        color={colors.primary}
+                                        isDark={isDark}
+                                    />
+                                )}
+                            </View>
+
+                            {scholarship.application_step && (
+                                <View style={styles.stepInfoContainer}>
+                                    <Text style={[styles.stepLabel, { color: colors.textSecondary }]}>CURRENT STEP</Text>
+                                    <View style={styles.stepBadge}>
+                                        <Text style={styles.stepBadgeText}>{scholarship.application_step.replace(/_/g, ' ')}</Text>
+                                    </View>
+                                </View>
+                            )}
+                        </View>
+                    </View>
+                )}
+
+                {/* PROGRESS BAR */}
+                {scholarship.progress_percent !== undefined && scholarship.progress_percent > 0 && (
                     <View style={styles.sectionContainer}>
                         <View style={[styles.progressCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
                             <View style={styles.progressHeader}>
-                                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                                    <View style={[styles.progressIconBox, { backgroundColor: getCategoryColor(scholarship.category || "General") + "20" }]}>
-                                        <Ionicons name="pie-chart" size={20} color={getCategoryColor(scholarship.category || "General")} />
-                                    </View>
-                                    <Text style={[styles.cardTitle, { color: colors.text }]}>Application Progress</Text>
-                                </View>
-                                <Text style={[styles.progressPercent, { color: getCategoryColor(scholarship.category || "General") }]}>{scholarship.progress_percent}%</Text>
+                                <Text style={[styles.cardTitle, { color: colors.text }]}>Overall Progress</Text>
+                                <Text style={[styles.progressPercent, { color: colors.primary }]}>{scholarship.progress_percent}%</Text>
                             </View>
                             <View style={styles.progressBarBg}>
-                                <View style={[styles.progressBarFill, { width: `${scholarship.progress_percent}%`, backgroundColor: scholarship.progress_percent === 100 ? "#10B981" : getCategoryColor(scholarship.category || "General") }]} />
+                                <View style={[styles.progressBarFill, { width: `${scholarship.progress_percent}%`, backgroundColor: colors.primary }]} />
                             </View>
-                            <Text style={[styles.progressMessage, { color: colors.textSecondary }]}>
-                                {scholarship.progress_percent === 100 ? "Everything looks good! You have completed the application." : "Complete all required steps to submit your application securely."}
-                            </Text>
                         </View>
                     </View>
                 )}
 
-                {/* Timeline - same as student */}
-                <View style={styles.sectionContainer}>
-                    <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>Timeline</Text>
-                    <View style={[styles.datesCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
-                        {scholarship.start_date && (
-                            <View style={styles.dateRow}>
-                                <View style={[styles.dateIconBox, { backgroundColor: getCategoryColor(scholarship.category || "General") + "20" }]}>
-                                    <Ionicons name="play" size={18} color={getCategoryColor(scholarship.category || "General")} />
-                                </View>
-                                <View style={styles.dateInfo}>
-                                    <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>APPLICATION OPENS</Text>
-                                    <Text style={[styles.dateValue, { color: colors.text }]}>
-                                        {new Date(scholarship.start_date).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}
-                                    </Text>
-                                </View>
-                            </View>
-                        )}
-                        {scholarship.start_date && (scholarship.end_date || scholarship.application_deadline) && (
-                            <View style={[styles.horizontalLine, { backgroundColor: isDark ? "#333" : "#F3F4F6" }]} />
-                        )}
-                        {(scholarship.end_date || scholarship.application_deadline) && (
-                            <View style={styles.dateRow}>
-                                <View style={[styles.dateIconBox, { backgroundColor: getCategoryColor(scholarship.category || "General") + "20" }]}>
-                                    <Ionicons name="stop" size={18} color={getCategoryColor(scholarship.category || "General")} />
-                                </View>
-                                <View style={styles.dateInfo}>
-                                    <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>APPLICATION CLOSES</Text>
-                                    <Text style={[styles.dateValue, { color: colors.text }]}>
-                                        {new Date(scholarship.end_date || scholarship.application_deadline).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}
-                                    </Text>
-                                </View>
-                            </View>
-                        )}
+                {/* QUICK DETAILS GRID */}
+                <View style={styles.gridContainer}>
+                    <View style={[styles.gridItem, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
+                        <Ionicons name="calendar" size={20} color={colors.primary} />
+                        <Text style={[styles.gridLabel, { color: colors.text }]}>Start Date</Text>
+                        <Text style={[styles.gridValue, { color: colors.text }]}>
+                            {scholarship.start_date ? new Date(scholarship.start_date).toLocaleDateString() : "N/A"}
+                        </Text>
                     </View>
-                </View>
-
-                {/* About Scholarship */}
-                {description ? (
-                    <View style={styles.sectionContainer}>
-                        <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>About Scholarship</Text>
-                        <View style={[styles.contentCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
-                            <Text style={[styles.bodyText, { color: colors.textSecondary }]}>{description}</Text>
-                        </View>
-                    </View>
-                ) : null}
-
-                {/* Eligibility */}
-                {scholarship.eligibility_criteria ? (
-                    <View style={styles.sectionContainer}>
-                        <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>Eligibility</Text>
-                        <View style={[styles.contentCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
-                            <View style={{ flexDirection: "row", gap: 12 }}>
-                                <Ionicons name="school" size={24} color={colors.primary} style={{ marginTop: 2 }} />
-                                <Text style={[styles.bodyText, { color: colors.textSecondary, flex: 1 }]}>{scholarship.eligibility_criteria}</Text>
-                            </View>
-                        </View>
-                    </View>
-                ) : null}
-
-                {/* Required Documents - same as student */}
-                {scholarship.documents && scholarship.documents.length > 0 && !scholarship.expired && (
-                    <View style={styles.sectionContainer}>
-                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                            <Text style={[styles.sectionHeaderTitle, { color: colors.text, marginBottom: 0 }]}>Required Documents</Text>
-                            <View style={[styles.countBadge, { backgroundColor: isDark ? "#333" : "#F3F4F6" }]}>
-                                <Text style={[styles.countText, { color: isDark ? "#fff" : "#374151" }]}>{scholarship.documents.length} Items</Text>
-                            </View>
-                        </View>
-                        <View style={{ gap: 12 }}>
-                            {scholarship.documents.map((doc: any, index: number) => {
-                                const isCompleted = doc.uploaded || doc.status !== "todo";
-                                return (
-                                    <TouchableOpacity
-                                        key={doc.id ?? index}
-                                        activeOpacity={isCompleted ? 1 : 0.7}
-                                        onPress={() => {
-                                            if (!isCompleted) {
-                                                openDocModal({
-                                                    cmid: doc.cmid,
-                                                    label: doc.label,
-                                                    mode: doc.mode || "scheme",
-                                                });
-                                            } else {
-                                                showToast("Document already uploaded", "info");
-                                            }
-                                        }}
-                                        style={[styles.docRow, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}
-                                    >
-                                        <View style={[styles.docIcon, { backgroundColor: isCompleted ? "#DCFCE7" : "#EFF6FF" }]}>
-                                            <Ionicons name={isCompleted ? "checkmark" : "document-text"} size={20} color={isCompleted ? "#166534" : "#3B82F6"} />
-                                        </View>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={[styles.docLabel, { color: colors.text }]}>{doc.label}</Text>
-                                            <Text style={[styles.docSub, { color: isCompleted ? "#166534" : "#6B7280" }]}>
-                                                {isCompleted ? "Verified & Attached" : "Tap to upload document"}
-                                            </Text>
-                                        </View>
-                                        {!isCompleted && (
-                                            <View style={[styles.uploadActionBtn, { backgroundColor: colors.primary }]}>
-                                                <Ionicons name="arrow-up" size={14} color="#FFF" />
-                                            </View>
-                                        )}
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
-                    </View>
-                )}
-
-                {/* Application Process - same as student */}
-                <View style={styles.sectionContainer}>
-                    <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>📝 Application Process</Text>
-                    <View style={{ paddingLeft: 10 }}>
-                        {[
-                            { emoji: "📄", title: "Application", desc: "Please complete and submit all required steps of the application form along with necessary documents for the scholarship process." },
-                            { emoji: "📁", title: "Document Collection", desc: "Upload the required documents including previous year's mark sheets, fee structure for the current year (if applicable), and any other supporting documents." },
-                            { emoji: "📆", title: "Interview", desc: "To assess your eligibility, schedule an interview. The interview will help finalize your selection in the scholarship process." },
-                            { emoji: "✅", title: "Selection", desc: "The scholarship committee will evaluate applications, documents, and interview responses to shortlist deserving candidates." },
-                            { emoji: "💰", title: "Disbursement", desc: "If selected, the scholarship amount will be transferred directly to the recipient's bank account." },
-                        ].map((step, idx, arr) => (
-                            <View key={idx} style={styles.timelineItem}>
-                                {idx !== arr.length - 1 && <View style={[styles.timelineLine, { backgroundColor: isDark ? "#333" : "#E5E7EB" }]} />}
-                                <View style={[styles.timelineIconBox, { backgroundColor: isDark ? "#333" : "#FFF", borderColor: isDark ? "#444" : "#E5E7EB" }]}>
-                                    <Text style={[styles.timelineStepNum, { color: getCategoryColor(scholarship.category || "General"), fontSize: 16 }]}>{step.emoji}</Text>
-                                </View>
-                                <View style={[styles.timelineContent, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
-                                    <Text style={[styles.timelineTitle, { color: colors.text }]}>{step.title}</Text>
-                                    <Text style={styles.timelineDesc}>{step.desc}</Text>
-                                </View>
-                            </View>
-                        ))}
-                    </View>
-                </View>
-
-                {/* Notes - same as student */}
-                <View style={[styles.sectionContainer, { marginBottom: 40 }]}>
-                    <View style={[styles.noteBox, { backgroundColor: "#FFFBEB", borderColor: "#FCD34D" }]}>
-                        <Ionicons name="bulb" size={20} color="#D97706" />
-                        <Text style={[styles.noteText, { color: "#92400E" }]}>
-                            Make sure to double check all your documents before submission to avoid rejection.
+                    <View style={[styles.gridItem, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
+                        <Ionicons name="hourglass" size={20} color="#F59E0B" />
+                        <Text style={[styles.gridLabel, { color: colors.text }]}>End Date</Text>
+                        <Text style={[styles.gridValue, { color: colors.text }]}>
+                            {scholarship.end_date ? new Date(scholarship.end_date).toLocaleDateString() : (scholarship.application_deadline ? new Date(scholarship.application_deadline).toLocaleDateString() : "No Deadline")}
                         </Text>
                     </View>
                 </View>
+
+                {/* DESCRIPTION SECTION */}
+                {scholarship.description && (
+                    <View style={styles.sectionContainer}>
+                        <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>Description</Text>
+                        <View style={[styles.contentCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
+                            <RenderHTML
+                                contentWidth={width - 72}
+                                source={{ html: scholarship.description }}
+                                tagsStyles={tagsStyles}
+                            />
+                        </View>
+                    </View>
+                )}
+
+                {/* ELIGIBILITY CRITERIA */}
+                {scholarship.eligibility_criteria && (
+                    <View style={styles.sectionContainer}>
+                        <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>Eligibility Criteria</Text>
+                        <View style={[styles.contentCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
+                            <RenderHTML
+                                contentWidth={width - 72}
+                                source={{ html: scholarship.eligibility_criteria }}
+                                tagsStyles={tagsStyles}
+                            />
+                        </View>
+                    </View>
+                )}
+
+                {/* SECTIONS & ACTIVITIES (New) */}
+                {scholarship.sections && scholarship.sections.length > 0 && (
+                    <View style={styles.sectionContainer}>
+                        <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>Scholarship Modules</Text>
+
+                        {/* ── Locked banner — shown only before student applies ── */}
+                        {isNotApplied && (
+                            <View style={styles.lockedBanner}>
+                                <View style={styles.lockedBannerIconWrap}>
+                                    <Ionicons name="lock-closed" size={22} color="#92400E" />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.lockedBannerTitle}>Module Locked</Text>
+                                    <Text style={styles.lockedBannerDesc}>
+                                        Apply for this scholarship first to unlock and access all modules, quizzes, and document uploads.
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
+                        {scholarship.sections
+                            .filter((section: any) => {
+                                // 1. Hide if explicitly marked as not visible to students
+                                if (section.visible_to_students === false) return false;
+
+                                // 2. Hide if it has no summary AND no visible activities (no labels and visible_to_students !== false)
+                                const visibleActivities = (section.activities || []).filter(
+                                    (a: any) => a.modname !== 'label' && a.visible_to_students !== false
+                                );
+                                return visibleActivities.length > 0 || !!section.summary;
+                            })
+                            .map((section: any, idx: number) => {
+
+                                return (
+                                    <View key={section.id} style={[styles.moduleCard, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#2a2a2a" : "#E5E7EB" }]}>
+                                        {/* Section header */}
+                                        <View style={styles.moduleHeader}>
+                                            <View style={[styles.moduleIndexBadge, { backgroundColor: colors.primary + "18" }]}>
+                                                <Text style={[styles.moduleIndexText, { color: colors.primary }]}>{idx + 1}</Text>
+                                            </View>
+                                            <View style={{ flex: 1, marginLeft: 14 }}>
+                                                <Text style={[styles.moduleTitle, { color: colors.text }]}>{section.name}</Text>
+                                                {section.summary ? (
+                                                    <Text style={[styles.moduleSummary, { color: colors.textSecondary }]} numberOfLines={3}>
+                                                        {stripHtml(section.summary)}
+                                                    </Text>
+                                                ) : null}
+                                            </View>
+                                        </View>
+
+                                        {section.activities && section.activities.length > 0 && (
+                                            <View style={styles.activitiesList}>
+                                                {section.activities.map((activity: any) => {
+                                                    // ── Skip if not visible to students ──
+                                                    if (activity.visible_to_students === false) return null;
+
+                                                    // ── LABEL: admin-only markers — NEVER shown to students ──
+                                                    if (activity.modname === 'label') return null;
+
+                                                    const isCompleted = activity.completion_state > 0;
+                                                    const isAssign = activity.modname === 'assign';
+                                                    const isQuiz = activity.modname === 'quiz';
+                                                    const isScheduler = activity.modname === 'scheduler';
+                                                    const isPage = activity.modname === 'page';
+                                                    const isForum = activity.modname === 'forum';
+                                                    const isQbank = activity.modname === 'qbank';
+                                                    const isCustomCert = activity.modname === 'customcert';
+                                                    const isGenericActivity = isPage || isForum || isQbank || isCustomCert;
+                                                    const uploadedFiles: any[] = activity.document?.files || [];
+                                                    const hasUploadedFiles = uploadedFiles.length > 0;
+
+                                                    // ── Helper: icon for file mimetype ──────────────────
+                                                    const getFileIcon = (mime: string): any => {
+                                                        if (mime?.startsWith('image/')) return 'image-outline';
+                                                        if (mime === 'application/pdf') return 'document-text-outline';
+                                                        if (mime?.includes('word')) return 'document-outline';
+                                                        if (mime?.includes('excel') || mime?.includes('spreadsheet')) return 'grid-outline';
+                                                        return 'attach-outline';
+                                                    };
+
+                                                    const getFileIconColor = (mime: string): string => {
+                                                        if (mime?.startsWith('image/')) return '#8B5CF6';
+                                                        if (mime === 'application/pdf') return '#EF4444';
+                                                        if (mime?.includes('word')) return '#3B82F6';
+                                                        return '#6B7280';
+                                                    };
+
+                                                    const formatFileSize = (bytes: number) => {
+                                                        if (!bytes) return '';
+                                                        if (bytes < 1024) return `${bytes} B`;
+                                                        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+                                                        return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+                                                    };
+
+                                                    const handleFileOpen = (file: any) => {
+                                                        router.push({
+                                                            pathname: "/(dashboard)/student/student-file-viewer",
+                                                            params: {
+                                                                fileurl: file.fileurl,
+                                                                filename: file.filename,
+                                                                mimetype: file.mimetype,
+                                                            },
+                                                        });
+                                                    };
+
+                                                    const handleActivityPress = () => {
+                                                        // Block all interactions until the student has applied
+                                                        if (isNotApplied) return;
+
+                                                        if (isQuiz) {
+                                                            router.push({
+                                                                pathname: "/(dashboard)/student/student-quiz-webview",
+                                                                params: { cmid: activity.id, name: activity.name, studentId: studentId ? String(studentId) : "" }
+                                                            });
+                                                        } else if (isScheduler) {
+                                                            router.push({
+                                                                pathname: "/(dashboard)/student/student-scheduler-booking",
+                                                                params: { cmid: activity.id, name: activity.name, studentId: studentId ? String(studentId) : "" }
+                                                            });
+                                                        } else if (isAssign && !hasUploadedFiles) {
+                                                            // No files yet → go to upload screen
+                                                            router.push({
+                                                                pathname: "/(dashboard)/student/student-upload-document",
+                                                                params: { cmid: activity.id, label: activity.name, mode: "scheme", studentId: studentId ? String(studentId) : "" }
+                                                            });
+                                                        } else if (isGenericActivity) {
+                                                            // page / forum / qbank / customcert → let student-activity-detail
+                                                            // decide html_page vs webview_only
+                                                            router.push({
+                                                                pathname: "/(dashboard)/student/student-activity-detail",
+                                                                params: { cmid: activity.id, name: activity.name, studentId: studentId ? String(studentId) : "" }
+                                                            });
+                                                        }
+                                                    };
+
+                                                    // ── ASSIGN with uploaded files → show file list ──────
+                                                    if (isAssign && hasUploadedFiles) {
+                                                        const ItemContainer = isNotApplied ? View : TouchableOpacity;
+                                                        return (
+                                                            <View
+                                                                key={activity.id}
+                                                                style={[styles.activityItem, { borderBottomColor: isDark ? "#333" : "#F3F4F6" }, isNotApplied && styles.lockedActivityItem]}
+                                                            >
+                                                                {/* Activity header row */}
+                                                                <View style={styles.activityInner}>
+                                                                    {activity.modicon ? (
+                                                                        <Image source={{ uri: activity.modicon }} style={styles.activityIcon} tintColor={colors.text} />
+                                                                    ) : (
+                                                                        <View style={[styles.activityIcon, { backgroundColor: '#DCFCE7', borderRadius: 6, justifyContent: 'center', alignItems: 'center' }]}>
+                                                                            <Ionicons name="folder-open-outline" size={14} color="#16A34A" />
+                                                                        </View>
+                                                                    )}
+                                                                    <View style={{ flex: 1, marginRight: 10 }}>
+                                                                        <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
+                                                                            {activity.name}
+                                                                        </Text>
+                                                                        <View style={styles.docStatusRow}>
+                                                                            <View style={[styles.statusMiniBadge, { backgroundColor: '#DCFCE7' }]}>
+                                                                                <View style={[styles.statusDot, { backgroundColor: '#166534' }]} />
+                                                                                <Text style={[styles.statusMiniText, { color: '#166534' }]}>
+                                                                                    {uploadedFiles.length} File{uploadedFiles.length > 1 ? 's' : ''} Uploaded
+                                                                                </Text>
+                                                                            </View>
+                                                                            {activity.document?.due_date && (
+                                                                                <Text style={[styles.activitySubtext, { color: colors.textSecondary }]}>
+                                                                                    Due: {new Date(activity.document.due_date).toLocaleDateString()}
+                                                                                </Text>
+                                                                            )}
+                                                                        </View>
+                                                                    </View>
+                                                                    {isNotApplied ? (
+                                                                        <View style={[styles.quizChevronBox, { backgroundColor: '#FEF3C7' }]}>
+                                                                            <Ionicons name="lock-closed" size={14} color="#92400E" />
+                                                                        </View>
+                                                                    ) : (
+                                                                        <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                                                                    )}
+                                                                </View>
+
+                                                                {/* Uploaded files list */}
+                                                                <View style={[styles.fileListContainer, { backgroundColor: isDark ? '#161616' : '#F9FAFB', borderColor: isDark ? '#2a2a2a' : '#E5E7EB' }]}>
+                                                                    {uploadedFiles.map((file: any, fi: number) => {
+                                                                        const FileItemContainer = isNotApplied ? View : TouchableOpacity;
+                                                                        return (
+                                                                            <FileItemContainer
+                                                                                key={file.id ?? fi}
+                                                                                style={[
+                                                                                    styles.fileRow,
+                                                                                    { borderBottomColor: isDark ? '#252525' : '#F3F4F6' },
+                                                                                    fi === uploadedFiles.length - 1 && { borderBottomWidth: 0 },
+                                                                                ]}
+                                                                                {...(!isNotApplied ? { onPress: () => handleFileOpen(file), activeOpacity: 0.7 } : {})}
+                                                                            >
+                                                                                {/* File type icon */}
+                                                                                <View style={[styles.fileTypeIcon, { backgroundColor: getFileIconColor(file.mimetype) + '18' }]}>
+                                                                                    <Ionicons
+                                                                                        name={getFileIcon(file.mimetype)}
+                                                                                        size={18}
+                                                                                        color={getFileIconColor(file.mimetype)}
+                                                                                    />
+                                                                                </View>
+
+                                                                                {/* File info */}
+                                                                                <View style={{ flex: 1, minWidth: 0 }}>
+                                                                                    <Text
+                                                                                        style={[styles.fileItemName, { color: colors.text }]}
+                                                                                        numberOfLines={1}
+                                                                                        ellipsizeMode="middle"
+                                                                                    >
+                                                                                        {file.filename}
+                                                                                    </Text>
+                                                                                    <View style={styles.fileMetaRow}>
+                                                                                        {file.filesize > 0 && (
+                                                                                            <Text style={[styles.fileMeta, { color: colors.textSecondary }]}>
+                                                                                                {formatFileSize(file.filesize)}
+                                                                                            </Text>
+                                                                                        )}
+                                                                                        {file.uploaded_at && (
+                                                                                            <Text style={[styles.fileMeta, { color: colors.textSecondary }]}>
+                                                                                                · {new Date(file.uploaded_at).toLocaleDateString()}
+                                                                                            </Text>
+                                                                                        )}
+                                                                                    </View>
+                                                                                </View>
+
+                                                                                {/* Open indicator */}
+                                                                                {!isNotApplied && (
+                                                                                    <View style={[styles.openBadge, { backgroundColor: colors.primary + '12' }]}>
+                                                                                        <Ionicons name="eye-outline" size={14} color={colors.primary} />
+                                                                                        <Text style={[styles.openBadgeText, { color: colors.primary }]}>View</Text>
+                                                                                    </View>
+                                                                                )}
+                                                                            </FileItemContainer>
+                                                                        );
+                                                                    })}
+                                                                </View>
+                                                            </View>
+                                                        );
+                                                    }
+
+                                                    // ── ASSIGN with no files → upload prompt ─────────────
+                                                    if (isAssign && !hasUploadedFiles) {
+                                                        const ItemContainer = isNotApplied ? View : TouchableOpacity;
+                                                        return (
+                                                            <ItemContainer
+                                                                key={activity.id}
+                                                                style={[styles.activityItem, { borderBottomColor: isDark ? "#333" : "#F3F4F6" }, isNotApplied && styles.lockedActivityItem]}
+                                                                {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.7 } : {})}
+                                                            >
+                                                                <View style={styles.activityInner}>
+                                                                    {activity.modicon ? (
+                                                                        <Image source={{ uri: activity.modicon }} style={styles.activityIcon} tintColor={colors.text} />
+                                                                    ) : (
+                                                                        <View style={[styles.activityIcon, { backgroundColor: '#FEF3C7', borderRadius: 6, justifyContent: 'center', alignItems: 'center' }]}>
+                                                                            <Ionicons name="cloud-upload-outline" size={14} color="#D97706" />
+                                                                        </View>
+                                                                    )}
+                                                                    <View style={{ flex: 1, marginRight: 10 }}>
+                                                                        <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
+                                                                            {activity.name}
+                                                                        </Text>
+                                                                        <View style={styles.docStatusRow}>
+                                                                            <View style={[styles.statusMiniBadge, { backgroundColor: '#FEF3C7' }]}>
+                                                                                <View style={[styles.statusDot, { backgroundColor: '#D97706' }]} />
+                                                                                <Text style={[styles.statusMiniText, { color: '#92400E' }]}>Upload Required</Text>
+                                                                            </View>
+                                                                            {activity.document?.due_date && (
+                                                                                <Text style={[styles.activitySubtext, { color: colors.textSecondary }]}>
+                                                                                    Due: {new Date(activity.document.due_date).toLocaleDateString()}
+                                                                                </Text>
+                                                                            )}
+                                                                        </View>
+                                                                    </View>
+                                                                    {isNotApplied ? (
+                                                                        <View style={[styles.quizChevronBox, { backgroundColor: '#FEF3C7' }]}>
+                                                                            <Ionicons name="lock-closed" size={14} color="#92400E" />
+                                                                        </View>
+                                                                    ) : (
+                                                                        <View style={[styles.uploadMiniBtn, { backgroundColor: colors.primary }]}>
+                                                                            <Ionicons name="arrow-up" size={13} color="#FFF" />
+                                                                        </View>
+                                                                    )}
+                                                                </View>
+                                                            </ItemContainer>
+                                                        );
+                                                    }
+
+                                                    // ── QUIZ → dedicated status card ─────────────────────
+                                                    if (isQuiz) {
+                                                        const quizStatus = isCompleted
+                                                            ? 'completed'
+                                                            : activity.state === 'inprogress'
+                                                                ? 'inprogress'
+                                                                : 'pending';
+
+                                                        const quizBadgeConfig = {
+                                                            completed: { bg: '#DCFCE7', dot: '#166534', text: '#166534', label: 'Completed', icon: 'checkmark-circle' as const },
+                                                            inprogress: { bg: '#DBEAFE', dot: '#1D4ED8', text: '#1D4ED8', label: 'In Progress', icon: 'play-circle' as const },
+                                                            pending: { bg: '#FEF3C7', dot: '#D97706', text: '#92400E', label: 'Pending', icon: 'time' as const },
+                                                        }[quizStatus];
+
+                                                        const ItemContainer = isNotApplied ? View : TouchableOpacity;
+                                                        return (
+                                                            <ItemContainer
+                                                                key={activity.id}
+                                                                style={[
+                                                                    styles.activityItem,
+                                                                    styles.quizActivityItem,
+                                                                    { borderBottomColor: isDark ? '#333' : '#F3F4F6', borderLeftColor: isNotApplied ? '#D97706' : colors.primary },
+                                                                    isNotApplied && styles.lockedActivityItem,
+                                                                ]}
+                                                                {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
+                                                            >
+                                                                <View style={styles.activityInner}>
+                                                                    {/* Quiz icon */}
+                                                                    <View style={[styles.quizIconBox, { backgroundColor: colors.primary + '15' }]}>
+                                                                        <Ionicons name="document-text" size={15} color={colors.primary} />
+                                                                    </View>
+
+                                                                    {/* Name + status */}
+                                                                    <View style={{ flex: 1, marginRight: 10 }}>
+                                                                        <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
+                                                                            {activity.name}
+                                                                        </Text>
+                                                                        <View style={styles.docStatusRow}>
+                                                                            <View style={[styles.statusMiniBadge, { backgroundColor: quizBadgeConfig.bg }]}>
+                                                                                <Ionicons name={quizBadgeConfig.icon} size={11} color={quizBadgeConfig.dot} />
+                                                                                <Text style={[styles.statusMiniText, { color: quizBadgeConfig.text }]}>
+                                                                                    {quizBadgeConfig.label}
+                                                                                </Text>
+                                                                            </View>
+                                                                        </View>
+                                                                    </View>
+
+                                                                    {/* Action indicator */}
+                                                                    <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : colors.primary + '12' }]}>
+                                                                        <Ionicons
+                                                                            name={isNotApplied ? "lock-closed" : (quizStatus === 'completed' ? 'eye-outline' : 'chevron-forward')}
+                                                                            size={14}
+                                                                            color={isNotApplied ? "#92400E" : colors.primary}
+                                                                        />
+                                                                    </View>
+                                                                </View>
+                                                            </ItemContainer>
+                                                        );
+                                                    }
+
+                                                    // ── SCHEDULER → tappable standard card ───────────────
+                                                    if (isScheduler) {
+                                                        const ItemContainer = isNotApplied ? View : TouchableOpacity;
+                                                        return (
+                                                            <ItemContainer
+                                                                key={activity.id}
+                                                                style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isNotApplied && styles.lockedActivityItem]}
+                                                                {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
+                                                            >
+                                                                <View style={styles.activityInner}>
+                                                                    <View style={[styles.quizIconBox, { backgroundColor: '#0EA5E915' }]}>
+                                                                        <Ionicons name="calendar" size={15} color="#0EA5E9" />
+                                                                    </View>
+                                                                    <View style={{ flex: 1, marginRight: 10 }}>
+                                                                        <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
+                                                                            {activity.name}
+                                                                        </Text>
+                                                                        <View style={styles.docStatusRow}>
+                                                                            <View style={[styles.statusMiniBadge, { backgroundColor: '#E0F2FE' }]}>
+                                                                                <Ionicons name="calendar-outline" size={11} color="#0369A1" />
+                                                                                <Text style={[styles.statusMiniText, { color: '#0369A1' }]}>Book Slot</Text>
+                                                                            </View>
+                                                                        </View>
+                                                                    </View>
+                                                                    <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : '#0EA5E912' }]}>
+                                                                        <Ionicons
+                                                                            name={isNotApplied ? "lock-closed" : (isCompleted ? 'checkmark-circle' : 'chevron-forward')}
+                                                                            size={14}
+                                                                            color={isNotApplied ? "#92400E" : "#0EA5E9"}
+                                                                        />
+                                                                    </View>
+                                                                </View>
+                                                            </ItemContainer>
+                                                        );
+                                                    }
+
+                                                    // ── PAGE → tappable card, renders HTML natively ───────
+                                                    if (isPage) {
+                                                        const ItemContainer = isNotApplied ? View : TouchableOpacity;
+                                                        return (
+                                                            <ItemContainer
+                                                                key={activity.id}
+                                                                style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isNotApplied && styles.lockedActivityItem]}
+                                                                {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
+                                                            >
+                                                                <View style={styles.activityInner}>
+                                                                    <View style={[styles.quizIconBox, { backgroundColor: '#8B5CF615' }]}>
+                                                                        <Ionicons name="book-outline" size={15} color="#8B5CF6" />
+                                                                    </View>
+                                                                    <View style={{ flex: 1, marginRight: 10 }}>
+                                                                        <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
+                                                                            {activity.name}
+                                                                        </Text>
+                                                                        <View style={styles.docStatusRow}>
+                                                                            <View style={[styles.statusMiniBadge, { backgroundColor: '#EDE9FE' }]}>
+                                                                                <Ionicons name="book-outline" size={11} color="#7C3AED" />
+                                                                                <Text style={[styles.statusMiniText, { color: '#7C3AED' }]}>Read</Text>
+                                                                            </View>
+                                                                        </View>
+                                                                    </View>
+                                                                    <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : '#8B5CF612' }]}>
+                                                                        <Ionicons
+                                                                            name={isNotApplied ? "lock-closed" : (isCompleted ? 'checkmark-circle' : 'chevron-forward')}
+                                                                            size={14}
+                                                                            color={isNotApplied ? "#92400E" : "#8B5CF6"}
+                                                                        />
+                                                                    </View>
+                                                                </View>
+                                                            </ItemContainer>
+                                                        );
+                                                    }
+
+                                                    // ── FORUM → tappable card, opens webview ─────────────
+                                                    if (isForum) {
+                                                        const ItemContainer = isNotApplied ? View : TouchableOpacity;
+                                                        return (
+                                                            <ItemContainer
+                                                                key={activity.id}
+                                                                style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isNotApplied && styles.lockedActivityItem]}
+                                                                {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
+                                                            >
+                                                                <View style={styles.activityInner}>
+                                                                    <View style={[styles.quizIconBox, { backgroundColor: '#14B8A615' }]}>
+                                                                        <Ionicons name="chatbubbles-outline" size={15} color="#14B8A6" />
+                                                                    </View>
+                                                                    <View style={{ flex: 1, marginRight: 10 }}>
+                                                                        <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
+                                                                            {activity.name}
+                                                                        </Text>
+                                                                        <View style={styles.docStatusRow}>
+                                                                            <View style={[styles.statusMiniBadge, { backgroundColor: '#CCFBF1' }]}>
+                                                                                <Ionicons name="chatbubbles-outline" size={11} color="#0F766E" />
+                                                                                <Text style={[styles.statusMiniText, { color: '#0F766E' }]}>Forum</Text>
+                                                                            </View>
+                                                                        </View>
+                                                                    </View>
+                                                                    <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : '#14B8A612' }]}>
+                                                                        <Ionicons
+                                                                            name={isNotApplied ? "lock-closed" : "chevron-forward"}
+                                                                            size={14}
+                                                                            color={isNotApplied ? "#92400E" : "#14B8A6"}
+                                                                        />
+                                                                    </View>
+                                                                </View>
+                                                            </ItemContainer>
+                                                        );
+                                                    }
+
+                                                    // ── QBANK → tappable card, opens webview ─────────────
+                                                    if (isQbank) {
+                                                        const ItemContainer = isNotApplied ? View : TouchableOpacity;
+                                                        return (
+                                                            <ItemContainer
+                                                                key={activity.id}
+                                                                style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isNotApplied && styles.lockedActivityItem]}
+                                                                {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
+                                                            >
+                                                                <View style={styles.activityInner}>
+                                                                    <View style={[styles.quizIconBox, { backgroundColor: '#F9731615' }]}>
+                                                                        <Ionicons name="help-circle-outline" size={15} color="#F97316" />
+                                                                    </View>
+                                                                    <View style={{ flex: 1, marginRight: 10 }}>
+                                                                        <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
+                                                                            {activity.name}
+                                                                        </Text>
+                                                                        <View style={styles.docStatusRow}>
+                                                                            <View style={[styles.statusMiniBadge, { backgroundColor: '#FFEDD5' }]}>
+                                                                                <Ionicons name="library-outline" size={11} color="#C2410C" />
+                                                                                <Text style={[styles.statusMiniText, { color: '#C2410C' }]}>Question Bank</Text>
+                                                                            </View>
+                                                                        </View>
+                                                                    </View>
+                                                                    <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : '#F9731612' }]}>
+                                                                        <Ionicons
+                                                                            name={isNotApplied ? "lock-closed" : "chevron-forward"}
+                                                                            size={14}
+                                                                            color={isNotApplied ? "#92400E" : "#F97316"}
+                                                                        />
+                                                                    </View>
+                                                                </View>
+                                                            </ItemContainer>
+                                                        );
+                                                    }
+
+                                                    // ── CUSTOMCERT → tappable card, certificate download ──
+                                                    if (isCustomCert) {
+                                                        const ItemContainer = isNotApplied ? View : TouchableOpacity;
+                                                        return (
+                                                            <ItemContainer
+                                                                key={activity.id}
+                                                                style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isNotApplied && styles.lockedActivityItem]}
+                                                                {...(!isNotApplied ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
+                                                            >
+                                                                <View style={styles.activityInner}>
+                                                                    <View style={[styles.quizIconBox, { backgroundColor: '#EAB30815' }]}>
+                                                                        <Ionicons name="ribbon-outline" size={15} color="#D97706" />
+                                                                    </View>
+                                                                    <View style={{ flex: 1, marginRight: 10 }}>
+                                                                        <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
+                                                                            {activity.name}
+                                                                        </Text>
+                                                                        <View style={styles.docStatusRow}>
+                                                                            <View style={[styles.statusMiniBadge, { backgroundColor: '#FEF3C7' }]}>
+                                                                                <Ionicons name="ribbon-outline" size={11} color="#92400E" />
+                                                                                <Text style={[styles.statusMiniText, { color: '#92400E' }]}>
+                                                                                    {isCompleted ? 'Download Certificate' : 'Certificate'}
+                                                                                </Text>
+                                                                            </View>
+                                                                        </View>
+                                                                    </View>
+                                                                    <View style={[styles.quizChevronBox, { backgroundColor: isNotApplied ? '#FEF3C7' : '#EAB30812' }]}>
+                                                                        <Ionicons
+                                                                            name={isNotApplied ? "lock-closed" : (isCompleted ? 'download-outline' : 'chevron-forward')}
+                                                                            size={14}
+                                                                            color={isNotApplied ? "#92400E" : "#D97706"}
+                                                                        />
+                                                                    </View>
+                                                                </View>
+                                                            </ItemContainer>
+                                                        );
+                                                    }
+
+                                                    // ── FALLBACK → any other unrecognised modtype ─────────
+                                                    return (
+                                                        <View
+                                                            key={activity.id}
+                                                            style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }]}
+                                                        >
+                                                            <View style={styles.activityInner}>
+                                                                {activity.modicon ? (
+                                                                    <Image source={{ uri: activity.modicon }} style={styles.activityIcon} tintColor={colors.text} />
+                                                                ) : (
+                                                                    <View style={[styles.activityIcon, { backgroundColor: colors.primary + '10', borderRadius: 6, justifyContent: 'center', alignItems: 'center' }]}>
+                                                                        <Ionicons name="ellipsis-horizontal" size={14} color={colors.primary} />
+                                                                    </View>
+                                                                )}
+                                                                <View style={{ flex: 1 }}>
+                                                                    <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={1}>
+                                                                        {activity.name}
+                                                                    </Text>
+                                                                </View>
+                                                            </View>
+                                                        </View>
+                                                    );
+                                                })}
+                                            </View>
+                                        )}
+                                    </View>
+                                );
+                            })}
+                    </View>
+                )}
+
+
             </ScrollView>
 
-            {/* Fixed footer - same as student */}
-            <View style={[styles.floatFooter, { paddingBottom: insets.bottom + 12, backgroundColor: isDark ? "#0f0f0f" : "#FFF", borderTopWidth: 1, borderTopColor: isDark ? "#333" : "#E5E7EB" }]}>
+            {/* FIXED ACTION BAR */}
+            <View style={[styles.floatFooter, {
+                paddingBottom: insets.bottom + 12,
+                backgroundColor: isDark ? "rgba(15,15,15,0.95)" : "rgba(255,255,255,0.95)",
+                borderTopWidth: 1,
+                borderTopColor: isDark ? "#333" : "#E5E7EB"
+            }]}>
                 <TouchableOpacity
-                    style={[
-                        styles.fullWidthButton,
-                        { backgroundColor: getCategoryColor(scholarship.category || "General") },
-                        (isApplicationClosed || scholarship.has_applied) && styles.disabledBtn
-                    ]}
+                    style={[styles.fullWidthButton, { backgroundColor: getCategoryColor(scholarship.category || "General") }, (isApplicationClosed || scholarship.has_applied) && styles.disabledBtn]}
                     disabled={isApplicationClosed || scholarship.has_applied}
-                    onPress={() => setShowStudentModal(true)}
+                    onPress={() => router.push({
+                        pathname: "/(dashboard)/mobilizer/mobilizer-apply-form",
+                        params: { scholarshipId: scholarship.id, studentId },
+                    })}
                 >
                     <Text style={styles.fullWidthButtonText}>
-                        {scholarship.has_applied ? "Application Submitted" : scholarship.expired ? "Scholarship Expired" : "Apply for"}
+                        {scholarship.has_applied ? "Application Submitted" : scholarship.expired ? "Scholarship Expired" : "Apply Now"}
                     </Text>
                     {!scholarship.has_applied && !scholarship.expired && <Ionicons name="arrow-forward" size={20} color="#FFF" />}
                 </TouchableOpacity>
             </View>
 
-            {/* Full-page document upload modal (mobilizer has no separate upload screen) */}
-            <Modal
-                visible={docModalVisible}
-                animationType="slide"
-                presentationStyle="fullScreen"
-                onRequestClose={closeDocModal}
-            >
-                <View style={[styles.docModalContainer, { backgroundColor: isDark ? "#121212" : "#f8f9fa", paddingTop: insets.top + 8 }]}>
-                    <View style={[styles.docModalHeader, { borderBottomColor: colors.border }]}>
-                        <Text style={[styles.docModalTitle, { color: colors.text }]}>Upload Document</Text>
-                        <TouchableOpacity onPress={closeDocModal} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-                            <Ionicons name="close" size={28} color={colors.text} />
-                        </TouchableOpacity>
-                    </View>
-                    <ScrollView contentContainerStyle={styles.docModalContent}>
-                        <View style={styles.docModalIconWrap}>
-                            <View style={[styles.docModalIconBox, { backgroundColor: isDark ? "rgba(76, 175, 80, 0.2)" : "rgba(76, 175, 80, 0.1)" }]}>
-                                <Ionicons name="cloud-upload" size={40} color="#4CAF50" />
-                            </View>
-                            <Text style={[styles.docModalHeading, { color: colors.text }]}>Upload Required Document</Text>
-                            <Text style={[styles.docModalSub, { color: colors.textSecondary }]}>Document:</Text>
-                            <Text style={styles.docModalLabel}>{docModalDoc?.label || "—"}</Text>
-                        </View>
-
-                        <View style={[styles.docModalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                            {!docModalFile ? (
-                                <TouchableOpacity
-                                    style={[styles.docModalPlaceholder, { borderColor: colors.border }]}
-                                    onPress={pickDocModalFile}
-                                    activeOpacity={0.7}
-                                >
-                                    <Ionicons name="document-text-outline" size={48} color={colors.textSecondary} />
-                                    <Text style={[styles.docModalPlaceholderText, { color: colors.text }]}>Tap to select a file</Text>
-                                    <Text style={[styles.docModalPlaceholderSub, { color: colors.textSecondary }]}>PDF, JPG, PNG (Max 10MB)</Text>
-                                    <View style={[styles.docModalSelectBtn, { backgroundColor: colors.primary }]}>
-                                        <Text style={styles.docModalSelectBtnText}>Select File</Text>
-                                    </View>
-                                </TouchableOpacity>
-                            ) : (
-                                <View style={styles.docModalFileWrap}>
-                                    <View style={[styles.docModalFileRow, { backgroundColor: isDark ? colors.background : "#f8f9fa" }]}>
-                                        <View style={[styles.docModalFileIcon, { backgroundColor: "rgba(76, 175, 80, 0.2)" }]}>
-                                            <Ionicons name="document" size={24} color="#4CAF50" />
-                                        </View>
-                                        <View style={styles.docModalFileDetails}>
-                                            <Text style={[styles.docModalFileName, { color: colors.text }]} numberOfLines={1}>{docModalFile.name}</Text>
-                                            <Text style={[styles.docModalFileSize, { color: colors.textSecondary }]}>
-                                                {(docModalFile.size / 1024 / 1024).toFixed(2)} MB
-                                            </Text>
-                                        </View>
-                                        <TouchableOpacity onPress={() => setDocModalFile(null)} disabled={docModalUploading}>
-                                            <Ionicons name="close-circle" size={24} color="#F44336" />
-                                        </TouchableOpacity>
-                                    </View>
-                                    <View style={styles.docModalSuccessRow}>
-                                        <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
-                                        <Text style={styles.docModalSuccessText}>File selected — tap Upload below</Text>
-                                    </View>
-                                </View>
-                            )}
-                        </View>
-
-                        <View style={styles.docModalActions}>
-                            <Button
-                                title={docModalUploading ? "Uploading..." : "Upload"}
-                                onPress={handleDocModalUploadPress}
-                                variant="primary"
-                                disabled={!docModalFile || docModalUploading}
-                                style={[styles.docModalUploadBtn, (!docModalFile || docModalUploading) && { opacity: 0.6 }]}
-                            />
-                            <TouchableOpacity style={styles.docModalCancelBtn} onPress={closeDocModal} disabled={docModalUploading}>
-                                <Text style={[styles.docModalCancelText, { color: colors.textSecondary }]}>Cancel</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </ScrollView>
-
-                    {docModalUploading && (
-                        <View style={styles.docModalLoading}>
-                            <ActivityIndicator size="large" color={colors.primary} />
-                            <Text style={[styles.docModalLoadingText, { color: colors.text }]}>Uploading...</Text>
-                        </View>
-                    )}
-                </View>
-            </Modal>
-
-            {/* Student Selection Modal */}
-            <Modal
-                visible={showStudentModal}
-                animationType="slide"
-                presentationStyle="pageSheet"
-                onRequestClose={() => setShowStudentModal(false)}
-            >
-                <View style={[styles.fullScreenModal, { backgroundColor: isDark ? "#121212" : "#f5f5f5" }]}>
-                    <View style={[styles.modalHeader, { paddingTop: 20, backgroundColor: isDark ? "#1E1E1E" : "#fff", borderBottomColor: colors.border }]}>
-                        <View style={styles.modalHeaderTop}>
-                            <TouchableOpacity onPress={() => setShowStudentModal(false)} style={styles.closeBtn}>
-                                <Ionicons name="close" size={24} color={colors.text} />
-                            </TouchableOpacity>
-                            <Text style={[styles.modalTitle, { color: colors.text }]}>Select Student</Text>
-                            <View style={{ width: 24 }} />
-                        </View>
-                        <SearchBar
-                            value={studentSearchQuery}
-                            onChangeText={setStudentSearchQuery}
-                            placeholder="Search student..."
-                            onClear={() => setStudentSearchQuery("")}
-                            style={{ paddingHorizontal: 0, marginTop: 10, paddingVertical: 0, borderRadius: 12 }} />
-                    </View>
-
-                    {loadingStudents ? (
-                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                            <ActivityIndicator size="large" color={colors.primary} />
-                        </View>
-                    ) : (
-                        <FlatList
-                            data={students}
-                            keyExtractor={(item) => String(item.id)}
-                            contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-                            renderItem={({ item }) => {
-                                const isSelected = selectedStudent === item.id;
-                                const avatarColor = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8"][item.id % 5];
-                                const initials = ((item.firstname || "S").charAt(0) + (item.lastname || "").charAt(0)).toUpperCase();
-
-                                return (
-                                    <TouchableOpacity
-                                        style={[
-                                            styles.studentCard,
-                                            {
-                                                backgroundColor: isDark ? colors.card : "#fff",
-                                                borderColor: isSelected ? getCategoryColor(scholarship.category || "General") : isDark ? colors.border : 'transparent',
-                                                borderWidth: isSelected ? 2 : 1
-                                            }
-                                        ]}
-                                        onPress={() => setSelectedStudent(item.id)}
-                                    >
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                                            {item.picture && !item.picture.includes("gravatar.com/avatar/default") ? (
-                                                <Image
-                                                    source={{ uri: item.picture }}
-                                                    style={styles.studentAvatar}
-                                                    contentFit="cover"
-                                                />
-                                            ) : (
-                                                <View style={[styles.studentAvatarPlaceholder, { backgroundColor: avatarColor }]}>
-                                                    <Text style={styles.studentInitials}>{initials}</Text>
-                                                </View>
-                                            )}
-                                            <View style={{ marginLeft: 12, flex: 1 }}>
-                                                <Text style={[styles.studentName, { color: colors.text }]} numberOfLines={1}>
-                                                    {item.fullname || `${item.firstname} ${item.lastname}`}
-                                                </Text>
-                                                <Text style={[styles.studentDetail, { color: colors.textSecondary }]} numberOfLines={1}>
-                                                    {item.email}
-                                                </Text>
-                                            </View>
-                                        </View>
-                                        <View style={{
-                                            width: 24, height: 24, borderRadius: 12, borderWidth: 2,
-                                            borderColor: isSelected ? getCategoryColor(scholarship.category || "General") : colors.textSecondary,
-                                            justifyContent: 'center', alignItems: 'center'
-                                        }}>
-                                            {isSelected && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: getCategoryColor(scholarship.category || "General") }} />}
-                                        </View>
-                                    </TouchableOpacity>
-                                );
-                            }}
-                            ListEmptyComponent={
-                                <View style={{ alignItems: 'center', marginTop: 50 }}>
-                                    <Text style={{ color: colors.textSecondary }}>No students found</Text>
-                                </View>
-                            }
-                        />
-                    )}
-
-                    <View style={[styles.modalFooter, { backgroundColor: isDark ? "#1E1E1E" : "#fff", borderTopColor: colors.border, paddingBottom: insets.bottom + 20 }]}>
-                        <TouchableOpacity
-                            style={[
-                                styles.applyFilterBtn,
-                                { backgroundColor: selectedStudent ? getCategoryColor(scholarship.category || "General") : (isDark ? "#333" : "#ccc"), opacity: selectedStudent ? 1 : 0.7 }
-                            ]}
-                            disabled={!selectedStudent}
-                            onPress={() => {
-                                if (selectedStudent && scholarship?.id) {
-                                    setShowStudentModal(false);
-                                    router.push({
-                                        pathname: "/(dashboard)/mobilizer/mobilizer-apply-form",
-                                        params: {
-                                            scholarshipId: scholarship.id,
-                                            studentId: selectedStudent
-                                        },
-                                    });
-                                    // Reset selection slightly after navigation
-                                    setTimeout(() => setSelectedStudent(null), 500);
-                                }
-                            }}
-                        >
-                            <Text style={styles.applyFilterText}>Proceed to Apply</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
-
-            <Toast message={toastMessage} type={toastType} visible={toastVisible} onHide={() => setToastVisible(false)} duration={3000} />
+            <Toast
+                message={toastMessage}
+                type={toastType}
+                visible={toastVisible}
+                onHide={() => setToastVisible(false)}
+                duration={3000}
+            />
         </View>
     );
 }
@@ -872,16 +1223,120 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    background: {
-        position: "absolute",
-        top: 0,
-        left: 0,
-        bottom: 0,
-        right: 0,
+    studentBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+    },
+    studentBannerText: {
+        fontSize: 13,
+        fontWeight: '500',
     },
     scrollView: {
         flex: 1,
     },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingVertical: 60,
+    },
+    loadingText: {
+        marginTop: 16,
+        fontSize: 16,
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingHorizontal: 40,
+        paddingVertical: 60,
+    },
+    errorText: {
+        marginTop: 16,
+        marginBottom: 24,
+        fontSize: 16,
+        textAlign: "center",
+    },
+    errorButton: {
+        minWidth: 120,
+    },
+    // IMAGE HEADER
+    imageHeaderContainer: {
+        height: 300,
+        width: "100%",
+        position: "relative",
+        marginBottom: 20,
+    },
+    heroBannerImage: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    imageGradient: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    imageOverlayContent: {
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        padding: 20,
+    },
+    categoryRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 12,
+    },
+    categoryBadge: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+    },
+    categoryBadgeText: {
+        color: "#FFF",
+        fontSize: 12,
+        fontWeight: "700",
+        textTransform: "uppercase",
+    },
+    iconButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: "rgba(255,255,255,0.2)",
+        justifyContent: "center",
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.3)",
+    },
+    bannerTitle: {
+        fontSize: 22,
+        fontWeight: "800",
+        color: "#FFF",
+        lineHeight: 34,
+    },
+    tagList: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginTop: 8,
+    },
+    tagItem: {
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+    },
+    tagText: {
+        color: '#FFF',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+
+    // FALLBACK HERO CARD
     heroContainer: {
         padding: 20,
         marginBottom: 10,
@@ -891,11 +1346,6 @@ const styles = StyleSheet.create({
         padding: 24,
         position: "relative",
         overflow: "hidden",
-        shadowColor: "#2563EB",
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.3,
-        shadowRadius: 20,
-        elevation: 10,
         minHeight: 220,
         justifyContent: "space-between",
     },
@@ -906,7 +1356,6 @@ const styles = StyleSheet.create({
         width: 200,
         height: 200,
         borderRadius: 100,
-        backgroundColor: "rgba(255,255,255,0.1)",
     },
     decorativeCircle2: {
         position: "absolute",
@@ -915,7 +1364,6 @@ const styles = StyleSheet.create({
         width: 140,
         height: 140,
         borderRadius: 70,
-        backgroundColor: "rgba(255,255,255,0.05)",
     },
     heroHeaderRow: {
         flexDirection: "row",
@@ -926,7 +1374,6 @@ const styles = StyleSheet.create({
     categoryPill: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "rgba(255,255,255,0.2)",
         paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 20,
@@ -943,7 +1390,6 @@ const styles = StyleSheet.create({
         borderRadius: 20,
     },
     statusPillText: {
-        color: "#FFF",
         fontSize: 12,
         fontWeight: "700",
         textTransform: "uppercase",
@@ -954,9 +1400,6 @@ const styles = StyleSheet.create({
         color: "#FFF",
         lineHeight: 34,
         marginBottom: 4,
-        textShadowColor: "rgba(0,0,0,0.1)",
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 2,
     },
     heroSubtitle: {
         fontSize: 14,
@@ -992,21 +1435,89 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: "rgba(255,255,255,0.15)",
         justifyContent: "center",
         alignItems: "center",
         borderWidth: 1,
         borderColor: "rgba(255,255,255,0.3)",
     },
+    headerBookmarkBtn: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+
+    // COMMON SECTIONS
     sectionContainer: {
         paddingHorizontal: 20,
-        marginBottom: 24,
+        marginBottom: 32,
     },
     sectionHeaderTitle: {
         fontSize: 18,
         fontWeight: "700",
-        marginBottom: 12,
+        marginBottom: 16,
+        marginTop: 8,
     },
+    contentCard: {
+        padding: 20,
+        borderRadius: 16,
+        borderWidth: 1,
+    },
+
+    // PREMIUM CARD Layout
+    premiumCard: {
+        padding: 20,
+        borderRadius: 24,
+        borderWidth: 1,
+    },
+    cardHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    iconBox: {
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    cardTag: {
+        fontSize: 11,
+        fontWeight: "600",
+        letterSpacing: 1,
+    },
+    cardValue: {
+        fontSize: 18,
+        fontWeight: "800",
+        marginTop: 2,
+    },
+    stepInfoContainer: {
+        marginTop: 20,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: "rgba(0,0,0,0.05)",
+    },
+    stepLabel: {
+        fontSize: 12,
+        fontWeight: "600",
+        marginBottom: 8,
+    },
+    stepBadge: {
+        backgroundColor: "#F3F4F6",
+        alignSelf: "flex-start",
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 10,
+    },
+    stepBadgeText: {
+        fontSize: 13,
+        fontWeight: "700",
+        color: "#374151",
+        textTransform: "capitalize",
+    },
+
+    // PROGRESS CARD
     progressCard: {
         padding: 20,
         borderRadius: 20,
@@ -1017,13 +1528,6 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         alignItems: "center",
         marginBottom: 16,
-    },
-    progressIconBox: {
-        width: 36,
-        height: 36,
-        borderRadius: 12,
-        justifyContent: "center",
-        alignItems: "center",
     },
     cardTitle: {
         fontSize: 16,
@@ -1038,70 +1542,134 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(0,0,0,0.05)",
         borderRadius: 5,
         overflow: "hidden",
-        marginBottom: 12,
     },
     progressBarFill: {
         height: "100%",
         borderRadius: 5,
     },
-    progressMessage: {
-        fontSize: 13,
-        lineHeight: 18,
+
+    // GRID
+    gridContainer: {
+        flexDirection: "row",
+        paddingHorizontal: 20,
+        gap: 12,
+        marginBottom: 24,
     },
-    datesCard: {
-        flexDirection: "column",
+    gridItem: {
+        flex: 1,
         padding: 16,
         borderRadius: 16,
         borderWidth: 1,
-        gap: 16,
+        alignItems: "flex-start",
+        gap: 8,
     },
-    dateRow: {
+    gridLabel: {
+        fontSize: 12,
+        fontWeight: "500",
+    },
+    gridValue: {
+        fontSize: 14,
+        fontWeight: "700",
+    },
+
+    moduleCard: {
+        borderRadius: 20,
+        borderWidth: 1,
+        marginBottom: 16,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    moduleHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        padding: 16,
+        paddingBottom: 12,
+    },
+    moduleIndexBadge: {
+        width: 34,
+        height: 34,
+        borderRadius: 11,
+        justifyContent: "center",
+        alignItems: "center",
+        flexShrink: 0,
+    },
+    moduleIndexText: {
+        fontSize: 15,
+        fontWeight: "800",
+    },
+    moduleTitle: {
+        fontSize: 16,
+        fontWeight: "700",
+        letterSpacing: -0.2,
+    },
+    moduleSummary: {
+        fontSize: 12,
+        marginTop: 3,
+        lineHeight: 17,
+    },
+    activitiesList: {
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(0,0,0,0.05)',
+        paddingTop: 4,
+        paddingBottom: 6,
+        paddingHorizontal: 12,
+    },
+    activityItem: {
+        paddingVertical: 11,
+        borderBottomWidth: 1,
+    },
+    activityInner: {
         flexDirection: "row",
         alignItems: "center",
         gap: 12,
     },
-    dateIconBox: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
-        justifyContent: "center",
-        alignItems: "center",
+    activityIcon: {
+        width: 34,
+        height: 34,
+        flexShrink: 0,
     },
-    dateInfo: {
-        flex: 1,
-    },
-    dateLabel: {
-        fontSize: 11,
+    activityName: {
+        fontSize: 14,
         fontWeight: "600",
-        textTransform: "uppercase",
-        marginBottom: 2,
+        letterSpacing: -0.1,
     },
-    dateValue: {
-        fontSize: 13,
-        fontWeight: "700",
+    docStatusRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 6,
+        gap: 8,
     },
-    horizontalLine: {
-        width: "100%",
-        height: 1,
-    },
-    contentCard: {
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
-    },
-    bodyText: {
-        fontSize: 15,
-        lineHeight: 24,
-    },
-    countBadge: {
+    statusMiniBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
         paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 8,
+        paddingVertical: 3,
+        borderRadius: 6,
+        gap: 4,
     },
-    countText: {
-        fontSize: 12,
+    statusDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+    },
+    statusMiniText: {
+        fontSize: 10,
         fontWeight: "700",
+        textTransform: 'uppercase',
     },
+    activitySubtext: {
+        fontSize: 11,
+        fontWeight: "500",
+    },
+    completionBadge: {
+        marginLeft: 8,
+    },
+
+    // DOCS
     docRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -1121,8 +1689,18 @@ const styles = StyleSheet.create({
         fontSize: 15,
         fontWeight: "600",
     },
-    docSub: {
+    docDate: {
         fontSize: 12,
+        marginTop: 2,
+    },
+    countBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 8,
+    },
+    countText: {
+        fontSize: 12,
+        fontWeight: "700",
     },
     uploadActionBtn: {
         width: 28,
@@ -1131,56 +1709,8 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
     },
-    timelineItem: {
-        flexDirection: "row",
-        marginBottom: 24,
-        position: "relative",
-    },
-    timelineLine: {
-        position: "absolute",
-        left: 17,
-        top: 36,
-        bottom: -24,
-        width: 2,
-    },
-    timelineIconBox: {
-        width: 36,
-        height: 36,
-        borderRadius: 12,
-        justifyContent: "center",
-        alignItems: "center",
-        borderWidth: 1,
-        zIndex: 2,
-        marginRight: 16,
-    },
-    timelineStepNum: {
-        fontSize: 14,
-        fontWeight: "800",
-    },
-    timelineContent: {
-        flex: 1,
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
-    },
-    timelineTitle: {
-        fontSize: 15,
-        fontWeight: "700",
-        marginBottom: 4,
-    },
-    timelineDesc: {
-        fontSize: 13,
-        color: "#6B7280",
-        lineHeight: 18,
-    },
-    noteBox: {
-        flexDirection: "row",
-        gap: 12,
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 1,
-        alignItems: "flex-start",
-    },
+
+    // FOOTER
     floatFooter: {
         position: "absolute",
         bottom: 0,
@@ -1188,7 +1718,6 @@ const styles = StyleSheet.create({
         right: 0,
         paddingTop: 12,
         paddingHorizontal: 20,
-        backgroundColor: "transparent",
     },
     fullWidthButton: {
         width: "100%",
@@ -1198,11 +1727,6 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         gap: 8,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 10,
-        elevation: 8,
     },
     fullWidthButtonText: {
         color: "#FFF",
@@ -1211,597 +1735,126 @@ const styles = StyleSheet.create({
     },
     disabledBtn: {
         opacity: 0.7,
-        backgroundColor: "#9CA3AF",
     },
-    heroImageContainer: {
-        width: "100%",
-        height: 280,
-        marginBottom: 20,
-        position: "relative",
+
+    // FILE LIST (inside assign activities)
+    fileListContainer: {
+        marginTop: 10,
+        borderRadius: 12,
+        borderWidth: 1,
+        overflow: 'hidden',
     },
-    heroImage: {
-        width: "100%",
-        height: "100%",
-        resizeMode: "cover",
-    },
-    heroGradient: {
-        position: "absolute",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: 100,
-    },
-    heroOverlay: {
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        padding: 16,
-        justifyContent: "flex-end",
-    },
-    statusBadgesRow: {
-        flexDirection: "row",
-        gap: 8,
-        flexWrap: "wrap",
-    },
-    statusBadge: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 6,
+    fileRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
         paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        backgroundColor: "rgba(255, 255, 255, 0.95)",
+        gap: 10,
+        borderBottomWidth: 1,
     },
-    appliedBadge: {
-        backgroundColor: "rgba(76, 175, 80, 0.15)",
+    fileTypeIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+        flexShrink: 0,
     },
-    closedBadge: {
-        backgroundColor: "rgba(244, 67, 54, 0.15)",
+    fileItemName: {
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    fileMetaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 2,
+    },
+    fileMeta: {
+        fontSize: 11,
+        fontWeight: '500',
     },
     openBadge: {
-        backgroundColor: "rgba(255, 152, 0, 0.15)",
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+        flexShrink: 0,
     },
-    statusBadgeText: {
-        fontSize: 12,
-        fontWeight: "700",
-        color: "#333",
-    },
-    titleSection: {
-        paddingHorizontal: 20,
-        marginBottom: 24,
-        marginVertical: 15
-    },
-    titleHeader: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "flex-start",
-        marginBottom: 12,
-    },
-    mainTitle: {
-        flex: 1,
-        fontSize: 26,
-        fontWeight: "800",
-        color: "#1a1a1a",
-        lineHeight: 34,
-        marginRight: 12,
-    },
-    bookmarkButton: {
-        padding: 8,
-    },
-    categoryRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 10,
-        flexWrap: "wrap",
-    },
-    categoryBadgeLarge: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 6,
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderRadius: 20,
-    },
-    categoryTextLarge: {
-        fontSize: 13,
-        fontWeight: "700",
-    },
-    shortnameBadge: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 12,
-        backgroundColor: "#f0f0f0",
-    },
-    shortnameText: {
+    openBadgeText: {
         fontSize: 11,
-        color: "#666",
-        fontWeight: "600",
-        textTransform: "uppercase",
+        fontWeight: '700',
     },
-    infoCardsContainer: {
-        paddingHorizontal: 20,
-        marginBottom: 24,
-        gap: 12,
+
+    // UPLOAD MINI BUTTON (for assign with no file)
+    uploadMiniBtn: {
+        width: 26,
+        height: 26,
+        borderRadius: 13,
+        justifyContent: 'center',
+        alignItems: 'center',
+        flexShrink: 0,
     },
-    infoCard: {
-        backgroundColor: "#fff",
-        borderRadius: 16,
-        padding: 16,
-        flexDirection: "row",
-        alignItems: "center",
-        borderTopWidth: 3,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
+
+    // QUIZ ACTIVITY card
+    quizActivityItem: {
+        borderLeftWidth: 0,
+        paddingLeft: 5,
     },
-    infoIconContainer: {
-        width: 56,
-        height: 56,
-        borderRadius: 14,
-        justifyContent: "center",
-        alignItems: "center",
-        marginRight: 16,
-    },
-    infoContent: {
-        flex: 1,
-    },
-    infoLabel: {
-        fontSize: 12,
-        color: "#999",
-        fontWeight: "600",
-        textTransform: "uppercase",
-        letterSpacing: 0.5,
-        marginBottom: 4,
-    },
-    infoValue: {
-        fontSize: 16,
-        fontWeight: "700",
-        color: "#333",
-        marginBottom: 2,
-    },
-    infoSubtext: {
-        fontSize: 13,
-        fontWeight: "600",
-        marginTop: 2,
-    },
-    section: {
-        paddingHorizontal: 20,
-        marginBottom: 24,
-    },
-    sectionHeader: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 10,
-        marginBottom: 16,
-    },
-    sectionTitle: {
-        fontSize: 20,
-        fontWeight: "700",
-        color: "#333",
-    },
-    descriptionCard: {
-        backgroundColor: "#fff",
-        borderRadius: 16,
-        padding: 20,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
-    },
-    descriptionText: {
-        fontSize: 15,
-        color: "#333",
-        lineHeight: 24,
-    },
-    eligibilityCard: {
-        backgroundColor: "#fff",
-        borderRadius: 16,
-        padding: 20,
-        borderLeftWidth: 4,
-        borderLeftColor: "#4CAF50",
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
-    },
-    eligibilityText: {
-        fontSize: 15,
-        color: "#333",
-        lineHeight: 24,
-    },
-    processCard: {
-        backgroundColor: "#fff",
-        borderRadius: 12,
-        padding: 16,
-        borderWidth: 1,
-        borderColor: "#eee",
-    },
-    processItem: {
-        flexDirection: "row",
-        alignItems: "flex-start",
-        marginBottom: 20,
-        paddingBottom: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: "#f0f0f0",
-    },
-    processIconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 12,
-        justifyContent: "center",
-        alignItems: "center",
-        marginRight: 16,
-    },
-    processContent: {
-        flex: 1,
-    },
-    processStepNumber: {
-        fontSize: 11,
-        fontWeight: "700",
-        color: "#999",
-        textTransform: "uppercase",
-        letterSpacing: 0.5,
-        marginBottom: 4,
-    },
-    processText: {
-        fontSize: 15,
-        color: "#333",
-        fontWeight: "600",
-        lineHeight: 22,
-    },
-    notesCard: {
-        backgroundColor: "rgba(255, 255, 255, 0.95)",
-        borderRadius: 12,
-        padding: 16,
-        borderWidth: 1,
-        borderColor: "rgba(51, 51, 51, 0.1)",
-    },
-    noteItem: {
-        flexDirection: "row",
-        alignItems: "flex-start",
-        marginBottom: 16,
-        paddingBottom: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: "#f0f0f0",
-    },
-    noteIconContainer: {
-        width: 40,
-        height: 40,
+    quizIconBox: {
+        width: 34,
+        height: 34,
         borderRadius: 10,
-        justifyContent: "center",
-        alignItems: "center",
-        marginRight: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        flexShrink: 0,
     },
-    noteText: {
-        fontSize: 14,
-        color: "#666",
-        flex: 1,
-        lineHeight: 22,
-        fontWeight: "500",
+    quizChevronBox: {
+        width: 28,
+        height: 28,
+        borderRadius: 9,
+        justifyContent: 'center',
+        alignItems: 'center',
+        flexShrink: 0,
     },
-    applyContainer: {
-        paddingHorizontal: 20,
-        paddingBottom: 40,
-        paddingTop: 8,
-    },
-    actionsRow: {
-        flexDirection: "row",
-        gap: 12,
-        flexWrap: "wrap",
-    },
-    saveButton: {
-        flex: 1,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 8,
-        paddingVertical: 16,
-        paddingHorizontal: 12,
-        borderRadius: 14,
-        backgroundColor: "#f8f8f8",
-        borderWidth: 2,
-        borderColor: "#e0e0e0",
-        minWidth: 110,
-    },
-    saveButtonActive: {
-        backgroundColor: "#FFF9E6",
-        borderColor: "#FFB400",
-    },
-    saveButtonText: {
-        fontSize: 15,
-        fontWeight: "700",
-        color: "#666",
-        textAlign: "center",
-    },
-    saveButtonTextActive: {
-        color: "#FFB400",
-    },
-    saveButtonDisabled: {
-        opacity: 0.6,
-    },
-    applyButton: {
-        flex: 2,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 8,
-        paddingVertical: 16,
-        paddingHorizontal: 16,
-        borderRadius: 14,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 4,
-        minWidth: 180,
-    },
-    applyButtonDisabled: {
-        opacity: 0.6,
-    },
-    applyButtonText: {
-        fontSize: 16,
-        fontWeight: "700",
-        color: "#fff",
-        textAlign: "center",
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        paddingVertical: 60,
-    },
-    loadingText: {
-        marginTop: 16,
-        fontSize: 16,
-        color: "#666",
-    },
-    errorContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        paddingHorizontal: 40,
-        paddingVertical: 60,
-    },
-    errorText: {
-        marginTop: 16,
-        marginBottom: 24,
-        fontSize: 16,
-        color: "#666",
-        textAlign: "center",
-    },
-    errorButton: {
-        minWidth: 120,
-    },
-    docModalContainer: {
-        flex: 1,
-    },
-    docModalHeader: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingHorizontal: 20,
-        paddingVertical: 14,
-        borderBottomWidth: 1,
-    },
-    docModalTitle: {
-        fontSize: 18,
-        fontWeight: "700",
-    },
-    docModalContent: {
-        padding: 24,
-        paddingBottom: 48,
-    },
-    docModalIconWrap: {
-        alignItems: "center",
-        marginBottom: 28,
-    },
-    docModalIconBox: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        justifyContent: "center",
-        alignItems: "center",
+
+    // LOCKED STATE (not_applied)
+    lockedBanner: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 14,
+        backgroundColor: '#FEF3C7',
+        borderColor: '#FDE68A',
+        borderWidth: 1.5,
+        borderRadius: 16,
+        padding: 16,
         marginBottom: 16,
     },
-    docModalHeading: {
-        fontSize: 20,
-        fontWeight: "700",
-        marginBottom: 8,
-        textAlign: "center",
+    lockedBannerIconWrap: {
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+        backgroundColor: '#FDE68A',
+        justifyContent: 'center',
+        alignItems: 'center',
+        flexShrink: 0,
     },
-    docModalSub: {
+    lockedBannerTitle: {
         fontSize: 14,
+        fontWeight: '800',
+        color: '#92400E',
         marginBottom: 4,
+        letterSpacing: 0.1,
     },
-    docModalLabel: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: "#4CAF50",
-        textAlign: "center",
-    },
-    docModalCard: {
-        borderRadius: 20,
-        borderWidth: 1,
-        overflow: "hidden",
-        marginBottom: 24,
-    },
-    docModalPlaceholder: {
-        padding: 32,
-        alignItems: "center",
-        borderWidth: 2,
-        borderStyle: "dashed",
-        margin: 12,
-        borderRadius: 16,
-    },
-    docModalPlaceholderText: {
-        fontSize: 16,
-        fontWeight: "600",
-        marginTop: 12,
-    },
-    docModalPlaceholderSub: {
+    lockedBannerDesc: {
         fontSize: 13,
-        marginTop: 4,
+        fontWeight: '500',
+        color: '#B45309',
+        lineHeight: 19,
     },
-    docModalSelectBtn: {
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 12,
-        marginTop: 20,
-    },
-    docModalSelectBtnText: {
-        color: "#fff",
-        fontSize: 14,
-        fontWeight: "700",
-    },
-    docModalFileWrap: {
-        padding: 20,
-    },
-    docModalFileRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        padding: 12,
-        borderRadius: 12,
-        marginBottom: 12,
-    },
-    docModalFileIcon: {
-        width: 48,
-        height: 48,
-        borderRadius: 12,
-        justifyContent: "center",
-        alignItems: "center",
-        marginRight: 12,
-    },
-    docModalFileDetails: {
-        flex: 1,
-    },
-    docModalFileName: {
-        fontSize: 15,
-        fontWeight: "600",
-    },
-    docModalFileSize: {
-        fontSize: 12,
-        marginTop: 2,
-    },
-    docModalSuccessRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 8,
-    },
-    docModalSuccessText: {
-        fontSize: 14,
-        fontWeight: "500",
-        color: "#4CAF50",
-    },
-    docModalActions: {
-        gap: 16,
-    },
-    docModalUploadBtn: {
-        borderRadius: 14,
-        paddingVertical: 16,
-    },
-    docModalCancelBtn: {
-        paddingVertical: 16,
-        alignItems: "center",
-    },
-    docModalCancelText: {
-        fontSize: 16,
-        fontWeight: "600",
-    },
-    docModalLoading: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: "rgba(0,0,0,0.5)",
-        justifyContent: "center",
-        alignItems: "center",
-        zIndex: 1000,
-    },
-    docModalLoadingText: {
-        marginTop: 12,
-        fontSize: 16,
-        fontWeight: "600",
-    },
-    // Student Selection Modal Styles
-    fullScreenModal: {
-        flex: 1,
-    },
-    modalHeader: {
-        paddingHorizontal: 20,
-        paddingBottom: 16,
-        borderBottomWidth: 1,
-    },
-    modalHeaderTop: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-    },
-    closeBtn: {
-        width: 40,
-        height: 40,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    modalTitle: {
-        fontSize: 20,
-        fontWeight: "700",
-        flex: 1,
-        textAlign: "center",
-    },
-    studentCard: {
-        flexDirection: "row",
-        alignItems: "center",
-        padding: 16,
-        borderRadius: 12,
-        marginBottom: 12,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    studentAvatar: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-    },
-    studentAvatarPlaceholder: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    studentInitials: {
-        color: "#fff",
-        fontSize: 18,
-        fontWeight: "700",
-    },
-    studentName: {
-        fontSize: 16,
-        fontWeight: "600",
-        marginBottom: 2,
-    },
-    studentDetail: {
-        fontSize: 13,
-    },
-    modalFooter: {
-        padding: 20,
-        borderTopWidth: 1,
-    },
-    applyFilterBtn: {
-        paddingVertical: 16,
-        borderRadius: 12,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    applyFilterText: {
-        color: "#fff",
-        fontSize: 16,
-        fontWeight: "700",
+    lockedActivityItem: {
+        opacity: 0.55,
     },
 });
+
