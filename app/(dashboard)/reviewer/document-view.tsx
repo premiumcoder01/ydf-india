@@ -40,6 +40,10 @@ export default function DocumentViewScreen() {
     const [loadError, setLoadError] = useState(false);
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [newRejectionReason, setNewRejectionReason] = useState("");
+    const [customReason, setCustomReason] = useState("");
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+    const rejectionOptions = ["Wrong Document", "Document Not Visible", "Not Verified", "Partially Verified", "Other"];
     const [submitting, setSubmitting] = useState(false);
     const [errorCode, setErrorCode] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -87,7 +91,7 @@ export default function DocumentViewScreen() {
                                 return;
                             }
 
-                            const response = await verifyDocument(token, documentId, "verify");
+                            const response = await verifyDocument(token, documentId, "verify", "Verified", 1, "Verified");
                             setSubmitting(false);
 
                             if (response.success) {
@@ -108,7 +112,8 @@ export default function DocumentViewScreen() {
     };
 
     const handleReject = async () => {
-        if (!newRejectionReason.trim()) {
+        const reasonToSend = newRejectionReason === "Other" ? customReason : newRejectionReason;
+        if (!reasonToSend.trim()) {
             Alert.alert("Error", "Please provide a reason for rejection");
             return;
         }
@@ -138,12 +143,14 @@ export default function DocumentViewScreen() {
                 return;
             }
 
-            const response = await verifyDocument(token, documentId, "reject", newRejectionReason);
+            const response = await verifyDocument(token, documentId, "reject", reasonToSend, undefined, reasonToSend);
             setSubmitting(false);
             setShowRejectModal(false);
 
             if (response.success) {
                 setNewRejectionReason("");
+                setCustomReason("");
+                setIsDropdownOpen(false);
                 Alert.alert("Success", response.message || "Document rejected successfully", [
                     { text: "OK", onPress: () => router.back() }
                 ]);
@@ -411,7 +418,7 @@ export default function DocumentViewScreen() {
             {/* Reject Modal */}
             <Modal visible={showRejectModal} transparent animationType="fade" onRequestClose={() => setShowRejectModal(false)}>
                 <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalBackdrop}>
-                    <TouchableOpacity style={styles.modalBackdropTouchable} activeOpacity={1} onPress={() => { setShowRejectModal(false); setNewRejectionReason(""); }} />
+                    <TouchableOpacity style={styles.modalBackdropTouchable} activeOpacity={1} onPress={() => { setShowRejectModal(false); setNewRejectionReason(""); setCustomReason(""); setIsDropdownOpen(false); }} />
                     <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
                         <View style={styles.modalHeader}>
                             <View style={[styles.modalIconContainer, { backgroundColor: "#FFEBEE" }]}>
@@ -422,17 +429,64 @@ export default function DocumentViewScreen() {
                                 Please provide a reason for rejecting this document
                             </Text>
                         </View>
-                        <TextInput
-                            style={[styles.modalInput, { color: colors.text, borderColor: colors.border, backgroundColor: isDark ? colors.surface : "#F8F9FA" }]}
-                            multiline
-                            numberOfLines={4}
-                            placeholder="Enter rejection reason..."
-                            placeholderTextColor={colors.textSecondary}
-                            value={newRejectionReason}
-                            onChangeText={setNewRejectionReason}
-                        />
+                        
+                        {/* Dropdown Trigger */}
+                        <TouchableOpacity 
+                            style={[
+                                styles.dropdownTrigger, 
+                                { 
+                                    borderColor: colors.border, 
+                                    backgroundColor: isDark ? colors.surface : "#F8F9FA" 
+                                }
+                            ]}
+                            onPress={() => setIsDropdownOpen(!isDropdownOpen)}
+                        >
+                            <Text style={[styles.dropdownTriggerText, { color: newRejectionReason ? colors.text : colors.textSecondary }]}>
+                                {newRejectionReason || "Select Rejection Reason"}
+                            </Text>
+                            <Ionicons name={isDropdownOpen ? "chevron-up" : "chevron-down"} size={18} color={colors.textSecondary} />
+                        </TouchableOpacity>
+
+                        {/* Dropdown Options */}
+                        {isDropdownOpen && (
+                            <View style={[styles.dropdownOptionsContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                                {rejectionOptions.map((option, index) => (
+                                    <TouchableOpacity 
+                                        key={index}
+                                        style={[
+                                            styles.dropdownOption,
+                                            newRejectionReason === option && { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#F3F4F6" },
+                                            index === rejectionOptions.length - 1 && { borderBottomWidth: 0 }
+                                        ]}
+                                        onPress={() => {
+                                            setNewRejectionReason(option);
+                                            setIsDropdownOpen(false);
+                                        }}
+                                    >
+                                        <Text style={[styles.dropdownOptionText, { color: colors.text }]}>{option}</Text>
+                                        {newRejectionReason === option && (
+                                            <Ionicons name="checkmark" size={18} color={colors.primary} />
+                                        )}
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
+
+                        {/* Custom Reason Input if 'Other' is selected */}
+                        {newRejectionReason === "Other" && (
+                            <TextInput
+                                style={[styles.modalInput, { marginTop: 4, color: colors.text, borderColor: colors.border, backgroundColor: isDark ? colors.surface : "#F8F9FA" }]}
+                                multiline
+                                numberOfLines={3}
+                                placeholder="Enter custom rejection reason..."
+                                placeholderTextColor={colors.textSecondary}
+                                value={customReason}
+                                onChangeText={setCustomReason}
+                            />
+                        )}
+
                         <View style={styles.modalActions}>
-                            <TouchableOpacity style={[styles.modalBtn, styles.modalCancel, { backgroundColor: isDark ? colors.border : "#F3F4F6" }]} onPress={() => { setShowRejectModal(false); setNewRejectionReason(""); }}>
+                            <TouchableOpacity style={[styles.modalBtn, styles.modalCancel, { backgroundColor: isDark ? colors.border : "#F3F4F6" }]} onPress={() => { setShowRejectModal(false); setNewRejectionReason(""); setCustomReason(""); setIsDropdownOpen(false); }}>
                                 <Text style={[styles.modalCancelText, { color: colors.text }]}>Cancel</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={[styles.modalBtn, styles.modalReject, submitting && { opacity: 0.7 }]} disabled={submitting} onPress={handleReject}>
@@ -690,4 +744,37 @@ const styles = StyleSheet.create({
     modalReject: { backgroundColor: "#EF4444" },
     modalCancelText: { fontSize: 15, fontWeight: "700" },
     modalRejectText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+    dropdownTrigger: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        borderWidth: 1,
+        borderRadius: 16,
+        paddingHorizontal: 16,
+        height: 52,
+        marginBottom: 12,
+    },
+    dropdownTriggerText: {
+        fontSize: 15,
+        fontWeight: "500",
+    },
+    dropdownOptionsContainer: {
+        borderWidth: 1,
+        borderRadius: 16,
+        overflow: "hidden",
+        marginBottom: 16,
+    },
+    dropdownOption: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: "rgba(0,0,0,0.08)",
+    },
+    dropdownOptionText: {
+        fontSize: 15,
+        fontWeight: "500",
+    },
 });

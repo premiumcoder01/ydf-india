@@ -684,6 +684,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         shadowRadius: 12,
         elevation: 8,
+        marginBottom: 10
     },
     searchBox: {
         flex: 1,

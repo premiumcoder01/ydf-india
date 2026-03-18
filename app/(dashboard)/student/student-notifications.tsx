@@ -22,6 +22,7 @@ import {
 type EventType =
   | "newlogin"
   | "assign_notification"
+  | "assign_due_soon"
   | "enrolcoursewelcomemessage"
   | "system";
 
@@ -75,6 +76,12 @@ const EVENT_CONFIG: Record<string, EventConfig> = {
     label: "Security",
   },
   assign_notification: {
+    icon: "document-text",
+    color: "#00B894",
+    bg: "#E8FAF6",
+    label: "Assignment",
+  },
+  assign_due_soon: {
     icon: "document-text",
     color: "#00B894",
     bg: "#E8FAF6",
@@ -324,6 +331,11 @@ export default function NotificationsScreen() {
 
   const filtered = useMemo(() => {
     if (activeFilter === "all") return notifications;
+    if (activeFilter === "assign_notification") {
+      return notifications.filter(
+        (n) => n.event_type === "assign_notification" || n.event_type === "assign_due_soon"
+      );
+    }
     return notifications.filter((n) => n.event_type === activeFilter);
   }, [notifications, activeFilter]);
 
@@ -502,7 +514,11 @@ export default function NotificationsScreen() {
                     ]}
                   >
                     {" "}
-                    {notifications.filter((n) => n.event_type === f.key).length}
+                    {f.key === "assign_notification"
+                      ? notifications.filter(
+                          (n) => n.event_type === "assign_notification" || n.event_type === "assign_due_soon"
+                        ).length
+                      : notifications.filter((n) => n.event_type === f.key).length}
                   </Text>
                 )}
               </TouchableOpacity>

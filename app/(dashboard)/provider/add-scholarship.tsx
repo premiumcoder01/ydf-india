@@ -128,7 +128,7 @@ export default function ProviderAddScholarshipScreen() {
     amountType: "fixed",
     fixedAmount: "",
     actualAmountLimit: "",
-    paymentCycle: "One-time",
+    paymentCycle: "Not set",
     distributionStudent: "100",
     distributionInstitute: "0",
     states: [],
@@ -527,7 +527,7 @@ export default function ProviderAddScholarshipScreen() {
 
         <View style={styles.inputGroup}>
           <CustomTextInput
-            label="Scheme Full Name"
+            label="Course Full Name"
             placeholder="scheme name"
             value={formData.schemeName}
             onChangeText={(v) => {
@@ -585,7 +585,7 @@ export default function ProviderAddScholarshipScreen() {
 
         <View style={[styles.inputGroup, { marginTop: 5 }]}>
           <CustomTextInput
-            label="Brief Description"
+            label="Course Summary"
             placeholder="Describe the scholarship objective and benefits..."
             value={formData.description}
             onChangeText={(v) => {
@@ -831,13 +831,13 @@ export default function ProviderAddScholarshipScreen() {
             />
           </View>
           <View style={{ flex: 1, marginLeft: 8 }}>
-            <Text style={[styles.label, { color: colors.text, marginTop: 0 }]}>Cycle</Text>
+            <Text style={[styles.label, { color: colors.text, marginTop: 0 }]}>Payment Cycle</Text>
             <TouchableOpacity
               style={[styles.dropdownTrigger, { backgroundColor: colors.surface, borderColor: colors.border }]}
               onPress={() => setSelectionModal({
                 show: true,
                 title: "Payment Cycle",
-                options: ["One-time", "Monthly", "Quarterly", "Half-yearly", "Yearly"],
+                options: ["Monthly", "Quaterly", "Half-Yearly / Semester-wise", "Annualy", "Not set"],
                 field: "paymentCycle"
               })}
             >

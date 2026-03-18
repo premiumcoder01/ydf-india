@@ -2074,7 +2074,7 @@ export const updateUserProfile = async (
 };
 
 /**
- * Get Notifications API call (POST with query parameters)
+ * Get Notifications API call (GET with query parameters)
  * This requires a token from AsyncStorage
  */
 export const getNotifications = async (
@@ -2086,13 +2086,11 @@ export const getNotifications = async (
   }
 ): Promise<ApiResponse> => {
   try {
-    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const baseUrl = getApiUrl("local/mobileapi/notifications.php");
     const urlObj = new URL(baseUrl);
 
     // Add required query parameters
     urlObj.searchParams.append("wstoken", token);
-    urlObj.searchParams.append("wsfunction", "local_mobileapi_get_notifications");
-    urlObj.searchParams.append("moodlewsrestformat", "json");
 
     // Add optional parameters if provided
     if (params?.page) {
@@ -2108,9 +2106,9 @@ export const getNotifications = async (
     const finalUrl = urlObj.toString();
     console.log("Get Notifications URL:", finalUrl);
 
-    // Make POST request with query parameters in URL
+    // Make GET request with query parameters in URL
     const response = await fetch(finalUrl, {
-      method: "POST",
+      method: "GET",
       headers: {
         "Content-Type": "application/json",
       },
@@ -3214,7 +3212,9 @@ export const verifyDocument = async (
   token: string,
   fileId: number,
   action: "verify" | "reject",
-  notes?: string
+  notes?: string,
+  grade?: number,
+  gradeLabel?: string
 ): Promise<ApiResponse> => {
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
@@ -3229,6 +3229,14 @@ export const verifyDocument = async (
 
     if (notes) {
       urlObj.searchParams.append("notes", notes);
+    }
+
+    if (grade !== undefined) {
+      urlObj.searchParams.append("grade", String(grade));
+    }
+
+    if (gradeLabel) {
+      urlObj.searchParams.append("grade_label", gradeLabel);
     }
 
     const finalUrl = urlObj.toString();

@@ -32,7 +32,8 @@ export default function MobilizerNotificationsScreen() {
                 // but typically API infers from token or we just get user notifications.
                 const response = await getNotifications(authData.token);
                 if (response.success) {
-                    setNotifications(response.data?.notifications || []);
+                    const raw = response.data?.data || response.data?.notifications || [];
+                    setNotifications(raw);
                 } else {
                     // Fallback/Empty
                     setNotifications([]);
