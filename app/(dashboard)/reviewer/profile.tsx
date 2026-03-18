@@ -156,7 +156,11 @@ export default function ReviewerProfileScreen() {
         <View style={[styles.profileHeader, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
           <View style={styles.avatarContainer}>
             {reviewerData.profilePhoto ? (
-              <Image source={{ uri: reviewerData.profilePhoto }} style={styles.avatar} />
+              <Image source={{
+                uri: reviewerData.profilePhoto.includes('?')
+                  ? `${reviewerData.profilePhoto}&t=${Date.now()}`
+                  : `${reviewerData.profilePhoto}?t=${Date.now()}`
+              }} style={styles.avatar} />
             ) : (
               <View style={[styles.avatarPlaceholder, { backgroundColor: isDark ? colors.background : "#f5f5f5", borderColor: isDark ? colors.border : "#e0e0e0" }]}>
                 <Ionicons name="person" size={40} color={isDark ? colors.textSecondary : "#666"} />

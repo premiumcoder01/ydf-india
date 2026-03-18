@@ -64,7 +64,11 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             <View style={[styles.avatarBorder, { borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.08)" }]}>
               {profilePhotoUrl ? (
                 <Image
-                  source={{ uri: profilePhotoUrl }}
+                  source={{
+                    uri: profilePhotoUrl.includes('?')
+                      ? `${profilePhotoUrl}&t=${Date.now()}`
+                      : `${profilePhotoUrl}?t=${Date.now()}`
+                  }}
                   style={styles.avatar}
                 />
               ) : (

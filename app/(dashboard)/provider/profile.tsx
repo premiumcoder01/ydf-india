@@ -200,7 +200,11 @@ export default function ProviderProfileScreen() {
               activeOpacity={0.85}
             >
               {providerData.profilePhoto ? (
-                <Image source={{ uri: providerData.profilePhoto }} style={styles.avatar} />
+                <Image source={{
+                  uri: providerData.profilePhoto.includes('?')
+                    ? `${providerData.profilePhoto}&t=${Date.now()}`
+                    : `${providerData.profilePhoto}?t=${Date.now()}`
+                }} style={styles.avatar} />
               ) : (
                 <View style={styles.avatarFallback}>
                   <Text style={styles.avatarInitials}>{initials}</Text>
