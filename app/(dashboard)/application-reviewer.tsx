@@ -1,6 +1,6 @@
-import { HelloWave } from "@/components";
+import { DashboardHeader, HelloWave } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { getReviewerDashboardStats, getReviewerProgress, getReviewerRecentApplications, getUserProfile } from "@/utils/api";
+import { getNotifications, getReviewerDashboardStats, getReviewerProgress, getReviewerRecentApplications, getUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -73,6 +73,7 @@ export default function ApplicationReviewerDashboard() {
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
 
   const [stats, setStats] = useState<DashboardStats>({
     total_applications_assigned: 0,
@@ -104,12 +105,23 @@ export default function ApplicationReviewerDashboard() {
       const token = authData?.token;
       if (!token) return;
 
-      const [profileRes, statsRes, recentAppsRes, progressRes] = await Promise.all([
+      const [profileRes, statsRes, recentAppsRes, progressRes, notifRes] = await Promise.all([
         getUserProfile(token),
         getReviewerDashboardStats(token),
         getReviewerRecentApplications(token, 5),
         getReviewerProgress(token),
+        getNotifications(token),
       ]);
+
+      if (notifRes && notifRes.success && notifRes.data) {
+        let raw: any[] = [];
+        if (Array.isArray(notifRes.data)) raw = notifRes.data;
+        else if (Array.isArray(notifRes.data.data)) raw = notifRes.data.data;
+        else if (Array.isArray(notifRes.data.notifications)) raw = notifRes.data.notifications;
+        
+        const count = raw.filter((n: any) => !n.is_read).length;
+        setUnreadCount(count);
+      }
 
       // Profile
       if (profileRes.success && profileRes.data?.user) {
@@ -184,35 +196,13 @@ export default function ApplicationReviewerDashboard() {
       />
 
       {/* Header */}
-      <View style={[styles.header, { paddingTop: inset.top + 20 }]}>
-        <View style={styles.headerContent}>
-          <View>
-            <Text style={[styles.greeting, { color: colors.textSecondary }]}>Welcome back,</Text>
-            <View style={styles.nameRow}>
-              <Text style={[styles.name, { color: colors.text }]}>{reviewerName.split(' ')[0]}</Text>
-              <HelloWave />
-            </View>
-          </View>
-          <View style={styles.headerActions}>
-            <TouchableOpacity onPress={() => router.push("/(dashboard)/reviewer/notifications")} style={styles.iconBtn}>
-              <Ionicons name="notifications-outline" size={24} color={colors.text} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push("/(dashboard)/reviewer/profile")}>
-              {profilePhotoUrl ? (
-                <Image source={{
-                  uri: profilePhotoUrl.includes('?')
-                    ? `${profilePhotoUrl}&t=${Date.now()}`
-                    : `${profilePhotoUrl}?t=${Date.now()}`
-                }} style={styles.avatar} />
-              ) : (
-                <View style={[styles.avatarPlaceholder, { borderColor: colors.border }]}>
-                  <Ionicons name="person" size={20} color={colors.textSecondary} />
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
+      <DashboardHeader 
+        userName={reviewerName}
+        profilePhotoUrl={profilePhotoUrl}
+        unreadCount={unreadCount}
+        onNotificationPress={() => router.push("/(dashboard)/reviewer/notifications")}
+        onProfilePress={() => router.push("/(dashboard)/reviewer/profile")}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}

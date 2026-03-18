@@ -4,6 +4,7 @@ import { getUserProfile, updateUserProfile, uploadProfileImage } from "@/utils/a
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
+
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
@@ -28,6 +29,8 @@ interface ValidationErrors {
     [key: string]: string;
 }
 
+
+
 const RELIGION_OPTIONS = [
     "Hinduism",
     "Muslim",
@@ -50,12 +53,36 @@ const CASTE_OPTIONS = [
 
 const GENDER_OPTIONS = ["Male", "Female", "Other"];
 
+const SPECIAL_CATEGORY_OPTIONS = ["Orphan", "Physically Disabled", "Single Parent", "None of these"];
+
+const DISTRICT_OPTIONS = [
+    "Araria", "Arwal", "Aurangabad", "Banka", "Begusarai", "Bhagalpur", "Bhojpur", "Buxar",
+    "Darbhanga", "East Champaran", "Gaya", "Gopalganj", "Jamui", "Jehanabad", "Kaimur", "Katihar",
+    "Khagaria", "Kishanganj", "Lakhisarai", "Madhepura", "Madhubani", "Munger", "Muzaffarpur", "Nalanda",
+    "Nawada", "Patna", "Purnia", "Rohtas", "Saharsa", "Samastipur", "Sheikhpura", "Sheohar",
+    "Sitamarhi", "Siwan", "Supaul", "Vaishali", "West Champaran", "Nashik", "Raigad", "Kotputli-behror",
+    "Alwar", "Sasnagar-Mohali", "Banaskantha(Deesa)", "Other"
+];
+
+const DOMICILE_STATE_OPTIONS = [
+    "Bihar",
+    "Punjab",
+    "Rajasthan",
+    "Maharashtra",
+    "Delhi",
+    "Gujarat",
+    "Haryana",
+    "Other"
+];
+
 const ANNUAL_INCOME_OPTIONS = [
     "Below ₹50,000",
     "₹50,000 - ₹1,00,000",
-    "₹1,00,000 - ₹2,50,000",
-    "₹2,50,000 - ₹5,00,000",
-    "Above ₹5,00,000"
+    "₹1,00,000 - ₹1,50,000",
+    "₹1,50,000 - ₹2,00,000",
+    "₹2,00,000 - ₹2,50,000",
+    "₹2,50,000 - ₹3,00,000",
+    "More than ₹3,00,000"
 ];
 
 const SCHEME_OPTIONS = [
@@ -73,7 +100,7 @@ const SCHEME_OPTIONS = [
     "other"
 ];
 
-const REGISTERING_AS_OPTIONS = ["New Applicant", "Renew Applicant"];
+const REGISTERING_AS_OPTIONS = ["Old Scholar", "New Applicant"];
 
 const YEAR_OF_COURSE_OPTIONS = ["20-21", "21-22", "22-23", "23-24", "24-25", "25-26"];
 
@@ -101,10 +128,15 @@ const PASSING_YEAR_12TH_OPTIONS = ["2024", "2025", "Not Applicable"];
 
 const APPLICATION_YEAR_OPTIONS = ["20-21", "21-22", "22-23", "23-24", "24-25", "25-26"];
 
+const SESSION_OPTIONS = ["23-24", "24-25", "25-26"];
+
+const PASSING_10TH_OPTIONS = ["2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024"];
+
 export default function ProviderEditProfileScreen() {
     const { isDark, colors } = useTheme();
     const insets = useSafeAreaInsets();
     const [personalInfo, setPersonalInfo] = useState({
+        // General / Personal
         username: "",
         firstName: "",
         lastName: "",
@@ -116,9 +148,11 @@ export default function ProviderEditProfileScreen() {
         caste: "",
         city: "",
         profileImageUrl: "",
+        // Family
         fatherName: "",
         motherName: "",
         annualIncome: "",
+        // New Fields
         session: "",
         yearOfCourse: "",
         passing10th: "",
@@ -129,22 +163,34 @@ export default function ProviderEditProfileScreen() {
         schemeName: "",
         passingYear12th: "",
         address: "",
+        domicileState: "",
+        specialCategory: "",
+        domicileDistrict: "",
+        percentage12: "",
+        collegeName: "",
+        collegeLocation: "",
+        university: "",
+        currentCourse: "",
+        percentage10: "",
+        marks12: "",
     });
 
     const [isSaving, setIsSaving] = useState(false);
     const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [focusedField, setFocusedField] = useState<string | null>(null);
-    const [selectedImageFile, setSelectedImageFile] = useState<any>(null);
-    const [originalProfileImageUrl, setOriginalProfileImageUrl] = useState("");
+    const [selectedImageFile, setSelectedImageFile] = useState<any>(null); // Track the selected image file
+    const [originalProfileImageUrl, setOriginalProfileImageUrl] = useState(""); // Track original image URL
     const [isProfileLoading, setIsProfileLoading] = useState(true);
 
+    // Toast State
     const [showToast, setShowToast] = useState(false);
     const [toastMessage, setToastMessage] = useState("");
     const [toastType, setToastType] = useState<"success" | "error" | "info">("error");
 
     const [showReligionPicker, setShowReligionPicker] = useState(false);
     const [showCastePicker, setShowCastePicker] = useState(false);
+
     const [showGenderPicker, setShowGenderPicker] = useState(false);
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showIncomePicker, setShowIncomePicker] = useState(false);
@@ -155,11 +201,22 @@ export default function ProviderEditProfileScreen() {
     const [showStream12thPicker, setShowStream12thPicker] = useState(false);
     const [showPassingYear12thPicker, setShowPassingYear12thPicker] = useState(false);
     const [showApplicationYearPicker, setShowApplicationYearPicker] = useState(false);
+    const [showDomicileStatePicker, setShowDomicileStatePicker] = useState(false);
+    const [showSpecialCategoryPicker, setShowSpecialCategoryPicker] = useState(false);
+    const [showDistrictPicker, setShowDistrictPicker] = useState(false);
+    const [showSessionPicker, setShowSessionPicker] = useState(false);
+    const [showPassing10thPicker, setShowPassing10thPicker] = useState(false);
 
+
+
+
+    // Validation Functions
     const validateEmail = (email: string): boolean => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);
     };
+
+
 
     const fetchUserProfile = useCallback(async () => {
         setIsProfileLoading(true);
@@ -184,6 +241,7 @@ export default function ProviderEditProfileScreen() {
                                 if (p && p.startsWith('91') && p.length === 12) return p.substring(2);
                                 return p || prev.phone;
                             })(),
+
                             address: user.address || prev.address,
                             city: user.city || prev.city,
                             dob: user.dob
@@ -196,9 +254,12 @@ export default function ProviderEditProfileScreen() {
                             gender: user.gender || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'gender')?.value || prev.gender,
                             religion: user.religion || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'religion')?.value || prev.religion,
                             caste: user.caste || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'caste')?.value || prev.caste,
-                            fatherName: user.fathername || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'fathername')?.value || prev.fatherName,
-                            motherName: user.mothername || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'mothername')?.value || prev.motherName,
+
+                            fatherName: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'father')?.value || prev.fatherName,
+                            motherName: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'mother')?.value || prev.motherName,
                             annualIncome: user.annualincome || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'family_income' || f.shortname.toLowerCase() === 'annualincome')?.value || prev.annualIncome,
+
+                            // New Fields Mapping
                             session: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'session')?.value || prev.session,
                             yearOfCourse: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'year_of_course')?.value || prev.yearOfCourse,
                             passing10th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'passing_10th')?.value || prev.passing10th,
@@ -208,6 +269,20 @@ export default function ProviderEditProfileScreen() {
                             registeringAs: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'registering_as')?.value || prev.registeringAs,
                             schemeName: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'schemename')?.value || prev.schemeName,
                             passingYear12th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === '12th_passing_year')?.value || prev.passingYear12th,
+                            domicileState: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'state')?.value || prev.domicileState,
+                            specialCategory: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'category')?.value || prev.specialCategory,
+                            domicileDistrict: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'domicile_district')?.value || prev.domicileDistrict,
+                            percentage12: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'percentage_12')?.value || prev.percentage12,
+                            collegeName: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'college_name')?.value || prev.collegeName,
+                            collegeLocation: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'college_district')?.value || prev.collegeLocation,
+                            university: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'university')?.value || prev.university,
+                            currentCourse: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'course')?.value || prev.currentCourse,
+                            percentage10: user.customfields?.find((f: any) => f.shortname.toLowerCase() === '10th')?.value || prev.percentage10,
+                            marks12: (() => {
+                                const val = user.customfields?.find((f: any) => f.shortname.toLowerCase() === '12th_marks')?.value || "";
+                                return val.replace(/<[^>]*>/g, '').trim();
+                            })() || prev.marks12,
+
                             profileImageUrl: user?.profileimageurl || "",
                         }));
                     }
@@ -226,10 +301,12 @@ export default function ProviderEditProfileScreen() {
         }, [fetchUserProfile])
     );
 
+    // Handlers
     const handlePersonalInfoChange = useCallback(
         (field: keyof typeof personalInfo, value: string) => {
             setPersonalInfo((prev) => ({ ...prev, [field]: value }));
             setHasUnsavedChanges(true);
+
             if (validationErrors[field]) {
                 setValidationErrors((prev) => {
                     const newErrors = { ...prev };
@@ -243,18 +320,58 @@ export default function ProviderEditProfileScreen() {
 
     const validatePersonalInfo = (): boolean => {
         const errors: ValidationErrors = {};
-        if (!personalInfo.firstName.trim()) errors.firstName = "First name is required";
-        if (!personalInfo.lastName.trim()) errors.lastName = "Last name is required";
-        if (!validateEmail(personalInfo.email)) errors.email = "Please enter a valid email address";
+
+        if (!personalInfo.firstName.trim()) {
+            errors.firstName = "First name is required";
+        }
+        if (!personalInfo.lastName.trim()) {
+            errors.lastName = "Last name is required";
+        }
+        if (!validateEmail(personalInfo.email)) {
+            errors.email = "Please enter a valid email address";
+        }
         if (personalInfo.phone) {
             const cleanPhone = personalInfo.phone.replace(/\D/g, '');
-            if (cleanPhone.length !== 10) errors.phone = "Enter a valid 10-digit number";
+            if (cleanPhone.length !== 10) {
+                errors.phone = "Enter a valid 10-digit number";
+            }
         }
+
         if (!personalInfo.annualIncome.trim()) errors.annualIncome = "Annual income is required";
-        if (!personalInfo.gender) errors.gender = "Gender is required";
-        if (!personalInfo.dob) errors.dob = "Date of birth is required";
-        if (!personalInfo.religion) errors.religion = "Religion is required";
-        if (!personalInfo.caste) errors.caste = "Caste is required";
+
+        if (!personalInfo.gender) {
+            errors.gender = "Gender is required";
+        }
+        if (!personalInfo.dob) {
+            errors.dob = "Date of birth is required";
+        }
+        if (!personalInfo.religion) {
+            errors.religion = "Religion is required";
+        }
+        if (!personalInfo.caste) {
+            errors.caste = "Caste is required";
+        }
+
+        if (personalInfo.percentage10) {
+            const num = parseFloat(personalInfo.percentage10);
+            if (isNaN(num) || num < 10 || num > 100) {
+                errors.percentage10 = "Percentage must be between 10 and 100";
+            }
+        }
+
+        if (personalInfo.percentage12) {
+            const num = parseFloat(personalInfo.percentage12);
+            if (isNaN(num) || num < 10 || num > 100) {
+                errors.percentage12 = "Percentage must be between 10 and 100";
+            }
+        }
+
+        if (personalInfo.marks12) {
+            const num = parseFloat(personalInfo.marks12);
+            if (isNaN(num) || num < 0 || num > 2000) {
+                errors.marks12 = "Marks must be between 0 and 2000";
+            }
+        }
         setValidationErrors(errors);
         return Object.keys(errors).length === 0;
     };
@@ -265,10 +382,13 @@ export default function ProviderEditProfileScreen() {
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const [isRemovingImage, setIsRemovingImage] = useState(false);
 
-    const handleImageOptions = () => setShowImageOptions(true);
+    const handleImageOptions = () => {
+        setShowImageOptions(true);
+    };
 
     const handleTakePhoto = async () => {
         setShowImageOptions(false);
+
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
             setToastMessage("Camera permission is required to take photos");
@@ -276,12 +396,14 @@ export default function ProviderEditProfileScreen() {
             setShowToast(true);
             return;
         }
+
         const result = await ImagePicker.launchCameraAsync({
             allowsEditing: true,
             aspect: [1, 1],
             quality: 0.8,
             cameraType: ImagePicker.CameraType.front,
         });
+
         if (!result.canceled && result.assets && result.assets.length > 0) {
             const asset = result.assets[0];
             setPreviewImageUri(asset.uri);
@@ -297,6 +419,7 @@ export default function ProviderEditProfileScreen() {
 
     const handlePickFromGallery = async () => {
         setShowImageOptions(false);
+
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
             setToastMessage("Permission to access gallery is required");
@@ -304,12 +427,14 @@ export default function ProviderEditProfileScreen() {
             setShowToast(true);
             return;
         }
+
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
             aspect: [1, 1],
             quality: 0.8,
         });
+
         if (!result.canceled && result.assets && result.assets.length > 0) {
             const asset = result.assets[0];
             setPreviewImageUri(asset.uri);
@@ -325,18 +450,31 @@ export default function ProviderEditProfileScreen() {
 
     const handleUpdateProfileImage = async () => {
         if (!selectedImageFile) return;
+
         setIsUploadingImage(true);
         try {
             const authDataStr = await AsyncStorage.getItem("authData");
             if (!authDataStr) throw new Error("Authentication session expired");
+
             const authData = JSON.parse(authDataStr);
             if (!authData.token) throw new Error("Invalid session token");
+
+            console.log("Uploading profile image...");
             const uploadResponse = await uploadProfileImage(authData.token, selectedImageFile);
+
             if (uploadResponse.success && uploadResponse.data?.id) {
                 const profileImageFileId = uploadResponse.data.id;
-                const payload = { profileImageFileId };
+                console.log("Profile image uploaded successfully. File ID:", profileImageFileId);
+
+                // Update profile with the new image file ID
+                const payload = {
+                    profileImageFileId: profileImageFileId
+                };
+
                 const response = await updateUserProfile(authData.token, payload);
+
                 if (response.success) {
+                    // Update UI with new image
                     setPersonalInfo(prev => ({ ...prev, profileImageUrl: previewImageUri }));
                     setSelectedImageFile(null);
                     setShowImagePreview(false);
@@ -350,6 +488,7 @@ export default function ProviderEditProfileScreen() {
                 throw new Error(uploadResponse.error || uploadResponse.message || "Failed to upload profile image");
             }
         } catch (error: any) {
+            console.error("Image upload error:", error);
             setToastMessage(error.message || "Failed to update profile image");
             setToastType("error");
             setShowToast(true);
@@ -360,13 +499,16 @@ export default function ProviderEditProfileScreen() {
 
     const handleRemoveProfileImage = async () => {
         if (!personalInfo.profileImageUrl || isRemovingImage) return;
+
         setIsRemovingImage(true);
         setShowImageOptions(false);
         try {
             const authDataStr = await AsyncStorage.getItem("authData");
             if (!authDataStr) throw new Error("Authentication session expired");
+
             const authData = JSON.parse(authDataStr);
             if (!authData.token) throw new Error("Invalid session token");
+
             const response = await updateUserProfile(authData.token, { profileImageFileId: 0 });
             if (response.success) {
                 setPersonalInfo(prev => ({ ...prev, profileImageUrl: "" }));
@@ -377,6 +519,7 @@ export default function ProviderEditProfileScreen() {
                 throw new Error(response.error || "Failed to remove profile image");
             }
         } catch (error: any) {
+            console.error("Remove image error:", error);
             setToastMessage(error.message || "Failed to remove profile image");
             setToastType("error");
             setShowToast(true);
@@ -385,6 +528,8 @@ export default function ProviderEditProfileScreen() {
         }
     };
 
+
+
     const handleSavePersonal = async () => {
         if (!validatePersonalInfo()) {
             setToastMessage("Please fix the errors before saving");
@@ -392,13 +537,19 @@ export default function ProviderEditProfileScreen() {
             setShowToast(true);
             return;
         }
+
         setIsSaving(true);
         try {
             const authDataStr = await AsyncStorage.getItem("authData");
             if (!authDataStr) throw new Error("Authentication session expired");
+
             const authData = JSON.parse(authDataStr);
             if (!authData.token) throw new Error("Invalid session token");
 
+            // Update profile with personal information
+            const { ...rest } = personalInfo;
+
+            // Add 91 to phone if it's just the 10-digit number
             let finalPhone = personalInfo.phone;
             if (finalPhone && finalPhone.replace(/\D/g, '').length === 10 && !finalPhone.startsWith('+')) {
                 finalPhone = `91${finalPhone.replace(/\D/g, '')}`;
@@ -406,8 +557,11 @@ export default function ProviderEditProfileScreen() {
                 finalPhone = finalPhone.replace('+91', '91');
             }
 
-            const { ...rest } = personalInfo;
-            const payload = { ...rest, phone: finalPhone };
+            const payload = {
+                ...rest,
+                phone: finalPhone,
+            };
+
             const response = await updateUserProfile(authData.token, payload);
 
             if (response.success) {
@@ -422,6 +576,7 @@ export default function ProviderEditProfileScreen() {
                 setShowToast(true);
             }
         } catch (error: any) {
+            console.error("Save error:", error);
             setToastMessage(error.message || "Something went wrong");
             setToastType("error");
             setShowToast(true);
@@ -430,43 +585,94 @@ export default function ProviderEditProfileScreen() {
         }
     };
 
+    // Handler for iOS Modal Picker
     const onConfirmDate = (date: Date) => {
-        handlePersonalInfoChange("dob", date.toLocaleDateString('en-GB'));
+        const formattedDate = date.toLocaleDateString('en-GB'); // DD/MM/YYYY
+        handlePersonalInfoChange("dob", formattedDate);
         setShowDatePicker(false);
     };
 
-    const onCancelDate = () => setShowDatePicker(false);
+    const onCancelDate = () => {
+        setShowDatePicker(false);
+    };
 
+    // Handler for Android Picker
     const onAndroidDateChange = (event: any, selectedDate?: Date) => {
         setShowDatePicker(false);
         if (selectedDate) {
-            handlePersonalInfoChange("dob", selectedDate.toLocaleDateString('en-GB'));
+            const formattedDate = selectedDate.toLocaleDateString('en-GB'); // DD/MM/YYYY
+            handlePersonalInfoChange("dob", formattedDate);
         }
     };
+
+    const PickerRow = ({ label, value, placeholder, icon, iconColor, onPress, error }: any) => (
+        <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
+            <TouchableOpacity
+                style={[
+                    styles.selector,
+                    { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border },
+                    error && styles.selectorError,
+                ]}
+                onPress={onPress}
+                activeOpacity={0.7}
+            >
+                <View style={[styles.pickerIconWrap, { backgroundColor: value ? iconColor + "22" : (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)") }]}>
+                    <Ionicons name={icon} size={16} color={value ? iconColor : colors.textSecondary} />
+                </View>
+                <Text style={[styles.selectorText, { color: colors.text, flex: 1, marginLeft: 10 }, !value && styles.placeholderText]}>
+                    {value || placeholder || "Choose..."}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+            {error && <Text style={styles.errorText}>{error}</Text>}
+        </View>
+    );
 
     const SelectionModal = ({ visible, onClose, title, options, selected, onSelect }: any) => (
         <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
             <View style={styles.modalOverlay}>
-                <TouchableOpacity style={styles.modalBackdrop} onPress={onClose} activeOpacity={1} />
+                <TouchableOpacity
+                    style={styles.modalBackdrop}
+                    onPress={onClose}
+                    activeOpacity={1}
+                />
                 <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20, backgroundColor: colors.surface }]}>
+                    <View style={styles.imageOptionsHandle}>
+                        <View style={[styles.handleBar, { backgroundColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)" }]} />
+                    </View>
                     <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                         <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
-                        <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                            <Ionicons name="close" size={24} color={colors.textSecondary} />
+                        <TouchableOpacity
+                            onPress={onClose}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            style={[styles.modalCloseBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)" }]}
+                        >
+                            <Ionicons name="close" size={18} color={colors.textSecondary} />
                         </TouchableOpacity>
                     </View>
                     <ScrollView style={{ maxHeight: 350 }} showsVerticalScrollIndicator={false}>
                         {options.map((opt: string) => (
                             <TouchableOpacity
                                 key={opt}
-                                style={[styles.optionRow, selected === opt && styles.optionSelected, { borderBottomColor: colors.border }]}
-                                onPress={() => onSelect(opt)}
+                                style={[
+                                    styles.optionRow,
+                                    selected === opt && { backgroundColor: isDark ? "rgba(124,58,237,0.15)" : "rgba(124,58,237,0.06)" },
+                                    { borderBottomColor: colors.border },
+                                ]}
+                                onPress={() => { onSelect(opt); }}
                                 activeOpacity={0.7}
                             >
-                                <Text style={[styles.optionText, { color: colors.text }, selected === opt && styles.optionTextSelected]}>
+                                <Text style={[styles.optionText, { color: colors.text }, selected === opt && { color: "#7C3AED", fontWeight: "600" }]}>
                                     {opt}
                                 </Text>
-                                {selected === opt && <Ionicons name="checkmark-circle" size={22} color={colors.primary} />}
+                                {selected === opt ? (
+                                    <View style={styles.checkCircle}>
+                                        <Ionicons name="checkmark" size={14} color="#fff" />
+                                    </View>
+                                ) : (
+                                    <View style={[styles.emptyCircle, { borderColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)" }]} />
+                                )}
                             </TouchableOpacity>
                         ))}
                     </ScrollView>
@@ -474,6 +680,7 @@ export default function ProviderEditProfileScreen() {
             </View>
         </Modal>
     );
+
 
     return (
         <View style={styles.container}>
@@ -483,9 +690,12 @@ export default function ProviderEditProfileScreen() {
                 locations={[0, 0.3, 1]}
             />
 
-            <AppHeader title="Edit Profile" onBack={() => router.back()} />
+            <AppHeader title="Personal Information" onBack={() => router.back()} />
 
-            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                style={{ flex: 1 }}
+            >
                 <ScrollView
                     style={styles.scrollView}
                     contentContainerStyle={{ paddingBottom: 40 }}
@@ -494,41 +704,75 @@ export default function ProviderEditProfileScreen() {
                 >
                     {/* Profile Picture Section */}
                     <View style={styles.profileSection}>
-                        <TouchableOpacity style={styles.imageContainer} onPress={handleImageOptions} activeOpacity={0.8}>
-                            {isProfileLoading ? (
-                                <View style={[styles.placeholderContainer, { backgroundColor: isDark ? colors.surface : "#F0F0F0", borderColor: isDark ? colors.card : "#fff" }]}>
-                                    <ActivityIndicator size="small" color={isDark ? "#9CA3AF" : "#6B7280"} />
+                        <TouchableOpacity
+                            onPress={handleImageOptions}
+                            activeOpacity={0.85}
+                        >
+                            <View style={styles.imageContainer}>
+                                <LinearGradient
+                                    colors={["#7C3AED", "#3B82F6", "#06B6D4"]}
+                                    style={styles.avatarGradientRing}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                >
+                                    <View style={[styles.avatarInner, { backgroundColor: isDark ? colors.surface : "#fff" }]}>
+                                        {isProfileLoading ? (
+                                            <View style={[styles.placeholderInner, { backgroundColor: isDark ? colors.surface : "#F0F0F0" }]}>
+                                                <ActivityIndicator size="small" color="#7C3AED" />
+                                            </View>
+                                        ) : personalInfo?.profileImageUrl !== "" ? (
+                                            <Image
+                                                source={{
+                                                    uri: personalInfo.profileImageUrl.includes('?')
+                                                        ? `${personalInfo.profileImageUrl}&t=${Date.now()}`
+                                                        : `${personalInfo.profileImageUrl}?t=${Date.now()}`
+                                                }}
+                                                style={styles.profileImage}
+                                                onError={(e) => console.log(e)}
+                                            />
+                                        ) : (
+                                            <View style={[styles.placeholderInner, { backgroundColor: isDark ? "rgba(124,58,237,0.15)" : "#EEF2FF" }]}>
+                                                <Ionicons name="person" size={52} color="#7C3AED" />
+                                            </View>
+                                        )}
+                                    </View>
+                                </LinearGradient>
+                                <View style={[styles.editBadge, { borderColor: isDark ? colors.background : "#fff" }]}>
+                                    <Ionicons name="camera" size={14} color="#fff" />
                                 </View>
-                            ) : personalInfo?.profileImageUrl !== "" ? (
-                                <Image source={{ uri: personalInfo?.profileImageUrl }} style={[styles.profileImage, { borderColor: isDark ? colors.card : "#fff" }]} />
-                            ) : (
-                                <View style={[styles.placeholderContainer, { backgroundColor: isDark ? colors.surface : "#F0F0F0", borderColor: isDark ? colors.card : "#fff" }]}>
-                                    <Ionicons name="person" size={50} color={isDark ? "#666" : "#999"} />
-                                </View>
-                            )}
-                            <View style={[styles.editBadge, { borderColor: isDark ? colors.card : "#fff" }]}>
-                                <Ionicons name="camera" size={16} color="#fff" />
                             </View>
                         </TouchableOpacity>
+                        {(personalInfo.firstName || personalInfo.lastName) ? (
+                            <Text style={[styles.profileDisplayName, { color: colors.text }]}>
+                                {`${personalInfo.firstName} ${personalInfo.lastName}`.trim()}
+                            </Text>
+                        ) : null}
+                        <Text style={[styles.profileEditHint, { color: colors.textSecondary }]}>Tap to change photo</Text>
                     </View>
 
                     {/* Section 1: Personal Details */}
                     <View style={styles.section}>
                         <View style={styles.sectionHeader}>
-                            <Text style={[styles.sectionTitle, { color: colors.text }]}>Personal Details</Text>
+                            <View style={styles.sectionTitleRow}>
+                                <View style={[styles.sectionIconBadge, { backgroundColor: "#7C3AED" }]}>
+                                    <Ionicons name="person" size={15} color="#fff" />
+                                </View>
+                                <Text style={[styles.sectionTitle, { color: colors.text }]}>Personal Details</Text>
+                            </View>
                             {hasUnsavedChanges && (
                                 <View style={styles.unsavedBadge}>
                                     <Text style={styles.unsavedText}>Unsaved</Text>
                                 </View>
                             )}
                         </View>
-                        <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                        <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: "#7C3AED", borderLeftWidth: 4 }]}>
                             <CustomTextInput
                                 label="Username"
                                 value={personalInfo.username}
                                 onChangeText={(val) => handlePersonalInfoChange("username", val)}
                                 style={styles.input}
                                 autoCapitalize="none"
+                                icon="at-outline"
                             />
 
                             <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -539,6 +783,7 @@ export default function ProviderEditProfileScreen() {
                                         onChangeText={(val) => handlePersonalInfoChange("firstName", val)}
                                         style={styles.input}
                                         error={validationErrors.firstName}
+                                        icon="person-outline"
                                     />
                                 </View>
                                 <View style={{ flex: 1 }}>
@@ -548,6 +793,7 @@ export default function ProviderEditProfileScreen() {
                                         onChangeText={(val) => handlePersonalInfoChange("lastName", val)}
                                         style={styles.input}
                                         error={validationErrors.lastName}
+                                        icon="person-outline"
                                     />
                                 </View>
                             </View>
@@ -561,13 +807,32 @@ export default function ProviderEditProfileScreen() {
                                 style={styles.input}
                                 error={validationErrors.email}
                                 editable={false}
+                                icon="mail-outline"
                             />
 
                             <View style={styles.inputGroup}>
                                 <Text style={[styles.label, { color: colors.textSecondary }]}>Phone Number</Text>
-                                <View style={[styles.phoneContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.phone && styles.phoneError]}>
+                                <View
+                                    style={[
+                                        styles.phoneContainer,
+                                        {
+                                            backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9",
+                                            borderColor: colors.border
+                                        },
+                                        validationErrors.phone && styles.phoneError,
+                                    ]}
+                                >
                                     <View style={{ flexDirection: "row", alignItems: "center", height: 48 }}>
-                                        <View style={{ flexDirection: "row", alignItems: "center", marginRight: 10, paddingRight: 10, borderRightWidth: 1, borderRightColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(51, 51, 51, 0.1)" }}>
+                                        <View
+                                            style={{
+                                                flexDirection: "row",
+                                                alignItems: "center",
+                                                marginRight: 10,
+                                                paddingRight: 10,
+                                                borderRightWidth: 1,
+                                                borderRightColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(51, 51, 51, 0.1)",
+                                            }}
+                                        >
                                             <Text style={{ fontSize: 20 }}>🇮🇳</Text>
                                             <Text style={{ fontSize: 16, fontWeight: "600", color: colors.text, marginLeft: 8 }}>+91</Text>
                                         </View>
@@ -576,7 +841,9 @@ export default function ProviderEditProfileScreen() {
                                             value={personalInfo.phone}
                                             onChangeText={(text) => {
                                                 const numeric = text.replace(/[^0-9]/g, "");
-                                                if (numeric.length <= 10) handlePersonalInfoChange("phone", numeric);
+                                                if (numeric.length <= 10) {
+                                                    handlePersonalInfoChange("phone", numeric);
+                                                }
                                             }}
                                             placeholder="Mobile Number"
                                             placeholderTextColor={isDark ? "rgba(255,255,255,0.4)" : "rgba(51, 51, 51, 0.4)"}
@@ -585,141 +852,117 @@ export default function ProviderEditProfileScreen() {
                                         />
                                     </View>
                                 </View>
-                                {validationErrors.phone && <Text style={styles.errorText}>{validationErrors.phone}</Text>}
+                                {validationErrors.phone && (
+                                    <Text style={styles.errorText}>{validationErrors.phone}</Text>
+                                )}
                             </View>
+
                         </View>
                     </View>
 
-                    {/* Section: Family Details */}
+                    {/* Section 2: Basic Details */}
                     <View style={styles.section}>
-                        <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 10 }]}>Family Details</Text>
-                        <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>Annual Income *</Text>
-                                <TouchableOpacity
-                                    style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.annualIncome && styles.selectorError]}
-                                    onPress={() => setShowIncomePicker(true)}
-                                >
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.annualIncome && styles.placeholderText]}>
-                                        {personalInfo.annualIncome || "Select Income Range"}
-                                    </Text>
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                                {validationErrors.annualIncome && <Text style={styles.errorText}>{validationErrors.annualIncome}</Text>}
+                        <View style={[styles.sectionHeader, { marginBottom: 10 }]}>
+                            <View style={styles.sectionTitleRow}>
+                                <View style={[styles.sectionIconBadge, { backgroundColor: "#059669" }]}>
+                                    <Ionicons name="home" size={15} color="#fff" />
+                                </View>
+                                <Text style={[styles.sectionTitle, { color: colors.text }]}>Basic Details</Text>
                             </View>
                         </View>
-                    </View>
+                        <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: "#059669", borderLeftWidth: 4 }]}>
+                            <PickerRow
+                                label="Domicile State"
+                                value={personalInfo.domicileState}
+                                icon="flag-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowDomicileStatePicker(true)}
+                            />
 
-                    {/* Section: Education & Application */}
-                    <View style={styles.section}>
-                        <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 10 }]}>Education & Application</Text>
-                        <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                            <PickerRow
+                                label="Domicile District"
+                                value={personalInfo.domicileDistrict}
+                                icon="map-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowDistrictPicker(true)}
+                            />
 
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>Scheme Name</Text>
-                                <TouchableOpacity style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]} onPress={() => setShowSchemePicker(true)}>
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.schemeName && styles.placeholderText]}>{personalInfo.schemeName || "Select Scheme"}</Text>
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                            </View>
+                            <PickerRow
+                                label="Annual Family Income"
+                                value={personalInfo.annualIncome}
+                                placeholder="Select Income Range"
+                                icon="cash-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowIncomePicker(true)}
+                                error={validationErrors.annualIncome}
+                            />
 
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>Registering As</Text>
-                                <TouchableOpacity style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]} onPress={() => setShowRegisteringAsPicker(true)}>
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.registeringAs && styles.placeholderText]}>{personalInfo.registeringAs || "Select Type"}</Text>
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                            </View>
+                            <PickerRow
+                                label="Special Category"
+                                value={personalInfo.specialCategory}
+                                icon="star-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowSpecialCategoryPicker(true)}
+                            />
 
-                            <View style={{ flexDirection: 'row', gap: 10 }}>
-                                <View style={{ flex: 1 }}>
-                                    <CustomTextInput
-                                        label="Session"
-                                        value={personalInfo.session}
-                                        onChangeText={(val) => handlePersonalInfoChange("session", val)}
-                                        style={styles.input}
-                                        placeholder="e.g. 24-25"
-                                    />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <View style={styles.inputGroup}>
-                                        <Text style={[styles.label, { color: colors.textSecondary }]}>Application Year</Text>
-                                        <TouchableOpacity style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]} onPress={() => setShowApplicationYearPicker(true)}>
-                                            <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.applicationYear && styles.placeholderText]}>{personalInfo.applicationYear || "Select Year"}</Text>
-                                            <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            </View>
+                            <PickerRow
+                                label="Year of Application"
+                                value={personalInfo.applicationYear}
+                                placeholder="Select Year"
+                                icon="calendar-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowApplicationYearPicker(true)}
+                            />
 
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>Year of Course</Text>
-                                <TouchableOpacity style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]} onPress={() => setShowYearOfCoursePicker(true)}>
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.yearOfCourse && styles.placeholderText]}>{personalInfo.yearOfCourse || "Select Year"}</Text>
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                            </View>
+                            <PickerRow
+                                label="You are registering as"
+                                value={personalInfo.registeringAs}
+                                placeholder="Select Type"
+                                icon="id-card-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowRegisteringAsPicker(true)}
+                            />
 
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>12th Board</Text>
-                                <TouchableOpacity style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]} onPress={() => setShowBoard12thPicker(true)}>
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.board12th && styles.placeholderText]}>{personalInfo.board12th || "Select Board"}</Text>
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                            </View>
+                            <PickerRow
+                                label="12th Passing Year"
+                                value={personalInfo.passingYear12th}
+                                placeholder="Select Year"
+                                icon="calendar-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowPassingYear12thPicker(true)}
+                            />
 
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>Stream in 12th</Text>
-                                <TouchableOpacity style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]} onPress={() => setShowStream12thPicker(true)}>
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.stream12th && styles.placeholderText]}>{personalInfo.stream12th || "Select Stream"}</Text>
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                            </View>
+                            <CustomTextInput
+                                label="12th Percentage"
+                                value={personalInfo.percentage12}
+                                onChangeText={(val) => handlePersonalInfoChange("percentage12", val)}
+                                style={styles.input}
+                                keyboardType="numeric"
+                                placeholder="Enter 12th Percentage"
+                                icon="ribbon-outline"
+                                error={validationErrors.percentage12}
+                            />
 
-                            <View style={{ flexDirection: 'row', gap: 10 }}>
-                                <View style={{ flex: 1 }}>
-                                    <CustomTextInput
-                                        label="10th Passing Year"
-                                        value={personalInfo.passing10th}
-                                        onChangeText={(val) => handlePersonalInfoChange("passing10th", val)}
-                                        style={styles.input}
-                                        keyboardType="numeric"
-                                    />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <View style={styles.inputGroup}>
-                                        <Text style={[styles.label, { color: colors.textSecondary }]}>12th Passing Year</Text>
-                                        <TouchableOpacity style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]} onPress={() => setShowPassingYear12thPicker(true)}>
-                                            <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.passingYear12th && styles.placeholderText]}>{personalInfo.passingYear12th || "Select Year"}</Text>
-                                            <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            </View>
-                        </View>
-                    </View>
+                            <PickerRow
+                                label="Gender *"
+                                value={personalInfo.gender}
+                                icon="body-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowGenderPicker(true)}
+                                error={validationErrors.gender}
+                            />
 
-                    {/* Section: Basic Details */}
-                    <View style={styles.section}>
-                        <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 10 }]}>Basic Details</Text>
-                        <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>Gender *</Text>
-                                <TouchableOpacity style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.gender && styles.selectorError]} onPress={() => setShowGenderPicker(true)}>
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.gender && styles.placeholderText]}>{personalInfo.gender || "Choose..."}</Text>
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                                {validationErrors.gender && <Text style={styles.errorText}>{validationErrors.gender}</Text>}
-                            </View>
+                            <PickerRow
+                                label="Date of Birth *"
+                                value={personalInfo.dob}
+                                placeholder="DD/MM/YYYY"
+                                icon="calendar-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowDatePicker(true)}
+                                error={validationErrors.dob}
+                            />
 
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>Date of Birth *</Text>
-                                <TouchableOpacity style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.dob && styles.selectorError]} onPress={() => setShowDatePicker(true)}>
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.dob && styles.placeholderText]}>{personalInfo.dob || "DD/MM/YYYY"}</Text>
-                                    <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                                {validationErrors.dob && <Text style={styles.errorText}>{validationErrors.dob}</Text>}
-                            </View>
+
 
                             {Platform.OS === 'ios' ? (
                                 <DateTimePickerModal
@@ -732,6 +975,7 @@ export default function ProviderEditProfileScreen() {
                                     date={personalInfo.dob ? new Date(personalInfo.dob.split('/').reverse().join('-')) : new Date()}
                                     maximumDate={new Date()}
                                     fullscreen={true}
+
                                 />
                             ) : (
                                 showDatePicker && (
@@ -746,29 +990,48 @@ export default function ProviderEditProfileScreen() {
                                 )
                             )}
 
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>Religion *</Text>
-                                <TouchableOpacity style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.religion && styles.selectorError]} onPress={() => setShowReligionPicker(true)}>
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.religion && styles.placeholderText]}>{personalInfo.religion || "Choose..."}</Text>
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                                {validationErrors.religion && <Text style={styles.errorText}>{validationErrors.religion}</Text>}
-                            </View>
+                            <PickerRow
+                                label="Religion *"
+                                value={personalInfo.religion}
+                                icon="heart-circle-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowReligionPicker(true)}
+                                error={validationErrors.religion}
+                            />
 
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>Caste *</Text>
-                                <TouchableOpacity style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.caste && styles.selectorError]} onPress={() => setShowCastePicker(true)}>
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.caste && styles.placeholderText]}>{personalInfo.caste || "Choose..."}</Text>
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                                {validationErrors.caste && <Text style={styles.errorText}>{validationErrors.caste}</Text>}
-                            </View>
+                            <PickerRow
+                                label="Caste *"
+                                value={personalInfo.caste}
+                                icon="layers-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowCastePicker(true)}
+                                error={validationErrors.caste}
+                            />
+
+
+
+                            <CustomTextInput
+                                label="Father's Name"
+                                value={personalInfo.fatherName}
+                                onChangeText={(val) => handlePersonalInfoChange("fatherName", val)}
+                                style={styles.input}
+                                icon="man-outline"
+                            />
+
+                            <CustomTextInput
+                                label="Mother's Name"
+                                value={personalInfo.motherName}
+                                onChangeText={(val) => handlePersonalInfoChange("motherName", val)}
+                                style={styles.input}
+                                icon="woman-outline"
+                            />
 
                             <CustomTextInput
                                 label="Address"
                                 value={personalInfo.address}
                                 onChangeText={(val) => handlePersonalInfoChange("address", val)}
                                 style={styles.input}
+                                icon="location-outline"
                             />
 
                             <CustomTextInput
@@ -776,6 +1039,121 @@ export default function ProviderEditProfileScreen() {
                                 value={personalInfo.city}
                                 onChangeText={(val) => handlePersonalInfoChange("city", val)}
                                 style={[styles.input, { flex: 1, marginRight: 8 }]}
+                                icon="business-outline"
+                            />
+                            {/* Village removed as requested */}
+                        </View>
+                    </View>
+
+                    {/* Section: Academic Details */}
+                    <View style={styles.section}>
+                        <View style={[styles.sectionHeader, { marginBottom: 10 }]}>
+                            <View style={styles.sectionTitleRow}>
+                                <View style={[styles.sectionIconBadge, { backgroundColor: "#D97706" }]}>
+                                    <Ionicons name="school" size={15} color="#fff" />
+                                </View>
+                                <Text style={[styles.sectionTitle, { color: colors.text }]}>Academic Details</Text>
+                            </View>
+                        </View>
+                        <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: "#D97706", borderLeftWidth: 4 }]}>
+                            <CustomTextInput
+                                label="Institute Name"
+                                value={personalInfo.collegeName}
+                                onChangeText={(val) => handlePersonalInfoChange("collegeName", val)}
+                                style={styles.input}
+                                placeholder="Enter Institute Name"
+                                icon="school-outline"
+                            />
+                            <CustomTextInput
+                                label="Institute Location"
+                                value={personalInfo.collegeLocation}
+                                onChangeText={(val) => handlePersonalInfoChange("collegeLocation", val)}
+                                style={styles.input}
+                                placeholder="Enter Institute Location"
+                                icon="map-outline"
+                            />
+                            <CustomTextInput
+                                label="University"
+                                value={personalInfo.university}
+                                onChangeText={(val) => handlePersonalInfoChange("university", val)}
+                                style={styles.input}
+                                placeholder="Enter University"
+                                icon="library-outline"
+                            />
+                            <CustomTextInput
+                                label="Current Course/Class"
+                                value={personalInfo.currentCourse}
+                                onChangeText={(val) => handlePersonalInfoChange("currentCourse", val)}
+                                style={styles.input}
+                                placeholder="Enter Current Course/Class"
+                                icon="book-outline"
+                            />
+
+                            <PickerRow
+                                label="Session"
+                                value={personalInfo.session}
+                                placeholder="Select Session"
+                                icon="calendar-outline"
+                                iconColor="#D97706"
+                                onPress={() => setShowSessionPicker(true)}
+                            />
+
+                            <PickerRow
+                                label="Year of Course"
+                                value={personalInfo.yearOfCourse}
+                                placeholder="Select Year"
+                                icon="hourglass-outline"
+                                iconColor="#D97706"
+                                onPress={() => setShowYearOfCoursePicker(true)}
+                            />
+
+                            <PickerRow
+                                label="10th Passing Year"
+                                value={personalInfo.passing10th}
+                                placeholder="Select Year"
+                                icon="calendar-outline"
+                                iconColor="#D97706"
+                                onPress={() => setShowPassing10thPicker(true)}
+                            />
+
+                            <CustomTextInput
+                                label="10th Class Percentage"
+                                value={personalInfo.percentage10}
+                                onChangeText={(val) => handlePersonalInfoChange("percentage10", val)}
+                                style={styles.input}
+                                keyboardType="numeric"
+                                placeholder="Enter 10th Percentage"
+                                icon="ribbon-outline"
+                                error={validationErrors.percentage10}
+                            />
+
+                            <PickerRow
+                                label="12th Board"
+                                value={personalInfo.board12th}
+                                placeholder="Select Board"
+                                icon="school-outline"
+                                iconColor="#D97706"
+                                onPress={() => setShowBoard12thPicker(true)}
+                            />
+
+                            <PickerRow
+                                label="Stream in 12th"
+                                value={personalInfo.stream12th}
+                                placeholder="Select Stream"
+                                icon="git-branch-outline"
+                                iconColor="#D97706"
+                                onPress={() => setShowStream12thPicker(true)}
+                            />
+
+                            <CustomTextInput
+                                label="12th Marks"
+                                value={personalInfo.marks12}
+                                onChangeText={(val) => handlePersonalInfoChange("marks12", val)}
+                                style={styles.input}
+                                keyboardType="numeric"
+                                placeholder="Enter 12th Marks"
+                                icon="clipboard-outline"
+                                error={validationErrors.marks12}
                             />
                         </View>
                     </View>
@@ -791,61 +1169,295 @@ export default function ProviderEditProfileScreen() {
                         />
                     </View>
 
-                    <View style={{ height: 40 }} />
+                    {/* <View style={{ height: 40 }} /> */}
                 </ScrollView>
             </KeyboardAvoidingView>
 
-            <Toast message={toastMessage} type={toastType} visible={showToast} onHide={() => setShowToast(false)} duration={3000} />
+            <Toast
+                message={toastMessage}
+                type={toastType}
+                visible={showToast}
+                onHide={() => setShowToast(false)}
+                duration={3000}
+            />
 
-            <SelectionModal visible={showReligionPicker} onClose={() => setShowReligionPicker(false)} title="Select Religion" options={RELIGION_OPTIONS} selected={personalInfo.religion} onSelect={(val: string) => { handlePersonalInfoChange("religion", val); setShowReligionPicker(false); }} />
-            <SelectionModal visible={showIncomePicker} onClose={() => setShowIncomePicker(false)} title="Select Annual Income" options={ANNUAL_INCOME_OPTIONS} selected={personalInfo.annualIncome} onSelect={(val: string) => { handlePersonalInfoChange("annualIncome", val); setShowIncomePicker(false); }} />
-            <SelectionModal visible={showSchemePicker} onClose={() => setShowSchemePicker(false)} title="Select Scheme" options={SCHEME_OPTIONS} selected={personalInfo.schemeName} onSelect={(val: string) => { handlePersonalInfoChange("schemeName", val); setShowSchemePicker(false); }} />
-            <SelectionModal visible={showRegisteringAsPicker} onClose={() => setShowRegisteringAsPicker(false)} title="Registering As" options={REGISTERING_AS_OPTIONS} selected={personalInfo.registeringAs} onSelect={(val: string) => { handlePersonalInfoChange("registeringAs", val); setShowRegisteringAsPicker(false); }} />
-            <SelectionModal visible={showCastePicker} onClose={() => setShowCastePicker(false)} title="Select Caste" options={CASTE_OPTIONS} selected={personalInfo.caste} onSelect={(val: string) => { handlePersonalInfoChange("caste", val); setShowCastePicker(false); }} />
-            <SelectionModal visible={showGenderPicker} onClose={() => setShowGenderPicker(false)} title="Select Gender" options={GENDER_OPTIONS} selected={personalInfo.gender} onSelect={(val: string) => { handlePersonalInfoChange("gender", val); setShowGenderPicker(false); }} />
-            <SelectionModal visible={showYearOfCoursePicker} onClose={() => setShowYearOfCoursePicker(false)} title="Select Year of Course" options={YEAR_OF_COURSE_OPTIONS} selected={personalInfo.yearOfCourse} onSelect={(val: string) => { handlePersonalInfoChange("yearOfCourse", val); setShowYearOfCoursePicker(false); }} />
-            <SelectionModal visible={showBoard12thPicker} onClose={() => setShowBoard12thPicker(false)} title="Select 12th Board" options={BOARD_12TH_OPTIONS} selected={personalInfo.board12th} onSelect={(val: string) => { handlePersonalInfoChange("board12th", val); setShowBoard12thPicker(false); }} />
-            <SelectionModal visible={showStream12thPicker} onClose={() => setShowStream12thPicker(false)} title="Select Stream in 12th" options={STREAM_12TH_OPTIONS} selected={personalInfo.stream12th} onSelect={(val: string) => { handlePersonalInfoChange("stream12th", val); setShowStream12thPicker(false); }} />
-            <SelectionModal visible={showPassingYear12thPicker} onClose={() => setShowPassingYear12thPicker(false)} title="Select 12th Passing Year" options={PASSING_YEAR_12TH_OPTIONS} selected={personalInfo.passingYear12th} onSelect={(val: string) => { handlePersonalInfoChange("passingYear12th", val); setShowPassingYear12thPicker(false); }} />
-            <SelectionModal visible={showApplicationYearPicker} onClose={() => setShowApplicationYearPicker(false)} title="Select Application Year" options={APPLICATION_YEAR_OPTIONS} selected={personalInfo.applicationYear} onSelect={(val: string) => { handlePersonalInfoChange("applicationYear", val); setShowApplicationYearPicker(false); }} />
+            <SelectionModal
+                visible={showReligionPicker}
+                onClose={() => setShowReligionPicker(false)}
+                title="Select Religion"
+                options={RELIGION_OPTIONS}
+                selected={personalInfo.religion}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("religion", val);
+                    setShowReligionPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showSessionPicker}
+                onClose={() => setShowSessionPicker(false)}
+                title="Select Session"
+                options={SESSION_OPTIONS}
+                selected={personalInfo.session}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("session", val);
+                    setShowSessionPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showPassing10thPicker}
+                onClose={() => setShowPassing10thPicker(false)}
+                title="Select 10th Passing Year"
+                options={PASSING_10TH_OPTIONS}
+                selected={personalInfo.passing10th}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("passing10th", val);
+                    setShowPassing10thPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showIncomePicker}
+                onClose={() => setShowIncomePicker(false)}
+                title="Select Annual Income"
+                options={ANNUAL_INCOME_OPTIONS}
+                selected={personalInfo.annualIncome}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("annualIncome", val);
+                    setShowIncomePicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showSchemePicker}
+                onClose={() => setShowSchemePicker(false)}
+                title="Select Scheme"
+                options={SCHEME_OPTIONS}
+                selected={personalInfo.schemeName}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("schemeName", val);
+                    setShowSchemePicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showRegisteringAsPicker}
+                onClose={() => setShowRegisteringAsPicker(false)}
+                title="Registering As"
+                options={REGISTERING_AS_OPTIONS}
+                selected={personalInfo.registeringAs}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("registeringAs", val);
+                    setShowRegisteringAsPicker(false);
+                }}
+            />
+            <SelectionModal
+                visible={showCastePicker}
+                onClose={() => setShowCastePicker(false)}
+                title="Select Caste"
+                options={CASTE_OPTIONS}
+                selected={personalInfo.caste}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("caste", val);
+                    setShowCastePicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showGenderPicker}
+                onClose={() => setShowGenderPicker(false)}
+                title="Select Gender"
+                options={GENDER_OPTIONS}
+                selected={personalInfo.gender}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("gender", val);
+                    setShowGenderPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showDomicileStatePicker}
+                onClose={() => setShowDomicileStatePicker(false)}
+                title="Select Domicile State"
+                options={DOMICILE_STATE_OPTIONS}
+                selected={personalInfo.domicileState}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("domicileState", val);
+                    setShowDomicileStatePicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showSpecialCategoryPicker}
+                onClose={() => setShowSpecialCategoryPicker(false)}
+                title="Select Special Category"
+                options={SPECIAL_CATEGORY_OPTIONS}
+                selected={personalInfo.specialCategory}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("specialCategory", val);
+                    setShowSpecialCategoryPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showDistrictPicker}
+                onClose={() => setShowDistrictPicker(false)}
+                title="Select Domicile District"
+                options={DISTRICT_OPTIONS}
+                selected={personalInfo.domicileDistrict}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("domicileDistrict", val);
+                    setShowDistrictPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showYearOfCoursePicker}
+                onClose={() => setShowYearOfCoursePicker(false)}
+                title="Select Year of Course"
+                options={YEAR_OF_COURSE_OPTIONS}
+                selected={personalInfo.yearOfCourse}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("yearOfCourse", val);
+                    setShowYearOfCoursePicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showBoard12thPicker}
+                onClose={() => setShowBoard12thPicker(false)}
+                title="Select 12th Board"
+                options={BOARD_12TH_OPTIONS}
+                selected={personalInfo.board12th}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("board12th", val);
+                    setShowBoard12thPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showStream12thPicker}
+                onClose={() => setShowStream12thPicker(false)}
+                title="Select Stream in 12th"
+                options={STREAM_12TH_OPTIONS}
+                selected={personalInfo.stream12th}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("stream12th", val);
+                    setShowStream12thPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showPassingYear12thPicker}
+                onClose={() => setShowPassingYear12thPicker(false)}
+                title="Select 12th Passing Year"
+                options={PASSING_YEAR_12TH_OPTIONS}
+                selected={personalInfo.passingYear12th}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("passingYear12th", val);
+                    setShowPassingYear12thPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showApplicationYearPicker}
+                onClose={() => setShowApplicationYearPicker(false)}
+                title="Select Application Year"
+                options={APPLICATION_YEAR_OPTIONS}
+                selected={personalInfo.applicationYear}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("applicationYear", val);
+                    setShowApplicationYearPicker(false);
+                }}
+            />
 
             {/* Image Options Modal */}
-            <Modal visible={showImageOptions} transparent animationType="slide" onRequestClose={() => setShowImageOptions(false)}>
+            <Modal
+                visible={showImageOptions}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowImageOptions(false)}
+            >
                 <View style={styles.modalOverlay}>
-                    <TouchableOpacity style={styles.modalBackdrop} onPress={() => setShowImageOptions(false)} activeOpacity={1} />
-                    <View style={[styles.imageOptionsContent, { backgroundColor: colors.surface, borderColor: colors.border, paddingBottom: insets.bottom || 20 }]}>
-                        <View style={styles.imageOptionsHandle}>
-                            <View style={[styles.handleBar, { backgroundColor: colors.border }]} />
+                    <TouchableOpacity
+                        style={styles.modalBackdrop}
+                        onPress={() => setShowImageOptions(false)}
+                        activeOpacity={1}
+                    />
+                    <View style={{ paddingHorizontal: 16, paddingBottom: (insets.bottom || 20) + 10, width: "100%", position: "absolute", bottom: 0 }}>
+                        <View style={{ backgroundColor: colors.card, borderRadius: 20, overflow: "hidden", marginBottom: 12 }}>
+                            <View style={{ alignItems: "center", paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                                <Text style={{ fontSize: 15, fontWeight: "600", color: colors.textSecondary }}>Change Profile Picture</Text>
+                            </View>
+
+                            <TouchableOpacity
+                                style={{ flexDirection: "row", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}
+                                onPress={handleTakePhoto}
+                                activeOpacity={0.7}
+                            >
+                                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(0, 86, 210, 0.08)", justifyContent: "center", alignItems: "center", marginRight: 16 }}>
+                                    <Ionicons name="camera" size={22} color={colors.primary} />
+                                </View>
+                                <Text style={{ fontSize: 17, fontWeight: "500", color: colors.text }}>Take Photo</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={{ flexDirection: "row", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}
+                                onPress={handlePickFromGallery}
+                                activeOpacity={0.7}
+                            >
+                                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(0, 86, 210, 0.08)", justifyContent: "center", alignItems: "center", marginRight: 16 }}>
+                                    <Ionicons name="images" size={22} color={colors.primary} />
+                                </View>
+                                <Text style={{ fontSize: 17, fontWeight: "500", color: colors.text }}>Choose from Gallery</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={{ flexDirection: "row", alignItems: "center", padding: 16, opacity: !personalInfo.profileImageUrl || isRemovingImage ? 0.5 : 1 }}
+                                onPress={handleRemoveProfileImage}
+                                activeOpacity={0.7}
+                                disabled={!personalInfo.profileImageUrl || isRemovingImage}
+                            >
+                                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(239, 68, 68, 0.08)", justifyContent: "center", alignItems: "center", marginRight: 16 }}>
+                                    <Ionicons name="trash" size={22} color="#ef4444" />
+                                </View>
+                                <Text style={{ fontSize: 17, fontWeight: "500", color: "#ef4444" }}>
+                                    {isRemovingImage ? "Removing..." : "Remove Photo"}
+                                </Text>
+                            </TouchableOpacity>
                         </View>
-                        <Text style={[styles.imageOptionsTitle, { color: colors.text }]}>Change Profile Picture</Text>
-                        <TouchableOpacity style={[styles.imageOptionButton, { borderBottomColor: colors.border }]} onPress={handleTakePhoto} activeOpacity={0.7}>
-                            <Ionicons name="camera" size={24} color={colors.primary} />
-                            <Text style={[styles.imageOptionText, { color: colors.text }]}>Take Photo</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.imageOptionButton, { borderBottomColor: colors.border }]} onPress={handlePickFromGallery} activeOpacity={0.7}>
-                            <Ionicons name="images" size={24} color={colors.primary} />
-                            <Text style={[styles.imageOptionText, { color: colors.text }]}>Choose from Gallery</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.imageOptionButton, { opacity: !personalInfo.profileImageUrl || isRemovingImage ? 0.5 : 1 }]} onPress={handleRemoveProfileImage} activeOpacity={0.7} disabled={!personalInfo.profileImageUrl || isRemovingImage}>
-                            <Ionicons name="trash-outline" size={24} color={colors.textSecondary} />
-                            <Text style={[styles.imageOptionText, { color: colors.textSecondary }]}>{isRemovingImage ? "Removing..." : "Remove Photo"}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.imageOptionButton} onPress={() => setShowImageOptions(false)} activeOpacity={0.7}>
-                            <Ionicons name="close-circle" size={24} color={colors.textSecondary} />
-                            <Text style={[styles.imageOptionText, { color: colors.textSecondary }]}>Cancel</Text>
+
+                        <TouchableOpacity
+                            style={{ backgroundColor: colors.card, borderRadius: 20, padding: 16, alignItems: "center" }}
+                            onPress={() => setShowImageOptions(false)}
+                            activeOpacity={0.7}
+                        >
+                            <Text style={{ fontSize: 18, fontWeight: "600", color: colors.primary }}>Cancel</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
 
             {/* Image Preview Modal */}
-            <Modal visible={showImagePreview} transparent animationType="slide" onRequestClose={() => !isUploadingImage && setShowImagePreview(false)}>
+            <Modal
+                visible={showImagePreview}
+                transparent
+                animationType="slide"
+                onRequestClose={() => !isUploadingImage && setShowImagePreview(false)}
+            >
                 <View style={styles.modalOverlay}>
-                    <TouchableOpacity style={styles.modalBackdrop} onPress={() => !isUploadingImage && setShowImagePreview(false)} activeOpacity={1} disabled={isUploadingImage} />
+                    <TouchableOpacity
+                        style={styles.modalBackdrop}
+                        onPress={() => !isUploadingImage && setShowImagePreview(false)}
+                        activeOpacity={1}
+                        disabled={isUploadingImage}
+                    />
                     <View style={[styles.imagePreviewContent, { backgroundColor: colors.surface, paddingBottom: insets.bottom || 20 }]}>
                         <View style={styles.imageOptionsHandle}>
                             <View style={[styles.handleBar, { backgroundColor: colors.border }]} />
                         </View>
+
                         <View style={[styles.imagePreviewHeader, { borderBottomColor: colors.border }]}>
                             <Text style={[styles.imagePreviewTitle, { color: colors.text }]}>Preview</Text>
                             {!isUploadingImage && (
@@ -854,9 +1466,16 @@ export default function ProviderEditProfileScreen() {
                                 </TouchableOpacity>
                             )}
                         </View>
+
                         <View style={styles.imagePreviewBody}>
-                            {previewImageUri ? <Image source={{ uri: previewImageUri }} style={styles.previewImage} /> : null}
+                            {previewImageUri ? (
+                                <Image
+                                    source={{ uri: previewImageUri }}
+                                    style={styles.previewImage}
+                                />
+                            ) : null}
                         </View>
+
                         <View style={styles.imagePreviewFooter}>
                             <Button
                                 title={isUploadingImage ? "Uploading..." : "Update Profile Image"}
@@ -869,69 +1488,610 @@ export default function ProviderEditProfileScreen() {
                 </View>
             </Modal>
 
-            <Toast visible={showToast} message={toastMessage} type={toastType} onHide={() => setShowToast(false)} />
-        </View>
+            <Toast
+                visible={showToast}
+                message={toastMessage}
+                type={toastType}
+                onHide={() => setShowToast(false)}
+            />
+        </View >
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
-    background: { position: "absolute", top: 0, left: 0, bottom: 0, right: 0 },
-    scrollView: { flex: 1 },
-    section: { paddingHorizontal: 20, marginBottom: 24, marginTop: 8 },
-    sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
-    sectionTitle: { fontSize: 20, fontWeight: "700", letterSpacing: -0.5, color: "#333" },
-    unsavedBadge: { backgroundColor: "#FFE0B2", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-    unsavedText: { fontSize: 12, fontWeight: "700", color: "#E65100" },
+    container: {
+        flex: 1,
+    },
+    background: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        bottom: 0,
+        right: 0,
+    },
+    scrollView: {
+        flex: 1,
+    },
+    section: {
+        paddingHorizontal: 20,
+        marginBottom: 24,
+        marginTop: 8,
+    },
+    sectionHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 16,
+    },
+    sectionTitle: {
+        fontSize: 20,
+        fontWeight: "700",
+        letterSpacing: -0.5,
+        color: "#333",
+    },
+    sectionTitleRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+    },
+    sectionIconBadge: {
+        width: 34,
+        height: 34,
+        borderRadius: 10,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    pickerIconWrap: {
+        width: 30,
+        height: 30,
+        borderRadius: 8,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    unsavedBadge: {
+        backgroundColor: "#FFE0B2",
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 8,
+    },
+    unsavedText: {
+        fontSize: 12,
+        fontWeight: "700",
+        color: "#E65100",
+    },
     formCard: {
-        backgroundColor: "rgba(255, 255, 255, 0.98)",
+        backgroundColor: "rgba(255, 255, 255, 0.98)", // Will be overridden by inline style
         borderRadius: 20,
         padding: 24,
         borderWidth: 1,
-        borderColor: "rgba(51, 51, 51, 0.08)",
+        borderColor: "rgba(51, 51, 51, 0.08)", // Will be overridden by inline style
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.05,
         shadowRadius: 12,
         elevation: 4,
     },
-    input: { marginBottom: 16 },
-    row: { flexDirection: "row", gap: 12, marginBottom: 16 },
-    saveButton: { marginTop: 8, height: 56, borderRadius: 16 },
-    profileSection: { alignItems: "center", paddingVertical: 32 },
-    imageContainer: { position: "relative", marginBottom: 16 },
-    profileImage: { width: 120, height: 120, borderRadius: 60, borderWidth: 4, borderColor: "#fff" },
-    placeholderContainer: { width: 120, height: 120, borderRadius: 60, backgroundColor: "#F0F0F0", justifyContent: "center", alignItems: "center", borderWidth: 4, borderColor: "#fff" },
-    editBadge: { position: "absolute", bottom: 0, right: 0, backgroundColor: "#4CAF50", width: 36, height: 36, borderRadius: 18, justifyContent: "center", alignItems: "center", borderWidth: 3, borderColor: "#fff" },
-    inputGroup: { marginBottom: 16 },
-    label: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 8, marginLeft: 4 },
-    selector: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(255, 255, 255, 0.98)", borderWidth: 1.5, borderColor: "rgba(51, 51, 51, 0.15)", paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, height: 56 },
-    selectorError: { borderColor: "#EF4444" },
-    selectorText: { fontSize: 16, color: "#333", fontWeight: "500" },
-    placeholderText: { color: "#999" },
-    errorText: { color: "#EF4444", fontSize: 12, marginTop: 6, marginLeft: 4, fontWeight: "500" },
-    phoneContainer: { borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 16, paddingVertical: 4 },
-    phoneError: { borderColor: "#EF4444" },
-    phoneTextInput: { fontSize: 16, paddingVertical: 12, backgroundColor: "transparent", height: 48 },
-    modalOverlay: { flex: 1, justifyContent: "flex-end" },
-    modalBackdrop: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.4)" },
-    modalContent: { backgroundColor: "#fff", borderTopLeftRadius: 30, borderTopRightRadius: 30, maxHeight: "60%", paddingTop: 8, borderWidth: 1, borderColor: "#f0f0f0" },
-    modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 20, borderBottomWidth: 1, borderBottomColor: "#f0f0f0" },
-    modalTitle: { fontSize: 18, fontWeight: "700", color: "#1a1a1a" },
-    optionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 16, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: "#f9f9f9" },
-    optionSelected: { backgroundColor: "rgba(0, 86, 210, 0.05)" },
-    optionText: { fontSize: 15, color: "#222" },
-    optionTextSelected: { color: "#0056D2", fontWeight: "600" },
-    imageOptionsContent: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, width: "100%", position: "absolute", bottom: 0 },
-    imageOptionsHandle: { alignItems: "center", paddingVertical: 12 },
-    handleBar: { width: 40, height: 4, borderRadius: 2, backgroundColor: "#ddd" },
-    imageOptionsTitle: { fontSize: 18, fontWeight: "700", paddingHorizontal: 20, paddingBottom: 16, textAlign: "center" },
-    imageOptionButton: { flexDirection: "row", alignItems: "center", padding: 16, gap: 16, borderBottomWidth: 1 },
-    imageOptionText: { fontSize: 16, fontWeight: "500" },
-    imagePreviewContent: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, width: "100%", position: "absolute", bottom: 0, maxHeight: "90%" },
-    imagePreviewHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: 1 },
-    imagePreviewTitle: { fontSize: 18, fontWeight: "700" },
-    imagePreviewBody: { padding: 20, alignItems: "center", justifyContent: "center" },
-    previewImage: { width: 280, height: 280, borderRadius: 140, borderWidth: 3, borderColor: "#f2c44d" },
-    imagePreviewFooter: { padding: 20, paddingTop: 10 },
+    input: {
+        marginBottom: 16,
+    },
+    row: {
+        flexDirection: "row",
+        gap: 12,
+        marginBottom: 16,
+    },
+    saveButton: {
+        marginTop: 8,
+        height: 56,
+        borderRadius: 16,
+    },
+    languageCard: {
+        backgroundColor: "rgba(255, 255, 255, 0.98)", // Will be overridden by inline style
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: "rgba(51, 51, 51, 0.08)", // Will be overridden by inline style
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    languageRow: {
+        gap: 10,
+    },
+    langPill: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 12,
+        backgroundColor: "#f8f8f8", // Will be overridden by inline style
+        borderWidth: 2,
+        borderColor: "transparent", // Will be overridden by inline style
+        gap: 8,
+    },
+    langPillActive: {
+        backgroundColor: "#333", // Will be overridden by inline style
+        borderColor: "#333", // Will be overridden by inline style
+    },
+    langFlag: {
+        fontSize: 20,
+    },
+    langPillText: {
+        color: "#333", // Will be overridden by inline style
+        fontWeight: "600",
+        fontSize: 14,
+        flex: 1,
+    },
+    langPillTextActive: {
+        color: "#fff", // Will be overridden by inline style
+    },
+    profileSection: {
+        alignItems: "center",
+        paddingVertical: 32,
+    },
+    imageContainer: {
+        position: "relative",
+        marginBottom: 16,
+    },
+    avatarGradientRing: {
+        width: 140,
+        height: 140,
+        borderRadius: 70,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    avatarInner: {
+        width: 130,
+        height: 130,
+        borderRadius: 65,
+        overflow: "hidden",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    placeholderInner: {
+        width: 130,
+        height: 130,
+        borderRadius: 65,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    profileDisplayName: {
+        fontSize: 20,
+        fontWeight: "700",
+        marginTop: 14,
+        textAlign: "center",
+        letterSpacing: -0.3,
+    },
+    profileEditHint: {
+        fontSize: 13,
+        marginTop: 4,
+        fontWeight: "500",
+    },
+    profileImage: {
+        width: 130,
+        height: 130,
+        borderRadius: 65,
+    },
+    placeholderContainer: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        backgroundColor: "#F0F0F0",
+        justifyContent: "center",
+        alignItems: "center",
+        borderWidth: 4,
+        borderColor: "#fff",
+    },
+    editBadge: {
+        position: "absolute",
+        bottom: 2,
+        right: 2,
+        backgroundColor: "#7C3AED",
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        justifyContent: "center",
+        alignItems: "center",
+        borderWidth: 3,
+        borderColor: "#fff",
+    },
+    profileInfo: {
+        alignItems: "center",
+    },
+    profileName: {
+        fontSize: 20,
+        fontWeight: "700",
+        color: "#333", // Will be overridden by inline style
+        marginBottom: 4,
+    },
+    uploadText: {
+        fontSize: 14,
+        color: "#333", // Will be overridden by inline style
+        fontWeight: "600",
+        textDecorationLine: "underline",
+    },
+    // Selection Styles
+    inputGroup: {
+        marginBottom: 16,
+    },
+    label: {
+        fontSize: 14,
+        fontWeight: "600",
+        color: "#333", // Will be overridden by inline style
+        marginBottom: 8,
+        marginLeft: 4,
+    },
+    selector: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        backgroundColor: "rgba(255, 255, 255, 0.98)", // Will be overridden by inline style
+        borderWidth: 1.5,
+        borderColor: "rgba(51, 51, 51, 0.15)", // Will be overridden by inline style
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 12,
+        height: 56,
+    },
+    selectorError: {
+        borderColor: "#EF4444",
+    },
+    selectorText: {
+        fontSize: 16,
+        color: "#333", // Will be overridden by inline style
+        fontWeight: "500",
+    },
+    placeholderText: {
+        color: "#999",
+    },
+    errorText: {
+        color: "#EF4444",
+        fontSize: 12,
+        marginTop: 6,
+        marginLeft: 4,
+        fontWeight: "500",
+    },
+    // Modal Styles
+    modalOverlay: {
+        flex: 1,
+        justifyContent: "flex-end",
+    },
+    modalBackdrop: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(0,0,0,0.4)",
+    },
+    modalContent: {
+        backgroundColor: "#fff", // Will be overridden by inline style
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        maxHeight: "60%",
+        paddingTop: 8,
+        borderWidth: 1,
+        borderColor: "#f0f0f0", // Will be overridden by inline style
+    },
+    modalHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: "#f0f0f0", // Will be overridden by inline style
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: "700",
+        color: "#1a1a1a", // Will be overridden by inline style
+    },
+    optionRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: "#f9f9f9", // Will be overridden by inline style
+    },
+    optionSelected: {
+        backgroundColor: "rgba(0, 86, 210, 0.05)",
+    },
+    optionText: {
+        fontSize: 15,
+        color: "#222", // Will be overridden by inline style
+    },
+    optionTextSelected: {
+        color: "#0056D2", // Will be overridden by inline style
+        fontWeight: "600",
+    },
+    // Document Upload Styles
+    uploadCard: {
+        backgroundColor: "rgba(255, 255, 255, 0.98)", // Will be overridden by inline style
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: "rgba(51, 51, 51, 0.08)", // Will be overridden by inline style
+    },
+    uploadHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 16,
+        paddingHorizontal: 4,
+    },
+    uploadStats: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    folderText: {
+        marginLeft: 8,
+        fontSize: 14,
+        fontWeight: "600",
+        color: "#0056D2", // Will be overridden by inline style
+    },
+    uploadActions: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    uploadZone: {
+        borderWidth: 1.5,
+        borderColor: "rgba(0, 86, 210, 0.2)", // Will be overridden by inline style
+        borderStyle: "dashed",
+        borderRadius: 12,
+        backgroundColor: "rgba(0, 86, 210, 0.02)", // Will be overridden by inline style
+        paddingVertical: 32,
+        alignItems: "center",
+    },
+    uploadZoneContent: {
+        alignItems: "center",
+        paddingHorizontal: 20,
+    },
+    uploadIconCircle: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: "#fff", // Will be overridden by inline style
+        justifyContent: "center",
+        alignItems: "center",
+        marginBottom: 12,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    uploadZoneText: {
+        fontSize: 15,
+        color: "#333", // Will be overridden by inline style
+        fontWeight: "600",
+        textAlign: "center",
+    },
+    uploadZoneSubtext: {
+        fontSize: 12,
+        color: "#666", // Will be overridden by inline style
+        marginTop: 6,
+        textAlign: "center",
+    },
+    fileList: {
+        marginTop: 16,
+        gap: 8,
+    },
+    fileItem: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        backgroundColor: "#F8F9FB", // Will be overridden by inline style
+        padding: 12,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: "#EEF0F4", // Will be overridden by inline style
+    },
+    fileInfo: {
+        flexDirection: "row",
+        alignItems: "center",
+        flex: 1,
+        marginRight: 12,
+    },
+    fileName: {
+        fontSize: 13,
+        color: "#333", // Will be overridden by inline style
+        marginLeft: 10,
+        fontWeight: "500",
+    },
+    helperText: {
+        fontSize: 12,
+        color: "#666", // Will be overridden by inline style
+        fontWeight: "500",
+    },
+    uploadLabel: {
+        fontSize: 13,
+        fontWeight: "600",
+        color: "#555", // Will be overridden by inline style
+        marginBottom: 8,
+        textAlign: 'center'
+    },
+    uploadZoneSmall: {
+        width: '100%',
+        height: 80,
+        borderWidth: 1.5,
+        borderColor: "rgba(0, 86, 210, 0.15)", // Will be overridden by inline style
+        borderStyle: "dashed",
+        borderRadius: 12,
+        backgroundColor: "rgba(0, 86, 210, 0.02)", // Will be overridden by inline style
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    uploadZoneTextSmall: {
+        fontSize: 12,
+        color: "#0056D2", // Will be overridden by inline style
+        fontWeight: "600",
+        marginTop: 4,
+    },
+    fileItemCompact: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        backgroundColor: "#F8F9FB", // Will be overridden by inline style
+        padding: 10,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: "#EEF0F4", // Will be overridden by inline style
+        height: 80,
+    },
+    fileNameSmall: {
+        fontSize: 11,
+        color: "#333", // Will be overridden by inline style
+        flex: 1,
+        marginHorizontal: 8,
+        fontWeight: "500",
+    },
+    helperTextUnder: {
+        fontSize: 11,
+        color: "#999", // Will be overridden by inline style
+        textAlign: 'center',
+        marginTop: 10,
+        fontStyle: 'italic'
+    },
+    phoneContainer: {
+        borderRadius: 12,
+        borderWidth: 1.5,
+        paddingHorizontal: 16,
+        paddingVertical: 4,
+    },
+    phoneError: {
+        borderColor: "#EF4444",
+    },
+    phoneInputContainer: {
+        backgroundColor: "transparent",
+        borderWidth: 0,
+        padding: 0,
+        margin: 0,
+        height: 48,
+        width: '100%',
+    },
+    phoneTextContainer: {
+        backgroundColor: "transparent",
+        borderWidth: 0,
+        padding: 0,
+        margin: 0,
+        height: 48,
+    },
+    phoneTextInput: {
+        fontSize: 16,
+        paddingVertical: 12,
+        backgroundColor: "transparent",
+        height: 48,
+    },
+    phoneCodeText: {
+        fontSize: 16,
+        backgroundColor: "transparent",
+    },
+    phoneFlagButton: {
+        backgroundColor: "transparent",
+        borderWidth: 0,
+        padding: 0,
+        margin: 0,
+    },
+    countryPickerButton: {
+        backgroundColor: "transparent",
+        width: 70,
+    },
+    // Image Options Modal Styles
+    imageOptionsContent: {
+        backgroundColor: "#fff",
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        width: "100%",
+        position: "absolute",
+        bottom: 0,
+    },
+    imageOptionsHandle: {
+        alignItems: "center",
+        paddingVertical: 12,
+    },
+    modalCloseBtn: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    checkCircle: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: "#7C3AED",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    emptyCircle: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        borderWidth: 2,
+    },
+    handleBar: {
+        width: 40,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: "#ddd",
+    },
+    imageOptionsTitle: {
+        fontSize: 18,
+        fontWeight: "700",
+        paddingHorizontal: 20,
+        paddingBottom: 16,
+        textAlign: "center",
+    },
+    imageOptionButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        padding: 16,
+        gap: 16,
+        borderBottomWidth: 1,
+    },
+    imageOptionText: {
+        fontSize: 16,
+        fontWeight: "500",
+    },
+    // Image Preview Modal Styles
+    imagePreviewContent: {
+        backgroundColor: "#fff",
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        width: "100%",
+        position: "absolute",
+        bottom: 0,
+        maxHeight: "90%",
+    },
+    imagePreviewHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: 16,
+        borderBottomWidth: 1,
+    },
+    imagePreviewTitle: {
+        fontSize: 18,
+        fontWeight: "700",
+    },
+    imagePreviewBody: {
+        padding: 20,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    previewImage: {
+        width: 280,
+        height: 280,
+        borderRadius: 140,
+        borderWidth: 3,
+        borderColor: "#f2c44d",
+    },
+    imagePreviewFooter: {
+        padding: 20,
+        paddingTop: 10,
+    },
 });

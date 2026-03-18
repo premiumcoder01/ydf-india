@@ -1,6 +1,6 @@
-import { HelloWave } from "@/components";
+import { DashboardHeader, HelloWave } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { getDonorDashboardStats, getDonorRecentScholarships, getDonorScholarshipProgress, getUserProfile } from "@/utils/api";
+import { getDonorDashboardStats, getDonorRecentScholarships, getDonorScholarshipProgress, getNotifications, getUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -33,7 +33,7 @@ export default function ScholarshipProviderDashboard() {
   // Provider state
   const [providerName, setProviderName] = useState("Provider");
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
-  const [unreadCount] = useState<number>(2);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -180,6 +180,30 @@ export default function ScholarshipProviderDashboard() {
     }
   };
 
+  const fetchNotifications = async () => {
+    try {
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (!authDataString) return;
+
+      const authData = JSON.parse(authDataString);
+      const token = authData?.token;
+      if (!token) return;
+
+      const response = await getNotifications(token);
+      if (response.success && response.data) {
+        let raw: any[] = [];
+        if (Array.isArray(response.data)) raw = response.data;
+        else if (Array.isArray(response.data.data)) raw = response.data.data;
+        else if (Array.isArray(response.data.notifications)) raw = response.data.notifications;
+        
+        const count = raw.filter((n: any) => !n.is_read).length;
+        setUnreadCount(count);
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    }
+  };
+
   // Initial data fetch on component mount
   useEffect(() => {
     const loadInitialData = async () => {
@@ -187,7 +211,8 @@ export default function ScholarshipProviderDashboard() {
       await Promise.all([
         fetchUserProfile(),
         fetchStats(),
-        fetchRecentScholarships()
+        fetchRecentScholarships(),
+        fetchNotifications()
       ]);
       setLoading(false);
     };
@@ -201,7 +226,8 @@ export default function ScholarshipProviderDashboard() {
     await Promise.all([
       fetchUserProfile(),
       fetchStats(),
-      fetchRecentScholarships()
+      fetchRecentScholarships(),
+      fetchNotifications()
     ]);
     setRefreshing(false);
   }, []);
@@ -291,45 +317,13 @@ export default function ScholarshipProviderDashboard() {
       />
 
       {/* Welcome Header - Sticky */}
-      <View style={[styles.header, { paddingTop: inset.top + 20 }]}>
-        <View style={styles.headerContent}>
-          <View style={styles.welcomeSection}>
-            <Text style={[styles.welcomeText, { color: isDark ? colors.textSecondary : "#666" }]}>Hi,</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={[styles.userName, { color: colors.text }]}>{providerName}</Text>
-              <HelloWave />
-            </View>
-          </View>
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={() => router.push("/(dashboard)/provider/notifications")}
-              style={styles.bellWrapper}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="notifications-outline" size={26} color={colors.text} />
-              {/* {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
-                </View>
-              )} */}
-            </TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button" onPress={() => router.push("/(dashboard)/provider/profile")} activeOpacity={0.8}>
-              {profilePhotoUrl ? (
-                <Image source={{
-                  uri: profilePhotoUrl.includes('?')
-                    ? `${profilePhotoUrl}&t=${Date.now()}`
-                    : `${profilePhotoUrl}?t=${Date.now()}`
-                }} style={styles.avatar} />
-              ) : (
-                <View style={[styles.avatarPlaceholder, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
-                  <Ionicons name="person-circle-outline" size={36} color={colors.text} />
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
+      <DashboardHeader 
+        userName={providerName}
+        profilePhotoUrl={profilePhotoUrl}
+        unreadCount={unreadCount}
+        onNotificationPress={() => router.push("/(dashboard)/provider/notifications")}
+        onProfilePress={() => router.push("/(dashboard)/provider/profile")}
+      />
 
       <ScrollView
         style={styles.scrollView}

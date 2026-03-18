@@ -4,10 +4,11 @@ import { getUserProfile, updateUserProfile, uploadProfileImage } from "@/utils/a
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
+
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useState } from "react";
 import {
     ActivityIndicator,
     Image,
@@ -52,12 +53,36 @@ const CASTE_OPTIONS = [
 
 const GENDER_OPTIONS = ["Male", "Female", "Other"];
 
+const SPECIAL_CATEGORY_OPTIONS = ["Orphan", "Physically Disabled", "Single Parent", "None of these"];
+
+const DISTRICT_OPTIONS = [
+    "Araria", "Arwal", "Aurangabad", "Banka", "Begusarai", "Bhagalpur", "Bhojpur", "Buxar",
+    "Darbhanga", "East Champaran", "Gaya", "Gopalganj", "Jamui", "Jehanabad", "Kaimur", "Katihar",
+    "Khagaria", "Kishanganj", "Lakhisarai", "Madhepura", "Madhubani", "Munger", "Muzaffarpur", "Nalanda",
+    "Nawada", "Patna", "Purnia", "Rohtas", "Saharsa", "Samastipur", "Sheikhpura", "Sheohar",
+    "Sitamarhi", "Siwan", "Supaul", "Vaishali", "West Champaran", "Nashik", "Raigad", "Kotputli-behror",
+    "Alwar", "Sasnagar-Mohali", "Banaskantha(Deesa)", "Other"
+];
+
+const DOMICILE_STATE_OPTIONS = [
+    "Bihar",
+    "Punjab",
+    "Rajasthan",
+    "Maharashtra",
+    "Delhi",
+    "Gujarat",
+    "Haryana",
+    "Other"
+];
+
 const ANNUAL_INCOME_OPTIONS = [
     "Below ₹50,000",
     "₹50,000 - ₹1,00,000",
-    "₹1,00,000 - ₹2,50,000",
-    "₹2,50,000 - ₹5,00,000",
-    "Above ₹5,00,000"
+    "₹1,00,000 - ₹1,50,000",
+    "₹1,50,000 - ₹2,00,000",
+    "₹2,00,000 - ₹2,50,000",
+    "₹2,50,000 - ₹3,00,000",
+    "More than ₹3,00,000"
 ];
 
 const SCHEME_OPTIONS = [
@@ -75,7 +100,7 @@ const SCHEME_OPTIONS = [
     "other"
 ];
 
-const REGISTERING_AS_OPTIONS = ["New Applicant", "Renew Applicant"];
+const REGISTERING_AS_OPTIONS = ["Old Scholar", "New Applicant"];
 
 const YEAR_OF_COURSE_OPTIONS = ["20-21", "21-22", "22-23", "23-24", "24-25", "25-26"];
 
@@ -102,6 +127,10 @@ const STREAM_12TH_OPTIONS = [
 const PASSING_YEAR_12TH_OPTIONS = ["2024", "2025", "Not Applicable"];
 
 const APPLICATION_YEAR_OPTIONS = ["20-21", "21-22", "22-23", "23-24", "24-25", "25-26"];
+
+const SESSION_OPTIONS = ["23-24", "24-25", "25-26"];
+
+const PASSING_10TH_OPTIONS = ["2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024"];
 
 export default function MobilizerAccountScreen() {
     const { isDark, colors } = useTheme();
@@ -134,6 +163,16 @@ export default function MobilizerAccountScreen() {
         schemeName: "",
         passingYear12th: "",
         address: "",
+        domicileState: "",
+        specialCategory: "",
+        domicileDistrict: "",
+        percentage12: "",
+        collegeName: "",
+        collegeLocation: "",
+        university: "",
+        currentCourse: "",
+        percentage10: "",
+        marks12: "",
     });
 
     const [isSaving, setIsSaving] = useState(false);
@@ -162,6 +201,11 @@ export default function MobilizerAccountScreen() {
     const [showStream12thPicker, setShowStream12thPicker] = useState(false);
     const [showPassingYear12thPicker, setShowPassingYear12thPicker] = useState(false);
     const [showApplicationYearPicker, setShowApplicationYearPicker] = useState(false);
+    const [showDomicileStatePicker, setShowDomicileStatePicker] = useState(false);
+    const [showSpecialCategoryPicker, setShowSpecialCategoryPicker] = useState(false);
+    const [showDistrictPicker, setShowDistrictPicker] = useState(false);
+    const [showSessionPicker, setShowSessionPicker] = useState(false);
+    const [showPassing10thPicker, setShowPassing10thPicker] = useState(false);
 
 
 
@@ -174,73 +218,88 @@ export default function MobilizerAccountScreen() {
 
 
 
-    useEffect(() => {
-        const fetchUserProfile = async () => {
-            setIsProfileLoading(true);
-            try {
-                const authDataStr = await AsyncStorage.getItem("authData");
-                if (authDataStr) {
-                    const authData = JSON.parse(authDataStr);
-                    if (authData.token) {
-                        const response = await getUserProfile(authData.token);
-                        if (response.success && response.data && response.data.user) {
-                            const user = response.data.user;
-                            setPersonalInfo((prev) => ({
-                                ...prev,
-                                username: user.username || prev.username,
-                                firstName: user.firstname || prev.firstName,
-                                lastName: user.lastname || prev.lastName,
-                                email: user.email || prev.email,
-                                phone: (() => {
-                                    let p = user.phone1 || user.phone || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'phone_number')?.value || "";
-                                    if (p === "N/A") return "";
-                                    if (p && p.startsWith('+91')) return p.substring(3);
-                                    if (p && p.startsWith('91') && p.length === 12) return p.substring(2);
-                                    return p || prev.phone;
-                                })(),
+    const fetchUserProfile = useCallback(async () => {
+        setIsProfileLoading(true);
+        try {
+            const authDataStr = await AsyncStorage.getItem("authData");
+            if (authDataStr) {
+                const authData = JSON.parse(authDataStr);
+                if (authData.token) {
+                    const response = await getUserProfile(authData.token);
+                    if (response.success && response.data && response.data.user) {
+                        const user = response.data.user;
+                        setPersonalInfo((prev) => ({
+                            ...prev,
+                            username: user.username || prev.username,
+                            firstName: user.firstname || prev.firstName,
+                            lastName: user.lastname || prev.lastName,
+                            email: user.email || prev.email,
+                            phone: (() => {
+                                let p = user.phone1 || user.phone || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'phone_number')?.value || "";
+                                if (p === "N/A") return "";
+                                if (p && p.startsWith('+91')) return p.substring(3);
+                                if (p && p.startsWith('91') && p.length === 12) return p.substring(2);
+                                return p || prev.phone;
+                            })(),
 
-                                address: user.address || prev.address,
-                                city: user.city || prev.city,
-                                dob: user.dob
-                                    ? (user.dob.includes('-') && user.dob.split('-')[0].length === 4
-                                        ? user.dob.split('-').reverse().join('/')
-                                        : user.dob)
-                                    : (user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'dob')?.value
-                                        ? new Date(parseInt(user.customfields.find((f: any) => f.shortname.toLowerCase() === 'dob').value) * 1000).toLocaleDateString('en-GB')
-                                        : prev.dob),
-                                gender: user.gender || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'gender')?.value || prev.gender,
-                                religion: user.religion || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'religion')?.value || prev.religion,
-                                caste: user.caste || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'caste')?.value || prev.caste,
+                            address: user.address || prev.address,
+                            city: user.city || prev.city,
+                            dob: user.dob
+                                ? (user.dob.includes('-') && user.dob.split('-')[0].length === 4
+                                    ? user.dob.split('-').reverse().join('/')
+                                    : user.dob)
+                                : (user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'dob')?.value
+                                    ? new Date(parseInt(user.customfields.find((f: any) => f.shortname.toLowerCase() === 'dob').value) * 1000).toLocaleDateString('en-GB')
+                                    : prev.dob),
+                            gender: user.gender || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'gender')?.value || prev.gender,
+                            religion: user.religion || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'religion')?.value || prev.religion,
+                            caste: user.caste || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'caste')?.value || prev.caste,
 
-                                fatherName: user.fathername || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'fathername')?.value || prev.fatherName,
-                                motherName: user.mothername || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'mothername')?.value || prev.motherName,
-                                annualIncome: user.annualincome || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'family_income' || f.shortname.toLowerCase() === 'annualincome')?.value || prev.annualIncome,
+                            fatherName: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'father')?.value || prev.fatherName,
+                            motherName: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'mother')?.value || prev.motherName,
+                            annualIncome: user.annualincome || user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'family_income' || f.shortname.toLowerCase() === 'annualincome')?.value || prev.annualIncome,
 
-                                // New Fields Mapping
-                                session: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'session')?.value || prev.session,
-                                yearOfCourse: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'year_of_course')?.value || prev.yearOfCourse,
-                                passing10th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'passing_10th')?.value || prev.passing10th,
-                                board12th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === '12th_board')?.value || prev.board12th,
-                                stream12th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'stream_in_12th')?.value || prev.stream12th,
-                                applicationYear: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'applicationyear')?.value || prev.applicationYear,
-                                registeringAs: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'registering_as')?.value || prev.registeringAs,
-                                schemeName: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'schemename')?.value || prev.schemeName,
-                                passingYear12th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === '12th_passing_year')?.value || prev.passingYear12th,
+                            // New Fields Mapping
+                            session: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'session')?.value || prev.session,
+                            yearOfCourse: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'year_of_course')?.value || prev.yearOfCourse,
+                            passing10th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'passing_10th')?.value || prev.passing10th,
+                            board12th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === '12th_board')?.value || prev.board12th,
+                            stream12th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'stream_in_12th')?.value || prev.stream12th,
+                            applicationYear: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'applicationyear')?.value || prev.applicationYear,
+                            registeringAs: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'registering_as')?.value || prev.registeringAs,
+                            schemeName: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'schemename')?.value || prev.schemeName,
+                            passingYear12th: user.customfields?.find((f: any) => f.shortname.toLowerCase() === '12th_passing_year')?.value || prev.passingYear12th,
+                            domicileState: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'state')?.value || prev.domicileState,
+                            specialCategory: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'category')?.value || prev.specialCategory,
+                            domicileDistrict: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'domicile_district')?.value || prev.domicileDistrict,
+                            percentage12: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'percentage_12')?.value || prev.percentage12,
+                            collegeName: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'college_name')?.value || prev.collegeName,
+                            collegeLocation: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'college_district')?.value || prev.collegeLocation,
+                            university: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'university')?.value || prev.university,
+                            currentCourse: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'course')?.value || prev.currentCourse,
+                            percentage10: user.customfields?.find((f: any) => f.shortname.toLowerCase() === '10th')?.value || prev.percentage10,
+                            marks12: (() => {
+                                const val = user.customfields?.find((f: any) => f.shortname.toLowerCase() === '12th_marks')?.value || "";
+                                return val.replace(/<[^>]*>/g, '').trim();
+                            })() || prev.marks12,
 
-                                profileImageUrl: user?.profileimageurl || prev?.profileImageUrl,
-                            }));
-                        }
+                            profileImageUrl: user?.profileimageurl || "",
+                        }));
                     }
                 }
-            } catch (error) {
-                console.error("Failed to fetch user profile:", error);
-            } finally {
-                setIsProfileLoading(false);
             }
-        };
-
-        fetchUserProfile();
+        } catch (error) {
+            console.error("Failed to fetch user profile:", error);
+        } finally {
+            setIsProfileLoading(false);
+        }
     }, []);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchUserProfile();
+        }, [fetchUserProfile])
+    );
 
     // Handlers
     const handlePersonalInfoChange = useCallback(
@@ -293,8 +352,26 @@ export default function MobilizerAccountScreen() {
             errors.caste = "Caste is required";
         }
 
+        if (personalInfo.percentage10) {
+            const num = parseFloat(personalInfo.percentage10);
+            if (isNaN(num) || num < 10 || num > 100) {
+                errors.percentage10 = "Percentage must be between 10 and 100";
+            }
+        }
 
+        if (personalInfo.percentage12) {
+            const num = parseFloat(personalInfo.percentage12);
+            if (isNaN(num) || num < 10 || num > 100) {
+                errors.percentage12 = "Percentage must be between 10 and 100";
+            }
+        }
 
+        if (personalInfo.marks12) {
+            const num = parseFloat(personalInfo.marks12);
+            if (isNaN(num) || num < 0 || num > 2000) {
+                errors.marks12 = "Marks must be between 0 and 2000";
+            }
+        }
         setValidationErrors(errors);
         return Object.keys(errors).length === 0;
     };
@@ -432,7 +509,7 @@ export default function MobilizerAccountScreen() {
             const authData = JSON.parse(authDataStr);
             if (!authData.token) throw new Error("Invalid session token");
 
-            const response = await updateUserProfile(authData.token, { profileImageFileId: null });
+            const response = await updateUserProfile(authData.token, { profileImageFileId: 0 });
             if (response.success) {
                 setPersonalInfo(prev => ({ ...prev, profileImageUrl: "" }));
                 setToastMessage("Profile image removed successfully");
@@ -497,6 +574,7 @@ export default function MobilizerAccountScreen() {
                 setTimeout(() => {
                     router.replace("/student-mobilizer");
                 }, 1500);
+
             } else {
                 setToastMessage(response.error || "Failed to update profile");
                 setToastType("error");
@@ -532,6 +610,30 @@ export default function MobilizerAccountScreen() {
         }
     };
 
+    const PickerRow = ({ label, value, placeholder, icon, iconColor, onPress, error }: any) => (
+        <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
+            <TouchableOpacity
+                style={[
+                    styles.selector,
+                    { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border },
+                    error && styles.selectorError,
+                ]}
+                onPress={onPress}
+                activeOpacity={0.7}
+            >
+                <View style={[styles.pickerIconWrap, { backgroundColor: value ? iconColor + "22" : (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)") }]}>
+                    <Ionicons name={icon} size={16} color={value ? iconColor : colors.textSecondary} />
+                </View>
+                <Text style={[styles.selectorText, { color: colors.text, flex: 1, marginLeft: 10 }, !value && styles.placeholderText]}>
+                    {value || placeholder || "Choose..."}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+            {error && <Text style={styles.errorText}>{error}</Text>}
+        </View>
+    );
+
     const SelectionModal = ({ visible, onClose, title, options, selected, onSelect }: any) => (
         <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
             <View style={styles.modalOverlay}>
@@ -541,29 +643,40 @@ export default function MobilizerAccountScreen() {
                     activeOpacity={1}
                 />
                 <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20, backgroundColor: colors.surface }]}>
+                    <View style={styles.imageOptionsHandle}>
+                        <View style={[styles.handleBar, { backgroundColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)" }]} />
+                    </View>
                     <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                         <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
-                        <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                            <Ionicons name="close" size={24} color={colors.textSecondary} />
+                        <TouchableOpacity
+                            onPress={onClose}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            style={[styles.modalCloseBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)" }]}
+                        >
+                            <Ionicons name="close" size={18} color={colors.textSecondary} />
                         </TouchableOpacity>
                     </View>
                     <ScrollView style={{ maxHeight: 350 }} showsVerticalScrollIndicator={false}>
                         {options.map((opt: string) => (
                             <TouchableOpacity
                                 key={opt}
-                                style={[styles.optionRow, selected === opt && styles.optionSelected, { borderBottomColor: colors.border }]}
-                                onPress={() => {
-                                    onSelect(opt);
-                                }}
+                                style={[
+                                    styles.optionRow,
+                                    selected === opt && { backgroundColor: isDark ? "rgba(124,58,237,0.15)" : "rgba(124,58,237,0.06)" },
+                                    { borderBottomColor: colors.border },
+                                ]}
+                                onPress={() => { onSelect(opt); }}
                                 activeOpacity={0.7}
                             >
-                                <Text
-                                    style={[styles.optionText, { color: colors.text }, selected === opt && styles.optionTextSelected]}
-                                >
+                                <Text style={[styles.optionText, { color: colors.text }, selected === opt && { color: "#7C3AED", fontWeight: "600" }]}>
                                     {opt}
                                 </Text>
-                                {selected === opt && (
-                                    <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+                                {selected === opt ? (
+                                    <View style={styles.checkCircle}>
+                                        <Ionicons name="checkmark" size={14} color="#fff" />
+                                    </View>
+                                ) : (
+                                    <View style={[styles.emptyCircle, { borderColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)" }]} />
                                 )}
                             </TouchableOpacity>
                         ))}
@@ -597,48 +710,74 @@ export default function MobilizerAccountScreen() {
                     {/* Profile Picture Section */}
                     <View style={styles.profileSection}>
                         <TouchableOpacity
-                            style={styles.imageContainer}
                             onPress={handleImageOptions}
-                            activeOpacity={0.8}
+                            activeOpacity={0.85}
                         >
-                            {isProfileLoading ? (
-                                <View style={[styles.placeholderContainer, { backgroundColor: isDark ? colors.surface : "#F0F0F0", borderColor: isDark ? colors.card : "#fff" }]}>
-                                    <ActivityIndicator size="small" color={isDark ? "#9CA3AF" : "#6B7280"} />
+                            <View style={styles.imageContainer}>
+                                <LinearGradient
+                                    colors={["#7C3AED", "#3B82F6", "#06B6D4"]}
+                                    style={styles.avatarGradientRing}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                >
+                                    <View style={[styles.avatarInner, { backgroundColor: isDark ? colors.surface : "#fff" }]}>
+                                        {isProfileLoading ? (
+                                            <View style={[styles.placeholderInner, { backgroundColor: isDark ? colors.surface : "#F0F0F0" }]}>
+                                                <ActivityIndicator size="small" color="#7C3AED" />
+                                            </View>
+                                        ) : personalInfo?.profileImageUrl !== "" ? (
+                                            <Image
+                                                source={{
+                                                    uri: personalInfo.profileImageUrl.includes('?')
+                                                        ? `${personalInfo.profileImageUrl}&t=${Date.now()}`
+                                                        : `${personalInfo.profileImageUrl}?t=${Date.now()}`
+                                                }}
+                                                style={styles.profileImage}
+                                                onError={(e) => console.log(e)}
+                                            />
+                                        ) : (
+                                            <View style={[styles.placeholderInner, { backgroundColor: isDark ? "rgba(124,58,237,0.15)" : "#EEF2FF" }]}>
+                                                <Ionicons name="person" size={52} color="#7C3AED" />
+                                            </View>
+                                        )}
+                                    </View>
+                                </LinearGradient>
+                                <View style={[styles.editBadge, { borderColor: isDark ? colors.background : "#fff" }]}>
+                                    <Ionicons name="camera" size={14} color="#fff" />
                                 </View>
-                            ) : personalInfo?.profileImageUrl !== "" ? (
-                                <Image
-                                    source={{ uri: personalInfo?.profileImageUrl }}
-                                    style={[styles.profileImage, { borderColor: isDark ? colors.card : "#fff" }]}
-                                />
-                            ) : (
-                                <View style={[styles.placeholderContainer, { backgroundColor: isDark ? colors.surface : "#F0F0F0", borderColor: isDark ? colors.card : "#fff" }]}>
-                                    <Ionicons name="person" size={50} color={isDark ? "#666" : "#999"} />
-                                </View>
-                            )}
-                            <View style={[styles.editBadge, { borderColor: isDark ? colors.card : "#fff" }]}>
-                                <Ionicons name="camera" size={16} color="#fff" />
                             </View>
                         </TouchableOpacity>
-
+                        {(personalInfo.firstName || personalInfo.lastName) ? (
+                            <Text style={[styles.profileDisplayName, { color: colors.text }]}>
+                                {`${personalInfo.firstName} ${personalInfo.lastName}`.trim()}
+                            </Text>
+                        ) : null}
+                        <Text style={[styles.profileEditHint, { color: colors.textSecondary }]}>Tap to change photo</Text>
                     </View>
 
                     {/* Section 1: Personal Details */}
                     <View style={styles.section}>
                         <View style={styles.sectionHeader}>
-                            <Text style={[styles.sectionTitle, { color: colors.text }]}>Personal Details</Text>
+                            <View style={styles.sectionTitleRow}>
+                                <View style={[styles.sectionIconBadge, { backgroundColor: "#7C3AED" }]}>
+                                    <Ionicons name="person" size={15} color="#fff" />
+                                </View>
+                                <Text style={[styles.sectionTitle, { color: colors.text }]}>Personal Details</Text>
+                            </View>
                             {hasUnsavedChanges && (
                                 <View style={styles.unsavedBadge}>
                                     <Text style={styles.unsavedText}>Unsaved</Text>
                                 </View>
                             )}
                         </View>
-                        <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                        <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: "#7C3AED", borderLeftWidth: 4 }]}>
                             <CustomTextInput
                                 label="Username"
                                 value={personalInfo.username}
                                 onChangeText={(val) => handlePersonalInfoChange("username", val)}
                                 style={styles.input}
                                 autoCapitalize="none"
+                                icon="at-outline"
                             />
 
                             <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -649,6 +788,7 @@ export default function MobilizerAccountScreen() {
                                         onChangeText={(val) => handlePersonalInfoChange("firstName", val)}
                                         style={styles.input}
                                         error={validationErrors.firstName}
+                                        icon="person-outline"
                                     />
                                 </View>
                                 <View style={{ flex: 1 }}>
@@ -658,6 +798,7 @@ export default function MobilizerAccountScreen() {
                                         onChangeText={(val) => handlePersonalInfoChange("lastName", val)}
                                         style={styles.input}
                                         error={validationErrors.lastName}
+                                        icon="person-outline"
                                     />
                                 </View>
                             </View>
@@ -671,6 +812,7 @@ export default function MobilizerAccountScreen() {
                                 style={styles.input}
                                 error={validationErrors.email}
                                 editable={false}
+                                icon="mail-outline"
                             />
 
                             <View style={styles.inputGroup}>
@@ -723,204 +865,107 @@ export default function MobilizerAccountScreen() {
                         </View>
                     </View>
 
-                    {/* Section: Family Details */}
-                    <View style={styles.section}>
-                        <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 10 }]}>Family Details</Text>
-                        <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                            {/* <CustomTextInput
-                label="Father's Name"
-                value={personalInfo.fatherName}
-                onChangeText={(val: string) => handlePersonalInfoChange("fatherName", val)}
-                style={styles.input}
-                error={validationErrors.fatherName}
-              />
-              <CustomTextInput
-                label="Mother's Name"
-                value={personalInfo.motherName}
-                onChangeText={(val: string) => handlePersonalInfoChange("motherName", val)}
-                style={styles.input}
-                error={validationErrors.motherName}
-              /> */}
-
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>Annual Income *</Text>
-                                <TouchableOpacity
-                                    style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.annualIncome && styles.selectorError]}
-                                    onPress={() => setShowIncomePicker(true)}
-                                >
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.annualIncome && styles.placeholderText]}>
-                                        {personalInfo.annualIncome || "Select Income Range"}
-                                    </Text>
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                                {validationErrors.annualIncome && (
-                                    <Text style={styles.errorText}>{validationErrors.annualIncome}</Text>
-                                )}
-                            </View>
-                        </View>
-                    </View>
-
-                    {/* Section: Educational & Application Details */}
-                    <View style={styles.section}>
-                        <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 10 }]}>Education & Application</Text>
-                        <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>Scheme Name</Text>
-                                <TouchableOpacity
-                                    style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
-                                    onPress={() => setShowSchemePicker(true)}
-                                >
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.schemeName && styles.placeholderText]}>
-                                        {personalInfo.schemeName || "Select Scheme"}
-                                    </Text>
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                            </View>
-
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>Registering As</Text>
-                                <TouchableOpacity
-                                    style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
-                                    onPress={() => setShowRegisteringAsPicker(true)}
-                                >
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.registeringAs && styles.placeholderText]}>
-                                        {personalInfo.registeringAs || "Select Type"}
-                                    </Text>
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                            </View>
-
-                            <View style={{ flexDirection: 'row', gap: 10 }}>
-                                <View style={{ flex: 1 }}>
-                                    <CustomTextInput
-                                        label="Session"
-                                        value={personalInfo.session}
-                                        onChangeText={(val) => handlePersonalInfoChange("session", val)}
-                                        style={styles.input}
-                                        placeholder="e.g. 24-25"
-                                    />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <View style={styles.inputGroup}>
-                                        <Text style={[styles.label, { color: colors.textSecondary }]}>Application Year</Text>
-                                        <TouchableOpacity
-                                            style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
-                                            onPress={() => setShowApplicationYearPicker(true)}
-                                        >
-                                            <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.applicationYear && styles.placeholderText]}>
-                                                {personalInfo.applicationYear || "Select Year"}
-                                            </Text>
-                                            <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            </View>
-
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>Year of Course</Text>
-                                <TouchableOpacity
-                                    style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
-                                    onPress={() => setShowYearOfCoursePicker(true)}
-                                >
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.yearOfCourse && styles.placeholderText]}>
-                                        {personalInfo.yearOfCourse || "Select Year"}
-                                    </Text>
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                            </View>
-
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>12th Board</Text>
-                                <TouchableOpacity
-                                    style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
-                                    onPress={() => setShowBoard12thPicker(true)}
-                                >
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.board12th && styles.placeholderText]}>
-                                        {personalInfo.board12th || "Select Board"}
-                                    </Text>
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                            </View>
-
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>Stream in 12th</Text>
-                                <TouchableOpacity
-                                    style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
-                                    onPress={() => setShowStream12thPicker(true)}
-                                >
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.stream12th && styles.placeholderText]}>
-                                        {personalInfo.stream12th || "Select Stream"}
-                                    </Text>
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                            </View>
-
-                            <View style={{ flexDirection: 'row', gap: 10 }}>
-                                <View style={{ flex: 1 }}>
-                                    <CustomTextInput
-                                        label="10th Passing Year"
-                                        value={personalInfo.passing10th}
-                                        onChangeText={(val) => handlePersonalInfoChange("passing10th", val)}
-                                        style={styles.input}
-                                        keyboardType="numeric"
-                                    />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <View style={styles.inputGroup}>
-                                        <Text style={[styles.label, { color: colors.textSecondary }]}>12th Passing Year</Text>
-                                        <TouchableOpacity
-                                            style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }]}
-                                            onPress={() => setShowPassingYear12thPicker(true)}
-                                        >
-                                            <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.passingYear12th && styles.placeholderText]}>
-                                                {personalInfo.passingYear12th || "Select Year"}
-                                            </Text>
-                                            <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            </View>
-
-
-                        </View>
-                    </View>
-
                     {/* Section 2: Basic Details */}
                     <View style={styles.section}>
-                        <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 10 }]}>Basic Details</Text>
-                        <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>Gender *</Text>
-                                <TouchableOpacity
-                                    style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.gender && styles.selectorError]}
-                                    onPress={() => setShowGenderPicker(true)}
-                                >
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.gender && styles.placeholderText]}>
-                                        {personalInfo.gender || "Choose..."}
-                                    </Text>
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                                {validationErrors.gender && (
-                                    <Text style={styles.errorText}>{validationErrors.gender}</Text>
-                                )}
+                        <View style={[styles.sectionHeader, { marginBottom: 10 }]}>
+                            <View style={styles.sectionTitleRow}>
+                                <View style={[styles.sectionIconBadge, { backgroundColor: "#059669" }]}>
+                                    <Ionicons name="home" size={15} color="#fff" />
+                                </View>
+                                <Text style={[styles.sectionTitle, { color: colors.text }]}>Basic Details</Text>
                             </View>
+                        </View>
+                        <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: "#059669", borderLeftWidth: 4 }]}>
+                            <PickerRow
+                                label="Domicile State"
+                                value={personalInfo.domicileState}
+                                icon="flag-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowDomicileStatePicker(true)}
+                            />
 
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>Date of Birth *</Text>
-                                <TouchableOpacity
-                                    style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.dob && styles.selectorError]}
-                                    onPress={() => setShowDatePicker(true)}
-                                >
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.dob && styles.placeholderText]}>
-                                        {personalInfo.dob || "DD/MM/YYYY"}
-                                    </Text>
-                                    <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                                {validationErrors.dob && (
-                                    <Text style={styles.errorText}>{validationErrors.dob}</Text>
-                                )}
-                            </View>
+                            <PickerRow
+                                label="Domicile District"
+                                value={personalInfo.domicileDistrict}
+                                icon="map-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowDistrictPicker(true)}
+                            />
+
+                            <PickerRow
+                                label="Annual Family Income"
+                                value={personalInfo.annualIncome}
+                                placeholder="Select Income Range"
+                                icon="cash-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowIncomePicker(true)}
+                                error={validationErrors.annualIncome}
+                            />
+
+                            <PickerRow
+                                label="Special Category"
+                                value={personalInfo.specialCategory}
+                                icon="star-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowSpecialCategoryPicker(true)}
+                            />
+
+                            <PickerRow
+                                label="Year of Application"
+                                value={personalInfo.applicationYear}
+                                placeholder="Select Year"
+                                icon="calendar-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowApplicationYearPicker(true)}
+                            />
+
+                            <PickerRow
+                                label="You are registering as"
+                                value={personalInfo.registeringAs}
+                                placeholder="Select Type"
+                                icon="id-card-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowRegisteringAsPicker(true)}
+                            />
+
+                            <PickerRow
+                                label="12th Passing Year"
+                                value={personalInfo.passingYear12th}
+                                placeholder="Select Year"
+                                icon="calendar-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowPassingYear12thPicker(true)}
+                            />
+
+                            <CustomTextInput
+                                label="12th Percentage"
+                                value={personalInfo.percentage12}
+                                onChangeText={(val) => handlePersonalInfoChange("percentage12", val)}
+                                style={styles.input}
+                                keyboardType="numeric"
+                                placeholder="Enter 12th Percentage"
+                                icon="ribbon-outline"
+                                error={validationErrors.percentage12}
+                            />
+
+                            <PickerRow
+                                label="Gender *"
+                                value={personalInfo.gender}
+                                icon="body-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowGenderPicker(true)}
+                                error={validationErrors.gender}
+                            />
+
+                            <PickerRow
+                                label="Date of Birth *"
+                                value={personalInfo.dob}
+                                placeholder="DD/MM/YYYY"
+                                icon="calendar-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowDatePicker(true)}
+                                error={validationErrors.dob}
+                            />
 
 
 
@@ -950,45 +995,48 @@ export default function MobilizerAccountScreen() {
                                 )
                             )}
 
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>Religion *</Text>
-                                <TouchableOpacity
-                                    style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.religion && styles.selectorError]}
-                                    onPress={() => setShowReligionPicker(true)}
-                                >
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.religion && styles.placeholderText]}>
-                                        {personalInfo.religion || "Choose..."}
-                                    </Text>
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                                {validationErrors.religion && (
-                                    <Text style={styles.errorText}>{validationErrors.religion}</Text>
-                                )}
-                            </View>
+                            <PickerRow
+                                label="Religion *"
+                                value={personalInfo.religion}
+                                icon="heart-circle-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowReligionPicker(true)}
+                                error={validationErrors.religion}
+                            />
 
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>Caste *</Text>
-                                <TouchableOpacity
-                                    style={[styles.selector, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9", borderColor: colors.border }, validationErrors.caste && styles.selectorError]}
-                                    onPress={() => setShowCastePicker(true)}
-                                >
-                                    <Text style={[styles.selectorText, { color: colors.text }, !personalInfo.caste && styles.placeholderText]}>
-                                        {personalInfo.caste || "Choose..."}
-                                    </Text>
-                                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                                {validationErrors.caste && (
-                                    <Text style={styles.errorText}>{validationErrors.caste}</Text>
-                                )}
-                            </View>
+                            <PickerRow
+                                label="Caste *"
+                                value={personalInfo.caste}
+                                icon="layers-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowCastePicker(true)}
+                                error={validationErrors.caste}
+                            />
 
 
+
+                            <CustomTextInput
+                                label="Father's Name"
+                                value={personalInfo.fatherName}
+                                onChangeText={(val) => handlePersonalInfoChange("fatherName", val)}
+                                style={styles.input}
+                                icon="man-outline"
+                            />
+
+                            <CustomTextInput
+                                label="Mother's Name"
+                                value={personalInfo.motherName}
+                                onChangeText={(val) => handlePersonalInfoChange("motherName", val)}
+                                style={styles.input}
+                                icon="woman-outline"
+                            />
 
                             <CustomTextInput
                                 label="Address"
                                 value={personalInfo.address}
                                 onChangeText={(val) => handlePersonalInfoChange("address", val)}
                                 style={styles.input}
+                                icon="location-outline"
                             />
 
                             <CustomTextInput
@@ -996,14 +1044,124 @@ export default function MobilizerAccountScreen() {
                                 value={personalInfo.city}
                                 onChangeText={(val) => handlePersonalInfoChange("city", val)}
                                 style={[styles.input, { flex: 1, marginRight: 8 }]}
+                                icon="business-outline"
                             />
                             {/* Village removed as requested */}
                         </View>
                     </View>
 
+                    {/* Section: Academic Details */}
+                    <View style={styles.section}>
+                        <View style={[styles.sectionHeader, { marginBottom: 10 }]}>
+                            <View style={styles.sectionTitleRow}>
+                                <View style={[styles.sectionIconBadge, { backgroundColor: "#D97706" }]}>
+                                    <Ionicons name="school" size={15} color="#fff" />
+                                </View>
+                                <Text style={[styles.sectionTitle, { color: colors.text }]}>Academic Details</Text>
+                            </View>
+                        </View>
+                        <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: "#D97706", borderLeftWidth: 4 }]}>
+                            <CustomTextInput
+                                label="Institute Name"
+                                value={personalInfo.collegeName}
+                                onChangeText={(val) => handlePersonalInfoChange("collegeName", val)}
+                                style={styles.input}
+                                placeholder="Enter Institute Name"
+                                icon="school-outline"
+                            />
+                            <CustomTextInput
+                                label="Institute Location"
+                                value={personalInfo.collegeLocation}
+                                onChangeText={(val) => handlePersonalInfoChange("collegeLocation", val)}
+                                style={styles.input}
+                                placeholder="Enter Institute Location"
+                                icon="map-outline"
+                            />
+                            <CustomTextInput
+                                label="University"
+                                value={personalInfo.university}
+                                onChangeText={(val) => handlePersonalInfoChange("university", val)}
+                                style={styles.input}
+                                placeholder="Enter University"
+                                icon="library-outline"
+                            />
+                            <CustomTextInput
+                                label="Current Course/Class"
+                                value={personalInfo.currentCourse}
+                                onChangeText={(val) => handlePersonalInfoChange("currentCourse", val)}
+                                style={styles.input}
+                                placeholder="Enter Current Course/Class"
+                                icon="book-outline"
+                            />
 
+                            <PickerRow
+                                label="Session"
+                                value={personalInfo.session}
+                                placeholder="Select Session"
+                                icon="calendar-outline"
+                                iconColor="#D97706"
+                                onPress={() => setShowSessionPicker(true)}
+                            />
 
+                            <PickerRow
+                                label="Year of Course"
+                                value={personalInfo.yearOfCourse}
+                                placeholder="Select Year"
+                                icon="hourglass-outline"
+                                iconColor="#D97706"
+                                onPress={() => setShowYearOfCoursePicker(true)}
+                            />
 
+                            <PickerRow
+                                label="10th Passing Year"
+                                value={personalInfo.passing10th}
+                                placeholder="Select Year"
+                                icon="calendar-outline"
+                                iconColor="#D97706"
+                                onPress={() => setShowPassing10thPicker(true)}
+                            />
+
+                            <CustomTextInput
+                                label="10th Class Percentage"
+                                value={personalInfo.percentage10}
+                                onChangeText={(val) => handlePersonalInfoChange("percentage10", val)}
+                                style={styles.input}
+                                keyboardType="numeric"
+                                placeholder="Enter 10th Percentage"
+                                icon="ribbon-outline"
+                                error={validationErrors.percentage10}
+                            />
+
+                            <PickerRow
+                                label="12th Board"
+                                value={personalInfo.board12th}
+                                placeholder="Select Board"
+                                icon="school-outline"
+                                iconColor="#D97706"
+                                onPress={() => setShowBoard12thPicker(true)}
+                            />
+
+                            <PickerRow
+                                label="Stream in 12th"
+                                value={personalInfo.stream12th}
+                                placeholder="Select Stream"
+                                icon="git-branch-outline"
+                                iconColor="#D97706"
+                                onPress={() => setShowStream12thPicker(true)}
+                            />
+
+                            <CustomTextInput
+                                label="12th Marks"
+                                value={personalInfo.marks12}
+                                onChangeText={(val) => handlePersonalInfoChange("marks12", val)}
+                                style={styles.input}
+                                keyboardType="numeric"
+                                placeholder="Enter 12th Marks"
+                                icon="clipboard-outline"
+                                error={validationErrors.marks12}
+                            />
+                        </View>
+                    </View>
 
                     {/* Save Button */}
                     <View style={[styles.section, { marginTop: 0 }]}>
@@ -1016,7 +1174,7 @@ export default function MobilizerAccountScreen() {
                         />
                     </View>
 
-                    <View style={{ height: 40 }} />
+                    {/* <View style={{ height: 40 }} /> */}
                 </ScrollView>
             </KeyboardAvoidingView>
 
@@ -1037,6 +1195,30 @@ export default function MobilizerAccountScreen() {
                 onSelect={(val: string) => {
                     handlePersonalInfoChange("religion", val);
                     setShowReligionPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showSessionPicker}
+                onClose={() => setShowSessionPicker(false)}
+                title="Select Session"
+                options={SESSION_OPTIONS}
+                selected={personalInfo.session}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("session", val);
+                    setShowSessionPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showPassing10thPicker}
+                onClose={() => setShowPassing10thPicker(false)}
+                title="Select 10th Passing Year"
+                options={PASSING_10TH_OPTIONS}
+                selected={personalInfo.passing10th}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("passing10th", val);
+                    setShowPassing10thPicker(false);
                 }}
             />
 
@@ -1096,6 +1278,42 @@ export default function MobilizerAccountScreen() {
                 onSelect={(val: string) => {
                     handlePersonalInfoChange("gender", val);
                     setShowGenderPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showDomicileStatePicker}
+                onClose={() => setShowDomicileStatePicker(false)}
+                title="Select Domicile State"
+                options={DOMICILE_STATE_OPTIONS}
+                selected={personalInfo.domicileState}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("domicileState", val);
+                    setShowDomicileStatePicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showSpecialCategoryPicker}
+                onClose={() => setShowSpecialCategoryPicker(false)}
+                title="Select Special Category"
+                options={SPECIAL_CATEGORY_OPTIONS}
+                selected={personalInfo.specialCategory}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("specialCategory", val);
+                    setShowSpecialCategoryPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showDistrictPicker}
+                onClose={() => setShowDistrictPicker(false)}
+                title="Select Domicile District"
+                options={DISTRICT_OPTIONS}
+                selected={personalInfo.domicileDistrict}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("domicileDistrict", val);
+                    setShowDistrictPicker(false);
                 }}
             />
 
@@ -1172,50 +1390,55 @@ export default function MobilizerAccountScreen() {
                         onPress={() => setShowImageOptions(false)}
                         activeOpacity={1}
                     />
-                    <View style={[styles.imageOptionsContent, { backgroundColor: colors.surface, borderColor: colors.border, paddingBottom: insets.bottom || 20 }]}>
-                        <View style={styles.imageOptionsHandle}>
-                            <View style={[styles.handleBar, { backgroundColor: colors.border }]} />
+                    <View style={{ paddingHorizontal: 16, paddingBottom: (insets.bottom || 20) + 10, width: "100%", position: "absolute", bottom: 0 }}>
+                        <View style={{ backgroundColor: colors.card, borderRadius: 20, overflow: "hidden", marginBottom: 12 }}>
+                            <View style={{ alignItems: "center", paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                                <Text style={{ fontSize: 15, fontWeight: "600", color: colors.textSecondary }}>Change Profile Picture</Text>
+                            </View>
+
+                            <TouchableOpacity
+                                style={{ flexDirection: "row", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}
+                                onPress={handleTakePhoto}
+                                activeOpacity={0.7}
+                            >
+                                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(0, 86, 210, 0.08)", justifyContent: "center", alignItems: "center", marginRight: 16 }}>
+                                    <Ionicons name="camera" size={22} color={colors.primary} />
+                                </View>
+                                <Text style={{ fontSize: 17, fontWeight: "500", color: colors.text }}>Take Photo</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={{ flexDirection: "row", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}
+                                onPress={handlePickFromGallery}
+                                activeOpacity={0.7}
+                            >
+                                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(0, 86, 210, 0.08)", justifyContent: "center", alignItems: "center", marginRight: 16 }}>
+                                    <Ionicons name="images" size={22} color={colors.primary} />
+                                </View>
+                                <Text style={{ fontSize: 17, fontWeight: "500", color: colors.text }}>Choose from Gallery</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={{ flexDirection: "row", alignItems: "center", padding: 16, opacity: !personalInfo.profileImageUrl || isRemovingImage ? 0.5 : 1 }}
+                                onPress={handleRemoveProfileImage}
+                                activeOpacity={0.7}
+                                disabled={!personalInfo.profileImageUrl || isRemovingImage}
+                            >
+                                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(239, 68, 68, 0.08)", justifyContent: "center", alignItems: "center", marginRight: 16 }}>
+                                    <Ionicons name="trash" size={22} color="#ef4444" />
+                                </View>
+                                <Text style={{ fontSize: 17, fontWeight: "500", color: "#ef4444" }}>
+                                    {isRemovingImage ? "Removing..." : "Remove Photo"}
+                                </Text>
+                            </TouchableOpacity>
                         </View>
 
-                        <Text style={[styles.imageOptionsTitle, { color: colors.text }]}>Change Profile Picture</Text>
-
                         <TouchableOpacity
-                            style={[styles.imageOptionButton, { borderBottomColor: colors.border }]}
-                            onPress={handleTakePhoto}
-                            activeOpacity={0.7}
-                        >
-                            <Ionicons name="camera" size={24} color={colors.primary} />
-                            <Text style={[styles.imageOptionText, { color: colors.text }]}>Take Photo</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[styles.imageOptionButton, { borderBottomColor: colors.border }]}
-                            onPress={handlePickFromGallery}
-                            activeOpacity={0.7}
-                        >
-                            <Ionicons name="images" size={24} color={colors.primary} />
-                            <Text style={[styles.imageOptionText, { color: colors.text }]}>Choose from Gallery</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[styles.imageOptionButton, { opacity: !personalInfo.profileImageUrl || isRemovingImage ? 0.5 : 1 }]}
-                            onPress={handleRemoveProfileImage}
-                            activeOpacity={0.7}
-                            disabled={!personalInfo.profileImageUrl || isRemovingImage}
-                        >
-                            <Ionicons name="trash-outline" size={24} color={colors.textSecondary} />
-                            <Text style={[styles.imageOptionText, { color: colors.textSecondary }]}>
-                                {isRemovingImage ? "Removing..." : "Remove Photo"}
-                            </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.imageOptionButton}
+                            style={{ backgroundColor: colors.card, borderRadius: 20, padding: 16, alignItems: "center" }}
                             onPress={() => setShowImageOptions(false)}
                             activeOpacity={0.7}
                         >
-                            <Ionicons name="close-circle" size={24} color={colors.textSecondary} />
-                            <Text style={[styles.imageOptionText, { color: colors.textSecondary }]}>Cancel</Text>
+                            <Text style={{ fontSize: 18, fontWeight: "600", color: colors.primary }}>Cancel</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -1309,7 +1532,26 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: "700",
         letterSpacing: -0.5,
-        color: "#333", // Will be overridden by inline style
+        color: "#333",
+    },
+    sectionTitleRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+    },
+    sectionIconBadge: {
+        width: 34,
+        height: 34,
+        borderRadius: 10,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    pickerIconWrap: {
+        width: 30,
+        height: 30,
+        borderRadius: 8,
+        justifyContent: "center",
+        alignItems: "center",
     },
     unsavedBadge: {
         backgroundColor: "#FFE0B2",
@@ -1397,35 +1639,67 @@ const styles = StyleSheet.create({
         position: "relative",
         marginBottom: 16,
     },
+    avatarGradientRing: {
+        width: 140,
+        height: 140,
+        borderRadius: 70,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    avatarInner: {
+        width: 130,
+        height: 130,
+        borderRadius: 65,
+        overflow: "hidden",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    placeholderInner: {
+        width: 130,
+        height: 130,
+        borderRadius: 65,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    profileDisplayName: {
+        fontSize: 20,
+        fontWeight: "700",
+        marginTop: 14,
+        textAlign: "center",
+        letterSpacing: -0.3,
+    },
+    profileEditHint: {
+        fontSize: 13,
+        marginTop: 4,
+        fontWeight: "500",
+    },
     profileImage: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        borderWidth: 4,
-        borderColor: "#fff", // Will be overridden by inline style
+        width: 130,
+        height: 130,
+        borderRadius: 65,
     },
     placeholderContainer: {
         width: 120,
         height: 120,
         borderRadius: 60,
-        backgroundColor: "#F0F0F0", // Will be overridden by inline style
+        backgroundColor: "#F0F0F0",
         justifyContent: "center",
         alignItems: "center",
         borderWidth: 4,
-        borderColor: "#fff", // Will be overridden by inline style
+        borderColor: "#fff",
     },
     editBadge: {
         position: "absolute",
-        bottom: 0,
-        right: 0,
-        backgroundColor: "#4CAF50", // Will be overridden by inline style
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        bottom: 2,
+        right: 2,
+        backgroundColor: "#7C3AED",
+        width: 34,
+        height: 34,
+        borderRadius: 17,
         justifyContent: "center",
         alignItems: "center",
         borderWidth: 3,
-        borderColor: "#fff", // Will be overridden by inline style
+        borderColor: "#fff",
     },
     profileInfo: {
         alignItems: "center",
@@ -1742,6 +2016,27 @@ const styles = StyleSheet.create({
     imageOptionsHandle: {
         alignItems: "center",
         paddingVertical: 12,
+    },
+    modalCloseBtn: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    checkCircle: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: "#7C3AED",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    emptyCircle: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        borderWidth: 2,
     },
     handleBar: {
         width: 40,

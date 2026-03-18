@@ -1,9 +1,17 @@
-import { ThemeProvider } from "@/context/ThemeContext";
+import { ThemeProvider, useTheme } from "@/context/ThemeContext";
 import { Stack } from "expo-router";
+import { StatusBar } from "react-native";
 
-export default function RootLayout() {
+function RootLayoutContent() {
+  const { isDark } = useTheme();
+
   return (
-    <ThemeProvider>
+    <>
+      <StatusBar 
+        barStyle={isDark ? "light-content" : "dark-content"} 
+        backgroundColor="transparent" 
+        translucent 
+      />
       <Stack screenOptions={{ headerShown: false }}>
         {/* Auth screens */}
         <Stack.Screen name="(auth)/welcome" options={{ headerShown: false }} />
@@ -72,6 +80,14 @@ export default function RootLayout() {
         <Stack.Screen name="(dashboard)/mobilizer/mobilizer-help" options={{ title: "Help & Support" }} />
         <Stack.Screen name="(dashboard)/mobilizer/mobilizer-about" options={{ title: "About App" }} />
       </Stack>
+    </>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <RootLayoutContent />
     </ThemeProvider>
   );
 }

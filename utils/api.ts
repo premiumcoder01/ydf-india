@@ -1976,10 +1976,19 @@ export const updateUserProfile = async (
 
 
     addCustomField('State', profileData.domicileState);
-    addCustomField('domiciledistrict', profileData.district);
+    addCustomField('domicile_district', profileData.domicileDistrict);
+    addCustomField('category', profileData.specialCategory);
+    addCustomField('percentage_12', profileData.percentage12);
+    addCustomField('college_name', profileData.collegeName);
+    addCustomField('College_District', profileData.collegeLocation);
+    addCustomField('university', profileData.university);
+    addCustomField('course', profileData.currentCourse);
+    addCustomField('10th', profileData.percentage10);
+    addCustomField('12th_marks', `<p dir="ltr" style="text-align:left;">${profileData.marks12}</p>`);
+
     // addCustomField('village', profileData.village); // Removed as requested
-    addCustomField('fathername', profileData.fatherName);
-    addCustomField('mothername', profileData.motherName);
+    addCustomField('father', profileData.fatherName);
+    addCustomField('mother', profileData.motherName);
     addCustomField('Family_income', profileData.annualIncome); // Note: API uses Family_income or annualincome, user req to match response which showed Family_income
 
     // New fields from API response

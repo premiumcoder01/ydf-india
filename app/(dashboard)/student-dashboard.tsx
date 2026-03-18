@@ -1,7 +1,7 @@
-import { HelloWave } from "@/components";
+import { DashboardHeader } from "@/components";
 import Toast from "@/components/Toast";
 import { useTheme } from "@/context/ThemeContext";
-import { bookmarkScholarship, getApplicationProgress, getDashboardStats, getMyApplications, getRecommendedScholarships, getUpcomingDeadlines, getUserProfile } from "@/utils/api";
+import { bookmarkScholarship, getApplicationProgress, getDashboardStats, getMyApplications, getNotifications, getRecommendedScholarships, getUpcomingDeadlines, getUserProfile } from "@/utils/api";
 import { getCategoryColor, getDaysRemaining } from "@/utils/dashboard-helpers";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -67,7 +67,7 @@ export default function StudentDashboardScreen() {
 
   const [studentName, setStudentName] = useState("Student");
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
-  const [unreadCount] = useState<number>(0);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [bookmarks, setBookmarks] = useState<Record<number, boolean>>({});
   const [bookmarking, setBookmarking] = useState<Record<number, boolean>>({});
@@ -246,13 +246,24 @@ export default function StudentDashboardScreen() {
       const authData = JSON.parse(authDataData);
       if (!authData.token) return;
 
-      const [statsRes, deadlinesRes, recRes, progRes, appsRes] = await Promise.all([
+      const [statsRes, deadlinesRes, recRes, progRes, appsRes, notifRes] = await Promise.all([
         getDashboardStats(authData.token),
         getUpcomingDeadlines(authData.token),
         getRecommendedScholarships(authData.token, { page: 1, per_page: 5 }),
         getApplicationProgress(authData.token),
-        getMyApplications(authData.token)
+        getMyApplications(authData.token),
+        getNotifications(authData.token)
       ]);
+
+      if (notifRes && notifRes.success && notifRes.data) {
+        let raw: any[] = [];
+        if (Array.isArray(notifRes.data)) raw = notifRes.data;
+        else if (Array.isArray(notifRes.data.data)) raw = notifRes.data.data;
+        else if (Array.isArray(notifRes.data.notifications)) raw = notifRes.data.notifications;
+        
+        const count = raw.filter((n: any) => !n.is_read).length;
+        setUnreadCount(count);
+      }
 
       if (statsRes.success && statsRes.data?.stats) {
         const stats = statsRes.data.stats;
@@ -382,72 +393,13 @@ export default function StudentDashboardScreen() {
       />
 
       {/* Header Section */}
-      <View style={[styles.header, { paddingTop: inset.top + 20 }]}>
-        <View style={styles.headerContent}>
-          <View style={styles.welcomeSection}>
-            <Text style={[styles.welcomeText, { color: isDark ? colors.textSecondary : "#666" }]}>Hi,</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text
-                style={[styles.userName, { color: colors.text, flexShrink: 1 }]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {studentName}
-              </Text>
-              <HelloWave />
-            </View>
-          </View>
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={() =>
-                router.push("/(dashboard)/student/student-notifications")
-              }
-              style={styles.bellWrapper}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name="notifications-outline"
-                size={26}
-                color={isDark ? colors.text : "#333"}
-              />
-              {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={() =>
-                router.push("/(dashboard)/student/student-profile")
-              }
-              activeOpacity={0.8}
-            >
-              {profilePhotoUrl ? (
-                <Image
-                  source={{
-                    uri: profilePhotoUrl.includes('?')
-                      ? `${profilePhotoUrl}&t=${Date.now()}`
-                      : `${profilePhotoUrl}?t=${Date.now()}`
-                  }}
-                  style={styles.avatar}
-                />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Ionicons
-                    name="person-circle-outline"
-                    size={36}
-                    color={isDark ? colors.text : "#333"}
-                  />
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
+      <DashboardHeader
+        userName={studentName}
+        profilePhotoUrl={profilePhotoUrl}
+        unreadCount={unreadCount}
+        onNotificationPress={() => router.push("/(dashboard)/student/student-notifications")}
+        onProfilePress={() => router.push("/(dashboard)/student/student-profile")}
+      />
 
       <ScrollView
         style={styles.scrollView}

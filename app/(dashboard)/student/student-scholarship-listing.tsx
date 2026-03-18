@@ -933,7 +933,7 @@ export default function ScholarshipListingScreen() {
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: filterCount > 0 ? 0.22 : 0.05,
                 shadowRadius: 8,
-                elevation: filterCount > 0 ? 4 : 1,
+                elevation: Platform.OS === "android" ? 0 : filterCount > 0 ? 4 : 1,
               },
             ]}
             activeOpacity={0.75}

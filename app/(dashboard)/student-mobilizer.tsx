@@ -1,6 +1,6 @@
-import { HelloWave, Toast } from "@/components";
+import { DashboardHeader, HelloWave, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { getMobilizerDashboardStats, getMobilizerStudents, getMobilizerUpcomingDeadlines, getUserProfile } from "@/utils/api";
+import { getMobilizerDashboardStats, getMobilizerStudents, getMobilizerUpcomingDeadlines, getNotifications, getUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -83,6 +83,7 @@ export default function StudentMobilizerDashboard() {
   });
 
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const [students, setStudents] = useState<any[]>([]);
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<any[]>([]);
 
@@ -175,6 +176,22 @@ export default function StudentMobilizerDashboard() {
       } catch (e) {
         console.log("Error fetching students", e);
       }
+
+      // 5. Notifications
+      try {
+        const notifRes = await getNotifications(token);
+        if (notifRes.success && notifRes.data) {
+          let raw: any[] = [];
+          if (Array.isArray(notifRes.data)) raw = notifRes.data;
+          else if (Array.isArray(notifRes.data.data)) raw = notifRes.data.data;
+          else if (Array.isArray(notifRes.data.notifications)) raw = notifRes.data.notifications;
+          
+          setNotifications(raw);
+          setUnreadCount(raw.filter((n: any) => !n.is_read).length);
+        }
+      } catch (e) {
+        console.log("Error fetching notifications", e);
+      }
     } catch (error) {
       console.error("Dashboard fetch error:", error);
     } finally {
@@ -223,60 +240,13 @@ export default function StudentMobilizerDashboard() {
       />
 
       {/* Header Section */}
-      <View style={[styles.header, { paddingTop: inset.top + 20 }]}>
-        <View style={styles.headerContent}>
-          <View style={styles.welcomeSection}>
-            <Text style={[styles.welcomeText, { color: isDark ? colors.textSecondary : "#666" }]}>Hi,</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={[styles.userName, { color: colors.text }]}>{studentName}</Text>
-              <HelloWave />
-            </View>
-          </View>
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={() => router.push("/(dashboard)/mobilizer/mobilizer-notifications")}
-              style={styles.bellWrapper}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name="notifications-outline"
-                size={26}
-                color={isDark ? colors.text : "#333"}
-              />
-              {notifications.length > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {notifications.length > 9 ? "9+" : notifications.length}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={() => router.push("/(dashboard)/mobilizer/mobilizer-profile")}
-              activeOpacity={0.8}
-            >
-              {profilePhotoUrl ? (
-                <Image
-                  source={{
-                    uri: profilePhotoUrl.includes('?')
-                      ? `${profilePhotoUrl}&t=${Date.now()}`
-                      : `${profilePhotoUrl}?t=${Date.now()}`
-                  }}
-                  style={styles.avatar}
-                />
-              ) : (
-                <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
-                  <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>
-                    {studentName.charAt(0)}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
+      <DashboardHeader 
+        userName={studentName}
+        profilePhotoUrl={profilePhotoUrl}
+        unreadCount={unreadCount}
+        onNotificationPress={() => router.push("/(dashboard)/mobilizer/mobilizer-notifications")}
+        onProfilePress={() => router.push("/(dashboard)/mobilizer/mobilizer-profile")}
+      />
 
       <ScrollView
         style={styles.scrollView}
