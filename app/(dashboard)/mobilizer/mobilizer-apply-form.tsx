@@ -1,6 +1,8 @@
 import { AppHeader, Button, CustomTextInput } from "@/components";
 import Toast from "@/components/Toast";
 import { useTheme } from "@/context/ThemeContext";
+import { useDropdowns } from "@/context/DropdownContext";
+
 import { getMobilizerStudentProfile, getScholarshipDetails, mobilizerApplyForStudent } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -73,7 +75,9 @@ const FIELDS_BY_STEP: Record<string, (keyof FormValues)[]> = {
 
 export default function MobilizerApplyFormScreen() {
     const { isDark, colors } = useTheme();
+    const { getOptionsByShortname } = useDropdowns();
     const insets = useSafeAreaInsets();
+
     const [stepIndex, setStepIndex] = useState(0);
     const scrollRef = useRef<ScrollView | null>(null);
     const stepperScrollRef = useRef<ScrollView | null>(null);
@@ -96,7 +100,10 @@ export default function MobilizerApplyFormScreen() {
         field: keyof FormValues | null;
     }>({ visible: false, mode: "date", field: null });
 
+    const [isSubmitLoading, setIsSubmitLoading] = useState(false);
+
     const [optionPickerState, setOptionPickerState] = useState<{
+
         visible: boolean;
         title: string;
         options: string[];
@@ -262,14 +269,17 @@ export default function MobilizerApplyFormScreen() {
 
     const onSubmit = handleSubmit(
         async (values) => {
+            setIsSubmitLoading(true);
             try {
                 if (!selectedStudent) {
                     Alert.alert("Error", "Please select a student");
+                    setIsSubmitLoading(false);
                     return;
                 }
                 const authDataStr = await AsyncStorage.getItem("authData");
                 if (!authDataStr) {
                     Alert.alert("Error", "Authentication required");
+                    setIsSubmitLoading(false);
                     return;
                 }
                 const { token } = JSON.parse(authDataStr);
@@ -303,10 +313,12 @@ export default function MobilizerApplyFormScreen() {
                         );
                     }, 1000);
                 } else {
+                    setIsSubmitLoading(false);
                     showToast(response.error || "Failed to submit application", "error");
                     Alert.alert("Submission Failed", response.error || response.message || "Please try again");
                 }
             } catch (error: any) {
+                setIsSubmitLoading(false);
                 console.error("Error submitting application:", error);
                 showToast("An error occurred", "error");
                 Alert.alert("Error", error.message || "Failed to submit application");
@@ -531,7 +543,7 @@ export default function MobilizerApplyFormScreen() {
                                         setOptionPickerState({
                                             visible: true,
                                             title: "Family Annual Income",
-                                            options: ["Less than ₹1 Lakh", "₹1 Lakh - ₹3 Lakhs", "₹3 Lakhs - ₹5 Lakhs", "₹5 Lakhs - ₹8 Lakhs", "More than ₹8 Lakhs"],
+                                            options: getOptionsByShortname('Family_income').map(o => o.label),
                                             onSelect: (val) => onChange(val)
                                         });
                                     }}>
@@ -715,6 +727,18 @@ export default function MobilizerApplyFormScreen() {
                     </View>
                 </TouchableOpacity>
             </Modal>
+
+            {isSubmitLoading && (
+                <Modal transparent animationType="fade" visible={isSubmitLoading}>
+                    <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: 'center', alignItems: 'center' }}>
+                        <View style={{ backgroundColor: isDark ? colors.card : '#fff', padding: 24, borderRadius: 16, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, elevation: 4 }}>
+                            <ActivityIndicator size="large" color={colors.primary} />
+                            <Text style={{ marginTop: 16, fontSize: 16, fontWeight: '700', color: colors.text }}>Submitting Application</Text>
+                            <Text style={{ marginTop: 6, fontSize: 13, color: colors.textSecondary }}>Please wait, do not close the app</Text>
+                        </View>
+                    </View>
+                </Modal>
+            )}
 
             <Toast
                 visible={toastVisible}

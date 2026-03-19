@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
+import { MotiView } from 'moti';
 import React, { useCallback, useMemo, useState } from "react";
 import {
   Alert,
@@ -255,131 +256,108 @@ export default function StudentMobilizerDashboard() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
 
-        {/* Mobilizer Statistics - same design as student dashboard */}
-        <View style={styles.statsContainer}>
-          <View style={[styles.applicationStatusCard, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
-            <View style={styles.cardHeaderRow}>
-              <View style={[styles.cardIconBox, { backgroundColor: "#673AB715" }]}>
-                <Ionicons name="analytics-outline" size={20} color="#673AB7" />
-              </View>
-              <Text style={[styles.cardHeaderTitle, { color: colors.text }]}>Mobilizer Overview</Text>
+        {/* Mobilizer Statistics */}
+        <MotiView 
+          from={{ opacity: 0, translateY: 15 }} 
+          animate={{ opacity: 1, translateY: 0 }} 
+          transition={{ type: 'timing', duration: 400 }} 
+          style={styles.statsContainer}
+        >
+          <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 16 }]}>Mobilizer Overview</Text>
+          <View style={{ gap: 10 }}>
+            {/* Row 1 */}
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <LinearGradient colors={['#3B82F6', '#1D4ED8']} style={{ flex: 1, borderRadius: 20, padding: 16, elevation: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="people" size={16} color="#fff" />
+                  </View>
+                  <Text style={{ fontSize: 20, fontWeight: '800', color: '#fff' }}>{stats.total_students_added}</Text>
+                </View>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', letterSpacing: 0.3 }}>Students Added</Text>
+              </LinearGradient>
+
+              <LinearGradient colors={['#8B5CF6', '#5B21B6']} style={{ flex: 1, borderRadius: 20, padding: 16, elevation: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="document-text" size={16} color="#fff" />
+                  </View>
+                  <Text style={{ fontSize: 20, fontWeight: '800', color: '#fff' }}>{stats.total_applications_created}</Text>
+                </View>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', letterSpacing: 0.3 }}>Applications</Text>
+              </LinearGradient>
             </View>
 
-            <View style={styles.statusGrid}>
-              {/* Row 1: Students Added, Applications Created */}
-              <View style={styles.statusRow}>
-                <View style={styles.statusItem}>
-                  <View style={[styles.statusIconBox, { backgroundColor: "#2196F315" }]}>
-                    <Ionicons name="people-outline" size={20} color="#2196F3" />
+            {/* Row 2 */}
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <LinearGradient colors={['#FF9800', '#F57C00']} style={{ flex: 1, borderRadius: 20, padding: 16, elevation: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="time" size={16} color="#fff" />
                   </View>
-                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
-                    {stats.total_students_added.toLocaleString()}
-                  </Text>
-                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Students Added</Text>
-                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#2196F330" : "#2196F320" }]}>
-                    <View style={[styles.statusBarFill, { width: stats.total_students_added > 0 ? "100%" : "0%", backgroundColor: "#2196F3" }]} />
-                  </View>
+                  <Text style={{ fontSize: 20, fontWeight: '800', color: '#fff' }}>{stats.applications_in_progress}</Text>
                 </View>
-                <View style={styles.statusItem}>
-                  <View style={[styles.statusIconBox, { backgroundColor: "#673AB715" }]}>
-                    <Ionicons name="document-text-outline" size={20} color="#673AB7" />
-                  </View>
-                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
-                    {stats.total_applications_created.toLocaleString()}
-                  </Text>
-                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Applications</Text>
-                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#673AB730" : "#673AB720" }]}>
-                    <View style={[styles.statusBarFill, { width: stats.total_applications_created > 0 ? "100%" : "0%", backgroundColor: "#673AB7" }]} />
-                  </View>
-                </View>
-              </View>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', letterSpacing: 0.3 }}>In Progress</Text>
+              </LinearGradient>
 
-              {/* Row 2: In Progress, Approved */}
-              <View style={styles.statusRow}>
-                <View style={styles.statusItem}>
-                  <View style={[styles.statusIconBox, { backgroundColor: "#FF980015" }]}>
-                    <Ionicons name="time-outline" size={20} color="#FF9800" />
+              <LinearGradient colors={['#10B981', '#059669']} style={{ flex: 1, borderRadius: 20, padding: 16, elevation: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="checkmark-circle" size={16} color="#fff" />
                   </View>
-                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
-                    {stats.applications_in_progress.toLocaleString()}
-                  </Text>
-                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>In Progress</Text>
-                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#FF980030" : "#FF980020" }]}>
-                    <View style={[styles.statusBarFill, {
-                      width: stats.total_applications_created > 0 ? `${(stats.applications_in_progress / stats.total_applications_created) * 100}%` : "0%",
-                      backgroundColor: "#FF9800"
-                    }]} />
-                  </View>
+                  <Text style={{ fontSize: 20, fontWeight: '800', color: '#fff' }}>{stats.applications_approved}</Text>
                 </View>
-                <View style={styles.statusItem}>
-                  <View style={[styles.statusIconBox, { backgroundColor: "#4CAF5015" }]}>
-                    <Ionicons name="checkmark-circle-outline" size={20} color="#4CAF50" />
-                  </View>
-                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
-                    {stats.applications_approved.toLocaleString()}
-                  </Text>
-                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Approved</Text>
-                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#4CAF5030" : "#4CAF5020" }]}>
-                    <View style={[styles.statusBarFill, {
-                      width: stats.total_applications_created > 0 ? `${(stats.applications_approved / stats.total_applications_created) * 100}%` : "0%",
-                      backgroundColor: "#4CAF50"
-                    }]} />
-                  </View>
-                </View>
-              </View>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', letterSpacing: 0.3 }}>Approved</Text>
+              </LinearGradient>
+            </View>
 
-              {/* Row 3: Rejected, Bookmarked */}
-              <View style={styles.statusRow}>
-                <View style={styles.statusItem}>
-                  <View style={[styles.statusIconBox, { backgroundColor: "#F4433615" }]}>
-                    <Ionicons name="close-circle-outline" size={20} color="#F44336" />
+            {/* Row 3 */}
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <LinearGradient colors={['#EF4444', '#B91C1C']} style={{ flex: 1, borderRadius: 20, padding: 16, elevation: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="close-circle" size={16} color="#fff" />
                   </View>
-                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
-                    {stats.applications_rejected.toLocaleString()}
-                  </Text>
-                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Rejected</Text>
-                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#F4433630" : "#F4433620" }]}>
-                    <View style={[styles.statusBarFill, {
-                      width: stats.total_applications_created > 0 ? `${(stats.applications_rejected / stats.total_applications_created) * 100}%` : "0%",
-                      backgroundColor: "#F44336"
-                    }]} />
-                  </View>
+                  <Text style={{ fontSize: 20, fontWeight: '800', color: '#fff' }}>{stats.applications_rejected}</Text>
                 </View>
-                <View style={styles.statusItem}>
-                  <View style={[styles.statusIconBox, { backgroundColor: "#FFB40015" }]}>
-                    <Ionicons name="bookmark" size={20} color="#FFB400" />
+                <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', letterSpacing: 0.3 }}>Rejected</Text>
+              </LinearGradient>
+
+              <LinearGradient colors={['#F59E0B', '#D97706']} style={{ flex: 1, borderRadius: 20, padding: 16, elevation: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="bookmark" size={16} color="#fff" />
                   </View>
-                  <Text style={[styles.statusNumber, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
-                    {stats.scholarships_bookmarked.toLocaleString()}
-                  </Text>
-                  <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Bookmarked</Text>
-                  <View style={[styles.statusBar, { backgroundColor: isDark ? "#FFB40030" : "#FFB40020" }]}>
-                    <View style={[styles.statusBarFill, { width: stats.scholarships_bookmarked > 0 ? "100%" : "0%", backgroundColor: "#FFB400" }]} />
-                  </View>
+                  <Text style={{ fontSize: 20, fontWeight: '800', color: '#fff' }}>{stats.scholarships_bookmarked}</Text>
                 </View>
-              </View>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', letterSpacing: 0.3 }}>Bookmarked</Text>
+              </LinearGradient>
             </View>
           </View>
-        </View>
+        </MotiView>
 
         {/* Upcoming Deadlines */}
-        <View style={styles.sectionContainer}>
+        <MotiView 
+          from={{ opacity: 0, translateY: 15 }} 
+          animate={{ opacity: 1, translateY: 0 }} 
+          transition={{ type: 'timing', duration: 400, delay: 150 }} 
+          style={styles.sectionContainer}
+        >
           <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Upcoming Deadlines</Text>
-
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Critical Deadlines</Text>
           </View>
-          <View style={[styles.cardList, { backgroundColor: colors.card, borderColor: colors.border, overflow: 'hidden' }]}>
+          <View style={[styles.cardList, { backgroundColor: isDark ? colors.card : '#fff', borderColor: isDark ? 'rgba(255,255,255,0.04)' : '#eee', overflow: 'hidden', elevation: 2 }]}>
             {upcomingDeadlines.map((item, index) => {
               const daysLeft = item.days_remaining;
-              let badgeColor = "#4CAF50"; // Green
-              let badgeText = "#E8F5E9"; // Light Green bg
+              let badgeColor = "#10B981"; 
+              let badgeText = "rgba(16, 185, 129, 0.1)"; 
 
               if (daysLeft <= 7) {
-                badgeColor = "#F44336"; // Red
-                badgeText = "#FFEBEE"; // Light Red bg
+                badgeColor = "#EF4444"; 
+                badgeText = "rgba(239, 68, 68, 0.1)"; 
               } else if (daysLeft <= 30) {
-                badgeColor = "#FF9800"; // Orange
-                badgeText = "#FFF3E0"; // Light Orange bg
+                badgeColor = "#FF9800"; 
+                badgeText = "rgba(255, 152, 0, 0.1)"; 
               }
 
               return (
@@ -387,18 +365,18 @@ export default function StudentMobilizerDashboard() {
                   key={item.scholarship_id || index}
                   style={[
                     styles.listItem,
-                    { borderBottomColor: colors.border },
+                    { borderBottomColor: isDark ? 'rgba(255,255,255,0.04)' : '#eee' },
                     index === upcomingDeadlines.length - 1 && { borderBottomWidth: 0 }
                   ]}
                   onPress={() => router.push({ pathname: "/(dashboard)/mobilizer/mobilizer-scholarship-details", params: { scholarshipId: item.scholarship_id } })}
                   activeOpacity={0.8}
                 >
                   <View style={[styles.listItemIcon, { backgroundColor: badgeText }]}>
-                    <Ionicons name="time-outline" size={20} color={badgeColor} />
+                    <Ionicons name="time" size={16} color={badgeColor} />
                   </View>
                   <View style={styles.listItemBody}>
-                    <Text style={[styles.listItemTitle, { color: colors.text }]}>{item.scholarship_name}</Text>
-                    <Text style={[styles.listItemSub, { color: colors.textSecondary }]}>
+                    <Text style={[styles.listItemTitle, { color: colors.text, fontWeight: '700' }]}>{item.scholarship_name}</Text>
+                    <Text style={[styles.listItemSub, { color: colors.textSecondary, fontSize: 11 }]}>
                       Deadline: {new Date(item.deadline).toLocaleDateString()}
                     </Text>
                   </View>
@@ -422,7 +400,7 @@ export default function StudentMobilizerDashboard() {
               </View>
             )}
           </View>
-        </View>
+        </MotiView>
 
 
 
@@ -524,19 +502,40 @@ export default function StudentMobilizerDashboard() {
         </View>
 
         {/* Application Progress Tracker */}
-        <View style={styles.sectionContainer}>
+        <MotiView 
+          from={{ opacity: 0, translateY: 15 }} 
+          animate={{ opacity: 1, translateY: 0 }} 
+          transition={{ type: 'timing', duration: 400, delay: 300 }} 
+          style={styles.sectionContainer}
+        >
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Application Progress</Text>
-          <View style={[styles.progressBar, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(51,51,51,0.08)" }]}>
+          <View style={[styles.progressBar, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(51,51,51,0.05)", height: 10, borderRadius: 5, overflow: 'hidden' }]}>
             <View
-              style={[styles.progressFill, { width: `${progress.ratio}%` }]}
+              style={[
+                styles.progressFill, 
+                { 
+                  width: `${progress.ratio}%`, 
+                  backgroundColor: colors.primary,
+                  shadowColor: colors.primary,
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: 0.5,
+                  shadowRadius: 5,
+                  elevation: 2
+                }
+              ]}
             />
           </View>
-          <Text style={[styles.progressLabel, { color: colors.text }]}>{progress.label}</Text>
-        </View>
+          <Text style={[styles.progressLabel, { color: colors.text, fontWeight: '700', fontSize: 13, marginTop: 8 }]}>{progress.label}</Text>
+        </MotiView>
 
         {/* Quick Actions Grid */}
-        <View style={styles.featuresContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
+        <MotiView 
+          from={{ opacity: 0, translateY: 15 }} 
+          animate={{ opacity: 1, translateY: 0 }} 
+          transition={{ type: 'timing', duration: 400, delay: 450 }} 
+          style={styles.featuresContainer}
+        >
+          <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 16 }]}>Operational Hub</Text>
           <View style={styles.featuresGrid}>
             {mobilizerFeatures.map((feature) => (
               <TouchableOpacity
@@ -544,9 +543,10 @@ export default function StudentMobilizerDashboard() {
                 style={[
                   styles.featureCard,
                   {
-                    borderLeftColor: feature.color,
-                    backgroundColor: colors.card,
-                    borderColor: colors.border
+                    borderLeftWidth: 0,
+                    backgroundColor: isDark ? colors.card : '#fff',
+                    borderColor: isDark ? 'rgba(255,255,255,0.04)' : '#eee',
+                    padding: 14,
                   }
                 ]}
                 activeOpacity={0.8}
@@ -554,31 +554,34 @@ export default function StudentMobilizerDashboard() {
                   router.push(feature.route as any);
                 }}
               >
-                <View style={styles.featureContent}>
-                  <View
+                <View style={[styles.featureContent, { padding: 0, gap: 12 }]}>
+                  <LinearGradient
+                    colors={[feature.color, feature.color + 'aa']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
                     style={[
                       styles.featureIcon,
-                      { backgroundColor: feature.color + "20" },
+                      { width: 42, height: 42, borderRadius: 12, marginRight: 0 },
                     ]}
                   >
                     <Ionicons
                       name={feature.icon as any}
-                      size={24}
-                      color={feature.color}
+                      size={20}
+                      color="#fff"
                     />
-                  </View>
+                  </LinearGradient>
                   <View style={styles.featureInfo}>
-                    <Text style={[styles.featureTitle, { color: colors.text }]}>{feature.title}</Text>
-                    <Text style={[styles.featureDescription, { color: colors.textSecondary }]}>
+                    <Text style={[styles.featureTitle, { color: colors.text, fontWeight: '700', fontSize: 15, marginBottom: 2 }]}>{feature.title}</Text>
+                    <Text style={[styles.featureDescription, { color: colors.textSecondary, fontSize: 12 }]} numberOfLines={1}>
                       {feature.description}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={16} color={isDark ? colors.textSecondary : "#666"} />
+                  <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
                 </View>
               </TouchableOpacity>
             ))}
           </View>
-        </View>
+        </MotiView>
       </ScrollView>
       <Toast
         visible={toast.visible}

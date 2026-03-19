@@ -4,8 +4,9 @@ import { updatePassword } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
+import { MotiView } from "moti";
 import React, { useState } from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 
 interface ValidationErrors {
   [key: string]: string;
@@ -138,9 +139,21 @@ export default function ProviderSettingsScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.settingLeft}>
-              <View style={[styles.iconBox, { backgroundColor: isDark ? "#2c2c2c" : "#f0f2f5" }]}>
-                <Ionicons name={isDark ? "moon" : "sunny"} size={22} color={colors.primary} />
-              </View>
+              <MotiView
+                animate={{
+                  scale: isDark ? [1, 1.15, 1] : [1, 1.15, 1],
+                  rotate: isDark ? "360deg" : "0deg",
+                  backgroundColor: isDark ? "#1E1E38" : "#FFF8E1"
+                }}
+                transition={{ type: "timing", duration: 400 }}
+                style={styles.iconBox}
+              >
+                <Ionicons
+                  name={isDark ? "moon" : "sunny"}
+                  size={22}
+                  color={isDark ? "#818CF8" : "#F59E0B"}
+                />
+              </MotiView>
               <View style={styles.settingTexts}>
                 <Text style={[styles.settingLabel, { color: colors.text }]}>Dark Mode</Text>
                 <Text style={[styles.settingSubLabel, { color: colors.textSecondary }]}>
@@ -149,10 +162,11 @@ export default function ProviderSettingsScreen() {
               </View>
             </View>
             <View pointerEvents="none">
-              <Ionicons
-                name={isDark ? "toggle" : "toggle-outline"}
-                size={32}
-                color={isDark ? colors.primary : colors.textSecondary}
+              <Switch
+                value={isDark}
+                trackColor={{ false: isDark ? "#2c2c2c" : "#E5E7EB", true: colors.primary + "60" }}
+                thumbColor={isDark ? colors.primary : "#9CA3AF"}
+                ios_backgroundColor={isDark ? "#2c2c2c" : "#E5E7EB"}
               />
             </View>
           </TouchableOpacity>
@@ -234,7 +248,6 @@ export default function ProviderSettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 12,
   },
   background: {
     ...StyleSheet.absoluteFillObject,

@@ -1,6 +1,6 @@
 import { AppHeader } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { getNotifications, markAllNotificationsRead } from "@/utils/api";
+import { getNotifications, markAllNotificationsRead, markNotificationRead } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
@@ -72,36 +72,68 @@ export default function MobilizerNotificationsScreen() {
         }
     };
 
+    const handleMarkRead = async (notificationId: number) => {
+        setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n));
+        try {
+            const authDataStr = await AsyncStorage.getItem("authData");
+            if (authDataStr) {
+                const authData = JSON.parse(authDataStr);
+                await markNotificationRead(authData.token, notificationId);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
     const renderItem = ({ item, index }: any) => {
-        // Determine icon based on subject/message content if possible, else default
-        let icon = "notifications-outline";
-        let color = "#2196F3";
+        let icon = "notifications-sharp";
+        let color = "#3B82F6";
 
         const subject = (item.subject || "").toLowerCase();
-        if (subject.includes("approve")) { icon = "checkmark-circle-outline"; color = "#4CAF50"; }
-        else if (subject.includes("reject")) { icon = "close-circle-outline"; color = "#F44336"; }
-        else if (subject.includes("document")) { icon = "document-text-outline"; color = "#FF9800"; }
-        else if (subject.includes("deadline")) { icon = "time-outline"; color = "#E91E63"; }
+        const eventType = item.event_type;
+
+        if (subject.includes("approve") || eventType === "enrolcoursewelcomemessage") { 
+            icon = "checkmark-circle"; color = "#10B981"; 
+        } else if (subject.includes("reject")) { 
+            icon = "close-circle"; color = "#EF4444"; 
+        } else if (subject.includes("document") || eventType === "assign_due_soon") { 
+            icon = "document-text"; color = "#FF9800"; 
+        } else if (eventType === "newlogin") { 
+            icon = "shield-checkmark"; color = "#F59E0B"; 
+        }
+
+        const isRead = item.is_read;
 
         return (
-            <MotiView
-                from={{ opacity: 0, translateY: 10 }}
-                animate={{ opacity: 1, translateY: 0 }}
-                transition={{ delay: index * 50 }}
-                style={[styles.card, { backgroundColor: isDark ? colors.card : "#fff", opacity: item.is_read ? 0.7 : 1 }]}
+            <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => !isRead && handleMarkRead(item.id)}
             >
-                <View style={[styles.iconBox, { backgroundColor: `${color}15` }]}>
-                    <Ionicons name={icon as any} size={24} color={color} />
-                </View>
-                <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={[styles.subject, { color: colors.text }]}>{item.subject}</Text>
-                        <Text style={[styles.time, { color: colors.textSecondary }]}>{item.timeago || "Just now"}</Text>
+                <MotiView
+                    from={{ opacity: 0, translateY: 10 }}
+                    animate={{ opacity: 1, translateY: 0 }}
+                    transition={{ delay: index * 50 }}
+                    style={[styles.card, { 
+                        backgroundColor: isDark ? colors.card : '#fff', 
+                        borderColor: isDark ? 'rgba(255,255,255,0.04)' : '#eee',
+                        opacity: isRead ? 0.65 : 1 
+                    }]}
+                >
+                    <View style={[styles.iconBox, { backgroundColor: `${color}15` }]}>
+                        <Ionicons name={icon as any} size={20} color={color} />
                     </View>
-                    <Text style={[styles.message, { color: colors.textSecondary }]}>{item.smallmessage || item.message}</Text>
-                </View>
-                {!item.is_read && <View style={styles.dot} />}
-            </MotiView>
+                    <View style={{ flex: 1, gap: 4 }}>
+                        <Text style={[styles.subject, { color: colors.text, fontWeight: isRead ? '600' : '700', fontSize: 14 }]} numberOfLines={2}>{item.subject}</Text>
+                        <Text style={[styles.message, { color: colors.textSecondary, fontSize: 12 }]} numberOfLines={3}>{item.message}</Text>
+                        
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                            <Ionicons name="time-outline" size={12} color={colors.textSecondary} />
+                            <Text style={[styles.time, { color: colors.textSecondary }]}>{item.created_at || "Just now"}</Text>
+                        </View>
+                    </View>
+                    {!isRead && <View style={[styles.dot, { backgroundColor: color }]} />}
+                </MotiView>
+            </TouchableOpacity>
         );
     };
 

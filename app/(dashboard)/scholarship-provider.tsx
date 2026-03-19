@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
+import { MotiView } from "moti";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -311,7 +312,7 @@ export default function ScholarshipProviderDashboard() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <LinearGradient
-        colors={isDark ? [colors.shadow, colors.shadow, colors.shadow] : [colors.background, colors.background, colors.accent]}
+        colors={isDark ? [colors.background, colors.background, colors.background] : [colors.background, colors.background, colors.accent]}
         style={styles.background}
         locations={[0, 0.4, 1]}
       />
@@ -333,8 +334,8 @@ export default function ScholarshipProviderDashboard() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
+            tintColor={isDark ? colors.accent : colors.primary}
+            colors={[isDark ? colors.accent : colors.primary]}
             progressBackgroundColor={colors.card}
           />
         }
@@ -347,14 +348,16 @@ export default function ScholarshipProviderDashboard() {
           <View style={styles.topMetricsRow}>
             {/* Total Scholarships */}
             <LinearGradient
-              colors={['#34d399', '#059669']}
+              colors={['#10B981', '#059669']}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
               style={styles.metricGradientCard}
             >
+              <View style={{ position: 'absolute', width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.07)', top: -20, right: -20 }} />
+              <View style={{ position: 'absolute', width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.04)', bottom: -40, left: -40 }} />
               <View style={styles.metricGradientTop}>
-                <View style={styles.metricGradientIcon}>
-                  <Ionicons name="school-outline" size={22} color="rgba(255,255,255,0.9)" />
-                </View>
+                <MotiView animate={{ scale: [1, 1.05, 1] }} transition={{ loop: true, type: 'timing', duration: 2000 }} style={styles.metricGradientIcon}>
+                  <Ionicons name="school" size={22} color="#fff" />
+                </MotiView>
                 <Text style={styles.metricGradientNumber}>{stats.totalScholarshipsCreated}</Text>
               </View>
               <Text style={styles.metricGradientLabel}>Total Scholarships</Text>
@@ -365,14 +368,16 @@ export default function ScholarshipProviderDashboard() {
 
             {/* Total Applications */}
             <LinearGradient
-              colors={['#60a5fa', '#2563eb']}
+              colors={['#3B82F6', '#1D4ED8']}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
               style={styles.metricGradientCard}
             >
+              <View style={{ position: 'absolute', width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.07)', top: -20, right: -20 }} />
+              <View style={{ position: 'absolute', width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.04)', bottom: -40, left: -40 }} />
               <View style={styles.metricGradientTop}>
-                <View style={styles.metricGradientIcon}>
-                  <Ionicons name="people-outline" size={22} color="rgba(255,255,255,0.9)" />
-                </View>
+                <MotiView animate={{ scale: [1, 1.05, 1] }} transition={{ loop: true, type: 'timing', duration: 2000, delay: 500 }} style={styles.metricGradientIcon}>
+                  <Ionicons name="people" size={22} color="#fff" />
+                </MotiView>
                 <Text style={styles.metricGradientNumber}>{stats.totalApplicants}</Text>
               </View>
               <Text style={styles.metricGradientLabel}>Total Applications</Text>
@@ -383,30 +388,38 @@ export default function ScholarshipProviderDashboard() {
           </View>
 
           {/* Application Status — Vertical List */}
-          <View style={[styles.applicationStatusCard, { backgroundColor: isDark ? colors.card : '#fff', borderColor: isDark ? colors.border : '#eee' }]}>
+          <MotiView
+            from={{ opacity: 0, translateY: 15 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'timing', duration: 450, delay: 100 }}
+            style={[styles.applicationStatusCard, { backgroundColor: isDark ? colors.card : '#fff', borderColor: isDark ? "rgba(255,255,255,0.05)" : '#eee' }]}
+          >
             <View style={styles.cardHeaderRow}>
-              <View style={[styles.cardIconBox, { backgroundColor: '#673AB715' }]}>
-                <Ionicons name="analytics-outline" size={20} color="#673AB7" />
-              </View>
-              <Text style={[styles.cardHeaderTitle, { color: colors.text }]}>Application Status</Text>
+              <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={[styles.cardIconBox, { marginRight: 12 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                <Ionicons name="analytics" size={18} color="#fff" />
+              </LinearGradient>
+              <Text style={[styles.cardHeaderTitle, { color: colors.text, fontSize: 17 }]}>Application Analytics</Text>
               <Text style={[styles.statusTotalText, { color: colors.textSecondary }]}>{stats.totalApplicants} Total</Text>
             </View>
 
             {/* Pending Row */}
-            <View style={[styles.statusListRow, { borderBottomWidth: 1, borderBottomColor: isDark ? colors.border : '#f3f4f6' }]}>
-              <View style={[styles.statusListIcon, { backgroundColor: '#FF980018' }]}>
-                <Ionicons name="time-outline" size={18} color="#FF9800" />
+            <View style={[styles.statusListRow, { borderBottomWidth: 1, borderBottomColor: isDark ? "rgba(255,255,255,0.04)" : '#f3f4f6' }]}>
+              <View style={[styles.statusListIcon, { backgroundColor: '#FF8A0015' }]}>
+                <Ionicons name="time" size={18} color="#FF8A00" />
               </View>
               <View style={styles.statusListBody}>
                 <View style={styles.statusListTop}>
-                  <Text style={[styles.statusListLabel, { color: colors.text }]}>Pending</Text>
-                  <Text style={[styles.statusListCount, { color: '#FF9800' }]}>{stats.pendingApplications}</Text>
+                  <Text style={[styles.statusListLabel, { color: colors.text }]}>Pending Review</Text>
+                  <Text style={[styles.statusListCount, { color: '#FF8A00', fontWeight: '800' }]}>{stats.pendingApplications}</Text>
                 </View>
-                <View style={[styles.statusListTrack, { backgroundColor: isDark ? '#FF980020' : '#FFE0B2' }]}>
-                  <View style={[styles.statusListFill, {
-                    width: `${stats.totalApplicants > 0 ? Math.min((stats.pendingApplications / stats.totalApplicants) * 100, 100) : 0}%`,
-                    backgroundColor: '#FF9800',
-                  }]} />
+                <View style={[styles.statusListTrack, { backgroundColor: isDark ? '#FF8A0010' : '#FFF3E0' }]}>
+                  <LinearGradient
+                    colors={['#FFA000', '#FF8F00']}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                    style={[styles.statusListFill, {
+                      width: `${stats.totalApplicants > 0 ? Math.min((stats.pendingApplications / stats.totalApplicants) * 100, 100) : 0}%`
+                    }]}
+                  />
                 </View>
               </View>
               <Text style={[styles.statusListPct, { color: colors.textSecondary }]}>
@@ -415,20 +428,23 @@ export default function ScholarshipProviderDashboard() {
             </View>
 
             {/* Approved Row */}
-            <View style={[styles.statusListRow, { borderBottomWidth: 1, borderBottomColor: isDark ? colors.border : '#f3f4f6' }]}>
-              <View style={[styles.statusListIcon, { backgroundColor: '#4CAF5018' }]}>
-                <Ionicons name="checkmark-circle-outline" size={18} color="#4CAF50" />
+            <View style={[styles.statusListRow, { borderBottomWidth: 1, borderBottomColor: isDark ? "rgba(255,255,255,0.04)" : '#f3f4f6' }]}>
+              <View style={[styles.statusListIcon, { backgroundColor: '#10B98115' }]}>
+                <Ionicons name="checkmark-circle" size={18} color="#10B981" />
               </View>
               <View style={styles.statusListBody}>
                 <View style={styles.statusListTop}>
-                  <Text style={[styles.statusListLabel, { color: colors.text }]}>Approved</Text>
-                  <Text style={[styles.statusListCount, { color: '#4CAF50' }]}>{stats.approvedApplications}</Text>
+                  <Text style={[styles.statusListLabel, { color: colors.text }]}>Approved Applications</Text>
+                  <Text style={[styles.statusListCount, { color: '#10B981', fontWeight: '800' }]}>{stats.approvedApplications}</Text>
                 </View>
-                <View style={[styles.statusListTrack, { backgroundColor: isDark ? '#4CAF5020' : '#C8E6C9' }]}>
-                  <View style={[styles.statusListFill, {
-                    width: `${stats.totalApplicants > 0 ? Math.min((stats.approvedApplications / stats.totalApplicants) * 100, 100) : 0}%`,
-                    backgroundColor: '#4CAF50',
-                  }]} />
+                <View style={[styles.statusListTrack, { backgroundColor: isDark ? '#10B98110' : '#E1FCEF' }]}>
+                  <LinearGradient
+                    colors={['#10B981', '#059669']}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                    style={[styles.statusListFill, {
+                      width: `${stats.totalApplicants > 0 ? Math.min((stats.approvedApplications / stats.totalApplicants) * 100, 100) : 0}%`
+                    }]}
+                  />
                 </View>
               </View>
               <Text style={[styles.statusListPct, { color: colors.textSecondary }]}>
@@ -438,51 +454,59 @@ export default function ScholarshipProviderDashboard() {
 
             {/* Rejected Row */}
             <View style={styles.statusListRow}>
-              <View style={[styles.statusListIcon, { backgroundColor: '#F4433618' }]}>
-                <Ionicons name="close-circle-outline" size={18} color="#F44336" />
+              <View style={[styles.statusListIcon, { backgroundColor: '#EF444415' }]}>
+                <Ionicons name="close-circle" size={18} color="#EF4444" />
               </View>
               <View style={styles.statusListBody}>
                 <View style={styles.statusListTop}>
-                  <Text style={[styles.statusListLabel, { color: colors.text }]}>Rejected</Text>
-                  <Text style={[styles.statusListCount, { color: '#F44336' }]}>{stats.rejectedApplications}</Text>
+                  <Text style={[styles.statusListLabel, { color: colors.text }]}>Rejected Applications</Text>
+                  <Text style={[styles.statusListCount, { color: '#EF4444', fontWeight: '800' }]}>{stats.rejectedApplications}</Text>
                 </View>
-                <View style={[styles.statusListTrack, { backgroundColor: isDark ? '#F4433620' : '#FFCDD2' }]}>
-                  <View style={[styles.statusListFill, {
-                    width: `${stats.totalApplicants > 0 ? Math.min((stats.rejectedApplications / stats.totalApplicants) * 100, 100) : 0}%`,
-                    backgroundColor: '#F44336',
-                  }]} />
+                <View style={[styles.statusListTrack, { backgroundColor: isDark ? '#EF444410' : '#FEE2E2' }]}>
+                  <LinearGradient
+                    colors={['#EF4444', '#DC2626']}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                    style={[styles.statusListFill, {
+                      width: `${stats.totalApplicants > 0 ? Math.min((stats.rejectedApplications / stats.totalApplicants) * 100, 100) : 0}%`
+                    }]}
+                  />
                 </View>
               </View>
               <Text style={[styles.statusListPct, { color: colors.textSecondary }]}>
                 {stats.totalApplicants > 0 ? `${Math.round((stats.rejectedApplications / stats.totalApplicants) * 100)}%` : '0%'}
               </Text>
             </View>
-          </View>
+          </MotiView>
 
           {/* Financial Overview */}
-          <View style={[styles.financialCard, { backgroundColor: isDark ? colors.card : '#fff', borderColor: isDark ? colors.border : '#eee' }]}>
+          <MotiView
+            from={{ opacity: 0, translateY: 15 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'timing', duration: 450, delay: 200 }}
+            style={[styles.financialCard, { backgroundColor: isDark ? colors.card : '#fff', borderColor: isDark ? "rgba(255,255,255,0.05)" : '#eee' }]}
+          >
             <View style={styles.cardHeaderRow}>
-              <View style={[styles.cardIconBox, { backgroundColor: '#10B98115' }]}>
-                <Ionicons name="wallet-outline" size={20} color="#10B981" />
-              </View>
-              <Text style={[styles.cardHeaderTitle, { color: colors.text }]}>Financial Overview</Text>
+              <LinearGradient colors={['#10B981', '#059669']} style={[styles.cardIconBox, { marginRight: 12 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                <Ionicons name="wallet" size={18} color="#fff" />
+              </LinearGradient>
+              <Text style={[styles.cardHeaderTitle, { color: colors.text, fontSize: 17 }]}>Financial Reporting</Text>
             </View>
 
             {/* Amount row */}
             <View style={styles.financialAmountRow}>
               <View style={styles.financialAmountBlock}>
-                <Text style={[styles.financialAmountLabel, { color: colors.textSecondary }]}>Total Allocated</Text>
-                <Text style={[styles.financialAmountValue, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                <Text style={[styles.financialAmountLabel, { color: colors.textSecondary }]}>Total Allocation</Text>
+                <Text style={[styles.financialAmountValue, { color: colors.text, fontSize: 24, fontWeight: '800' }]} numberOfLines={1} adjustsFontSizeToFit>
                   {formatCurrency(stats.totalFundAllocated)}
                 </Text>
               </View>
               <LinearGradient
                 colors={['#10B981', '#047857']}
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={styles.financialDisbursedBadge}
+                style={[styles.financialDisbursedBadge, { shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 }]}
               >
-                <Text style={styles.financialDisbursedLabel}>Disbursed</Text>
-                <Text style={styles.financialDisbursedValue} numberOfLines={1} adjustsFontSizeToFit>
+                <Text style={styles.financialDisbursedLabel}>Disbursed Funds</Text>
+                <Text style={[styles.financialDisbursedValue, { fontSize: 16 }]} numberOfLines={1} adjustsFontSizeToFit>
                   {formatCurrency(stats.fundsUtilized)}
                 </Text>
               </LinearGradient>
@@ -491,14 +515,14 @@ export default function ScholarshipProviderDashboard() {
             {/* Progress */}
             <View style={styles.financialProgressWrap}>
               <View style={styles.financialProgressHeader}>
-                <Text style={[styles.financialProgressLabel, { color: colors.textSecondary }]}>Fund Utilization</Text>
-                <Text style={[styles.financialProgressPct, { color: '#10B981' }]}>
+                <Text style={[styles.financialProgressLabel, { color: colors.textSecondary, fontSize: 12 }]}>Fund Utilization Ratio</Text>
+                <Text style={[styles.financialProgressPct, { color: '#10B981', fontWeight: '800' }]}>
                   {stats.totalFundAllocated > 0
                     ? `${Math.round((stats.fundsUtilized / stats.totalFundAllocated) * 100)}%`
                     : '0%'}
                 </Text>
               </View>
-              <View style={[styles.financialProgressTrack, { backgroundColor: isDark ? 'rgba(16,185,129,0.12)' : '#ECFDF5' }]}>
+              <View style={[styles.financialProgressTrack, { backgroundColor: isDark ? 'rgba(16,185,129,0.08)' : '#ECFDF5', height: 8 }]}>
                 <LinearGradient
                   colors={['#10B981', '#059669']}
                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
@@ -507,113 +531,138 @@ export default function ScholarshipProviderDashboard() {
                   }]}
                 />
               </View>
-              <Text style={[styles.financialRemainingText, { color: colors.textSecondary }]}>
-                Remaining: {formatCurrency(Math.max(stats.totalFundAllocated - stats.fundsUtilized, 0))}
+              <Text style={[styles.financialRemainingText, { color: colors.textSecondary, marginTop: 4, letterSpacing: 0.2, fontSize: 12 }]}>
+                Glow Balance: <Text style={{ color: colors.text, fontWeight: '700' }}>{formatCurrency(Math.max(stats.totalFundAllocated - stats.fundsUtilized, 0))}</Text>
               </Text>
             </View>
-          </View>
+          </MotiView>
         </View>
 
         {/* Scholarship Progress */}
-        <View style={styles.sectionContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Scholarship Management</Text>
-          <View style={[styles.progressBar, { backgroundColor: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(51, 51, 51, 0.08)" }]}>
-            <View style={[styles.progressFill, { width: `${scholarshipProgress.ratio}%` }]} />
+        <MotiView
+          from={{ opacity: 0, translateY: 15 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 450, delay: 300 }}
+          style={styles.sectionContainer}
+        >
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Campaign Management</Text>
+          <View style={[styles.financialCard, { backgroundColor: isDark ? colors.card : '#fff', borderColor: isDark ? "rgba(255,255,255,0.05)" : '#eee', padding: 18 }]}>
+            <View style={styles.financialProgressWrap}>
+              <View style={styles.financialProgressHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="compass" size={16} color={colors.primary} />
+                  <Text style={[styles.financialProgressLabel, { color: colors.text, fontSize: 13 }]}>{scholarshipProgress.label}</Text>
+                </View>
+                <Text style={[styles.financialProgressPct, { color: colors.primary, fontWeight: '800' }]}>{scholarshipProgress.ratio}%</Text>
+              </View>
+              <View style={[styles.financialProgressTrack, { backgroundColor: isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.04)", height: 8 }]}>
+                <LinearGradient
+                  colors={[colors.primary, colors.primary]}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  style={[styles.financialProgressFill, { width: `${scholarshipProgress.ratio}%` }]}
+                />
+              </View>
+            </View>
           </View>
-          <Text style={[styles.progressLabel, { color: colors.text }]}>{scholarshipProgress.label}</Text>
-        </View>
+        </MotiView>
 
         {/* Recent Scholarships */}
-        <View style={styles.sectionContainer}>
+        <MotiView
+          from={{ opacity: 0, translateY: 15 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 450, delay: 400 }}
+          style={styles.sectionContainer}
+        >
           <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Scholarships</Text>
-
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Programs</Text>
           </View>
-          <View style={[styles.cardList, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]}>
+          <View style={[styles.cardList, { backgroundColor: isDark ? colors.card : "#fff", borderColor: isDark ? "rgba(255,255,255,0.05)" : '#eee', padding: 8 }]}>
             {recentScholarships.slice(0, 5).map((scholarship) => (
-              <TouchableOpacity key={scholarship.id} style={[styles.listItem, { borderBottomColor: isDark ? colors.border : "rgba(51, 51, 51, 0.06)" }]} activeOpacity={0.8} onPress={() => router.push({ pathname: "/(dashboard)/provider/my-scheme-details", params: { id: scholarship.id } })}>
-                <View style={[styles.listItemIcon, { backgroundColor: isDark ? colors.surface : "#f5f5f5" }]}>
-                  <Ionicons name="school-outline" size={18} color="#4CAF50" />
-                </View>
+              <TouchableOpacity 
+                key={scholarship.id} 
+                style={[styles.listItem, { 
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.01)', 
+                  borderRadius: 16, marginBottom: 8, padding: 14,
+                  borderBottomWidth: 0,
+                }]} 
+                activeOpacity={0.8} 
+                onPress={() => router.push({ pathname: "/(dashboard)/provider/my-scheme-details", params: { id: scholarship.id } })}
+              >
+                <LinearGradient
+                  colors={['#8B5CF6', '#6D28D9']}
+                  style={[styles.listItemIcon, { borderRadius: 12, width: 36, height: 36 }]}
+                >
+                  <Ionicons name="school" size={16} color="#fff" />
+                </LinearGradient>
                 <View style={styles.listItemBody}>
-                  <Text style={[styles.listItemTitle, { color: colors.text }]}>{scholarship.title}</Text>
+                  <Text style={[styles.listItemTitle, { color: colors.text, fontWeight: '700' }]}>{scholarship.title}</Text>
                   <Text style={[styles.listItemSub, { color: colors.textSecondary }]}>{scholarship.applicants} applicants</Text>
                 </View>
-                <View style={[styles.statusBadge, getStatusBadgeStyle(scholarship.status, isDark)]}>
-                  <Text style={[styles.statusBadgeText, { color: isDark ? colors.text : "#333" }]}>{scholarship.status}</Text>
+                <View style={[styles.statusBadge, getStatusBadgeStyle(scholarship.status, isDark), { borderRadius: 12, paddingVertical: 4, paddingHorizontal: 10 }]}>
+                  <Text style={[styles.statusBadgeText, { color: getStatusBadgeStyle(scholarship.status, isDark).borderColor, fontSize: 11, fontWeight: '800' }]}>{scholarship.status}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+                <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
               </TouchableOpacity>
             ))}
             {recentScholarships.length === 0 && (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>No recent scholarships</Text>
+                <Text style={styles.emptyText}>No recent programs founded</Text>
               </View>
             )}
           </View>
-        </View>
+        </MotiView>
 
 
 
         {/* Quick Actions */}
-        <View style={styles.featuresContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
+        <MotiView
+          from={{ opacity: 0, translateY: 15 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 450, delay: 500 }}
+          style={styles.featuresContainer}
+        >
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Operational Controls</Text>
           <View style={styles.featuresGrid}>
-            <TouchableOpacity style={[styles.featureCard, { borderLeftColor: "#4CAF50", backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]} activeOpacity={0.8} onPress={() => router.push("/(dashboard)/provider/add-scholarship")}>
+            <TouchableOpacity style={[styles.featureCard, { borderLeftWidth: 0, backgroundColor: isDark ? colors.card : "#fff", borderColor: isDark ? "rgba(255,255,255,0.05)" : '#eee' }]} activeOpacity={0.8} onPress={() => router.push("/(dashboard)/provider/add-scholarship")}>
               <View style={styles.featureContent}>
-                <View style={[styles.featureIcon, { backgroundColor: "#4CAF5020" }]}>
-                  <Ionicons name="add-circle-outline" size={24} color="#4CAF50" />
-                </View>
+                <LinearGradient colors={['#10B981', '#059669']} style={[styles.featureIcon, { borderRadius: 12 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                  <Ionicons name="add-circle" size={20} color="#fff" />
+                </LinearGradient>
                 <View style={styles.featureInfo}>
-                  <Text style={[styles.featureTitle, { color: colors.text }]}>Add New Scholarship</Text>
-                  <Text style={[styles.featureDescription, { color: colors.textSecondary }]}>Create a new scholarship program</Text>
+                  <Text style={[styles.featureTitle, { color: colors.text, fontWeight: '700' }]}>Add New Scheme</Text>
+                  <Text style={[styles.featureDescription, { color: colors.textSecondary, fontSize: 12 }]}>Publish a new scholarship scheme</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.featureCard, { borderLeftColor: "#673AB7", backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]} activeOpacity={0.8} onPress={() => router.push("/(dashboard)/provider/my-schemes")}>
+            <TouchableOpacity style={[styles.featureCard, { borderLeftWidth: 0, backgroundColor: isDark ? colors.card : "#fff", borderColor: isDark ? "rgba(255,255,255,0.05)" : '#eee' }]} activeOpacity={0.8} onPress={() => router.push("/(dashboard)/provider/my-schemes")}>
               <View style={styles.featureContent}>
-                <View style={[styles.featureIcon, { backgroundColor: "#673AB720" }]}>
-                  <Ionicons name="documents-outline" size={24} color="#673AB7" />
-                </View>
+                <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={[styles.featureIcon, { borderRadius: 12 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                  <Ionicons name="folder-open" size={18} color="#fff" />
+                </LinearGradient>
                 <View style={styles.featureInfo}>
-                  <Text style={[styles.featureTitle, { color: colors.text }]}>My Schemes</Text>
-                  <Text style={[styles.featureDescription, { color: colors.textSecondary }]}>View and manage created schemes</Text>
+                  <Text style={[styles.featureTitle, { color: colors.text, fontWeight: '700' }]}>My Schemes</Text>
+                  <Text style={[styles.featureDescription, { color: colors.textSecondary, fontSize: 12 }]}>Track and oversee your active grants</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
               </View>
             </TouchableOpacity>
 
-            {/* <TouchableOpacity style={[styles.featureCard, { borderLeftColor: "#2196F3", backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]} activeOpacity={0.8} onPress={() => router.push("/(dashboard)/provider/applicants")}>
+            <TouchableOpacity style={[styles.featureCard, { borderLeftWidth: 0, backgroundColor: isDark ? colors.card : "#fff", borderColor: isDark ? "rgba(255,255,255,0.05)" : '#eee' }]} activeOpacity={0.8} onPress={() => router.push("/(dashboard)/provider/kyc")}>
               <View style={styles.featureContent}>
-                <View style={[styles.featureIcon, { backgroundColor: "#2196F320" }]}>
-                  <Ionicons name="people-outline" size={24} color="#2196F3" />
-                </View>
+                <LinearGradient colors={['#FF8A00', '#E0A800']} style={[styles.featureIcon, { borderRadius: 12 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                  <Ionicons name="shield-checkmark" size={18} color="#fff" />
+                </LinearGradient>
                 <View style={styles.featureInfo}>
-                  <Text style={[styles.featureTitle, { color: colors.text }]}>View Applicants</Text>
-                  <Text style={[styles.featureDescription, { color: colors.textSecondary }]}>Review and manage applications</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-              </View>
-            </TouchableOpacity> */}
-
-            <TouchableOpacity style={[styles.featureCard, { borderLeftColor: "#FF9800", backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.95)", borderColor: colors.border }]} activeOpacity={0.8} onPress={() => router.push("/(dashboard)/provider/kyc")}>
-              <View style={styles.featureContent}>
-                <View style={[styles.featureIcon, { backgroundColor: "#FF980020" }]}>
-                  <Ionicons name="shield-checkmark-outline" size={24} color="#FF9800" />
-                </View>
-                <View style={styles.featureInfo}>
-                  <Text style={[styles.featureTitle, { color: colors.text }]}>Manage KYC</Text>
-                  <Text style={[styles.featureDescription, { color: colors.textSecondary }]}>Complete verification process</Text>
+                  <Text style={[styles.featureTitle, { color: colors.text, fontWeight: '700' }]}>KYC Verification</Text>
+                  <Text style={[styles.featureDescription, { color: colors.textSecondary, fontSize: 12 }]}>Keep authorization documentation in check</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
               </View>
             </TouchableOpacity>
-
-
           </View>
-        </View>
+        </MotiView>
       </ScrollView>
     </View>
   );

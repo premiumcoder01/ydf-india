@@ -1,7 +1,8 @@
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: "https://testing.ydfindia.org/",
-  
+  // BASE_URL: "https://testing.ydfindia.org/",
+  BASE_URL: "https://apply.ydfindia.org/",
+
   // Authentication APIs (All Roles)
   AUTH: {
     REGISTRATION: "local/mobileapi/registration.php",

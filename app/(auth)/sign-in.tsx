@@ -1,6 +1,7 @@
 import { Button, CustomTextInput, Toast } from "@/components";
 import { LinkedInLogin } from "@/components/LinkedInLogin";
 import { loginUser, socialLogin } from "@/utils/api";
+import { getApiUrl } from "@/utils/apiConfig";
 import { completeDigiLockerAuth, loginWithDigiLocker, useDigiLockerWebView } from "@/utils/digilockerAuth";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -515,7 +516,7 @@ export default function SignInScreen() {
         onClose={() => setLinkedinModalVisible(false)}
         clientID={process.env.EXPO_PUBLIC_LINKEDIN_CLIENT_ID || ""}
         clientSecret={process.env.EXPO_PUBLIC_LINKEDIN_CLIENT_SECRET || ""}
-        redirectUri="https://testing.ydfindia.org/admin/oauth2callback.php"
+        redirectUri={getApiUrl("admin/oauth2callback.php")}
         onSuccess={async (accessToken) => {
           console.log("LinkedIn login successful", accessToken);
           setSubmitting(true);

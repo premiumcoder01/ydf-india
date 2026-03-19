@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { router } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useState } from "react";
 import {
   Image,
@@ -153,71 +154,77 @@ export default function ReviewerProfileScreen() {
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: inset.bottom + 20 }}>
         {/* Profile Header */}
-        <View style={[styles.profileHeader, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
+        <LinearGradient
+          colors={isDark ? ['#1E293B', '#0F172A'] : ['#6366F1', '#4F46E5']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.profileHeader, { borderWidth: 0, marginBottom: 24, elevation: 4, padding: 24, borderRadius: 20, alignItems: 'center' }]}
+        >
           <View style={styles.avatarContainer}>
             {reviewerData.profilePhoto ? (
               <Image source={{
                 uri: reviewerData.profilePhoto.includes('?')
                   ? `${reviewerData.profilePhoto}&t=${Date.now()}`
                   : `${reviewerData.profilePhoto}?t=${Date.now()}`
-              }} style={styles.avatar} />
+              }} style={[styles.avatar, { borderWidth: 3, borderColor: 'rgba(255,255,255,0.4)' }]} />
             ) : (
-              <View style={[styles.avatarPlaceholder, { backgroundColor: isDark ? colors.background : "#f5f5f5", borderColor: isDark ? colors.border : "#e0e0e0" }]}>
-                <Ionicons name="person" size={40} color={isDark ? colors.textSecondary : "#666"} />
+              <View style={[styles.avatarPlaceholder, { backgroundColor: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.3)' }]}>
+                <Ionicons name="person" size={40} color="#fff" />
               </View>
             )}
-
           </View>
 
-          <Text style={[styles.name, { color: colors.text }]}>{reviewerData.name}</Text>
-          <Text style={styles.role}>{reviewerData.role}</Text>
-          <Text style={[styles.organization, { color: colors.textSecondary }]}>{reviewerData.state}</Text>
-        </View>
+          <Text style={[styles.name, { color: '#fff', fontSize: 24, fontWeight: '800', marginBottom: 4 }]}>{reviewerData.name}</Text>
+          <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginTop: 2 }}>
+            <Text style={[styles.role, { color: '#fff', fontSize: 12, fontWeight: '700', textTransform: 'uppercase' }]}>{reviewerData.role}</Text>
+          </View>
+          <Text style={[styles.organization, { color: 'rgba(255,255,255,0.75)', marginTop: 8, fontSize: 13 }]}>{reviewerData.state}</Text>
+        </LinearGradient>
 
 
 
         {/* Personal Information */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Personal Information</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 16, fontWeight: '700', marginBottom: 12 }]}>Personal Information</Text>
 
-          <View style={[styles.infoCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
-            <View style={styles.infoRow}>
-              <View style={[styles.infoIcon, { backgroundColor: isDark ? colors.background : "#f5f5f5" }]}>
-                <Ionicons name="mail-outline" size={20} color="#2196F3" />
+          <View style={[styles.infoCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: isDark ? 'rgba(255,255,255,0.04)' : '#eee', borderWidth: 1, elevation: 1, padding: 16, borderRadius: 16 }]}>
+            <View style={[styles.infoRow, { borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.04)' : '#f5f5f5', paddingVertical: 12 }]}>
+              <View style={[styles.infoIcon, { backgroundColor: '#3B82F615', width: 38, height: 38, borderRadius: 12 }]}>
+                <Ionicons name="mail" size={18} color="#3B82F6" />
               </View>
               <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Email</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>{reviewerData.email}</Text>
+                <Text style={[styles.infoLabel, { color: colors.textSecondary, fontSize: 11 }]}>Email</Text>
+                <Text style={[styles.infoValue, { color: colors.text, fontWeight: '700', fontSize: 14 }]}>{reviewerData.email}</Text>
               </View>
             </View>
 
-            <View style={styles.infoRow}>
-              <View style={[styles.infoIcon, { backgroundColor: isDark ? colors.background : "#f5f5f5" }]}>
-                <Ionicons name="call-outline" size={20} color="#4CAF50" />
+            <View style={[styles.infoRow, { borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.04)' : '#f5f5f5', paddingVertical: 12 }]}>
+              <View style={[styles.infoIcon, { backgroundColor: '#10B98115', width: 38, height: 38, borderRadius: 12 }]}>
+                <Ionicons name="call" size={18} color="#10B981" />
               </View>
               <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Phone</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>{reviewerData.phone}</Text>
+                <Text style={[styles.infoLabel, { color: colors.textSecondary, fontSize: 11 }]}>Phone</Text>
+                <Text style={[styles.infoValue, { color: colors.text, fontWeight: '700', fontSize: 14 }]}>{reviewerData.phone}</Text>
               </View>
             </View>
 
-            <View style={styles.infoRow}>
-              <View style={[styles.infoIcon, { backgroundColor: isDark ? colors.background : "#f5f5f5" }]}>
-                <Ionicons name="person-outline" size={20} color="#FF9800" />
+            <View style={[styles.infoRow, { borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.04)' : '#f5f5f5', paddingVertical: 12 }]}>
+              <View style={[styles.infoIcon, { backgroundColor: '#F59E0B15', width: 38, height: 38, borderRadius: 12 }]}>
+                <Ionicons name="person" size={18} color="#F59E0B" />
               </View>
               <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Gender</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>{reviewerData.gender}</Text>
+                <Text style={[styles.infoLabel, { color: colors.textSecondary, fontSize: 11 }]}>Gender</Text>
+                <Text style={[styles.infoValue, { color: colors.text, fontWeight: '700', fontSize: 14 }]}>{reviewerData.gender}</Text>
               </View>
             </View>
 
-            <View style={styles.infoRow}>
-              <View style={[styles.infoIcon, { backgroundColor: isDark ? colors.background : "#f5f5f5" }]}>
-                <Ionicons name="location-outline" size={20} color="#9C27B0" />
+            <View style={[styles.infoRow, { paddingVertical: 12 }]}>
+              <View style={[styles.infoIcon, { backgroundColor: '#8B5CF615', width: 38, height: 38, borderRadius: 12 }]}>
+                <Ionicons name="location" size={18} color="#8B5CF6" />
               </View>
               <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>State</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>{reviewerData.state}</Text>
+                <Text style={[styles.infoLabel, { color: colors.textSecondary, fontSize: 11 }]}>State</Text>
+                <Text style={[styles.infoValue, { color: colors.text, fontWeight: '700', fontSize: 14 }]}>{reviewerData.state}</Text>
               </View>
             </View>
           </View>
@@ -225,35 +232,35 @@ export default function ReviewerProfileScreen() {
 
         {/* Account Actions */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Account Actions</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 16, fontWeight: '700', marginBottom: 12 }]}>Account Actions</Text>
 
-          <View style={[styles.actionsCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: colors.border }]}>
-            <TouchableOpacity style={styles.actionItem} onPress={handleEditProfile} activeOpacity={0.7}>
-              <View style={[styles.actionIcon, { backgroundColor: isDark ? colors.background : "#f5f5f5" }]}>
-                <Ionicons name="create-outline" size={20} color="#2196F3" />
+          <View style={[styles.actionsCard, { backgroundColor: isDark ? colors.card : "#fff", borderColor: isDark ? 'rgba(255,255,255,0.04)' : '#eee', borderWidth: 1, elevation: 1, borderRadius: 16, overflow: 'hidden' }]}>
+            <TouchableOpacity style={[styles.actionItem, { paddingVertical: 14 }]} onPress={handleEditProfile} activeOpacity={0.7}>
+              <View style={[styles.actionIcon, { backgroundColor: '#3B82F615', width: 36, height: 36, borderRadius: 10 }]}>
+                <Ionicons name="create" size={18} color="#3B82F6" />
               </View>
-              <Text style={[styles.actionText, { color: colors.text }]}>Edit Profile</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+              <Text style={[styles.actionText, { color: colors.text, fontWeight: '600', fontSize: 14 }]}>Edit Profile</Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
             </TouchableOpacity>
 
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View style={[styles.divider, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#f5f5f5', marginLeft: 64 }]} />
 
-            <TouchableOpacity style={styles.actionItem} onPress={handleChangePassword} activeOpacity={0.7}>
-              <View style={[styles.actionIcon, { backgroundColor: isDark ? colors.background : "#f5f5f5" }]}>
-                <Ionicons name="lock-closed-outline" size={20} color="#FF9800" />
+            <TouchableOpacity style={[styles.actionItem, { paddingVertical: 14 }]} onPress={handleChangePassword} activeOpacity={0.7}>
+              <View style={[styles.actionIcon, { backgroundColor: '#F59E0B15', width: 36, height: 36, borderRadius: 10 }]}>
+                <Ionicons name="lock-closed" size={18} color="#F59E0B" />
               </View>
-              <Text style={[styles.actionText, { color: colors.text }]}>Change Password</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+              <Text style={[styles.actionText, { color: colors.text, fontWeight: '600', fontSize: 14 }]}>Change Password</Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
             </TouchableOpacity>
 
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View style={[styles.divider, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#f5f5f5', marginLeft: 64 }]} />
 
-            <TouchableOpacity style={styles.actionItem} onPress={handleLogout} activeOpacity={0.7}>
-              <View style={[styles.actionIcon, { backgroundColor: isDark ? colors.background : "#f5f5f5" }]}>
-                <Ionicons name="log-out-outline" size={20} color="#F44336" />
+            <TouchableOpacity style={[styles.actionItem, { paddingVertical: 14 }]} onPress={handleLogout} activeOpacity={0.7}>
+              <View style={[styles.actionIcon, { backgroundColor: '#EF444415', width: 36, height: 36, borderRadius: 10 }]}>
+                <Ionicons name="log-out" size={18} color="#EF4444" />
               </View>
-              <Text style={[styles.actionText, { color: "#F44336" }]}>Logout</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+              <Text style={[styles.actionText, { color: "#EF4444", fontWeight: '700', fontSize: 14 }]}>Logout</Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
         </View>

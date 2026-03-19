@@ -4,8 +4,9 @@ import { getDonorKycStatus, getUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { MotiView } from "moti";
+import React, { useCallback, useRef, useState } from "react";
 import {
   Alert,
   Animated,
@@ -32,53 +33,83 @@ export default function ProviderProfileScreen() {
     kycStatus: "New",
     profilePhoto: null as string | null,
     roles: [] as string[],
+    customFields: {} as Record<string, string>,
+    annualIncome: "",
   });
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const authDataString = await AsyncStorage.getItem("authData");
-        if (!authDataString) return;
-        const authData = JSON.parse(authDataString);
-        const token = authData?.token;
-        if (!token) return;
+  const [expanded, setExpanded] = useState<string | null>('contact');
 
-        const response = await getUserProfile(token);
-        if (response.success && response.data?.user) {
-          const user = response.data.user;
+  const stripHtml = (html: string): string => {
+    if (!html) return "";
+    return html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").trim();
+  };
 
-          // Parse phone — strip country code
-          let phone = user.phone1 || user.phone || "";
-          if (phone === "N/A") phone = "";
-          if (phone.startsWith('+91')) phone = phone.substring(3);
-          else if (phone.startsWith('91') && phone.length === 12) phone = phone.substring(2);
+  const formatDOB = (dob: string) => {
+    if (!dob || dob === "N/A") return "";
+    try {
+      const ts = parseInt(dob, 10);
+      return new Date(ts * 1000).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch (_) { return dob; }
+  };
 
-          setProviderData(prev => ({
-            ...prev,
-            fullName: user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || prev.fullName,
-            username: user.username || "",
-            email: user.email || prev.email,
-            phone,
-            city: user.city?.trim() || "",
-            address: user.address?.trim() || "",
-            profilePhoto: user.profileimageurl || null,
-            roles: user.roles || [],
-          }));
-        }
-
+  useFocusEffect(
+    useCallback(() => {
+      const fetchProfile = async () => {
         try {
-          const kycResponse = await getDonorKycStatus(token);
-          if (kycResponse.success && kycResponse.data) {
-            const kycData = kycResponse.data.data ?? kycResponse.data;
-            setProviderData(prev => ({ ...prev, kycStatus: kycData.status || "New" }));
+          const authDataString = await AsyncStorage.getItem("authData");
+          if (!authDataString) return;
+          const authData = JSON.parse(authDataString);
+          const token = authData?.token;
+          if (!token) return;
+
+          const response = await getUserProfile(token);
+          if (response.success && response.data?.user) {
+            const user = response.data.user;
+
+            // Parse phone — strip country code
+            let phone = user.phone1 || user.phone || "";
+            if (phone === "N/A") phone = "";
+            if (phone.startsWith('+91')) phone = phone.substring(3);
+            else if (phone.startsWith('91') && phone.length === 12) phone = phone.substring(2);
+
+            let customFieldsMap: Record<string, string> = {};
+            if (user.customfields_map) {
+              try { customFieldsMap = JSON.parse(user.customfields_map); } catch (_) { }
+            } else if (user.customfields) {
+              user.customfields.forEach((f: any) => {
+                customFieldsMap[f.shortname] = f.value;
+              });
+            }
+
+            setProviderData(prev => ({
+              ...prev,
+              fullName: user.fullname || `${user.firstname || ""} ${user.lastname || ""}`.trim() || prev.fullName,
+              username: user.username || "",
+              email: user.email || prev.email,
+              phone,
+              city: user.city?.trim() || "",
+              address: user.address?.trim() || "",
+              profilePhoto: user.profileimageurl || null,
+              roles: user.roles || [],
+              customFields: customFieldsMap,
+              annualIncome: user.annual_income || "",
+            }));
           }
-        } catch (_) { }
-      } catch (error) {
-        console.error("Error fetching provider profile:", error);
-      }
-    };
-    fetchProfile();
-  }, []);
+
+          try {
+            const kycResponse = await getDonorKycStatus(token);
+            if (kycResponse.success && kycResponse.data) {
+              const kycData = kycResponse.data.data ?? kycResponse.data;
+              setProviderData(prev => ({ ...prev, kycStatus: kycData.status || "New" }));
+            }
+          } catch (_) { }
+        } catch (error) {
+          console.error("Error fetching provider profile:", error);
+        }
+      };
+      fetchProfile();
+    }, [])
+  );
 
   const handleLogout = () => {
     Alert.alert(
@@ -153,6 +184,48 @@ export default function ProviderProfileScreen() {
     </TouchableOpacity>
   );
 
+  const Accordion = ({ id, icon, title, color, children }: any) => {
+    const isExpanded = expanded === id;
+    return (
+      <View style={{ marginBottom: 14 }}>
+        <TouchableOpacity
+          onPress={() => setExpanded(isExpanded ? null : id)}
+          activeOpacity={0.85}
+          style={[styles.accordionHeader, { 
+            backgroundColor: isDark ? colors.card : '#fff', 
+            borderColor: isDark ? colors.border : 'rgba(0,0,0,0.04)',
+            borderBottomLeftRadius: isExpanded ? 0 : 20,
+            borderBottomRightRadius: isExpanded ? 0 : 20,
+          }]}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <LinearGradient
+              colors={[`${color}25`, `${color}10`]}
+              style={{ width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 14 }}
+            >
+              <Ionicons name={icon} size={18} color={color} />
+            </LinearGradient>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>{title}</Text>
+          </View>
+          <MotiView animate={{ rotate: isExpanded ? '180deg' : '0deg' }}>
+            <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+          </MotiView>
+        </TouchableOpacity>
+        
+        {isExpanded && (
+          <MotiView
+            from={{ opacity: 0, scaleY: 0.95 }}
+            animate={{ opacity: 1, scaleY: 1 }}
+            transition={{ type: 'timing', duration: 240 }}
+            style={[styles.accordionContent, { backgroundColor: isDark ? colors.card : '#fff', borderColor: isDark ? colors.border : 'rgba(0,0,0,0.04)' }]}
+          >
+            {children}
+          </MotiView>
+        )}
+      </View>
+    );
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: isDark ? colors.shadow : '#f4f6fb' }]}>
       <ReviewerHeader
@@ -196,8 +269,8 @@ export default function ProviderProfileScreen() {
             {/* Avatar */}
             <TouchableOpacity
               style={styles.avatarWrap}
-              onPress={() => router.push("/(dashboard)/provider/edit-profile")}
               activeOpacity={0.85}
+              disabled={true}
             >
               {providerData.profilePhoto ? (
                 <Image source={{
@@ -210,9 +283,7 @@ export default function ProviderProfileScreen() {
                   <Text style={styles.avatarInitials}>{initials}</Text>
                 </View>
               )}
-              <View style={styles.cameraBadge}>
-                <Ionicons name="camera" size={13} color="#fff" />
-              </View>
+
             </TouchableOpacity>
 
             {/* Name & meta */}
@@ -240,27 +311,63 @@ export default function ProviderProfileScreen() {
           </LinearGradient>
         </Animated.View>
 
-        {/* ── Contact Details ── */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Contact Details</Text>
+        <View style={{ paddingHorizontal: 16, marginTop: 10 }}>
 
-          </View>
-          <View style={[styles.card, { backgroundColor: isDark ? colors.card : '#fff', borderColor: isDark ? colors.border : '#eee' }]}>
-            <InfoRow icon="mail-outline" label="Email Address" value={providerData.email} color="#667eea" />
-            <InfoRow icon="call-outline" label="Phone Number" value={providerData.phone ? `+91 ${providerData.phone}` : ""} color="#10B981" />
-            <InfoRow icon="location-outline" label="City" value={providerData.city} color="#F59E0B" />
-            <InfoRow icon="home-outline" label="Address" value={providerData.address} color="#8B5CF6" isLast />
-          </View>
-        </View>
+          {/* 1. Contact Details */}
+          <Accordion id="contact" icon="call-outline" title="Contact Details" color="#667eea">
+            <View style={{ padding: 4 }}>
+              <InfoRow icon="mail-outline" label="Email Address" value={providerData.email} color="#667eea" />
+              <InfoRow icon="call-outline" label="Phone Number" value={providerData.phone ? `+91 ${providerData.phone}` : ""} color="#10B981" />
+              <InfoRow icon="location-outline" label="City" value={providerData.city} color="#F59E0B" />
+              <InfoRow icon="home-outline" label="Address" value={providerData.address} color="#8B5CF6" isLast />
+            </View>
+          </Accordion>
 
-        {/* ── Quick Actions ── */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 20 }]}>Quick Actions</Text>
+          {/* 2. Personal Profile */}
+          {Object.keys(providerData.customFields).length > 0 && (
+            <Accordion id="personal" icon="person-outline" title="Personal Profile" color="#10B981">
+              <View style={{ padding: 4 }}>
+                <InfoRow icon="person-outline" label="Gender" value={providerData.customFields['Gender']} color="#10B981" />
+                <InfoRow icon="calendar-clear-outline" label="Date of Birth" value={formatDOB(providerData.customFields['DOB'])} color="#667eea" />
+                <InfoRow icon="map-outline" label="State" value={providerData.customFields['State']} color="#8B5CF6" />
+                <InfoRow icon="navigate-outline" label="District" value={providerData.customFields['district'] || providerData.customFields['domicile_district']} color="#F59E0B" />
+                <InfoRow icon="earth-outline" label="Religion" value={providerData.customFields['Religion']} color="#3B82F6" />
+                <InfoRow icon="people-outline" label="Caste" value={providerData.customFields['Caste']} color="#795548" isLast />
+              </View>
+            </Accordion>
+          )}
+
+          {/* 3. Academic Records */}
+          {providerData.roles.includes('Student') && (
+            <Accordion id="academic" icon="school-outline" title="Academic Records" color="#3B82F6">
+              <View style={{ padding: 4 }}>
+                <InfoRow icon="book-outline" label="10th Passing Year" value={providerData.customFields['passing_10th']} color="#667eea" />
+                <InfoRow icon="ribbon-outline" label="12th Board" value={providerData.customFields['12th_board']} color="#10B981" />
+                <InfoRow icon="stats-chart-outline" label="12th Marks" value={stripHtml(providerData.customFields['12th_marks'] || "")} color="#F59E0B" />
+                <InfoRow icon="calendar-outline" label="12th Passing Year" value={providerData.customFields['12th_passing_year']} color="#8B5CF6" />
+                <InfoRow icon="sparkles-outline" label="Percentage" value={providerData.customFields['percentage_12'] ? `${providerData.customFields['percentage_12']}%` : ""} color="#E91E63" />
+                <InfoRow icon="flask-outline" label="Stream" value={providerData.customFields['stream_in_12th']} color="#3F51B5" isLast />
+              </View>
+            </Accordion>
+          )}
+
+          {/* 4. Financial Status */}
+          {(providerData.annualIncome || providerData.customFields['Family_income']) && (
+            <Accordion id="financial" icon="cash-outline" title="Financial Status" color="#F59E0B">
+              <View style={{ padding: 4 }}>
+                <InfoRow icon="wallet-outline" label="Family Income" value={providerData.annualIncome || providerData.customFields['Family_income']} color="#F59E0B" />
+                <InfoRow icon="grid-outline" label="Category" value={providerData.customFields['category']} color="#667eea" />
+                <InfoRow icon="stats-chart-outline" label="Application Status" value={providerData.customFields['appl_status']} color="#10B981" isLast />
+              </View>
+            </Accordion>
+          )}
+
+          {/* Quick Actions Action Grid */}
+          <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text, marginTop: 10, marginBottom: 15 }}>Quick Actions</Text>
           <View style={[styles.card, {
             backgroundColor: isDark ? colors.card : '#fff',
-            borderColor: isDark ? colors.border : '#eee',
-            padding: 0, overflow: 'hidden'
+            borderColor: isDark ? colors.border : 'rgba(0,0,0,0.03)',
+            padding: 0, overflow: 'hidden', marginBottom: 20
           }]}>
             <ActionItem icon="create-outline" label="Edit Profile" onPress={() => router.push("/(dashboard)/provider/edit-profile")} color="#667eea" />
             <ActionItem icon="help-circle-outline" label="Help & Support" onPress={() => router.push("/(dashboard)/provider/help-support")} color="#8B5CF6" />
@@ -276,6 +383,21 @@ export default function ProviderProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+
+  accordionHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 14, paddingHorizontal: 16, borderWidth: 1,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04, shadowRadius: 10, elevation: 2,
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+  },
+  accordionContent: {
+    borderBottomLeftRadius: 20, borderBottomRightRadius: 20,
+    borderTopWidth: 0, paddingHorizontal: 4, paddingBottom: 10,
+    borderLeftWidth: 1, borderRightWidth: 1, borderBottomWidth: 1,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04, shadowRadius: 10, elevation: 2,
+  },
 
   settingsBtn: {
     width: 44, height: 44, borderRadius: 22,

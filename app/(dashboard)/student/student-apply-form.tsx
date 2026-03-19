@@ -1,5 +1,7 @@
 import { AppHeader, Button, CustomTextInput, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
+import { useDropdowns } from "@/context/DropdownContext";
+
 import { getAcademicDetails, getScholarshipDetails, getUserProfile, submitApplication, type AcademicDetailItem } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -76,7 +78,9 @@ const FIELDS_BY_STEP: Record<string, (keyof FormValues)[]> = {
 
 export default function ApplyFormScreen() {
   const { isDark, colors } = useTheme();
+  const { getOptionsByShortname } = useDropdowns();
   const insets = useSafeAreaInsets();
+
   const [stepIndex, setStepIndex] = useState(0);
   const scrollRef = useRef<ScrollView | null>(null);
   const stepperScrollRef = useRef<ScrollView | null>(null);
@@ -125,7 +129,10 @@ export default function ApplyFormScreen() {
 
   // No picker state needed for now since verification step is removed
 
+  const [isSubmitLoading, setIsSubmitLoading] = useState(false);
+
   const [optionPickerState, setOptionPickerState] = useState<{
+
     visible: boolean;
     title: string;
     options: string[];
@@ -338,17 +345,19 @@ export default function ApplyFormScreen() {
 
   const onSubmit = handleSubmit(
     async (values) => {
+      setIsSubmitLoading(true);
       try {
-
 
         const authDataStr = await AsyncStorage.getItem("authData");
         if (!authDataStr) {
           Alert.alert("Error", "User not logged in");
+          setIsSubmitLoading(false);
           return;
         }
         const authData = JSON.parse(authDataStr);
         if (!authData.token) {
           Alert.alert("Error", "Invalid session");
+          setIsSubmitLoading(false);
           return;
         }
 
@@ -384,10 +393,12 @@ export default function ApplyFormScreen() {
             router.replace("/(dashboard)/student/student-application-status");
           }, 1000);
         } else {
+          setIsSubmitLoading(false);
           setToast({ visible: true, message: response.message || "Submission failed", type: "error" });
         }
 
       } catch (err: any) {
+        setIsSubmitLoading(false);
         setToast({ visible: true, message: err.message || "An unexpected error occurred", type: "error" });
       }
     },
@@ -862,13 +873,7 @@ export default function ApplyFormScreen() {
                     setOptionPickerState({
                       visible: true,
                       title: "Family Annual Income",
-                      options: [
-                        "Less than ₹1 Lakh",
-                        "₹1 Lakh - ₹3 Lakhs",
-                        "₹3 Lakhs - ₹5 Lakhs",
-                        "₹5 Lakhs - ₹8 Lakhs",
-                        "More than ₹8 Lakhs"
-                      ],
+                      options: getOptionsByShortname('Family_income').map(o => o.label),
                       onSelect: (val) => onChange(val)
                     });
                   }}>
@@ -1180,6 +1185,18 @@ export default function ApplyFormScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {isSubmitLoading && (
+        <Modal transparent animationType="fade" visible={isSubmitLoading}>
+          <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: 'center', alignItems: 'center' }}>
+            <View style={{ backgroundColor: isDark ? colors.card : '#fff', padding: 24, borderRadius: 16, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, elevation: 4 }}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={{ marginTop: 16, fontSize: 16, fontWeight: '700', color: colors.text }}>Submitting Application</Text>
+              <Text style={{ marginTop: 6, fontSize: 13, color: colors.textSecondary }}>Please wait, do not close the app</Text>
+            </View>
+          </View>
+        </Modal>
+      )}
 
       <Toast
         visible={toast.visible}

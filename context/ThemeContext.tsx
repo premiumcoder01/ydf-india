@@ -29,20 +29,20 @@ export const LightColors = {
 };
 
 export const DarkColors = {
-    background: '#0f0f0f',
-    surface: '#000',
+    background: '#0D0E15', 
+    surface: '#121320', 
     text: '#F8FAFC',
     textSecondary: '#94A3B8',
-    primary: '#818CF8', // Lighter Indigo for Dark Mode
-    accent: '#F2C44D', // Keep Gold accent
+    primary: '#818CF8', 
+    accent: '#F2C44D', 
     secondary: '#F1F5F9',
-    border: '#334155',
+    border: '#222538', 
     error: '#F87171',
     success: '#34D399',
-    card: '#000',
-    inputBg: '#334155',
-    divider: '#334155',
-    shadow: '#000000', // Shadows are usually black even in dark mode, or use transparent
+    card: '#161726', 
+    inputBg: '#1A1B2B',
+    divider: '#1F2236',
+    shadow: '#000000', 
 };
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);

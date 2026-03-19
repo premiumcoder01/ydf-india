@@ -1,5 +1,7 @@
 import { AppHeader, Button, CustomTextInput, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
+import { useDropdowns } from "@/context/DropdownContext";
+
 import { addMobilizerStudent, uploadProfileImage } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -83,9 +85,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 const MARKS_TYPE_OPTIONS = [{ label: "CGPA", value: "cgpa" }, { label: "Percentage", value: "percentage" }];
 
-const GENDER_OPTIONS = ["Male", "Female", "Other"];
-const RELIGION_OPTIONS = ["Hindu", "Muslim", "Christian", "Sikh", "Buddhist", "Jain", "Other"];
-const CASTE_OPTIONS = ["General", "OBC", "SC", "ST", "Other"];
+
 
 const ACADEMIC_LEVEL_OPTIONS = [
     "Diploma", "Undergraduate (UG)", "Post Graduate (PG)", "Ph.D", "Other"
@@ -103,18 +103,19 @@ const STREAM_OPTIONS = [
 
 const YEAR_OPTIONS = ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year", "Passed Out"];
 
-const ANNUAL_INCOME_OPTIONS = [
-    "Below ₹50,000",
-    "₹50,000 - ₹1,00,000",
-    "₹1,00,000 - ₹2,50,000",
-    "₹2,50,000 - ₹5,00,000",
-    "Above ₹5,00,000",
-];
+
 
 
 export default function MobilizerAddStudentScreen() {
     const { isDark, colors } = useTheme();
+    const { getOptionsByShortname } = useDropdowns();
     const insets = useSafeAreaInsets();
+
+    const GENDER_OPTIONS = getOptionsByShortname('Gender').map(o => o.label);
+    const RELIGION_OPTIONS = getOptionsByShortname('Religion').map(o => o.label);
+    const CASTE_OPTIONS = getOptionsByShortname('Caste').map(o => o.label);
+    const ANNUAL_INCOME_OPTIONS = getOptionsByShortname('Family_income').map(o => o.label);
+
     const [loading, setLoading] = useState(false);
 
     // Image state

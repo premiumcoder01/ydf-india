@@ -1,6 +1,8 @@
 import { ThemeProvider, useTheme } from "@/context/ThemeContext";
+import { DropdownProvider } from "@/context/DropdownContext";
 import { Stack } from "expo-router";
 import { StatusBar } from "react-native";
+
 
 function RootLayoutContent() {
   const { isDark } = useTheme();
@@ -87,7 +89,10 @@ function RootLayoutContent() {
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <RootLayoutContent />
+      <DropdownProvider>
+        <RootLayoutContent />
+      </DropdownProvider>
     </ThemeProvider>
   );
 }
+

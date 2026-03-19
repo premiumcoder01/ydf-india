@@ -1,5 +1,6 @@
 import { AppHeader, Button, CustomTextInput, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
+import { useDropdowns } from "@/context/DropdownContext";
 import { getUserProfile, updateUserProfile, uploadProfileImage } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -31,110 +32,30 @@ interface ValidationErrors {
 
 
 
-const RELIGION_OPTIONS = [
-    "Hinduism",
-    "Muslim",
-    "Christianity",
-    "Sikhism",
-    "Buddhism",
-    "Jainism",
-    "Zoroastrianism",
-    "Prefer not to say"
-];
 
-const CASTE_OPTIONS = [
-    "Scheduled Tribe (ST)",
-    "Scheduled Caste (SC)",
-    "OBC",
-    "General",
-    "Minority",
-    "Prefer not to say"
-];
-
-const GENDER_OPTIONS = ["Male", "Female", "Other"];
-
-const SPECIAL_CATEGORY_OPTIONS = ["Orphan", "Physically Disabled", "Single Parent", "None of these"];
-
-const DISTRICT_OPTIONS = [
-    "Araria", "Arwal", "Aurangabad", "Banka", "Begusarai", "Bhagalpur", "Bhojpur", "Buxar",
-    "Darbhanga", "East Champaran", "Gaya", "Gopalganj", "Jamui", "Jehanabad", "Kaimur", "Katihar",
-    "Khagaria", "Kishanganj", "Lakhisarai", "Madhepura", "Madhubani", "Munger", "Muzaffarpur", "Nalanda",
-    "Nawada", "Patna", "Purnia", "Rohtas", "Saharsa", "Samastipur", "Sheikhpura", "Sheohar",
-    "Sitamarhi", "Siwan", "Supaul", "Vaishali", "West Champaran", "Nashik", "Raigad", "Kotputli-behror",
-    "Alwar", "Sasnagar-Mohali", "Banaskantha(Deesa)", "Other"
-];
-
-const DOMICILE_STATE_OPTIONS = [
-    "Bihar",
-    "Punjab",
-    "Rajasthan",
-    "Maharashtra",
-    "Delhi",
-    "Gujarat",
-    "Haryana",
-    "Other"
-];
-
-const ANNUAL_INCOME_OPTIONS = [
-    "Below ₹50,000",
-    "₹50,000 - ₹1,00,000",
-    "₹1,00,000 - ₹1,50,000",
-    "₹1,50,000 - ₹2,00,000",
-    "₹2,00,000 - ₹2,50,000",
-    "₹2,50,000 - ₹3,00,000",
-    "More than ₹3,00,000"
-];
-
-const SCHEME_OPTIONS = [
-    "PRIF Nashik Scholarship",
-    "PRIF Behror Scholarship",
-    "PRIF Derabassi Scholarship",
-    "Godrej Girls Scholarship",
-    "Shree Bipin Bhai Gandhi Girls Scholarship",
-    "Sanskrit Scholarship Program",
-    "Siddhi Girls Scholarship",
-    "Veena Upendra Scholarship",
-    "Prerana Prakash Jyoti Scholarship",
-    "Pehchaan Scholarship Program",
-    "IFFCO TOKIO Scholarship",
-    "other"
-];
-
-const REGISTERING_AS_OPTIONS = ["Old Scholar", "New Applicant"];
-
-const YEAR_OF_COURSE_OPTIONS = ["20-21", "21-22", "22-23", "23-24", "24-25", "25-26"];
-
-const BOARD_12TH_OPTIONS = [
-    "BSEB(BR)",
-    "MSB(MH)",
-    "RBSE(RJ)",
-    "PSEB",
-    "CBSE",
-    "ICSE",
-    "Other",
-    "Not applicable"
-];
-
-const STREAM_12TH_OPTIONS = [
-    "Science with Maths",
-    "Science with Biology",
-    "Biology with Maths",
-    "Commerce",
-    "Arts",
-    "Not applicable"
-];
-
-const PASSING_YEAR_12TH_OPTIONS = ["2024", "2025", "Not Applicable"];
-
-const APPLICATION_YEAR_OPTIONS = ["20-21", "21-22", "22-23", "23-24", "24-25", "25-26"];
-
-const SESSION_OPTIONS = ["23-24", "24-25", "25-26"];
-
-const PASSING_10TH_OPTIONS = ["2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024"];
 
 export default function ProviderEditProfileScreen() {
     const { isDark, colors } = useTheme();
+    const { getOptionsByShortname } = useDropdowns();
     const insets = useSafeAreaInsets();
+
+    const RELIGION_OPTIONS = getOptionsByShortname('Religion').map(o => o.label);
+    const CASTE_OPTIONS = getOptionsByShortname('Caste').map(o => o.label);
+    const GENDER_OPTIONS = getOptionsByShortname('Gender').map(o => o.label);
+    const SPECIAL_CATEGORY_OPTIONS = getOptionsByShortname('category').map(o => o.label);
+    const DOMICILE_STATE_OPTIONS = getOptionsByShortname('State').map(o => o.label);
+    const DISTRICT_OPTIONS = getOptionsByShortname('district').map(o => o.label);
+    const ANNUAL_INCOME_OPTIONS = getOptionsByShortname('Family_income').map(o => o.label);
+    const SCHEME_OPTIONS = getOptionsByShortname('schemename').map(o => o.label);
+    const REGISTERING_AS_OPTIONS = getOptionsByShortname('Registering_as').map(o => o.label);
+    const YEAR_OF_COURSE_OPTIONS = getOptionsByShortname('year_of_course').map(o => o.label);
+    const BOARD_12TH_OPTIONS = getOptionsByShortname('12th_board').map(o => o.label);
+    const STREAM_12TH_OPTIONS = getOptionsByShortname('stream_in_12th').map(o => o.label);
+    const PASSING_YEAR_12TH_OPTIONS = getOptionsByShortname('12th_passing_year').map(o => o.label);
+    const APPLICATION_YEAR_OPTIONS = getOptionsByShortname('applicationyear').map(o => o.label);
+    const SESSION_OPTIONS = getOptionsByShortname('session').map(o => o.label);
+    const PASSING_10TH_OPTIONS = getOptionsByShortname('passing_10th').map(o => o.label);
+
     const [personalInfo, setPersonalInfo] = useState({
         // General / Personal
         username: "",

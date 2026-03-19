@@ -280,7 +280,6 @@ export default function ApplicationReviewerDashboard() {
             color="#10B981"
             delay={100}
             isDark={isDark}
-            colors={colors}
           />
           <MetricCard
             title="Weekly Review"
@@ -289,7 +288,6 @@ export default function ApplicationReviewerDashboard() {
             color="#6366F1"
             delay={200}
             isDark={isDark}
-            colors={colors}
           />
           <MetricCard
             title="Bookmarked"
@@ -298,7 +296,6 @@ export default function ApplicationReviewerDashboard() {
             color="#F59E0B"
             delay={300}
             isDark={isDark}
-            colors={colors}
           />
         </View>
 
@@ -349,18 +346,37 @@ export default function ApplicationReviewerDashboard() {
             activeOpacity={0.8}
             onPress={() => router.push("/(dashboard)/reviewer/applications")}
           >
-            <LinearGradient
-              colors={isDark ? ["#1E293B", "#0F172A"] : ["#FFFFFF", "#F8FAFC"]}
-              style={[styles.featureActionCardPremium, { borderColor: isDark ? "#334155" : "#E2E8F0" }]}
+            <MotiView
+              from={{ opacity: 0, translateY: 15 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ delay: 400 }}
+              style={[
+                styles.featureActionCardPremium, 
+                { 
+                  backgroundColor: isDark ? colors.card : '#fff',
+                  borderColor: isDark ? 'rgba(255,255,255,0.04)' : '#eee',
+                  borderWidth: 1,
+                  padding: 14
+                }
+              ]}
             >
-              <View style={[styles.featureIconBox, { backgroundColor: "#6366F120" }]}>
-                <Ionicons name="layers" size={24} color="#6366F1" />
-              </View>
+              <LinearGradient
+                colors={['#6366F1', '#4F46E5']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[
+                  styles.featureIconBox, 
+                  { width: 44, height: 44, borderRadius: 12 }
+                ]}
+              >
+                <Ionicons name="layers" size={20} color="#fff" />
+              </LinearGradient>
               <View style={styles.featureContentBox}>
-                <Text style={[styles.featureTitle, { color: colors.text }]}>View All Scholarships</Text>
+                <Text style={[styles.featureTitle, { color: colors.text, fontWeight: '700', fontSize: 15 }]}>View All Applications</Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2 }}>Evaluate assigned submissions</Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-            </LinearGradient>
+              <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
+            </MotiView>
           </TouchableOpacity>
         </View>
 
@@ -383,7 +399,11 @@ function ChartLegend({ color, label, value, isDark }: { color: string, label: st
   )
 }
 
-function MetricCard({ title, value, icon, color, delay, isDark, colors }: any) {
+function MetricCard({ title, value, icon, color, delay, isDark }: any) {
+  let bgColors: readonly [string, string] = ['#10B981', '#047857'];
+  if (color === '#6366F1') bgColors = ['#6366F1', '#4338CA'];
+  else if (color === '#F59E0B') bgColors = ['#F59E0B', '#B45309'];
+
   return (
     <MotiView
       from={{ opacity: 0, translateX: -20 }}
@@ -392,19 +412,16 @@ function MetricCard({ title, value, icon, color, delay, isDark, colors }: any) {
       style={{ width: '100%', marginBottom: 12 }}
     >
       <LinearGradient
-        colors={isDark ? ["#1E293B", "#0F172A"] : ["#FFFFFF", "#F8FAFC"]}
-        style={[styles.metricCardPremium, { borderColor: isDark ? "#334155" : "#E2E8F0" }]}
+        colors={bgColors}
+        style={[styles.metricCardPremium, { borderWidth: 0 }]}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
-          <LinearGradient
-            colors={[color + "30", color + "10"]}
-            style={styles.metricIconPremium}
-          >
-            <Ionicons name={icon} size={22} color={color} />
-          </LinearGradient>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+          <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name={icon} size={22} color="#fff" />
+          </View>
           <View style={styles.metricTextContent}>
-            <Text style={[styles.metricTitlePremium, { color: colors.textSecondary }]}>{title}</Text>
-            <Text style={[styles.metricValuePremium, { color: colors.text }]}>{value}</Text>
+            <Text style={[styles.metricTitlePremium, { color: 'rgba(255,255,255,0.85)', letterSpacing: 0.5 }]}>{title}</Text>
+            <Text style={[styles.metricValuePremium, { color: '#fff', fontSize: 24, fontWeight: '800' }]}>{value}</Text>
           </View>
         </View>
       </LinearGradient>

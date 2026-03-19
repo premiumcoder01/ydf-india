@@ -1,4 +1,5 @@
 import { Button, CustomTextInput, ReviewerHeader } from "@/components";
+import { useDropdowns } from "@/context/DropdownContext";
 import { useTheme } from "@/context/ThemeContext";
 import { createScholarship, uploadProfileImage } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
@@ -10,7 +11,6 @@ import React, { useEffect, useState } from "react";
 import {
   Alert,
   Dimensions,
-  DimensionValue,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -18,7 +18,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View
 } from "react-native";
@@ -29,8 +28,8 @@ const { width } = Dimensions.get("window");
 
 // --- Static Data ---
 const GEO_DATA = {
-  states: ["Maharashtra", "Karnataka", "Gujarat", "Delhi", "Tamil Nadu", "Uttar Pradesh", "West Bengal", "Rajasthan"],
-  districts: ["Mumbai", "Pune", "Bangalore", "Mysore", "Ahmedabad", "Surat", "New Delhi", "Chennai", "Kolkata", "Jaipur", "Lucknow"],
+  states: [],
+  districts: [],
   blocks: ["Block A", "Block B", "Block C", "Block D", "Block E"],
   villages: ["Village X", "Village Y", "Village Z", "Town Alpha", "Town Beta"],
 };
@@ -74,17 +73,16 @@ type FormData = {
   fixedAmount: string;
   actualAmountLimit: string;
   paymentCycle: string;
-  distributionStudent: string; // 0-100%
-  distributionInstitute: string; // 0-100%
+  payment_distribution: string;
 
   // Step 2: Eligibility
   states: string[];
   districts: string[];
   blocks: string[];
   villages: string[];
-  gender: string[];
-  casteCategory: string[];
-  specialCategory: string[];
+  gender: string;
+  casteCategory: string;
+  specialCategory: string;
   incomeLimit: string;
   educationLevel: string[];
   streams: string[];
@@ -103,12 +101,15 @@ const STEPS = ["Basic Details", "Eligibility", "Documents"];
 
 export default function ProviderAddScholarshipScreen() {
   const { id } = useLocalSearchParams();
+  const { getOptionsByShortname } = useDropdowns();
   const isEditMode = !!id;
   const insets = useSafeAreaInsets();
   const { isDark, colors } = useTheme();
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+
 
   // Form State
   const [formData, setFormData] = useState<FormData>({
@@ -129,15 +130,14 @@ export default function ProviderAddScholarshipScreen() {
     fixedAmount: "",
     actualAmountLimit: "",
     paymentCycle: "Not set",
-    distributionStudent: "100",
-    distributionInstitute: "0",
+    payment_distribution: "Not set",
     states: [],
     districts: [],
     blocks: [],
     villages: [],
-    gender: [],
-    casteCategory: [],
-    specialCategory: [],
+    gender: "",
+    casteCategory: "",
+    specialCategory: "",
     incomeLimit: "",
     educationLevel: [],
     streams: [],
@@ -256,12 +256,12 @@ export default function ProviderAddScholarshipScreen() {
       if (formData.amountType === "actuals" && !formData.actualAmountLimit.trim()) {
         newErrors.actualAmountLimit = "Actual amount limit is required";
       }
-      if (parseInt(formData.distributionStudent) + parseInt(formData.distributionInstitute) !== 100) {
-        newErrors.distribution = "Total distribution must be 100%";
+      if (!formData.payment_distribution || formData.payment_distribution === "Not set") {
+        newErrors.payment_distribution = "Fund Distribution is required";
       }
     } else if (step === 1) {
-      if (formData.gender.length === 0) newErrors.gender = "Select at least one gender option";
-      if (formData.casteCategory.length === 0) newErrors.casteCategory = "Select at least one caste category";
+      if (!formData.gender) newErrors.gender = "Gender is required";
+      if (!formData.casteCategory) newErrors.casteCategory = "Caste category is required";
       if (!formData.incomeLimit.trim()) newErrors.incomeLimit = "Income limit is required";
       if (formData.educationLevel.length === 0) newErrors.educationLevel = "Select at least one education level";
     } else if (step === 2) {
@@ -321,15 +321,15 @@ export default function ProviderAddScholarshipScreen() {
       }
 
       const categoryMap: Record<string, number> = {
-        "All India": 1,
+        "All India": 8,
         "Bihar": 2,
-        "Punjab": 3,
-        "Maharashtra": 4,
-        "Rajasthan": 5,
-        "Delhi": 6,
-        "Gujarat": 7,
-        "Sikar": 8,
-        "Archived Courses": 9,
+        "Punjab": 5,
+        "Maharashtra": 3,
+        "Rajasthan": 4,
+        "Delhi": 18,
+        "Gujarat": 14,
+        "Sikar": 12,
+        "Archived Courses": 19,
       };
 
       let logo_draftitemid = null;
@@ -376,8 +376,7 @@ export default function ProviderAddScholarshipScreen() {
         scholarship_amount: parseFloat(formData.amountType === "fixed" ? formData.fixedAmount : formData.actualAmountLimit) || 0,
         fund_amount: parseFloat(formData.amountType === "fixed" ? formData.fixedAmount : formData.actualAmountLimit) || 0,
         scholarship_cycle: formData.paymentCycle,
-        student_pct: parseFloat(formData.distributionStudent) || 100,
-        institute_pct: parseFloat(formData.distributionInstitute) || 0,
+        payment_distribution: formData.payment_distribution,
         selection_stages_json: JSON.stringify(formData.stages),
         geo_eligibility_json: JSON.stringify({
           states: formData.states,
@@ -414,7 +413,8 @@ export default function ProviderAddScholarshipScreen() {
           { text: "OK", onPress: () => router.back() }
         ]);
       } else {
-        Alert.alert("Error", response.message || "Failed to create scholarship");
+        console.log("Scholarship Creation Failed Response:", JSON.stringify(response, null, 2));
+        Alert.alert("Error", response.message || response.error || "Failed to create scholarship");
       }
     } catch (error) {
       console.error(error);
@@ -424,19 +424,7 @@ export default function ProviderAddScholarshipScreen() {
     }
   };
 
-  const handleDistributionChange = (field: "distributionStudent" | "distributionInstitute", value: string) => {
-    let numVal = parseInt(value) || 0;
-    if (numVal > 100) numVal = 100;
-    const otherVal = (100 - numVal).toString();
 
-    if (errors.distribution) setErrors(prev => ({ ...prev, distribution: "" }));
-
-    if (field === "distributionStudent") {
-      setFormData(prev => ({ ...prev, distributionStudent: numVal.toString(), distributionInstitute: otherVal }));
-    } else {
-      setFormData(prev => ({ ...prev, distributionInstitute: numVal.toString(), distributionStudent: otherVal }));
-    }
-  };
 
   const addStage = () => {
     const nextId = (formData.stages.length + 1).toString();
@@ -755,7 +743,7 @@ export default function ProviderAddScholarshipScreen() {
                   onPress={() => setSelectionModal({
                     show: true,
                     title: "Select Stage Name",
-                    options: ["Eligibility check", "Need validation", "Documents verification", "Interviews", "Screening test"],
+                    options: getOptionsByShortname('stage1_name').map(o => o.label).filter(l => l !== 'Select'),
                     field: "stages_name",
                     stageId: stage.id
                   })}
@@ -770,7 +758,7 @@ export default function ProviderAddScholarshipScreen() {
                   onPress={() => setSelectionModal({
                     show: true,
                     title: "Select Mode",
-                    options: ["Home visits", "Online form", "Video interview", "Custom assessment"],
+                    options: getOptionsByShortname('stage1_mode').map(o => o.label).filter(l => l !== 'Select'),
                     field: "stages_mode",
                     stageId: stage.id
                   })}
@@ -837,7 +825,7 @@ export default function ProviderAddScholarshipScreen() {
               onPress={() => setSelectionModal({
                 show: true,
                 title: "Payment Cycle",
-                options: ["Monthly", "Quaterly", "Half-Yearly / Semester-wise", "Annualy", "Not set"],
+                options: getOptionsByShortname('payment_cycle').map(o => o.label),
                 field: "paymentCycle"
               })}
             >
@@ -880,46 +868,25 @@ export default function ProviderAddScholarshipScreen() {
           />
         </View>
 
-        <View style={[styles.distributionBox, { backgroundColor: isDark ? colors.surface : "#F9FAFB", borderColor: errors.distribution ? '#EF4444' : colors.border }]}>
-          <Text style={[styles.label, { color: colors.text, marginBottom: 12 }]}>
+        <View style={{ marginTop: 16 }}>
+          <Text style={[styles.label, { color: colors.text, marginTop: 0 }]}>
             Fund Distribution <Text style={{ color: '#EF4444' }}>*</Text>
           </Text>
-          {errors.distribution && <Text style={[styles.errorTextSmall, { marginBottom: 8 }]}>{errors.distribution}</Text>}
-
-          <View style={styles.distBarWrapper}>
-            <View style={[styles.distBarFill, { width: `${formData.distributionStudent}%` as DimensionValue, backgroundColor: colors.primary }]} />
-            <View style={[styles.distBarRemaining, { backgroundColor: colors.border }]} />
-          </View>
-
-          <View style={styles.distInputsRow}>
-            <View style={styles.distInputItem}>
-              <Text style={[styles.distInputLabel, { color: colors.textSecondary }]}>Student</Text>
-              <View style={[styles.distInputContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
-                <TextInput
-                  value={formData.distributionStudent}
-                  onChangeText={(v) => handleDistributionChange("distributionStudent", v)}
-                  style={[styles.distInputText, { color: colors.text }]}
-                  keyboardType="numeric"
-                  maxLength={3}
-                />
-                <Text style={styles.distSymbol}>%</Text>
-              </View>
-            </View>
-
-            <View style={styles.distInputItem}>
-              <Text style={[styles.distInputLabel, { color: colors.textSecondary }]}>Institute</Text>
-              <View style={[styles.distInputContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
-                <TextInput
-                  value={formData.distributionInstitute}
-                  onChangeText={(v) => handleDistributionChange("distributionInstitute", v)}
-                  style={[styles.distInputText, { color: colors.text }]}
-                  keyboardType="numeric"
-                  maxLength={3}
-                />
-                <Text style={styles.distSymbol}>%</Text>
-              </View>
-            </View>
-          </View>
+          <TouchableOpacity
+            style={[styles.dropdownTrigger, { backgroundColor: colors.surface, borderColor: errors.payment_distribution ? '#EF4444' : colors.border }]}
+            onPress={() => setSelectionModal({
+              show: true,
+              title: "Fund Distribution",
+              options: ["Student's account", "Institute's account", "Not set"],
+              field: "payment_distribution"
+            })}
+          >
+            <Text style={[styles.inputValue, { color: formData.payment_distribution ? colors.text : colors.textSecondary }]}>
+              {formData.payment_distribution || "Not set"}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+          </TouchableOpacity>
+          {errors.payment_distribution && <Text style={styles.errorTextSmall}>{errors.payment_distribution}</Text>}
         </View>
 
       </View>
@@ -957,7 +924,11 @@ export default function ProviderAddScholarshipScreen() {
                   setSelectionModal({
                     show: true,
                     title: `Select ${item.label}`,
-                    options: GEO_DATA[item.field as keyof typeof GEO_DATA] || [],
+                    options: item.field === "states"
+                      ? getOptionsByShortname("State").map(o => o.label)
+                      : item.field === "districts"
+                        ? getOptionsByShortname("district").map(o => o.label)
+                        : GEO_DATA[item.field as keyof typeof GEO_DATA] || [],
                     field: item.field,
                     isMulti: true
                   });
@@ -989,35 +960,20 @@ export default function ProviderAddScholarshipScreen() {
             Gender <Text style={{ color: '#EF4444' }}>*</Text>
           </Text>
           {errors.gender && <Text style={[styles.errorTextSmall, { marginBottom: 8 }]}>{errors.gender}</Text>}
-          <View style={styles.chipGrid}>
-            {["Male", "Female", "Transgender", "Any gender"].map((g) => {
-              const isSelected = formData.gender.includes(g);
-              return (
-                <TouchableOpacity
-                  key={g}
-                  style={[
-                    styles.selectionChip,
-                    {
-                      backgroundColor: isSelected ? colors.primary : colors.surface,
-                      borderColor: isSelected ? colors.primary : colors.border
-                    }
-                  ]}
-                  onPress={() => {
-                    setErrors(prev => ({ ...prev, gender: "" }));
-                    if (g === "Any gender") {
-                      updateField("gender", isSelected ? [] : ["Any gender"]);
-                    } else {
-                      let next = formData.gender.filter(i => i !== "Any gender");
-                      isSelected ? next = next.filter(i => i !== g) : next.push(g);
-                      updateField("gender", next);
-                    }
-                  }}
-                >
-                  <Text style={[styles.chipText, { color: isSelected ? "#fff" : colors.text }]}>{g}</Text>
-                </TouchableOpacity>
-              );
+          <TouchableOpacity
+            style={[styles.dropdownTrigger, { backgroundColor: colors.surface, borderColor: errors.gender ? '#EF4444' : colors.border }]}
+            onPress={() => setSelectionModal({
+              show: true,
+              title: "Select Gender",
+              options: [...getOptionsByShortname('Gender').map(o => o.label), "Any gender"],
+              field: "gender"
             })}
-          </View>
+          >
+            <Text style={[styles.inputValue, { color: formData.gender ? colors.text : colors.textSecondary }]}>
+              {formData.gender || "Select Gender"}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+          </TouchableOpacity>
         </View>
 
         <View style={{ marginBottom: 20 }}>
@@ -1025,67 +981,39 @@ export default function ProviderAddScholarshipScreen() {
             Caste Category <Text style={{ color: '#EF4444' }}>*</Text>
           </Text>
           {errors.casteCategory && <Text style={[styles.errorTextSmall, { marginBottom: 8 }]}>{errors.casteCategory}</Text>}
-          <View style={styles.chipGrid}>
-            {["SC", "ST", "OBC", "General", "Any category"].map((c) => {
-              const isSelected = formData.casteCategory.includes(c);
-              return (
-                <TouchableOpacity
-                  key={c}
-                  style={[
-                    styles.selectionChip,
-                    {
-                      backgroundColor: isSelected ? colors.primary : colors.surface,
-                      borderColor: isSelected ? colors.primary : colors.border
-                    }
-                  ]}
-                  onPress={() => {
-                    setErrors(prev => ({ ...prev, casteCategory: "" }));
-                    if (c === "Any category") {
-                      updateField("casteCategory", isSelected ? [] : ["Any category"]);
-                    } else {
-                      let next = formData.casteCategory.filter(i => i !== "Any category");
-                      isSelected ? next = next.filter(i => i !== c) : next.push(c);
-                      updateField("casteCategory", next);
-                    }
-                  }}
-                >
-                  <Text style={[styles.chipText, { color: isSelected ? "#fff" : colors.text }]}>{c}</Text>
-                </TouchableOpacity>
-              );
+          <TouchableOpacity
+            style={[styles.dropdownTrigger, { backgroundColor: colors.surface, borderColor: errors.casteCategory ? '#EF4444' : colors.border }]}
+            onPress={() => setSelectionModal({
+              show: true,
+              title: "Select Caste Category",
+              options: [...getOptionsByShortname('Caste').map(o => o.label), "Any category"],
+              field: "casteCategory"
             })}
-          </View>
+          >
+            <Text style={[styles.inputValue, { color: formData.casteCategory ? colors.text : colors.textSecondary }]}>
+              {formData.casteCategory || "Select Category"}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+          </TouchableOpacity>
         </View>
 
-        <View style={{ marginBottom: 16 }}>
+        <View style={{ marginBottom: 20 }}>
           <Text style={[styles.label, { color: colors.text }]}>Special Category</Text>
-          <View style={styles.chipGrid}>
-            {["Single Parent", "Orphan", "PwD", "Any category"].map((s) => {
-              const isSelected = formData.specialCategory.includes(s);
-              return (
-                <TouchableOpacity
-                  key={s}
-                  style={[
-                    styles.selectionChip,
-                    {
-                      backgroundColor: isSelected ? colors.primary : colors.surface,
-                      borderColor: isSelected ? colors.primary : colors.border
-                    }
-                  ]}
-                  onPress={() => {
-                    if (s === "Any category") {
-                      updateField("specialCategory", isSelected ? [] : ["Any category"]);
-                    } else {
-                      let next = formData.specialCategory.filter(i => i !== "Any category");
-                      isSelected ? next = next.filter(i => i !== s) : next.push(s);
-                      updateField("specialCategory", next);
-                    }
-                  }}
-                >
-                  <Text style={[styles.chipText, { color: isSelected ? "#fff" : colors.text }]}>{s}</Text>
-                </TouchableOpacity>
-              );
+          {errors.specialCategory && <Text style={[styles.errorTextSmall, { marginBottom: 8 }]}>{errors.specialCategory}</Text>}
+          <TouchableOpacity
+            style={[styles.dropdownTrigger, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={() => setSelectionModal({
+              show: true,
+              title: "Select Special Category",
+              options: ["Single Parent", "Orphan", "PwD", "Any category"],
+              field: "specialCategory"
             })}
-          </View>
+          >
+            <Text style={[styles.inputValue, { color: formData.specialCategory ? colors.text : colors.textSecondary }]}>
+              {formData.specialCategory || "Select Category"}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.inputGroup}>
@@ -1293,11 +1221,23 @@ export default function ProviderAddScholarshipScreen() {
             "Bank Account Details",
             "Disbursement Proof",
             "Caste Certificate",
-            "Special Category Proof",
-            "Other Documents",
           ].map((docCategory) => {
             const selectedDoc = formData.requiredDocuments.find(d => d.category === docCategory);
             const isSelected = !!selectedDoc;
+
+            const shortnameMap: Record<string, string> = {
+              "Identity Proof": "identity_proof",
+              "Address Proof": "address_proof",
+              "Income Certificate": "income_proof",
+              "Academic Marksheets": "academics_proof",
+              "Admission Proof / Fees Receipt": "fees_proof",
+              "Bank Account Details": "accounts_proof",
+              "Disbursement Proof": "disbursement_proof",
+              "Caste Certificate": "caste",
+            };
+
+            const apiOptions = getOptionsByShortname(shortnameMap[docCategory] || "").map(o => o.label);
+            const selectOptions = apiOptions.length > 0 ? apiOptions : (DOCUMENT_OPTIONS[docCategory] || ["Other"]);
 
             return (
               <View key={docCategory} style={{ marginBottom: 8 }}>
@@ -1361,7 +1301,7 @@ export default function ProviderAddScholarshipScreen() {
                       onPress={() => setSelectionModal({
                         show: true,
                         title: `Select Document Type for ${docCategory}`,
-                        options: DOCUMENT_OPTIONS[docCategory] || ["Other"],
+                        options: selectOptions,
                         field: "document_description",
                         stageId: docCategory // Using stageId to pass the category name
                       })}
