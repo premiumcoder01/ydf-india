@@ -82,14 +82,17 @@ function StudentCard({ item, isDark }: { item: any; isDark: boolean }) {
     const cf = parseCustomFields(item.custom_fields);
     const avatarColor = getAvatarColor(item.id);
     const initials = getInitials(item.firstname, item.lastname);
-    const lvl = levelStyle(item.academic_level);
+    const isAcademicEmpty = !item.academic_level && (!cf?.course || cf?.course === 'Select');
+    const academicLevel = isAcademicEmpty ? "Academic Details Pending" : (item.academic_level || cf?.course);
+    const lvl = isAcademicEmpty ? { bg: "#FFF7ED", text: "#EA580C" } : levelStyle(item.academic_level || cf?.course);
 
     const phone = formatPhone(item.phone1) || formatPhone(cf.phone_number) || null;
     const institution = item.institution || cf.college_name || cf.university || null;
-    const location = [item.city, cf.State || cf.district].filter(Boolean).join(", ") || null;
-    const income = cf.Family_income || null;
-    const gender = cf.Gender || null;
-    const caste = cf.Caste || null;
+    const cleanCity = item.city === "IN" ? "India" : item.city;
+    const location = [cleanCity, cf.State !== 'Select' ? cf.State : null, cf.district !== 'Select' ? cf.district : null].filter(Boolean).join(", ") || null;
+    const income = cf.Family_income && cf.Family_income !== 'Select' ? cf.Family_income : null;
+    const gender = cf.Gender && cf.Gender !== 'Select' ? cf.Gender : null;
+    const caste = cf.Caste && cf.Caste !== 'Select' ? cf.Caste : null;
     const appCount = item.applications_count ?? 0;
 
     const cardBg = isDark ? "#13131A" : "#FFFFFF";
@@ -140,9 +143,9 @@ function StudentCard({ item, isDark }: { item: any; isDark: boolean }) {
                             {item.email}
                         </Text>
                         <View style={styles.pillRow}>
-                            {item.academic_level ? (
-                                <View style={[styles.pill, { backgroundColor: lvl.bg }]}>
-                                    <Text style={[styles.pillText, { color: lvl.text }]}>{item.academic_level}</Text>
+                            {academicLevel ? (
+                                <View style={[styles.pill, { backgroundColor: lvl.bg }, isAcademicEmpty && { borderStyle: 'dashed', borderWidth: 1, borderColor: "#EA580C" }]}>
+                                    <Text style={[styles.pillText, { color: lvl.text }, isAcademicEmpty && { fontStyle: 'italic' }]}>{academicLevel}</Text>
                                 </View>
                             ) : null}
                             {gender ? (

@@ -163,8 +163,8 @@ export default function MobilizerProfileScreen() {
 
     const applStatusColor =
         applStatus === "Approved" ? "#10B981" :
-        applStatus === "Pending" ? "#F59E0B" :
-        applStatus === "Rejected" ? "#EF4444" : "#6B7280";
+            applStatus === "Pending" ? "#F59E0B" :
+                applStatus === "Rejected" ? "#EF4444" : "#6B7280";
 
     return (
         <View style={[styles.container, { backgroundColor: isDark ? "#0f0f0f" : "#f4f6fb" }]}>
@@ -322,31 +322,7 @@ export default function MobilizerProfileScreen() {
                         </View>
                     ) : null}
 
-                    {/* ── Quick Access ──────────────────────────────────────── */}
-                    <View style={styles.section}>
-                        <SectionTitle title="Quick Access" icon="flash-outline" />
-                        <View style={[styles.card, { backgroundColor: isDark ? colors.card : "#fff", borderColor: isDark ? colors.border : "#eee", padding: 0, overflow: "hidden" }]}>
-                            <ActionItem
-                                icon="people"
-                                label="My Students"
-                                color="#2196F3"
-                                onPress={() => router.push("/(dashboard)/mobilizer/mobilizer-students")}
-                            />
-                            <ActionItem
-                                icon="documents"
-                                label="Applications"
-                                color="#FF9800"
-                                onPress={() => router.push("/(dashboard)/mobilizer/mobilizer-applications")}
-                            />
-                            <ActionItem
-                                icon="school"
-                                label="Scholarships"
-                                color="#4CAF50"
-                                isLast
-                                onPress={() => router.push("/(dashboard)/mobilizer/mobilizer-scholarship-listing")}
-                            />
-                        </View>
-                    </View>
+
 
                     {/* ── Settings ──────────────────────────────────────────── */}
                     <View style={styles.section}>

@@ -97,6 +97,17 @@ function SectionCard({
     const bdr = isDark ? "#1E1E2E" : "#F1F5F9";
     const sub = isDark ? "#64748B" : "#94A3B8";
     const main = isDark ? "#F1F5F9" : "#0F172A";
+
+    // Format helper to replace "Select" values
+    const formatValue = (val: any) => {
+        if (!val) return "";
+        const s = String(val).toLowerCase().trim();
+        if (s === "select" || s === "choose..." || s === "select any one") {
+            return "Not Provided";
+        }
+        return val;
+    };
+
     return (
         <View style={[scStyles.card, { backgroundColor: bg, borderColor: bdr }]}>
             <View style={[scStyles.header, { borderBottomColor: bdr }]}>
@@ -105,28 +116,35 @@ function SectionCard({
                 </View>
                 <Text style={[scStyles.title, { color: main }]}>{title}</Text>
             </View>
-            {valid.map((row, i) => (
-                <TouchableOpacity
-                    key={i}
-                    onPress={row.action}
-                    disabled={!row.action}
-                    activeOpacity={0.7}
-                    style={[scStyles.row, i === valid.length - 1 && scStyles.lastRow, { borderBottomColor: bdr }]}
-                >
-                    <View style={[scStyles.rowIcon, { backgroundColor: isDark ? "#1C1C28" : "#F8FAFF" }]}>
-                        <Ionicons name={row.icon as any} size={15} color={sub} />
-                    </View>
-                    <View style={scStyles.rowText}>
-                        <Text style={[scStyles.rowLabel, { color: sub }]}>{row.label}</Text>
-                        <Text style={[scStyles.rowValue, { color: main }]}>{row.value}</Text>
-                    </View>
-                    {row.action && (
-                        <View style={[scStyles.actionPill, { backgroundColor: "#6366F118" }]}>
-                            <Ionicons name={(row.actionIcon || "chevron-forward") as any} size={13} color="#6366F1" />
+            {valid.map((row, i) => {
+                const formattedVal = formatValue(row.value);
+                const isPlaceholder = formattedVal === "Not Provided";
+
+                return (
+                    <TouchableOpacity
+                        key={i}
+                        onPress={row.action}
+                        disabled={!row.action}
+                        activeOpacity={0.7}
+                        style={[scStyles.row, i === valid.length - 1 && scStyles.lastRow, { borderBottomColor: bdr }]}
+                    >
+                        <View style={[scStyles.rowIcon, { backgroundColor: isDark ? "#1C1C28" : "#F8FAFF" }]}>
+                            <Ionicons name={row.icon as any} size={15} color={sub} />
                         </View>
-                    )}
-                </TouchableOpacity>
-            ))}
+                        <View style={scStyles.rowText}>
+                            <Text style={[scStyles.rowLabel, { color: sub }]}>{row.label}</Text>
+                            <Text style={[scStyles.rowValue, { color: isPlaceholder ? (isDark ? "#4B5563" : "#9CA3AF") : main, fontWeight: isPlaceholder ? '400' : '600', fontStyle: isPlaceholder ? 'italic' : 'normal' }]}>
+                                {formattedVal}
+                            </Text>
+                        </View>
+                        {row.action && (
+                            <View style={[scStyles.actionPill, { backgroundColor: "#6366F118" }]}>
+                                <Ionicons name={(row.actionIcon || "chevron-forward") as any} size={13} color="#6366F1" />
+                            </View>
+                        )}
+                    </TouchableOpacity>
+                );
+            })}
         </View>
     );
 }
@@ -418,23 +436,37 @@ export default function MobilizerStudentProfileScreen() {
                     <RecentApplications apps={student.recent_applications} isDark={isDark} />
 
                     {/* ── Bookmarked Scholarships ── */}
-                    <SectionCard
-                        icon="bookmark"
-                        iconColor="#6366F1"
-                        title="Bookmarked Scholarships"
-                        isDark={isDark}
-                        rows={[
-                            {
-                                label: "Bookmarked Scholarships",
-                                value: "View All",
-                                icon: "bookmark-outline",
-                                action: () => router.push({
-                                    pathname: "/(dashboard)/mobilizer/mobilizer-bookmarked-scholarships",
-                                    params: { studentId: student.id, studentName: student.fullname || `${student.firstname} ${student.lastname}` }
-                                })
-                            }
-                        ]}
-                    />
+                    <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() => router.push({
+                            pathname: "/(dashboard)/mobilizer/mobilizer-bookmarked-scholarships",
+                            params: { studentId: student.id, studentName: student.fullname || `${student.firstname} ${student.lastname}` }
+                        })}
+                        style={[scStyles.card, { backgroundColor: isDark ? "#13131A" : "#FFFFFF", borderColor: isDark ? "#1E1E2E" : "#F1F5F9", padding: 16 }]}
+                    >
+                        <LinearGradient
+                            colors={isDark ? ["rgba(99, 102, 241, 0.15)", "rgba(139, 92, 246, 0.05)"] : ["#EEF2FF", "#F5F3FF"]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={{ borderRadius: 16, padding: 16 }}
+                        >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                                <View style={{
+                                    width: 46, height: 46, borderRadius: 14, backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#FFFFFF",
+                                    justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1
+                                }}>
+                                    <Ionicons name="bookmark" size={22} color="#6366F1" />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={{ fontSize: 16, fontWeight: "800", color: isDark ? "#F1F5F9" : "#1E1B4B" }}>Saved Scholarships</Text>
+                                    <Text style={{ fontSize: 12, marginTop: 4, color: isDark ? "#94A3B8" : "#4338CA", fontWeight: "500" }}>Manage collected bookmarks</Text>
+                                </View>
+                                <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(99,102,241,0.1)", justifyContent: 'center', alignItems: 'center' }}>
+                                    <Ionicons name="chevron-forward-sharp" size={16} color="#6366F1" />
+                                </View>
+                            </View>
+                        </LinearGradient>
+                    </TouchableOpacity>
 
                     {/* ── Info sections ── */}
                     {sections?.map((s) => (

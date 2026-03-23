@@ -88,7 +88,7 @@ export default function MobilizerScholarshipDetailsScreen() {
     const { width } = Dimensions.get("window");
     const scholarshipId = params.scholarshipId ? Number(params.scholarshipId) : null;
     const studentId = params.studentId ? Number(params.studentId) : null;
-    console.log(studentId)
+
     const studentName = params.studentName as string | undefined;
     const [saved, setSaved] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -499,7 +499,6 @@ export default function MobilizerScholarshipDetailsScreen() {
                             </View>
 
                             <Text style={styles.heroTitle}>{scholarship.title}</Text>
-                            {scholarship.shortname && <Text style={styles.heroSubtitle}>{scholarship.shortname}</Text>}
 
                             {scholarship.scholarship_tags && scholarship.scholarship_tags.length > 0 && (
                                 <View style={[styles.tagList, { marginTop: 0, marginBottom: 12 }]}>
@@ -1194,17 +1193,27 @@ export default function MobilizerScholarshipDetailsScreen() {
                 borderTopColor: isDark ? "#333" : "#E5E7EB"
             }]}>
                 <TouchableOpacity
-                    style={[styles.fullWidthButton, { backgroundColor: getCategoryColor(scholarship.category || "General") }, (isApplicationClosed || scholarship.has_applied) && styles.disabledBtn]}
-                    disabled={isApplicationClosed || scholarship.has_applied}
+                    style={[
+                        styles.fullWidthButton,
+                        { backgroundColor: getCategoryColor(scholarship.category || "General") },
+                        (isApplicationClosed || scholarship.has_applied || scholarship.can_apply === false) && styles.disabledBtn
+                    ]}
+                    disabled={isApplicationClosed || scholarship.has_applied || scholarship.can_apply === false}
                     onPress={() => router.push({
                         pathname: "/(dashboard)/mobilizer/mobilizer-apply-form",
                         params: { scholarshipId: scholarship.id, studentId },
                     })}
                 >
                     <Text style={styles.fullWidthButtonText}>
-                        {scholarship.has_applied ? "Application Submitted" : scholarship.expired ? "Scholarship Expired" : "Apply Now"}
+                        {scholarship.has_applied
+                            ? "Application Submitted"
+                            : scholarship.expired
+                                ? "Scholarship Expired"
+                                : scholarship.can_apply === false
+                                    ? "Closed"
+                                    : "Apply Now"}
                     </Text>
-                    {!scholarship.has_applied && !scholarship.expired && <Ionicons name="arrow-forward" size={20} color="#FFF" />}
+                    {!scholarship.has_applied && !scholarship.expired && scholarship.can_apply !== false && <Ionicons name="arrow-forward" size={20} color="#FFF" />}
                 </TouchableOpacity>
             </View>
 

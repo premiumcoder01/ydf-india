@@ -1,4 +1,4 @@
-import { DashboardHeader, HelloWave, Toast } from "@/components";
+import { DashboardHeader, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
 import { getMobilizerDashboardStats, getMobilizerStudents, getMobilizerUpcomingDeadlines, getNotifications, getUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,14 +21,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const mobilizerFeatures = [
-  // {
-  //   id: 1,
-  //   title: "View Scholarships",
-  //   description: "Browse all available scholarships",
-  //   icon: "search-outline",
-  //   color: "#4CAF50",
-  //   route: "/(dashboard)/mobilizer/mobilizer-scholarship-listing"
-  // },
+
   {
     id: 2,
     title: "My Students",
@@ -45,14 +38,7 @@ const mobilizerFeatures = [
     color: "#FF9800",
     route: "/(dashboard)/mobilizer/mobilizer-applications"
   },
-  // {
-  //   id: 4,
-  //   title: "Bookmarked",
-  //   description: "View saved scholarships",
-  //   icon: "bookmark",
-  //   color: "#FFB400",
-  //   route: "/(dashboard)/mobilizer/mobilizer-bookmarked-scholarships"
-  // },
+
   {
     id: 5,
     title: "Add Student",
@@ -186,7 +172,7 @@ export default function StudentMobilizerDashboard() {
           if (Array.isArray(notifRes.data)) raw = notifRes.data;
           else if (Array.isArray(notifRes.data.data)) raw = notifRes.data.data;
           else if (Array.isArray(notifRes.data.notifications)) raw = notifRes.data.notifications;
-          
+
           setNotifications(raw);
           setUnreadCount(raw.filter((n: any) => !n.is_read).length);
         }
@@ -241,7 +227,7 @@ export default function StudentMobilizerDashboard() {
       />
 
       {/* Header Section */}
-      <DashboardHeader 
+      <DashboardHeader
         userName={studentName}
         profilePhotoUrl={profilePhotoUrl}
         unreadCount={unreadCount}
@@ -257,10 +243,10 @@ export default function StudentMobilizerDashboard() {
       >
 
         {/* Mobilizer Statistics */}
-        <MotiView 
-          from={{ opacity: 0, translateY: 15 }} 
-          animate={{ opacity: 1, translateY: 0 }} 
-          transition={{ type: 'timing', duration: 400 }} 
+        <MotiView
+          from={{ opacity: 0, translateY: 15 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 400 }}
           style={styles.statsContainer}
         >
           <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 16 }]}>Mobilizer Overview</Text>
@@ -337,10 +323,10 @@ export default function StudentMobilizerDashboard() {
         </MotiView>
 
         {/* Upcoming Deadlines */}
-        <MotiView 
-          from={{ opacity: 0, translateY: 15 }} 
-          animate={{ opacity: 1, translateY: 0 }} 
-          transition={{ type: 'timing', duration: 400, delay: 150 }} 
+        <MotiView
+          from={{ opacity: 0, translateY: 15 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 400, delay: 150 }}
           style={styles.sectionContainer}
         >
           <View style={styles.sectionHeaderRow}>
@@ -349,15 +335,15 @@ export default function StudentMobilizerDashboard() {
           <View style={[styles.cardList, { backgroundColor: isDark ? colors.card : '#fff', borderColor: isDark ? 'rgba(255,255,255,0.04)' : '#eee', overflow: 'hidden', elevation: 2 }]}>
             {upcomingDeadlines.map((item, index) => {
               const daysLeft = item.days_remaining;
-              let badgeColor = "#10B981"; 
-              let badgeText = "rgba(16, 185, 129, 0.1)"; 
+              let badgeColor = "#10B981";
+              let badgeText = "rgba(16, 185, 129, 0.1)";
 
               if (daysLeft <= 7) {
-                badgeColor = "#EF4444"; 
-                badgeText = "rgba(239, 68, 68, 0.1)"; 
+                badgeColor = "#EF4444";
+                badgeText = "rgba(239, 68, 68, 0.1)";
               } else if (daysLeft <= 30) {
-                badgeColor = "#FF9800"; 
-                badgeText = "rgba(255, 152, 0, 0.1)"; 
+                badgeColor = "#FF9800";
+                badgeText = "rgba(255, 152, 0, 0.1)";
               }
 
               return (
@@ -428,7 +414,8 @@ export default function StudentMobilizerDashboard() {
                   else if (typeof student.custom_fields === 'object') customFields = student.custom_fields;
                 } catch (e) { }
 
-                const academic = student.academic_level || customFields?.course || "N/A";
+                const isAcademicEmpty = !student.academic_level && (!customFields?.course || customFields?.course === 'Select');
+                const academic = isAcademicEmpty ? "Academic Details Pending" : (student.academic_level || customFields?.course);
 
                 return (
                   <TouchableOpacity
@@ -437,39 +424,45 @@ export default function StudentMobilizerDashboard() {
                       styles.studentHorizontalCard,
                       {
                         backgroundColor: colors.card,
-                        borderColor: colors.border,
+                        borderColor: isDark ? 'rgba(255,255,255,0.06)' : '#f0f0f0',
+                        shadowColor: isDark ? "#000" : colors.primary,
+                        shadowOpacity: isDark ? 0.3 : 0.08,
+                        shadowRadius: 12,
+                        elevation: 4,
+                        padding: 14,
+                        marginBottom: 4,
                       }
                     ]}
                     onPress={() => handleStudentPress(student)}
-                    activeOpacity={0.8}
+                    activeOpacity={0.85}
                   >
-                    <View style={[styles.studentCardAvatar, { backgroundColor: avatarColor + "20" }]}>
+                    <View style={[styles.studentCardAvatar, { backgroundColor: avatarColor + "15", borderWidth: 2, borderColor: avatarColor + "40" }]}>
                       {student.picture && !student.picture.includes("gravatar.com/avatar/default") ? (
                         <Image source={{ uri: student.picture }} style={styles.studentAvatarImg} />
                       ) : (
-                        <Text style={[styles.studentInitials, { color: avatarColor }]}>{initials}</Text>
+                        <Text style={[styles.studentInitials, { color: avatarColor, fontWeight: '800' }]}>{initials}</Text>
                       )}
                     </View>
 
                     <View style={styles.studentCardInfo}>
-                      <Text style={[styles.studentCardName, { color: colors.text }]} numberOfLines={1}>
+                      <Text style={[styles.studentCardName, { color: colors.text, fontWeight: '800', fontSize: 16 }]} numberOfLines={1}>
                         {displayName}
                       </Text>
                       <View style={styles.studentCardDetailRow}>
-                        <Ionicons name="school-outline" size={12} color={colors.textSecondary} />
-                        <Text style={[styles.studentCardDetail, { color: colors.textSecondary }]} numberOfLines={1}>
+                        <Ionicons name="school-outline" size={13} color={isAcademicEmpty ? "#FF9800" : colors.textSecondary} />
+                        <Text style={[styles.studentCardDetail, { color: isAcademicEmpty ? "#FF9800" : colors.textSecondary }, isAcademicEmpty && { fontStyle: 'italic', fontSize: 11.5 }]} numberOfLines={1}>
                           {academic}
                         </Text>
                       </View>
                       <View style={styles.studentCardDetailRow}>
-                        <Ionicons name="location-outline" size={12} color={colors.textSecondary} />
+                        <Ionicons name="location-outline" size={13} color={colors.textSecondary} />
                         <Text style={[styles.studentCardDetail, { color: colors.textSecondary }]} numberOfLines={1}>
-                          {student.city || "India"}
+                          {student.city && student.city !== 'IN' ? student.city : "India"}
                         </Text>
                       </View>
                     </View>
 
-                    <View style={[styles.studentCardAction, { backgroundColor: colors.primary + "15" }]}>
+                    <View style={[styles.studentCardAction, { backgroundColor: colors.primary + "12", width: 34, height: 34, borderRadius: 12 }]}>
                       <Ionicons name="chevron-forward" size={18} color={colors.primary} />
                     </View>
                   </TouchableOpacity>
@@ -502,19 +495,19 @@ export default function StudentMobilizerDashboard() {
         </View>
 
         {/* Application Progress Tracker */}
-        <MotiView 
-          from={{ opacity: 0, translateY: 15 }} 
-          animate={{ opacity: 1, translateY: 0 }} 
-          transition={{ type: 'timing', duration: 400, delay: 300 }} 
+        <MotiView
+          from={{ opacity: 0, translateY: 15 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 400, delay: 300 }}
           style={styles.sectionContainer}
         >
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Application Progress</Text>
           <View style={[styles.progressBar, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(51,51,51,0.05)", height: 10, borderRadius: 5, overflow: 'hidden' }]}>
             <View
               style={[
-                styles.progressFill, 
-                { 
-                  width: `${progress.ratio}%`, 
+                styles.progressFill,
+                {
+                  width: `${progress.ratio}%`,
                   backgroundColor: colors.primary,
                   shadowColor: colors.primary,
                   shadowOffset: { width: 0, height: 0 },
@@ -529,10 +522,10 @@ export default function StudentMobilizerDashboard() {
         </MotiView>
 
         {/* Quick Actions Grid */}
-        <MotiView 
-          from={{ opacity: 0, translateY: 15 }} 
-          animate={{ opacity: 1, translateY: 0 }} 
-          transition={{ type: 'timing', duration: 400, delay: 450 }} 
+        <MotiView
+          from={{ opacity: 0, translateY: 15 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 400, delay: 450 }}
           style={styles.featuresContainer}
         >
           <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 16 }]}>Operational Hub</Text>

@@ -261,6 +261,8 @@ export default function StudentRecommendedScholarshipsScreen() {
               item={item}
               isDark={isDark}
               cardBg={cardBg}
+              studentId={studentId}
+              studentName={studentName}
               onPress={() =>
                 router.push({
                   pathname: "/(dashboard)/mobilizer/mobilizer-scholarship-details",
@@ -286,135 +288,125 @@ export default function StudentRecommendedScholarshipsScreen() {
 }
 
 // ─── Scholarship Card ─────────────────────────────────────────────────────────
-function ScholarshipCard({ item, isDark, cardBg, onPress, onBookmark }: any) {
-  const summaryText = item.summary ? stripHtml(item.summary) : "";
+function ScholarshipCard({ item, isDark, cardBg, onPress, onBookmark, studentId }: any) {
   const catStyle = getCategoryStyle(item.category);
-  const accentColor = item.has_applied ? "#10B981" : catStyle.dot;
+  const categoryColor = catStyle.dot || "#1E40AF";
 
-  const deadlineFormatted = item.deadline
-    ? new Date(item.deadline).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
-    : null;
+  const isBookmarked = item.bookmarked;
+  const isExpired = item.expired;
+  const hasApplied = item.has_applied;
+  const deadline = item.end_date || item.deadline;
+
+  let statusConfig = { text: "Open", color: "#10B981", bg: "rgba(16, 185, 129, 0.1)" };
+  if (isExpired) statusConfig = { text: "Expired", color: "#EF4444", bg: "rgba(239, 68, 68, 0.1)" };
+  else if (hasApplied) statusConfig = { text: "Applied", color: "#3B82F6", bg: "rgba(59, 130, 246, 0.1)" };
+  else if (item.can_apply === false) statusConfig = { text: "Closed", color: "#F59E0B", bg: "rgba(245, 158, 11, 0.1)" };
+
+  const { colors } = useTheme();
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.92}
-      onPress={onPress}
+    <View
       style={[
-        styles.card,
+        styles.cardContainer,
         {
           backgroundColor: cardBg,
-          borderColor: isDark ? "#1E1E2E" : "#F1F5F9",
-          shadowColor: isDark ? "#000" : "#6366F1",
+          borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB",
+          borderLeftWidth: 4,
+          borderLeftColor: isExpired ? "#9CA3AF" : categoryColor,
         },
       ]}
     >
-      {/* Top accent strip */}
-      <View style={[styles.cardAccent, { backgroundColor: accentColor }]} />
-
-      <View style={styles.cardBody}>
-        {/* Row: category + bookmark */}
-        <View style={styles.cardTopRow}>
-          {item.category ? (
-            <View style={[styles.catPill, { backgroundColor: catStyle.bg }]}>
-              <View style={[styles.catDot, { backgroundColor: catStyle.dot }]} />
-              <Text style={[styles.catText, { color: catStyle.text }]} numberOfLines={1}>
-                {item.category}
-              </Text>
-            </View>
-          ) : (
-            <View />
-          )}
-
-          <TouchableOpacity
-            onPress={(e) => { e?.stopPropagation?.(); onBookmark(); }}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            style={[styles.bookmarkBtn, { backgroundColor: item.bookmarked ? "#6366F115" : "transparent" }]}
-          >
-            <Ionicons
-              name={item.bookmarked ? "bookmark" : "bookmark-outline"}
-              size={20}
-              color={item.bookmarked ? "#6366F1" : (isDark ? "#475569" : "#CBD5E1")}
-            />
-          </TouchableOpacity>
+      <View style={styles.cardHeader}>
+        <View style={[styles.cardPill, { backgroundColor: isExpired ? "#F3F4F6" : `${categoryColor}15` }]}>
+          <Ionicons name="location-sharp" size={10} color={isExpired ? "#6B7280" : categoryColor} />
+          <Text style={[styles.cardPillText, { color: isExpired ? "#6B7280" : categoryColor }]}>
+            {item.category || "General"}
+          </Text>
         </View>
+        <View style={[styles.cardPill, { backgroundColor: statusConfig.bg }]}>
+          <Text style={[styles.cardPillText, { color: statusConfig.color, fontWeight: "700" }]}>{statusConfig.text}</Text>
+        </View>
+      </View>
 
-        {/* Title */}
-        <Text style={[styles.cardTitle, { color: isDark ? "#F1F5F9" : "#0F172A" }]} numberOfLines={2}>
-          {item.name || item.scholarship_name}
+      <View style={styles.cardContent}>
+        <Text style={[styles.cardTitle, { color: isExpired ? colors.textSecondary : colors.text }]} numberOfLines={2}>
+          {item.name || item.scholarship_name || item.title}
         </Text>
+      </View>
 
-        {/* Provider */}
-        {item.provider ? (
-          <View style={styles.providerRow}>
-            <Ionicons name="business-outline" size={13} color={isDark ? "#475569" : "#94A3B8"} />
-            <Text style={[styles.providerText, { color: isDark ? "#64748B" : "#94A3B8" }]} numberOfLines={1}>
-              {item.provider}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 15, paddingHorizontal: 16, marginBottom: 16 }}>
+        <View>
+          <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>Opens</Text>
+          <Text style={[styles.dateValue, { color: colors.text }]}>
+            {item.start_date ? new Date(item.start_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "TBA"}
+          </Text>
+        </View>
+        <View style={[styles.verticalSep, { backgroundColor: isDark ? "rgba(255,255,255,0.2)" : "#E5E7EB" }]} />
+        <View>
+          <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>Closes</Text>
+          <Text style={[styles.dateValue, { color: colors.text }]}>
+            {deadline ? new Date(deadline).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "No Deadline"}
+          </Text>
+        </View>
+      </View>
+
+      {(item.progress_percent > 0 || item.progress_percentage > 0) && (
+        <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6, alignItems: "center" }}>
+            <Text style={{ fontSize: 11, fontWeight: "600", color: colors.textSecondary, textTransform: "uppercase" }}>Application Progress</Text>
+            <Text style={{ fontSize: 12, fontWeight: "700", color: (item.progress_percent === 100 || item.progress_percentage === 100) ? "#10B981" : categoryColor }}>
+              {item.progress_percent || item.progress_percentage}%
             </Text>
           </View>
-        ) : null}
+          <View style={{ height: 6, backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "#F3F4F6", borderRadius: 3, overflow: "hidden" }}>
+            <View
+              style={{
+                height: "100%",
+                width: `${Math.min(item.progress_percent || item.progress_percentage, 100)}%`,
+                backgroundColor: (item.progress_percent === 100 || item.progress_percentage === 100) ? "#10B981" : categoryColor,
+                borderRadius: 3,
+              }}
+            />
+          </View>
+        </View>
+      )}
 
-        {/* Summary */}
-        {summaryText ? (
-          <Text style={[styles.cardSummary, { color: isDark ? "#64748B" : "#64748B" }]} numberOfLines={3}>
-            {summaryText}
-          </Text>
-        ) : null}
+      <View style={[styles.cardDivider, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "#F3F4F6", marginBottom: 12 }]} />
 
-        {/* Progress bar (if > 0) */}
-        {item.progress_percentage > 0 && (
-          <View style={styles.progressWrap}>
-            <View style={[styles.progressTrack, { backgroundColor: isDark ? "#1E293B" : "#F1F5F9" }]}>
-              <View
-                style={[
-                  styles.progressFill,
-                  { width: `${Math.min(item.progress_percentage, 100)}%`, backgroundColor: accentColor },
-                ]}
-              />
-            </View>
-            <Text style={[styles.progressText, { color: isDark ? "#475569" : "#94A3B8" }]}>
-              {item.progress_percentage}% complete
+      <View style={styles.cardActionsRow}>
+        <TouchableOpacity
+          onPress={onPress}
+          style={[styles.viewBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#F9FAFB", borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB" }]}
+        >
+          <Ionicons name="eye-outline" size={16} color={colors.text} />
+          <Text style={[styles.viewBtnText, { color: colors.text }]}>Details</Text>
+        </TouchableOpacity>
+
+        {!isExpired && !hasApplied && item.can_apply !== false ? (
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: "/(dashboard)/mobilizer/mobilizer-apply-form", params: { scholarshipId: item.id || item.scholarship_id, studentId: studentId } })}
+            style={[styles.applyBtn, { backgroundColor: categoryColor }]}
+          >
+            <Text style={[styles.applyBtnText, { color: "#FFF" }]}>Apply Now</Text>
+            <Ionicons name="arrow-forward" size={16} color="#FFF" />
+          </TouchableOpacity>
+        ) : (
+          <View style={[styles.applyBtn, hasApplied
+            ? { backgroundColor: isDark ? "rgba(16,185,129,0.2)" : "#DCFCE7", borderWidth: 1, borderColor: isDark ? "#065F46" : "#86EFAC" }
+            : { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#F3F4F6", opacity: 0.8 }
+          ]}>
+            <Text style={[styles.applyBtnText, { color: hasApplied ? (isDark ? "#34D399" : "#166534") : colors.textSecondary }]}>
+              {hasApplied ? "Applied" : (isExpired ? "Expired" : "Closed")}
             </Text>
+            <Ionicons name={hasApplied ? "checkmark-circle" : (isExpired ? "calendar" : "lock-closed")} size={16} color={hasApplied ? (isDark ? "#34D399" : "#166534") : colors.textSecondary} />
           </View>
         )}
 
-        {/* Divider */}
-        <View style={[styles.divider, { backgroundColor: isDark ? "#1E1E2E" : "#F1F5F9" }]} />
-
-        {/* Footer */}
-        <View style={styles.cardFooter}>
-          <View style={styles.footerLeft}>
-            {item.has_applied ? (
-              <View style={styles.statusPill}>
-                <Ionicons name="checkmark-circle" size={14} color="#10B981" />
-                <Text style={[styles.statusText, { color: "#10B981" }]}>Applied</Text>
-              </View>
-            ) : item.expired ? (
-              <View style={[styles.statusPill, { backgroundColor: "#FEE2E2" }]}>
-                <Ionicons name="time-outline" size={14} color="#EF4444" />
-                <Text style={[styles.statusText, { color: "#EF4444" }]}>Expired</Text>
-              </View>
-            ) : deadlineFormatted ? (
-              <View style={styles.deadlinePill}>
-                <Ionicons name="calendar-outline" size={13} color={isDark ? "#475569" : "#94A3B8"} />
-                <Text style={[styles.deadlineText, { color: isDark ? "#64748B" : "#94A3B8" }]}>
-                  Due {deadlineFormatted}
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.deadlinePill}>
-                <Ionicons name="infinite-outline" size={14} color={isDark ? "#475569" : "#94A3B8"} />
-                <Text style={[styles.deadlineText, { color: isDark ? "#64748B" : "#94A3B8" }]}>Always open</Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.detailsBtn}>
-            <Text style={styles.detailsBtnText}>View</Text>
-            <Ionicons name="arrow-forward" size={13} color="#6366F1" />
-          </View>
-        </View>
+        <TouchableOpacity activeOpacity={0.7} onPress={(e) => { e?.stopPropagation?.(); onBookmark(); }} style={styles.bookmarkIconBtn}>
+          <Ionicons name={isBookmarked ? "bookmark" : "bookmark-outline"} size={22} color={isBookmarked ? "#F59E0B" : colors.textSecondary} />
+        </TouchableOpacity>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 }
 
@@ -487,51 +479,32 @@ const styles = StyleSheet.create({
   loaderText: { fontSize: 14, fontWeight: "500" },
 
   // Card
-  card: {
-    borderRadius: 20, marginBottom: 14,
-    borderWidth: 1, overflow: "hidden",
+  cardContainer: {
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 20,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.07, shadowRadius: 16, elevation: 4,
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+    overflow: "hidden",
   },
-  cardAccent: { height: 4 },
-  cardBody: { padding: 16 },
-  cardTopRow: {
-    flexDirection: "row", alignItems: "center",
-    justifyContent: "space-between", marginBottom: 10,
-  },
-  catPill: {
-    flexDirection: "row", alignItems: "center", gap: 5,
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100,
-    maxWidth: 160,
-  },
-  catDot: { width: 6, height: 6, borderRadius: 3 },
-  catText: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.4 },
-  bookmarkBtn: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  cardTitle: { fontSize: 17, fontWeight: "800", lineHeight: 23, marginBottom: 5, letterSpacing: -0.2 },
-  providerRow: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 10 },
-  providerText: { fontSize: 12, fontWeight: "500", flex: 1 },
-  cardSummary: { fontSize: 13, lineHeight: 19, marginBottom: 12, fontWeight: "400" },
-  progressWrap: { marginBottom: 12, gap: 5 },
-  progressTrack: { height: 5, borderRadius: 3, overflow: "hidden" },
-  progressFill: { height: 5, borderRadius: 3 },
-  progressText: { fontSize: 11, fontWeight: "500", textAlign: "right" },
-  divider: { height: 1, marginBottom: 12 },
-  cardFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  footerLeft: { flex: 1 },
-  statusPill: {
-    flexDirection: "row", alignItems: "center", gap: 5,
-    backgroundColor: "#D1FAE515", paddingHorizontal: 10, paddingVertical: 5,
-    borderRadius: 8, alignSelf: "flex-start",
-  },
-  statusText: { fontSize: 12, fontWeight: "700" },
-  deadlinePill: { flexDirection: "row", alignItems: "center", gap: 5 },
-  deadlineText: { fontSize: 12, fontWeight: "500" },
-  detailsBtn: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    paddingHorizontal: 14, paddingVertical: 8,
-    backgroundColor: "#6366F112", borderRadius: 10,
-  },
-  detailsBtnText: { color: "#6366F1", fontSize: 13, fontWeight: "700" },
+  cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16 },
+  cardPill: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, gap: 6 },
+  cardPillText: { fontSize: 12, fontWeight: "600" },
+  cardContent: { paddingHorizontal: 16, paddingBottom: 16, gap: 4 },
+  cardTitle: { fontSize: 18, fontWeight: "800", lineHeight: 26 },
+  cardDivider: { height: 1, width: "100%" },
+  dateLabel: { fontSize: 11, fontWeight: "600", textTransform: "uppercase", marginBottom: 2, opacity: 0.7 },
+  dateValue: { fontSize: 13, fontWeight: "700" },
+  verticalSep: { width: 1, height: 24 },
+  bookmarkIconBtn: { width: 44, height: 48, justifyContent: "center", alignItems: "center" },
+  cardActionsRow: { flexDirection: "row", gap: 12, paddingHorizontal: 16, paddingBottom: 16 },
+  viewBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 14, borderRadius: 14, borderWidth: 1 },
+  viewBtnText: { fontWeight: "700", fontSize: 14 },
+  applyBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 14, borderRadius: 14 },
+  applyBtnText: { fontWeight: "700", fontSize: 14 },
 
   // Empty
   empty: {

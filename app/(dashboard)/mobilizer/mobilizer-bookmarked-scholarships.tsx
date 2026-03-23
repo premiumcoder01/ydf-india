@@ -294,6 +294,8 @@ export default function MobilizerBookmarkedScholarshipsScreen() {
                 statusConfig = { text: "Expired", color: "#EF4444", bg: "rgba(239, 68, 68, 0.1)" };
             } else if (hasApplied) {
                 statusConfig = { text: "Applied", color: "#3B82F6", bg: "rgba(59, 130, 246, 0.1)" };
+            } else if (item.can_apply === false) {
+                statusConfig = { text: "Closed", color: "#6B7280", bg: "rgba(107, 114, 128, 0.1)" };
             }
 
             return (
@@ -361,7 +363,7 @@ export default function MobilizerBookmarkedScholarshipsScreen() {
                     </View>
 
                     {/* Application Progress Bar */}
-                    {(item.progress_percent !== undefined) && (
+                    {(item.progress_percent !== undefined && item.progress_percent > 0) && (
                         <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6, alignItems: 'center' }}>
                                 <Text style={{ fontSize: 11, fontWeight: '600', color: colors.textSecondary, textTransform: 'uppercase' }}>Application Progress</Text>
@@ -400,7 +402,7 @@ export default function MobilizerBookmarkedScholarshipsScreen() {
                             <Text style={[styles.viewBtnText, { color: colors.text }]}>Details</Text>
                         </TouchableOpacity>
 
-                        {!isExpired && !hasApplied ? (
+                        {!isExpired && !hasApplied && item.can_apply !== false ? (
                             <TouchableOpacity
                                 onPress={() => {
                                     if (studentId) {
@@ -431,10 +433,10 @@ export default function MobilizerBookmarkedScholarshipsScreen() {
                                 ]}
                             >
                                 <Text style={[styles.applyBtnText, { color: hasApplied ? (isDark ? "#34D399" : "#166534") : colors.textSecondary }]}>
-                                    {hasApplied ? "Applied" : "Closed"}
+                                    {hasApplied ? "Applied" : (isExpired ? "Expired" : "Closed")}
                                 </Text>
                                 <Ionicons
-                                    name={hasApplied ? "checkmark-circle" : "lock-closed"}
+                                    name={hasApplied ? "checkmark-circle" : (isExpired ? "calendar-outline" : "lock-closed")}
                                     size={16}
                                     color={hasApplied ? (isDark ? "#34D399" : "#166534") : colors.textSecondary}
                                 />
