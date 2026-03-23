@@ -2001,6 +2001,9 @@ export const updateUserProfile = async (
     addCustomField('Registering_as', profileData.registeringAs);
     addCustomField('schemename', profileData.schemeName);
     addCustomField('12th_passing_year', profileData.passingYear12th);
+    addCustomField('application_type', profileData.application_type);
+    addCustomField('competitive_exam', profileData.competitive_exam);
+    addCustomField('competitive_exam_name', profileData.competitive_exam_name);
 
     // Add phone as custom field as well based on example
     addCustomField('phone_number', profileData.phone); // API response showed phone_number as well
@@ -5483,5 +5486,55 @@ export const getMobilizerScholarships = async (
       error: error.message || "Network error. Please check your connection.",
       message: "Failed to connect to server",
     };
+  }
+};
+
+// ==========================================
+// Type Definitions for Dropdown Data
+// ==========================================
+
+export interface Option {
+    value: string;
+    label: string;
+}
+
+export interface DropdownField {
+    shortname: string;
+    name: string;
+    options: Option[];
+}
+
+export interface DropdownData {
+    course_fields: DropdownField[];
+    user_fields: DropdownField[];
+}
+
+export const getDropdownDefinitions = async (token: string): Promise<ApiResponse<DropdownData>> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_get_dropdown_definitions");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+
+    const response = await fetch(urlObj.toString(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      return { success: false, error: responseText || "Invalid response", message: "Invalid response from server" };
+    }
+
+    if (data.success && data.data) {
+      return { success: true, data: data.data, message: "Dropdowns retrieved" };
+    }
+    return { success: false, error: data.message || "Failed to fetch dropdowns", message: "Failed to fetch dropdown definitions" };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Network error", message: "Failed to connect to server" };
   }
 };

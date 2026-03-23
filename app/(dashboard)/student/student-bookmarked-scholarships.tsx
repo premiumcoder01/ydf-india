@@ -245,8 +245,7 @@ export default function BookmarkedScholarshipsScreen() {
       const isBookmarked = item.bookmarked !== false;
       const isExpired = item.expired;
       const hasApplied = item.has_applied;
-      const deadline = item.end_date || item.start_date;
-      const shortDescription = item.shortname || "";
+      const deadline = item.end_date;
 
       // Status Configuration
       let statusConfig = { text: "Open", color: "#10B981", bg: "rgba(16, 185, 129, 0.1)" };
@@ -254,6 +253,8 @@ export default function BookmarkedScholarshipsScreen() {
         statusConfig = { text: "Expired", color: "#EF4444", bg: "rgba(239, 68, 68, 0.1)" };
       } else if (hasApplied) {
         statusConfig = { text: "Applied", color: "#3B82F6", bg: "rgba(59, 130, 246, 0.1)" };
+      } else if (item.can_apply === false) {
+        statusConfig = { text: "Closed", color: "#F59E0B", bg: "rgba(245, 158, 11, 0.1)" };
       }
 
       return (
@@ -289,17 +290,13 @@ export default function BookmarkedScholarshipsScreen() {
             <Text style={[styles.cardTitle, { color: isExpired ? colors.textSecondary : colors.text }]} numberOfLines={2}>
               {item.title}
             </Text>
-            {shortDescription ? (
-              <Text style={[styles.cardSubtitle, { color: colors.textSecondary, marginTop: 4 }]} numberOfLines={1}>
-                {shortDescription}
-              </Text>
-            ) : null}
+
 
             {item.bookmarked_at && (
               <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 4 }}>
                 <Ionicons name="time-outline" size={12} color={colors.textSecondary} />
                 <Text style={{ fontSize: 11, color: colors.textSecondary }}>
-                  Saved on {new Date(item.bookmarked_at).toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' })}
+                  Saved on {new Date(item.bookmarked_at).toLocaleDateString("en-GB", { day: 'numeric', month: 'long', year: 'numeric' })}
                 </Text>
               </View>
             )}
@@ -310,7 +307,7 @@ export default function BookmarkedScholarshipsScreen() {
             <View>
               <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>Opens</Text>
               <Text style={[styles.dateValue, { color: colors.text }]}>
-                {item.start_date ? new Date(item.start_date).toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' }) : "TBA"}
+                {item.start_date ? new Date(item.start_date).toLocaleDateString("en-GB", { day: 'numeric', month: 'long', year: 'numeric' }) : "TBA"}
               </Text>
             </View>
 
@@ -319,13 +316,13 @@ export default function BookmarkedScholarshipsScreen() {
             <View>
               <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>Closes</Text>
               <Text style={[styles.dateValue, { color: colors.text }]}>
-                {deadline ? new Date(deadline).toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' }) : "No Deadline"}
+                {deadline ? new Date(deadline).toLocaleDateString("en-GB", { day: 'numeric', month: 'long', year: 'numeric' }) : "No Deadline"}
               </Text>
             </View>
           </View>
 
           {/* Application Progress Bar */}
-          {(item.progress_percent !== undefined) && (
+          {(item.progress_percent !== undefined && item?.progress_percent > 0) && (
             <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6, alignItems: 'center' }}>
                 <Text style={{ fontSize: 11, fontWeight: '600', color: colors.textSecondary, textTransform: 'uppercase' }}>Application Progress</Text>
@@ -364,7 +361,7 @@ export default function BookmarkedScholarshipsScreen() {
               <Text style={[styles.viewBtnText, { color: colors.text }]}>Details</Text>
             </TouchableOpacity>
 
-            {!isExpired && !hasApplied ? (
+            {!isExpired && !hasApplied && item.can_apply !== false ? (
               <TouchableOpacity
                 onPress={() =>
                   router.push({

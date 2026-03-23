@@ -53,6 +53,22 @@ const studentFeatures = [
   },
 ];
 
+const formatDateToIntuitive = (dateStr?: string | null) => {
+  if (!dateStr || dateStr === "No Deadline") return "No Deadline";
+  try {
+    const parts = dateStr.split(' ')[0].split('-');
+    if (parts.length === 3) {
+      const [year, month, day] = parts;
+      const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const monthIdx = parseInt(month) - 1;
+      if (monthIdx >= 0 && monthIdx < 12) {
+        return `${parseInt(day)} ${months[monthIdx]} ${year}`;
+      }
+    }
+    return dateStr;
+  } catch { return dateStr; }
+};
+
 
 
 
@@ -158,6 +174,7 @@ export default function StudentDashboardScreen() {
       category: string;
       deadline: string | null;
       start_date: string | null;
+      end_date: string | null;
       image: string;
       amount: string;
       bookmarked: boolean;
@@ -261,7 +278,7 @@ export default function StudentDashboardScreen() {
         if (Array.isArray(notifRes.data)) raw = notifRes.data;
         else if (Array.isArray(notifRes.data.data)) raw = notifRes.data.data;
         else if (Array.isArray(notifRes.data.notifications)) raw = notifRes.data.notifications;
-        
+
         const count = raw.filter((n: any) => !n.is_read).length;
         setUnreadCount(count);
       }
@@ -281,7 +298,7 @@ export default function StudentDashboardScreen() {
           id: String(item.scholarship_id),
           title: item.scholarship_title,
           category: item.category || "General",
-          deadline: item.deadline || item.end_date,
+          deadline: formatDateToIntuitive(item.deadline || item.end_date),
           daysRemaining: item.days_remaining,
           progress_percent: item.progress_percent || 0,
           start_date: item.start_date,
@@ -293,20 +310,23 @@ export default function StudentDashboardScreen() {
       }
 
       if (recRes.success && Array.isArray(recRes.data)) {
-        const recs = recRes.data.map((item: any) => ({
-          id: String(item.id),
-          title: item.title || item.name || "Scholarship",
-          category: item.category || "General",
-          deadline: item.end_date || null,
-          start_date: item.start_date || null,
-          image: item.image || "",
-          amount: item.amount || "",
-          bookmarked: item.bookmarked || false,
-          expired: item.expired || false,
-          has_applied: item.has_applied || false,
-          description: item.description || "",
-          progress_percent: item.progress_percent || 0
-        }));
+        const recs = recRes.data
+          .filter((item: any) => !item.expired)
+          .map((item: any) => ({
+            id: String(item.id),
+            title: item.title || item.name || "Scholarship",
+            category: item.category || "General",
+            deadline: formatDateToIntuitive(item.end_date),
+            start_date: item.start_date || null,
+            image: item.image || "",
+            amount: item.amount || "",
+            bookmarked: item.bookmarked || false,
+            expired: item.expired || false,
+            has_applied: item.has_applied || false,
+            description: item.description || "",
+            progress_percent: item.progress_percent || 0,
+            end_date: item.end_date || null
+          }));
         setRecommendedScholarships(recs);
         const bMap: Record<number, boolean> = {};
         recs.forEach((s: any) => { bMap[Number(s.id)] = s.bookmarked; });
@@ -418,10 +438,10 @@ export default function StudentDashboardScreen() {
 
 
         {/* Application Status Overview */}
-        <MotiView 
-          from={{ opacity: 0, translateY: 15 }} 
-          animate={{ opacity: 1, translateY: 0 }} 
-          transition={{ type: 'timing', duration: 400 }} 
+        <MotiView
+          from={{ opacity: 0, translateY: 15 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 400 }}
           style={styles.statsContainer}
         >
           <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 16 }]}>Application Analytics</Text>
@@ -435,7 +455,7 @@ export default function StudentDashboardScreen() {
               </View>
               <Text style={{ fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.9)', textTransform: 'uppercase', letterSpacing: 0.3 }}>Applied</Text>
             </LinearGradient>
-            
+
             <LinearGradient colors={['#10B981', '#059669']} style={{ flex: 1, borderRadius: 24, padding: 18, elevation: 2 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
@@ -446,7 +466,7 @@ export default function StudentDashboardScreen() {
               <Text style={{ fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.9)', textTransform: 'uppercase', letterSpacing: 0.3 }}>Approved</Text>
             </LinearGradient>
           </View>
-          
+
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <LinearGradient colors={['#FF9800', '#F57C00']} style={{ flex: 1, borderRadius: 24, padding: 18, elevation: 2 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -457,7 +477,7 @@ export default function StudentDashboardScreen() {
               </View>
               <Text style={{ fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.9)', textTransform: 'uppercase', letterSpacing: 0.3 }}>Pending</Text>
             </LinearGradient>
-            
+
             <LinearGradient colors={['#EF4444', '#B91C1C']} style={{ flex: 1, borderRadius: 24, padding: 18, elevation: 2 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
@@ -471,10 +491,10 @@ export default function StudentDashboardScreen() {
         </MotiView>
 
         {/* Pending Applications Section */}
-        <MotiView 
-          from={{ opacity: 0, translateY: 15 }} 
-          animate={{ opacity: 1, translateY: 0 }} 
-          transition={{ type: 'timing', duration: 400, delay: 150 }} 
+        <MotiView
+          from={{ opacity: 0, translateY: 15 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 400, delay: 150 }}
           style={styles.sectionContainer}
         >
           <View style={styles.sectionHeaderRow}>
@@ -501,10 +521,10 @@ export default function StudentDashboardScreen() {
                 key={item.id}
                 activeOpacity={0.85}
                 onPress={() =>
-                   router.push({
-                     pathname: "/(dashboard)/student/student-scholarship-details",
-                     params: { scholarshipId: item.scholarshipId }
-                   })
+                  router.push({
+                    pathname: "/(dashboard)/student/student-scholarship-details",
+                    params: { scholarshipId: item.scholarshipId }
+                  })
                 }
               >
                 <View style={[
@@ -554,7 +574,7 @@ export default function StudentDashboardScreen() {
                 <View style={[styles.pendingEmptyIcon, { backgroundColor: '#673AB715' }]}>
                   <Ionicons name="document-text-outline" size={28} color="#673AB7" />
                 </View>
-                <Text style={[{ fontSize: 15, fontWeight: '600', color: colors.text, marginTop: 12 }]}>No Applications Founded</Text>
+                <Text style={[{ fontSize: 15, fontWeight: '600', color: colors.text, marginTop: 12 }]}>No Applications Found</Text>
                 <Text style={[{ fontSize: 13, color: colors.textSecondary, marginTop: 4, textAlign: 'center' }]}>Apply for scholarships to track them here</Text>
               </View>
             )}
@@ -576,10 +596,10 @@ export default function StudentDashboardScreen() {
         </MotiView>
 
         {/* Upcoming Deadlines */}
-        <MotiView 
-          from={{ opacity: 0, translateY: 15 }} 
-          animate={{ opacity: 1, translateY: 0 }} 
-          transition={{ type: 'timing', duration: 400, delay: 300 }} 
+        <MotiView
+          from={{ opacity: 0, translateY: 15 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 400, delay: 300 }}
           style={styles.sectionContainer}
         >
           <View style={styles.sectionHeaderRow}>
@@ -646,7 +666,7 @@ export default function StudentDashboardScreen() {
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                           <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
                           <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: '500' }}>
-                            {new Date(item.deadline).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                            {item.deadline}
                           </Text>
                         </View>
 
@@ -685,17 +705,17 @@ export default function StudentDashboardScreen() {
 
 
         {/* Recommended Scholarships */}
-        <MotiView 
-          from={{ opacity: 0, translateY: 15 }} 
-          animate={{ opacity: 1, translateY: 0 }} 
-          transition={{ type: 'timing', duration: 400, delay: 450 }} 
+        <MotiView
+          from={{ opacity: 0, translateY: 15 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 400, delay: 450 }}
           style={styles.sectionContainer}
         >
           <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 16 }]}>Recommended Opportunities</Text>
           <View style={styles.cardGrid}>
             {recommendedScholarships.map((s) => {
               const categoryColor = getCategoryColor(s.category);
-              const daysInfo = getDaysRemaining(s.deadline, s.expired);
+              const daysInfo = getDaysRemaining(s.end_date, s.expired);
 
               const isExpired = s.expired;
 
@@ -820,10 +840,10 @@ export default function StudentDashboardScreen() {
         </MotiView>
 
         {/* Application Progress Tracker */}
-        <MotiView 
-          from={{ opacity: 0, translateY: 15 }} 
-          animate={{ opacity: 1, translateY: 0 }} 
-          transition={{ type: 'timing', duration: 400, delay: 500 }} 
+        <MotiView
+          from={{ opacity: 0, translateY: 15 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 400, delay: 500 }}
           style={styles.sectionContainer}
         >
           <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 16 }]}>Analytics Overview</Text>
@@ -849,30 +869,30 @@ export default function StudentDashboardScreen() {
               )}
             </View>
 
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 }}>
+            {/* <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 }}>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: "#10B981" }]} />
-                <Text style={[styles.legendText, { color: colors.text, fontWeight: '600', fontSize: 12 }]}>{applicationProgress.approved} Apprvd</Text>
+                <Text style={[styles.legendText, { color: colors.text, fontWeight: '600', fontSize: 12 }]}>{applicationProgress.approved} Approved</Text>
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: "#FF9800" }]} />
-                <Text style={[styles.legendText, { color: colors.text, fontWeight: '600', fontSize: 12 }]}>{applicationProgress.pending} Pendng</Text>
+                <Text style={[styles.legendText, { color: colors.text, fontWeight: '600', fontSize: 12 }]}>{applicationProgress.pending} Pending</Text>
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: "#EF4444" }]} />
-                <Text style={[styles.legendText, { color: colors.text, fontWeight: '600', fontSize: 12 }]}>{applicationProgress.rejected} Rejctd</Text>
+                <Text style={[styles.legendText, { color: colors.text, fontWeight: '600', fontSize: 12 }]}>{applicationProgress.rejected} Rejected</Text>
               </View>
-            </View>
+            </View> */}
           </View>
         </MotiView>
 
 
 
         {/* Quick Actions Grid */}
-        <MotiView 
-          from={{ opacity: 0, translateY: 15 }} 
-          animate={{ opacity: 1, translateY: 0 }} 
-          transition={{ type: 'timing', duration: 400, delay: 600 }} 
+        <MotiView
+          from={{ opacity: 0, translateY: 15 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 400, delay: 600 }}
           style={styles.featuresContainer}
         >
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Operational Hub</Text>

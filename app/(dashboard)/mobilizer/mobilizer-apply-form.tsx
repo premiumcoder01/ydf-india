@@ -1,9 +1,8 @@
 import { AppHeader, Button, CustomTextInput } from "@/components";
 import Toast from "@/components/Toast";
 import { useTheme } from "@/context/ThemeContext";
-import { useDropdowns } from "@/context/DropdownContext";
 
-import { getMobilizerStudentProfile, getScholarshipDetails, mobilizerApplyForStudent } from "@/utils/api";
+import { getMobilizerStudentProfile, getScholarshipDetails, mobilizerApplyForStudent, getDropdownDefinitions, DropdownData } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -75,7 +74,18 @@ const FIELDS_BY_STEP: Record<string, (keyof FormValues)[]> = {
 
 export default function MobilizerApplyFormScreen() {
     const { isDark, colors } = useTheme();
-    const { getOptionsByShortname } = useDropdowns();
+    const [dropdownData, setDropdownData] = useState<DropdownData | null>(null);
+
+    const getOptionsByShortname = useCallback((shortname: string) => {
+        if (!dropdownData) return [];
+        const courseField = dropdownData.course_fields?.find((f: any) => f.shortname === shortname || f.shortname.trim() === shortname.trim());
+        if (courseField) return courseField.options;
+
+        const userField = dropdownData.user_fields?.find((f: any) => f.shortname === shortname || f.shortname.trim() === shortname.trim());
+        if (userField) return userField.options;
+
+        return [];
+    }, [dropdownData]);
     const insets = useSafeAreaInsets();
 
     const [stepIndex, setStepIndex] = useState(0);
@@ -219,6 +229,11 @@ export default function MobilizerApplyFormScreen() {
                             } else {
                                 Alert.alert("Error", "Failed to load student details");
                             }
+                        }
+                        // Fetch Dropdowns
+                        const dropdownResponse = await getDropdownDefinitions(authData.token);
+                        if (dropdownResponse.success && dropdownResponse.data) {
+                            setDropdownData(dropdownResponse.data);
                         }
                     }
                 }
@@ -543,7 +558,7 @@ export default function MobilizerApplyFormScreen() {
                                         setOptionPickerState({
                                             visible: true,
                                             title: "Family Annual Income",
-                                            options: getOptionsByShortname('Family_income').map(o => o.label),
+                                            options: getOptionsByShortname('Family_income').map((o: any) => o.label),
                                             onSelect: (val) => onChange(val)
                                         });
                                     }}>

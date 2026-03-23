@@ -6,15 +6,25 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState } from "react";
-import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface ValidationErrors {
   [key: string]: string;
 }
 
 export default function StudentProfileSettingsScreen() {
-  const { theme, toggleTheme, isDark, colors } = useTheme();
-  // Removed unused settings state
+  const { toggleTheme, isDark, colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const [passwordData, setPasswordData] = useState({
     oldPassword: "",
@@ -119,105 +129,131 @@ export default function StudentProfileSettingsScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={isDark ? ["#121212", "#1e1e1e"] : ["#fff", "#f8f9fa"]}
+        colors={isDark ? ["#121212", "#121212", "#1e1e1e"] : ["#fff", "#fff", "#f2c44d"]}
         style={styles.background}
+        locations={[0, 0.3, 1]}
       />
 
       <AppHeader title="Settings" onBack={() => router.back()} />
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
       >
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-          Appearance
-        </Text>
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <TouchableOpacity
-            style={styles.settingRow}
-            onPress={toggleTheme}
-            activeOpacity={0.7}
-          >
-            <View style={styles.settingLeft}>
-              <View style={[styles.iconBox, { backgroundColor: isDark ? "#2c2c2c" : "#f0f2f5" }]}>
-                <Ionicons name={isDark ? "moon" : "sunny"} size={22} color={colors.primary} />
-              </View>
-              <View style={styles.settingTexts}>
-                <Text style={[styles.settingLabel, { color: colors.text }]}>Dark Mode</Text>
-                <Text style={[styles.settingSubLabel, { color: colors.textSecondary }]}>
-                  {isDark ? "On" : "Off"}
-                </Text>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 40 }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Appearance Section */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleRow}>
+                <View style={[styles.sectionIconBadge, { backgroundColor: "#8B5CF6" }]}>
+                  <Ionicons name="color-palette" size={15} color="#fff" />
+                </View>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Appearance</Text>
               </View>
             </View>
-            <View pointerEvents="none">
-              <Switch
-                value={isDark}
-                onValueChange={toggleTheme}
-                trackColor={{ false: "#767577", true: colors.primary }}
-                ios_backgroundColor="#3e3e3e"
-              />
+            <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: "#8B5CF6", borderLeftWidth: 4 }]}>
+              <TouchableOpacity
+                style={styles.settingRow}
+                onPress={toggleTheme}
+                activeOpacity={0.7}
+              >
+                <View style={styles.settingLeft}>
+                  <View style={[styles.iconBox, { backgroundColor: isDark ? "rgba(139, 92, 246, 0.15)" : "rgba(139, 92, 246, 0.1)" }]}>
+                    <Ionicons name={isDark ? "moon" : "sunny"} size={22} color="#8B5CF6" />
+                  </View>
+                  <View style={styles.settingTexts}>
+                    <Text style={[styles.settingLabel, { color: colors.text }]}>Dark Mode</Text>
+                    <Text style={[styles.settingSubLabel, { color: colors.textSecondary }]}>
+                      {isDark ? "Enable light theme" : "Enable dark theme"}
+                    </Text>
+                  </View>
+                </View>
+                <View pointerEvents="none">
+                  <Switch
+                    value={isDark}
+                    onValueChange={toggleTheme}
+                    trackColor={{ false: "#767577", true: "#8B5CF6" }}
+                    ios_backgroundColor="#3e3e3e"
+                  />
+                </View>
+              </TouchableOpacity>
             </View>
-          </TouchableOpacity>
-        </View>
-
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-          Security
-        </Text>
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.inputDetails}>
-            <CustomTextInput
-              label="Current Password"
-              value={passwordData.oldPassword}
-              onChangeText={(val) =>
-                setPasswordData((prev) => ({ ...prev, oldPassword: val }))
-              }
-              secureTextEntry
-              showPasswordToggle
-              error={validationErrors.oldPassword}
-              placeholder="Enter current password"
-            />
-            <CustomTextInput
-              label="New Password"
-              value={passwordData.newPassword}
-              onChangeText={(val) =>
-                setPasswordData((prev) => ({ ...prev, newPassword: val }))
-              }
-              secureTextEntry
-              showPasswordToggle
-              error={validationErrors.newPassword}
-              placeholder="Min 8 chars, 1 uppercase, 1 number"
-            />
-            <CustomTextInput
-              label="Confirm New Password"
-              value={passwordData.confirmPassword}
-              onChangeText={(val) =>
-                setPasswordData((prev) => ({
-                  ...prev,
-                  confirmPassword: val,
-                }))
-              }
-              secureTextEntry
-              showPasswordToggle
-              error={validationErrors.confirmPassword}
-              placeholder="Re-enter new password"
-            />
           </View>
 
-          <Button
-            title={isSaving ? "Updating..." : "Update Password"}
-            onPress={handleChangePassword}
-            variant="primary"
-            style={styles.saveButton}
-            disabled={
-              isSaving ||
-              !passwordData.oldPassword ||
-              !passwordData.newPassword ||
-              !passwordData.confirmPassword
-            }
-          />
-        </View>
-      </ScrollView>
+          {/* Security Section */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleRow}>
+                <View style={[styles.sectionIconBadge, { backgroundColor: "#EF4444" }]}>
+                  <Ionicons name="lock-closed" size={15} color="#fff" />
+                </View>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Security</Text>
+              </View>
+            </View>
+            <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: "#EF4444", borderLeftWidth: 4 }]}>
+              <View style={styles.inputDetails}>
+                <CustomTextInput
+                  label="Current Password"
+                  value={passwordData.oldPassword}
+                  onChangeText={(val) =>
+                    setPasswordData((prev) => ({ ...prev, oldPassword: val }))
+                  }
+                  secureTextEntry
+                  showPasswordToggle
+                  error={validationErrors.oldPassword}
+                  placeholder="Enter current password"
+                  icon="key-outline"
+                />
+                <CustomTextInput
+                  label="New Password"
+                  value={passwordData.newPassword}
+                  onChangeText={(val) =>
+                    setPasswordData((prev) => ({ ...prev, newPassword: val }))
+                  }
+                  secureTextEntry
+                  showPasswordToggle
+                  error={validationErrors.newPassword}
+                  placeholder="Min 8 chars, 1 uppercase, 1 number"
+                  icon="lock-closed-outline"
+                />
+                <CustomTextInput
+                  label="Confirm New Password"
+                  value={passwordData.confirmPassword}
+                  onChangeText={(val) =>
+                    setPasswordData((prev) => ({
+                      ...prev,
+                      confirmPassword: val,
+                    }))
+                  }
+                  secureTextEntry
+                  showPasswordToggle
+                  error={validationErrors.confirmPassword}
+                  placeholder="Re-enter new password"
+                  icon="checkmark-done-outline"
+                />
+              </View>
+
+              <Button
+                title={isSaving ? "Updating password..." : "Update Password"}
+                onPress={handleChangePassword}
+                variant="primary"
+                style={styles.saveButton}
+                disabled={
+                  isSaving ||
+                  !passwordData.oldPassword ||
+                  !passwordData.newPassword ||
+                  !passwordData.confirmPassword
+                }
+              />
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <Toast
         message={toastMessage}
@@ -235,7 +271,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   background: {
-    ...StyleSheet.absoluteFillObject,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    bottom: 0,
+    right: 0,
   },
   scrollView: {
     flex: 1,
@@ -243,26 +283,43 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 20,
     paddingTop: 10,
-    paddingBottom: 40,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  sectionIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "700",
-    marginBottom: 16,
-    letterSpacing: 0.5,
-    marginTop: 10,
-    textTransform: "uppercase",
+    letterSpacing: 0.3,
   },
-  card: {
+  formCard: {
     borderRadius: 20,
     padding: 20,
-    marginBottom: 24,
     borderWidth: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
   settingRow: {
     flexDirection: "row",
@@ -276,9 +333,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   iconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -288,18 +345,17 @@ const styles = StyleSheet.create({
   settingLabel: {
     fontSize: 16,
     fontWeight: "600",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   settingSubLabel: {
-    fontSize: 13,
+    fontSize: 12,
   },
   inputDetails: {
-    gap: 16,
+    gap: 12,
   },
   saveButton: {
-    marginTop: 24,
-    height: 50,
-    borderRadius: 14,
+    marginTop: 20,
+    borderRadius: 12,
   },
 });
 

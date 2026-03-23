@@ -290,7 +290,7 @@ export default function ScholarshipDetailsScreen() {
 
   const deadline = scholarship ? (scholarship.application_deadline || scholarship.end_date || scholarship.start_date) : null;
   // Simplify application closed logic: rely on API 'expired' flag primarily
-  const isApplicationClosed = scholarship?.expired === true;
+  const isApplicationClosed = scholarship?.expired === true || scholarship?.can_apply === false;
   // True when the student has NOT yet applied — all module activities are locked
   const isNotApplied = scholarship?.application_status === 'not_applied' || !scholarship?.has_applied;
 
@@ -391,6 +391,7 @@ export default function ScholarshipDetailsScreen() {
     const s = status?.toLowerCase();
     if (s === 'approved' || s === 'applied' || s === 'success') return "#10B981";
     if (s === 'rejected' || s === 'expired') return "#EF4444";
+    if (s === 'closed') return "#F59E0B";
     if (s === 'pending' || s === 'processing') return "#F59E0B";
     return "#6366F1";
   };
@@ -482,8 +483,8 @@ export default function ScholarshipDetailsScreen() {
                 </View>
 
                 <View style={[styles.statusPill, { backgroundColor: 'rgba(255,255,255,0.95)' }]}>
-                  <Text style={[styles.statusPillText, { color: getStatusColor(scholarship.application_status || (scholarship.has_applied ? "applied" : "open")) }]}>
-                    {scholarship.application_status ? scholarship.application_status.replace(/_/g, ' ').toUpperCase() : (scholarship.has_applied ? "APPLIED" : scholarship.expired ? "EXPIRED" : "OPEN")}
+                  <Text style={[styles.statusPillText, { color: getStatusColor(scholarship.application_status || (scholarship.has_applied ? "applied" : (scholarship.expired ? "expired" : (scholarship.can_apply === false ? "closed" : "open")))) }]}>
+                    {scholarship.application_status ? scholarship.application_status.replace(/_/g, ' ').toUpperCase() : (scholarship.has_applied ? "APPLIED" : scholarship.expired ? "EXPIRED" : (scholarship.can_apply === false ? "CLOSED" : "OPEN"))}
                   </Text>
                 </View>
               </View>
@@ -509,7 +510,7 @@ export default function ScholarshipDetailsScreen() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <Ionicons name="calendar-outline" size={16} color="rgba(255,255,255,0.9)" />
                     <Text style={styles.deadlineValue}>
-                      {deadline ? new Date(deadline).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "No Deadline"}
+                      {deadline ? new Date(deadline).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "No Deadline"}
                     </Text>
                   </View>
                 </View>
@@ -574,14 +575,14 @@ export default function ScholarshipDetailsScreen() {
             <Ionicons name="calendar" size={20} color={colors.primary} />
             <Text style={[styles.gridLabel, { color: colors.text }]}>Start Date</Text>
             <Text style={[styles.gridValue, { color: colors.text }]}>
-              {scholarship.start_date ? new Date(scholarship.start_date).toLocaleDateString() : "N/A"}
+              {scholarship.start_date ? new Date(scholarship.start_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "N/A"}
             </Text>
           </View>
           <View style={[styles.gridItem, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
             <Ionicons name="hourglass" size={20} color="#F59E0B" />
             <Text style={[styles.gridLabel, { color: colors.text }]}>End Date</Text>
             <Text style={[styles.gridValue, { color: colors.text }]}>
-              {scholarship.end_date ? new Date(scholarship.end_date).toLocaleDateString() : (scholarship.application_deadline ? new Date(scholarship.application_deadline).toLocaleDateString() : "No Deadline")}
+              {scholarship.end_date ? new Date(scholarship.end_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : (scholarship.application_deadline ? new Date(scholarship.application_deadline).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "No Deadline")}
             </Text>
           </View>
         </View>
@@ -778,7 +779,7 @@ export default function ScholarshipDetailsScreen() {
                                       </View>
                                       {activity.document?.due_date && (
                                         <Text style={[styles.activitySubtext, { color: colors.textSecondary }]}>
-                                          Due: {new Date(activity.document.due_date).toLocaleDateString()}
+                                          Due: {new Date(activity.document.due_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
                                         </Text>
                                       )}
                                     </View>
@@ -832,7 +833,7 @@ export default function ScholarshipDetailsScreen() {
                                             )}
                                             {file.uploaded_at && (
                                               <Text style={[styles.fileMeta, { color: colors.textSecondary }]}>
-                                                · {new Date(file.uploaded_at).toLocaleDateString()}
+                                                · {new Date(file.uploaded_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
                                               </Text>
                                             )}
                                           </View>
@@ -881,7 +882,7 @@ export default function ScholarshipDetailsScreen() {
                                       </View>
                                       {activity.document?.due_date && (
                                         <Text style={[styles.activitySubtext, { color: colors.textSecondary }]}>
-                                          Due: {new Date(activity.document.due_date).toLocaleDateString()}
+                                          Due: {new Date(activity.document.due_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
                                         </Text>
                                       )}
                                     </View>
@@ -1192,9 +1193,9 @@ export default function ScholarshipDetailsScreen() {
           })}
         >
           <Text style={styles.fullWidthButtonText}>
-            {scholarship.has_applied ? "Application Submitted" : scholarship.expired ? "Scholarship Expired" : "Apply Now"}
+            {scholarship.has_applied ? "Application Submitted" : scholarship.expired ? "Scholarship Expired" : (scholarship.can_apply === false ? "Scholarship Closed" : "Apply Now")}
           </Text>
-          {!scholarship.has_applied && !scholarship.expired && <Ionicons name="arrow-forward" size={20} color="#FFF" />}
+          {!scholarship.has_applied && !scholarship.expired && scholarship.can_apply !== false && <Ionicons name="arrow-forward" size={20} color="#FFF" />}
         </TouchableOpacity>
       </View>
 

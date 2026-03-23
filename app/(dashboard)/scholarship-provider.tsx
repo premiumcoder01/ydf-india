@@ -1,4 +1,4 @@
-import { DashboardHeader, HelloWave } from "@/components";
+import { DashboardHeader } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
 import { getDonorDashboardStats, getDonorRecentScholarships, getDonorScholarshipProgress, getNotifications, getUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
@@ -10,7 +10,6 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   BackHandler,
-  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -196,7 +195,7 @@ export default function ScholarshipProviderDashboard() {
         if (Array.isArray(response.data)) raw = response.data;
         else if (Array.isArray(response.data.data)) raw = response.data.data;
         else if (Array.isArray(response.data.notifications)) raw = response.data.notifications;
-        
+
         const count = raw.filter((n: any) => !n.is_read).length;
         setUnreadCount(count);
       }
@@ -318,7 +317,7 @@ export default function ScholarshipProviderDashboard() {
       />
 
       {/* Welcome Header - Sticky */}
-      <DashboardHeader 
+      <DashboardHeader
         userName={providerName}
         profilePhotoUrl={profilePhotoUrl}
         unreadCount={unreadCount}
@@ -578,14 +577,14 @@ export default function ScholarshipProviderDashboard() {
           </View>
           <View style={[styles.cardList, { backgroundColor: isDark ? colors.card : "#fff", borderColor: isDark ? "rgba(255,255,255,0.05)" : '#eee', padding: 8 }]}>
             {recentScholarships.slice(0, 5).map((scholarship) => (
-              <TouchableOpacity 
-                key={scholarship.id} 
-                style={[styles.listItem, { 
-                  backgroundColor: isDark ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.01)', 
+              <TouchableOpacity
+                key={scholarship.id}
+                style={[styles.listItem, {
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.01)',
                   borderRadius: 16, marginBottom: 8, padding: 14,
                   borderBottomWidth: 0,
-                }]} 
-                activeOpacity={0.8} 
+                }]}
+                activeOpacity={0.8}
                 onPress={() => router.push({ pathname: "/(dashboard)/provider/my-scheme-details", params: { id: scholarship.id } })}
               >
                 <LinearGradient
@@ -606,7 +605,7 @@ export default function ScholarshipProviderDashboard() {
             ))}
             {recentScholarships.length === 0 && (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>No recent programs founded</Text>
+                <Text style={styles.emptyText}>No recent programs found</Text>
               </View>
             )}
           </View>

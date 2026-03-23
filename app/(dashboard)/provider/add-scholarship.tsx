@@ -1,13 +1,12 @@
 import { Button, CustomTextInput, ReviewerHeader } from "@/components";
-import { useDropdowns } from "@/context/DropdownContext";
 import { useTheme } from "@/context/ThemeContext";
-import { createScholarship, uploadProfileImage } from "@/utils/api";
+import { createScholarship, uploadProfileImage, getDropdownDefinitions, DropdownData } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import { AnimatePresence, MotiView } from "moti";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Dimensions,
@@ -101,7 +100,19 @@ const STEPS = ["Basic Details", "Eligibility", "Documents"];
 
 export default function ProviderAddScholarshipScreen() {
   const { id } = useLocalSearchParams();
-  const { getOptionsByShortname } = useDropdowns();
+  const [dropdownData, setDropdownData] = useState<DropdownData | null>(null);
+
+  const getOptionsByShortname = useCallback((shortname: string) => {
+    if (!dropdownData) return [];
+    const courseField = dropdownData.course_fields?.find((f: any) => f.shortname === shortname || f.shortname.trim() === shortname.trim());
+    if (courseField) return courseField.options;
+
+    const userField = dropdownData.user_fields?.find((f: any) => f.shortname === shortname || f.shortname.trim() === shortname.trim());
+    if (userField) return userField.options;
+
+    return [];
+  }, [dropdownData]);
+
   const isEditMode = !!id;
   const insets = useSafeAreaInsets();
   const { isDark, colors } = useTheme();
@@ -149,6 +160,24 @@ export default function ProviderAddScholarshipScreen() {
     minScore: "",
     requiredDocuments: [],
   });
+
+  useEffect(() => {
+    const fetchDropdowns = async () => {
+      try {
+        const authDataStr = await AsyncStorage.getItem("authData");
+        if (authDataStr) {
+          const authData = JSON.parse(authDataStr);
+          if (authData.token) {
+            const response = await getDropdownDefinitions(authData.token);
+            if (response.success && response.data) setDropdownData(response.data);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch dropdowns:", e);
+      }
+    };
+    fetchDropdowns();
+  }, []);
 
   useEffect(() => {
     if (isEditMode && id) {
@@ -877,7 +906,7 @@ export default function ProviderAddScholarshipScreen() {
             onPress={() => setSelectionModal({
               show: true,
               title: "Fund Distribution",
-              options: ["Student's account", "Institute's account", "Not set"],
+              options: getOptionsByShortname('payment_distribution').map((o: any) => o.label),
               field: "payment_distribution"
             })}
           >
@@ -1005,7 +1034,7 @@ export default function ProviderAddScholarshipScreen() {
             onPress={() => setSelectionModal({
               show: true,
               title: "Select Special Category",
-              options: ["Single Parent", "Orphan", "PwD", "Any category"],
+              options: [...getOptionsByShortname('category').map((o: any) => o.label).filter((l: any) => l !== 'None of these'), "Any category"],
               field: "specialCategory"
             })}
           >

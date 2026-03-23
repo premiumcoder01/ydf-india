@@ -286,8 +286,7 @@ export default function MobilizerBookmarkedScholarshipsScreen() {
             const isBookmarked = item.bookmarked !== false;
             const isExpired = item.expired;
             const hasApplied = item.has_applied;
-            const deadline = item.end_date || item.start_date;
-            const shortDescription = item.shortname || "";
+            const deadline = item.end_date;
 
             // Status Configuration
             let statusConfig = { text: "Open", color: "#10B981", bg: "rgba(16, 185, 129, 0.1)" };
@@ -330,11 +329,7 @@ export default function MobilizerBookmarkedScholarshipsScreen() {
                         <Text style={[styles.cardTitle, { color: isExpired ? colors.textSecondary : colors.text }]} numberOfLines={2}>
                             {item.title}
                         </Text>
-                        {shortDescription ? (
-                            <Text style={[styles.cardSubtitle, { color: colors.textSecondary, marginTop: 4 }]} numberOfLines={1}>
-                                {shortDescription}
-                            </Text>
-                        ) : null}
+
 
                         {item.bookmarked_at && (
                             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 4 }}>

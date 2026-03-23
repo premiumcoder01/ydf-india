@@ -38,6 +38,9 @@ export const getDaysRemaining = (deadline: string | null, isExpired: boolean = f
 
   const today = new Date();
   const deadlineDate = new Date(deadline);
+  
+  if (isNaN(deadlineDate.getTime())) return { text: deadline, color: "#666" };
+
   const diffTime = deadlineDate.getTime() - today.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 

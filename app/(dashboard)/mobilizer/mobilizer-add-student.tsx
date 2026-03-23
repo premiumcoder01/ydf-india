@@ -1,15 +1,14 @@
 import { AppHeader, Button, CustomTextInput, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { useDropdowns } from "@/context/DropdownContext";
 
-import { addMobilizerStudent, uploadProfileImage } from "@/utils/api";
+import { addMobilizerStudent, uploadProfileImage, getDropdownDefinitions, DropdownData } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
     ActivityIndicator,
@@ -108,13 +107,24 @@ const YEAR_OPTIONS = ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year"
 
 export default function MobilizerAddStudentScreen() {
     const { isDark, colors } = useTheme();
-    const { getOptionsByShortname } = useDropdowns();
+    const [dropdownData, setDropdownData] = useState<DropdownData | null>(null);
+
+    const getOptionsByShortname = useCallback((shortname: string) => {
+        if (!dropdownData) return [];
+        const courseField = dropdownData.course_fields?.find((f: any) => f.shortname === shortname || f.shortname.trim() === shortname.trim());
+        if (courseField) return courseField.options;
+
+        const userField = dropdownData.user_fields?.find((f: any) => f.shortname === shortname || f.shortname.trim() === shortname.trim());
+        if (userField) return userField.options;
+
+        return [];
+    }, [dropdownData]);
     const insets = useSafeAreaInsets();
 
-    const GENDER_OPTIONS = getOptionsByShortname('Gender').map(o => o.label);
-    const RELIGION_OPTIONS = getOptionsByShortname('Religion').map(o => o.label);
-    const CASTE_OPTIONS = getOptionsByShortname('Caste').map(o => o.label);
-    const ANNUAL_INCOME_OPTIONS = getOptionsByShortname('Family_income').map(o => o.label);
+    const GENDER_OPTIONS = getOptionsByShortname('Gender').map((o: any) => o.label);
+    const RELIGION_OPTIONS = getOptionsByShortname('Religion').map((o: any) => o.label);
+    const CASTE_OPTIONS = getOptionsByShortname('Caste').map((o: any) => o.label);
+    const ANNUAL_INCOME_OPTIONS = getOptionsByShortname('Family_income').map((o: any) => o.label);
 
     const [loading, setLoading] = useState(false);
 
@@ -178,6 +188,27 @@ export default function MobilizerAddStudentScreen() {
             family_annual_income: "",
         },
     });
+
+    const fetchDropdowns = useCallback(async () => {
+        try {
+            const authDataStr = await AsyncStorage.getItem("authData");
+            if (authDataStr) {
+                const authData = JSON.parse(authDataStr);
+                if (authData.token) {
+                    const response = await getDropdownDefinitions(authData.token);
+                    if (response.success && response.data) {
+                        setDropdownData(response.data);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error("Failed to fetch dropdowns:", error);
+        }
+    }, []);
+
+    React.useEffect(() => {
+        fetchDropdowns();
+    }, [fetchDropdowns]);
 
     const openPicker = (field: keyof FormValues, title: string, options: string[]) => {
         setPickerConfig({ visible: true, title, options, field });

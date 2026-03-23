@@ -1,7 +1,6 @@
 import { AppHeader, Button, CustomTextInput, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { useDropdowns } from "@/context/DropdownContext";
-import { getUserProfile, updateUserProfile, uploadProfileImage } from "@/utils/api";
+import { DropdownData, getDropdownDefinitions, getUserProfile, updateUserProfile, uploadProfileImage } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -36,15 +35,33 @@ interface ValidationErrors {
 
 export default function ProviderEditProfileScreen() {
     const { isDark, colors } = useTheme();
-    const { getOptionsByShortname } = useDropdowns();
+    const [dropdownData, setDropdownData] = useState<DropdownData | null>(null);
+
+    const getOptionsByShortname = useCallback((shortname: string) => {
+        if (!dropdownData) return [];
+
+        // Search in course_fields
+        const courseField = dropdownData.course_fields?.find(
+            (field: any) => field.shortname === shortname || field.shortname.trim() === shortname.trim()
+        );
+        if (courseField) return courseField.options;
+
+        // Search in user_fields
+        const userField = dropdownData.user_fields?.find(
+            (field: any) => field.shortname === shortname || field.shortname.trim() === shortname.trim()
+        );
+        if (userField) return userField.options;
+
+        return [];
+    }, [dropdownData]);
     const insets = useSafeAreaInsets();
 
     const RELIGION_OPTIONS = getOptionsByShortname('Religion').map(o => o.label);
     const CASTE_OPTIONS = getOptionsByShortname('Caste').map(o => o.label);
     const GENDER_OPTIONS = getOptionsByShortname('Gender').map(o => o.label);
     const SPECIAL_CATEGORY_OPTIONS = getOptionsByShortname('category').map(o => o.label);
-    const DOMICILE_STATE_OPTIONS = getOptionsByShortname('State').map(o => o.label);
     const DISTRICT_OPTIONS = getOptionsByShortname('district').map(o => o.label);
+    const DOMICILE_STATE_OPTIONS = getOptionsByShortname('State').map(o => o.label);
     const ANNUAL_INCOME_OPTIONS = getOptionsByShortname('Family_income').map(o => o.label);
     const SCHEME_OPTIONS = getOptionsByShortname('schemename').map(o => o.label);
     const REGISTERING_AS_OPTIONS = getOptionsByShortname('Registering_as').map(o => o.label);
@@ -55,6 +72,9 @@ export default function ProviderEditProfileScreen() {
     const APPLICATION_YEAR_OPTIONS = getOptionsByShortname('applicationyear').map(o => o.label);
     const SESSION_OPTIONS = getOptionsByShortname('session').map(o => o.label);
     const PASSING_10TH_OPTIONS = getOptionsByShortname('passing_10th').map(o => o.label);
+    const APPLICATION_TYPE_OPTIONS = getOptionsByShortname('application_type').map(o => o.label);
+    const COMPETITIVE_EXAM_OPTIONS = getOptionsByShortname('competitive_exam').map(o => o.label);
+    const COMPETITIVE_EXAM_NAME_OPTIONS = getOptionsByShortname('competitive_exam_name').map(o => o.label);
 
     const [personalInfo, setPersonalInfo] = useState({
         // General / Personal
@@ -94,6 +114,9 @@ export default function ProviderEditProfileScreen() {
         currentCourse: "",
         percentage10: "",
         marks12: "",
+        application_type: "",
+        competitive_exam: "",
+        competitive_exam_name: "",
     });
 
     const [isSaving, setIsSaving] = useState(false);
@@ -127,6 +150,9 @@ export default function ProviderEditProfileScreen() {
     const [showDistrictPicker, setShowDistrictPicker] = useState(false);
     const [showSessionPicker, setShowSessionPicker] = useState(false);
     const [showPassing10thPicker, setShowPassing10thPicker] = useState(false);
+    const [showApplicationTypePicker, setShowApplicationTypePicker] = useState(false);
+    const [showCompetitiveExamPicker, setShowCompetitiveExamPicker] = useState(false);
+    const [showCompetitiveExamNamePicker, setShowCompetitiveExamNamePicker] = useState(false);
 
 
 
@@ -203,6 +229,9 @@ export default function ProviderEditProfileScreen() {
                                 const val = user.customfields?.find((f: any) => f.shortname.toLowerCase() === '12th_marks')?.value || "";
                                 return val.replace(/<[^>]*>/g, '').trim();
                             })() || prev.marks12,
+                            application_type: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'application_type')?.value || prev.application_type,
+                            competitive_exam: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'competitive_exam')?.value || prev.competitive_exam,
+                            competitive_exam_name: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'competitive_exam_name')?.value || prev.competitive_exam_name,
 
                             profileImageUrl: user?.profileimageurl || "",
                         }));
@@ -216,10 +245,28 @@ export default function ProviderEditProfileScreen() {
         }
     }, []);
 
+    const fetchDropdowns = useCallback(async () => {
+        try {
+            const authDataStr = await AsyncStorage.getItem("authData");
+            if (authDataStr) {
+                const authData = JSON.parse(authDataStr);
+                if (authData.token) {
+                    const response = await getDropdownDefinitions(authData.token);
+                    if (response.success && response.data) {
+                        setDropdownData(response.data);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error("Failed to fetch dropdowns:", error);
+        }
+    }, []);
+
     useFocusEffect(
         useCallback(() => {
             fetchUserProfile();
-        }, [fetchUserProfile])
+            fetchDropdowns();
+        }, [fetchUserProfile, fetchDropdowns])
     );
 
     // Handlers
@@ -491,6 +538,7 @@ export default function ProviderEditProfileScreen() {
                 setToastType("success");
                 setShowToast(true);
                 setTimeout(() => { router.back(); }, 1500);
+
             } else {
                 setToastMessage(response.error || "Failed to update profile");
                 setToastType("error");
@@ -793,6 +841,14 @@ export default function ProviderEditProfileScreen() {
                         </View>
                         <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: "#059669", borderLeftWidth: 4 }]}>
                             <PickerRow
+                                label="Application Type"
+                                value={personalInfo.application_type}
+                                placeholder="Select Application Type"
+                                icon="document-text-outline"
+                                iconColor="#059669"
+                                onPress={() => setShowApplicationTypePicker(true)}
+                            />
+                            <PickerRow
                                 label="Domicile State"
                                 value={personalInfo.domicileState}
                                 icon="flag-outline"
@@ -936,6 +992,7 @@ export default function ProviderEditProfileScreen() {
                                 value={personalInfo.fatherName}
                                 onChangeText={(val) => handlePersonalInfoChange("fatherName", val)}
                                 style={styles.input}
+                                placeholder="Enter Father's Name"
                                 icon="man-outline"
                             />
 
@@ -944,6 +1001,7 @@ export default function ProviderEditProfileScreen() {
                                 value={personalInfo.motherName}
                                 onChangeText={(val) => handlePersonalInfoChange("motherName", val)}
                                 style={styles.input}
+                                placeholder="Enter Mother's Name"
                                 icon="woman-outline"
                             />
 
@@ -952,6 +1010,7 @@ export default function ProviderEditProfileScreen() {
                                 value={personalInfo.address}
                                 onChangeText={(val) => handlePersonalInfoChange("address", val)}
                                 style={styles.input}
+                                placeholder="Enter Address"
                                 icon="location-outline"
                             />
 
@@ -960,6 +1019,7 @@ export default function ProviderEditProfileScreen() {
                                 value={personalInfo.city}
                                 onChangeText={(val) => handlePersonalInfoChange("city", val)}
                                 style={[styles.input, { flex: 1, marginRight: 8 }]}
+                                placeholder="Enter City"
                                 icon="business-outline"
                             />
                             {/* Village removed as requested */}
@@ -1065,7 +1125,6 @@ export default function ProviderEditProfileScreen() {
                                 iconColor="#D97706"
                                 onPress={() => setShowStream12thPicker(true)}
                             />
-
                             <CustomTextInput
                                 label="12th Marks"
                                 value={personalInfo.marks12}
@@ -1076,6 +1135,26 @@ export default function ProviderEditProfileScreen() {
                                 icon="clipboard-outline"
                                 error={validationErrors.marks12}
                             />
+
+                            <PickerRow
+                                label="Preparing For Competitive Exam"
+                                value={personalInfo.competitive_exam}
+                                placeholder="Select Preparing For Competitive Exam"
+                                icon="help-circle-outline"
+                                iconColor="#D97706"
+                                onPress={() => setShowCompetitiveExamPicker(true)}
+                            />
+
+                            {personalInfo.competitive_exam === "Yes" && (
+                                <PickerRow
+                                    label="Competitive Exam Name"
+                                    value={personalInfo.competitive_exam_name}
+                                    placeholder="Select Competitive Exam"
+                                    icon="bookmark-outline"
+                                    iconColor="#D97706"
+                                    onPress={() => setShowCompetitiveExamNamePicker(true)}
+                                />
+                            )}
                         </View>
                     </View>
 
@@ -1290,6 +1369,42 @@ export default function ProviderEditProfileScreen() {
                 onSelect={(val: string) => {
                     handlePersonalInfoChange("applicationYear", val);
                     setShowApplicationYearPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showApplicationTypePicker}
+                onClose={() => setShowApplicationTypePicker(false)}
+                title="Select Application Type"
+                options={APPLICATION_TYPE_OPTIONS}
+                selected={personalInfo.application_type}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("application_type", val);
+                    setShowApplicationTypePicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showCompetitiveExamPicker}
+                onClose={() => setShowCompetitiveExamPicker(false)}
+                title="Preparing For Competitive Exam"
+                options={COMPETITIVE_EXAM_OPTIONS}
+                selected={personalInfo.competitive_exam}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("competitive_exam", val);
+                    setShowCompetitiveExamPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showCompetitiveExamNamePicker}
+                onClose={() => setShowCompetitiveExamNamePicker(false)}
+                title="Select Competitive Exam Name"
+                options={COMPETITIVE_EXAM_NAME_OPTIONS}
+                selected={personalInfo.competitive_exam_name}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("competitive_exam_name", val);
+                    setShowCompetitiveExamNamePicker(false);
                 }}
             />
 

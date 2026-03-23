@@ -167,7 +167,7 @@ function FilterModal({ visible, onClose, filters, onApply, availableCategories, 
   const formatDisplay = (iso: string) => {
     if (!iso) return "Select date";
     const d = new Date(iso);
-    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   };
 
   const datePickerMinDate = datePickerTarget === "to" && local.dateFrom
@@ -669,7 +669,7 @@ export default function ScholarshipListingScreen() {
     if (anyStatus) {
       list = list.filter((s) => {
         const isBookmarked = s.bookmarked || bookmarks[s.id];
-        if (f.statusOpen && !s.expired && !s.has_applied) return true;
+        if (f.statusOpen && !s.expired && !s.has_applied && s.can_apply !== false) return true;
         if (f.statusExpired && s.expired) return true;
         if (f.statusApplied && s.has_applied) return true;
         if (f.statusNotApplied && !s.has_applied) return true;
@@ -776,12 +776,12 @@ export default function ScholarshipListingScreen() {
       const isBookmarked = item.bookmarked || bookmarks[item.id];
       const isExpired = item.expired;
       const hasApplied = item.has_applied;
-      const deadline = item.end_date || item.start_date;
-      const shortDescription = item.shortname || (item.description ? stripHtml(item.description).substring(0, 60) + "..." : "");
+      const deadline = item.end_date;
 
       let statusConfig = { text: "Open", color: "#10B981", bg: "rgba(16, 185, 129, 0.1)" };
       if (isExpired) statusConfig = { text: "Expired", color: "#EF4444", bg: "rgba(239, 68, 68, 0.1)" };
       else if (hasApplied) statusConfig = { text: "Applied", color: "#3B82F6", bg: "rgba(59, 130, 246, 0.1)" };
+      else if (item.can_apply === false) statusConfig = { text: "Closed", color: "#F59E0B", bg: "rgba(245, 158, 11, 0.1)" };
 
       return (
         <View
@@ -811,25 +811,21 @@ export default function ScholarshipListingScreen() {
             <Text style={[styles.cardTitle, { color: isExpired ? colors.textSecondary : colors.text }]} numberOfLines={2}>
               {item.title}
             </Text>
-            {shortDescription ? (
-              <Text style={[styles.cardSubtitle, { color: colors.textSecondary, marginTop: 4 }]} numberOfLines={1}>
-                {shortDescription}
-              </Text>
-            ) : null}
+
           </View>
 
           <View style={{ flexDirection: "row", alignItems: "center", gap: 15, paddingHorizontal: 16, marginBottom: 16 }}>
             <View>
               <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>Opens</Text>
               <Text style={[styles.dateValue, { color: colors.text }]}>
-                {item.start_date ? new Date(item.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "TBA"}
+                {item.start_date ? new Date(item.start_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "TBA"}
               </Text>
             </View>
             <View style={[styles.verticalSep, { backgroundColor: isDark ? "rgba(255,255,255,0.2)" : "#E5E7EB" }]} />
             <View>
               <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>Closes</Text>
               <Text style={[styles.dateValue, { color: colors.text }]}>
-                {deadline ? new Date(deadline).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "No Deadline"}
+                {deadline ? new Date(deadline).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "No Deadline"}
               </Text>
             </View>
           </View>
@@ -866,7 +862,7 @@ export default function ScholarshipListingScreen() {
               <Text style={[styles.viewBtnText, { color: colors.text }]}>Details</Text>
             </TouchableOpacity>
 
-            {!isExpired && !hasApplied ? (
+            {!isExpired && !hasApplied && item.can_apply !== false ? (
               <TouchableOpacity
                 onPress={() => router.push({ pathname: "/(dashboard)/student/student-apply-form", params: { scholarshipId: item.id } })}
                 style={[styles.applyBtn, { backgroundColor: categoryColor }]}

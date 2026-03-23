@@ -1,8 +1,6 @@
 import { AppHeader, Button, CustomTextInput, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { useDropdowns } from "@/context/DropdownContext";
-
-import { getAcademicDetails, getScholarshipDetails, getUserProfile, submitApplication, type AcademicDetailItem } from "@/utils/api";
+import { getAcademicDetails, getScholarshipDetails, getUserProfile, submitApplication, type AcademicDetailItem, getDropdownDefinitions, DropdownData } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -78,7 +76,20 @@ const FIELDS_BY_STEP: Record<string, (keyof FormValues)[]> = {
 
 export default function ApplyFormScreen() {
   const { isDark, colors } = useTheme();
-  const { getOptionsByShortname } = useDropdowns();
+  
+  const [dropdownData, setDropdownData] = useState<DropdownData | null>(null);
+
+  const getOptionsByShortname = useCallback((shortname: string) => {
+    if (!dropdownData) return [];
+    const courseField = dropdownData.course_fields?.find((f: any) => f.shortname === shortname || f.shortname.trim() === shortname.trim());
+    if (courseField) return courseField.options;
+
+    const userField = dropdownData.user_fields?.find((f: any) => f.shortname === shortname || f.shortname.trim() === shortname.trim());
+    if (userField) return userField.options;
+
+    return [];
+  }, [dropdownData]);
+
   const insets = useSafeAreaInsets();
 
   const [stepIndex, setStepIndex] = useState(0);
@@ -264,6 +275,12 @@ export default function ApplyFormScreen() {
               ]
             );
           }
+        }
+
+        // 4. Fetch dropdowns
+        const dropResponse = await getDropdownDefinitions(token);
+        if (dropResponse.success && dropResponse.data && !cancelled) {
+          setDropdownData(dropResponse.data);
         }
       } catch (error) {
         console.error("Bootstrap error:", error);

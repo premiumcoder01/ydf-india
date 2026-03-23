@@ -59,7 +59,7 @@ export default function StudentProfileScreen() {
 
           // Call getUserProfile API
           const response = await getUserProfile(token);
-          console.log(response)
+
 
 
           // Response structure: { success: true, data: { success: true, user: {...} } }
