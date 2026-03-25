@@ -27,6 +27,7 @@ interface CustomTextInputProps {
   required?: boolean;
   icon?: keyof typeof Ionicons.glyphMap;
   rightIcon?: keyof typeof Ionicons.glyphMap;
+  iconColor?: string;
 }
 
 export default function CustomTextInput({
@@ -53,6 +54,7 @@ export default function CustomTextInput({
   required = false,
   icon,
   rightIcon,
+  iconColor,
 }: CustomTextInputProps) {
   const { isDark: globalIsDark, colors: themeColors } = useTheme();
 
@@ -131,7 +133,7 @@ export default function CustomTextInput({
           <Ionicons
             name={icon}
             size={20}
-            color={colors.textSecondary}
+            color={iconColor || colors.textSecondary}
             style={{ marginRight: 8 }}
           />
         )}
@@ -225,5 +227,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 6,
     fontWeight: '500',
+    marginBottom: 16,
   },
 });

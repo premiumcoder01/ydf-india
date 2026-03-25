@@ -609,7 +609,11 @@ export default function StudentProfileFinancialScreen() {
                                 }}
                             >
                                 <Ionicons name="business-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
-                                <Text style={[{ flex: 1 }, { color: editForm.bankName ? colors.text : colors.textSecondary }]}>
+                                <Text 
+                                    style={[{ flex: 1, marginRight: 8 }, { color: editForm.bankName ? colors.text : colors.textSecondary }]}
+                                    numberOfLines={1}
+                                    ellipsizeMode="tail"
+                                >
                                     {editForm.bankName || "Select your bank"}
                                 </Text>
                                 <Ionicons name={showBankPicker ? "chevron-up" : "chevron-down"} size={20} color={colors.textSecondary} />

@@ -117,6 +117,8 @@ export default function StudentProfilePersonalScreen() {
     application_type: "",
     competitive_exam: "",
     competitive_exam_name: "",
+    village: "",
+    whatsapp_number: "",
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -232,6 +234,11 @@ export default function StudentProfilePersonalScreen() {
               application_type: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'application_type')?.value || prev.application_type,
               competitive_exam: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'competitive_exam')?.value || prev.competitive_exam,
               competitive_exam_name: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'competitive_exam_name')?.value || prev.competitive_exam_name,
+              village: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'village')?.value || prev.village,
+              whatsapp_number: (() => {
+                const val = user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'whatsapp_number')?.value || "";
+                return val.replace(/<[^>]*>/g, '').trim();
+              })() || prev.whatsapp_number,
 
               profileImageUrl: user?.profileimageurl || "",
             }));
@@ -528,6 +535,7 @@ export default function StudentProfilePersonalScreen() {
       const payload = {
         ...rest,
         phone: finalPhone,
+        whatsapp_number: personalInfo.whatsapp_number ? `<p>${personalInfo.whatsapp_number}</p>` : "",
       };
 
       const response = await updateUserProfile(authData.token, payload);
@@ -537,11 +545,7 @@ export default function StudentProfilePersonalScreen() {
         setToastMessage("Personal information updated successfully");
         setToastType("success");
         setShowToast(true);
-
-        // Navigate back to dashboard after a delay
-        setTimeout(() => {
-          router.replace("/student-dashboard");
-        }, 1500);
+        router.back();
       } else {
         setToastMessage(response.error || "Failed to update profile");
         setToastType("error");
@@ -592,7 +596,11 @@ export default function StudentProfilePersonalScreen() {
         <View style={[styles.pickerIconWrap, { backgroundColor: value ? iconColor + "22" : (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)") }]}>
           <Ionicons name={icon} size={16} color={value ? iconColor : colors.textSecondary} />
         </View>
-        <Text style={[styles.selectorText, { color: colors.text, flex: 1, marginLeft: 10 }, !value && styles.placeholderText]}>
+        <Text 
+          style={[styles.selectorText, { color: colors.text, flex: 1, marginLeft: 10, marginRight: 24 }, !value && styles.placeholderText]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
           {value || placeholder || "Choose..."}
         </Text>
         <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
@@ -635,7 +643,7 @@ export default function StudentProfilePersonalScreen() {
                 onPress={() => { onSelect(opt); }}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.optionText, { color: colors.text }, selected === opt && { color: "#7C3AED", fontWeight: "600" }]}>
+                <Text style={[styles.optionText, { color: colors.text, flex: 1, marginRight: 12 }, selected === opt && { color: "#7C3AED", fontWeight: "600" }]}>
                   {opt}
                 </Text>
                 {selected === opt ? (
@@ -745,30 +753,28 @@ export default function StudentProfilePersonalScreen() {
                 style={styles.input}
                 autoCapitalize="none"
                 icon="at-outline"
+                iconColor="#7C3AED" mainStyle={{ marginBottom: 0 }}
               />
 
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={{ flex: 1 }}>
-                  <CustomTextInput
-                    label="First Name"
-                    value={personalInfo.firstName}
-                    onChangeText={(val) => handlePersonalInfoChange("firstName", val)}
-                    style={styles.input}
-                    error={validationErrors.firstName}
-                    icon="person-outline"
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <CustomTextInput
-                    label="Last Name"
-                    value={personalInfo.lastName}
-                    onChangeText={(val) => handlePersonalInfoChange("lastName", val)}
-                    style={styles.input}
-                    error={validationErrors.lastName}
-                    icon="person-outline"
-                  />
-                </View>
-              </View>
+
+              <CustomTextInput
+                label="First Name"
+                value={personalInfo.firstName}
+                onChangeText={(val) => handlePersonalInfoChange("firstName", val)}
+                style={styles.input}
+                error={validationErrors.firstName}
+                icon="person-outline"
+                iconColor="#7C3AED" mainStyle={{ marginBottom: 0 }}
+              />
+              <CustomTextInput
+                label="Last Name"
+                value={personalInfo.lastName}
+                onChangeText={(val) => handlePersonalInfoChange("lastName", val)}
+                style={styles.input}
+                error={validationErrors.lastName}
+                icon="person-outline"
+                iconColor="#7C3AED" mainStyle={{ marginBottom: 0 }}
+              />
 
               <CustomTextInput
                 label="Email Address *"
@@ -780,6 +786,7 @@ export default function StudentProfilePersonalScreen() {
                 error={validationErrors.email}
                 editable={false}
                 icon="mail-outline"
+                iconColor="#7C3AED" mainStyle={{ marginBottom: 0 }}
               />
 
               <View style={styles.inputGroup}>
@@ -843,6 +850,57 @@ export default function StudentProfilePersonalScreen() {
               </View>
             </View>
             <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: "#059669", borderLeftWidth: 4 }]}>
+              <View style={[styles.inputGroup, { marginBottom: 10 }]}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>WhatsApp Number</Text>
+                <View
+                  style={[
+                    styles.phoneContainer,
+                    {
+                      backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9",
+                      borderColor: colors.border
+                    }
+                  ]}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", height: 48 }}>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        marginRight: 10,
+                        paddingRight: 10,
+                        borderRightWidth: 1,
+                        borderRightColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(51, 51, 51, 0.1)",
+                      }}
+                    >
+                      <Text style={{ fontSize: 20 }}>🇮🇳</Text>
+                      <Text style={{ fontSize: 16, fontWeight: "600", color: colors.text, marginLeft: 8 }}>+91</Text>
+                    </View>
+                    <TextInput
+                      style={[styles.phoneTextInput, { flex: 1, color: colors.text }]}
+                      value={personalInfo.whatsapp_number}
+                      onChangeText={(text) => {
+                        const numeric = text.replace(/[^0-9]/g, "");
+                        if (numeric.length <= 10) {
+                          handlePersonalInfoChange("whatsapp_number", numeric);
+                        }
+                      }}
+                      placeholder="e.g. 9876543210"
+                      placeholderTextColor={isDark ? "rgba(255,255,255,0.4)" : "rgba(51, 51, 51, 0.4)"}
+                      keyboardType="number-pad"
+                      maxLength={10}
+                    />
+                  </View>
+                </View>
+              </View>
+              <CustomTextInput
+                label="Village / City"
+                value={personalInfo.village}
+                onChangeText={(val) => handlePersonalInfoChange("village", val)}
+                style={styles.input}
+                placeholder="Enter Village Name"
+                icon="location-outline"
+                iconColor="#059669" mainStyle={{ marginBottom: 0 }}
+              />
               <PickerRow
                 label="Application Type"
                 value={personalInfo.application_type}
@@ -850,6 +908,14 @@ export default function StudentProfilePersonalScreen() {
                 icon="document-text-outline"
                 iconColor="#059669"
                 onPress={() => setShowApplicationTypePicker(true)}
+              />
+              <PickerRow
+                label="Applying for scheme"
+                value={personalInfo.schemeName}
+                placeholder="Select Scheme"
+                icon="bookmark-outline"
+                iconColor="#059669"
+                onPress={() => setShowSchemePicker(true)}
               />
               <PickerRow
                 label="Domicile State"
@@ -915,12 +981,17 @@ export default function StudentProfilePersonalScreen() {
               <CustomTextInput
                 label="12th Percentage"
                 value={personalInfo.percentage12}
-                onChangeText={(val) => handlePersonalInfoChange("percentage12", val)}
+                onChangeText={(val) => {
+                  const numeric = val.replace(/[^0-9.]/g, "");
+                  handlePersonalInfoChange("percentage12", numeric);
+                }}
+                maxLength={5}
                 style={styles.input}
                 keyboardType="numeric"
                 placeholder="Enter 12th Percentage"
                 icon="ribbon-outline"
                 error={validationErrors.percentage12}
+                iconColor="#059669" mainStyle={{ marginBottom: 0 }}
               />
 
               <PickerRow
@@ -997,6 +1068,7 @@ export default function StudentProfilePersonalScreen() {
                 style={styles.input}
                 placeholder="Enter Father's Name"
                 icon="man-outline"
+                iconColor="#059669" mainStyle={{ marginBottom: 0 }}
               />
 
               <CustomTextInput
@@ -1006,6 +1078,7 @@ export default function StudentProfilePersonalScreen() {
                 style={styles.input}
                 placeholder="Enter Mother's Name"
                 icon="woman-outline"
+                iconColor="#059669" mainStyle={{ marginBottom: 0 }}
               />
 
               <CustomTextInput
@@ -1015,6 +1088,7 @@ export default function StudentProfilePersonalScreen() {
                 style={styles.input}
                 placeholder="Enter Address"
                 icon="location-outline"
+                iconColor="#059669" mainStyle={{ marginBottom: 0 }}
               />
 
               <CustomTextInput
@@ -1024,6 +1098,7 @@ export default function StudentProfilePersonalScreen() {
                 style={[styles.input, { flex: 1, marginRight: 8 }]}
                 placeholder="Enter City"
                 icon="business-outline"
+                iconColor="#059669" mainStyle={{ marginBottom: 0 }}
               />
               {/* Village removed as requested */}
             </View>
@@ -1047,6 +1122,7 @@ export default function StudentProfilePersonalScreen() {
                 style={styles.input}
                 placeholder="Enter Institute Name"
                 icon="school-outline"
+                iconColor="#D97706" mainStyle={{ marginBottom: 0 }}
               />
               <CustomTextInput
                 label="Institute Location"
@@ -1055,6 +1131,7 @@ export default function StudentProfilePersonalScreen() {
                 style={styles.input}
                 placeholder="Enter Institute Location"
                 icon="map-outline"
+                iconColor="#D97706" mainStyle={{ marginBottom: 0 }}
               />
               <CustomTextInput
                 label="University"
@@ -1063,6 +1140,7 @@ export default function StudentProfilePersonalScreen() {
                 style={styles.input}
                 placeholder="Enter University"
                 icon="library-outline"
+                iconColor="#D97706" mainStyle={{ marginBottom: 0 }}
               />
               <CustomTextInput
                 label="Current Course/Class"
@@ -1071,6 +1149,7 @@ export default function StudentProfilePersonalScreen() {
                 style={styles.input}
                 placeholder="Enter Current Course/Class"
                 icon="book-outline"
+                iconColor="#D97706" mainStyle={{ marginBottom: 0 }}
               />
 
               <PickerRow
@@ -1103,12 +1182,17 @@ export default function StudentProfilePersonalScreen() {
               <CustomTextInput
                 label="10th Class Percentage"
                 value={personalInfo.percentage10}
-                onChangeText={(val) => handlePersonalInfoChange("percentage10", val)}
+                onChangeText={(val) => {
+                  const numeric = val.replace(/[^0-9.]/g, "");
+                  handlePersonalInfoChange("percentage10", numeric);
+                }}
+                maxLength={5}
                 style={styles.input}
                 keyboardType="numeric"
                 placeholder="Enter 10th Percentage"
                 icon="ribbon-outline"
                 error={validationErrors.percentage10}
+                iconColor="#D97706" mainStyle={{ marginBottom: 0 }}
               />
 
               <PickerRow
@@ -1131,19 +1215,24 @@ export default function StudentProfilePersonalScreen() {
               <CustomTextInput
                 label="12th Marks"
                 value={personalInfo.marks12}
-                onChangeText={(val) => handlePersonalInfoChange("marks12", val)}
+                onChangeText={(val) => {
+                  const numeric = val.replace(/[^0-9]/g, "");
+                  handlePersonalInfoChange("marks12", numeric);
+                }}
+                maxLength={4}
                 style={styles.input}
                 keyboardType="numeric"
                 placeholder="Enter 12th Marks"
                 icon="clipboard-outline"
                 error={validationErrors.marks12}
+                iconColor="#D97706" mainStyle={{ marginBottom: 0 }}
               />
 
               <PickerRow
                 label="Preparing For Competitive Exam"
                 value={personalInfo.competitive_exam}
                 placeholder="Select Preparing For Competitive Exam"
-                icon="help-circle-outline"
+                icon="pencil-outline"
                 iconColor="#D97706"
                 onPress={() => setShowCompetitiveExamPicker(true)}
               />
@@ -1153,7 +1242,7 @@ export default function StudentProfilePersonalScreen() {
                   label="Competitive Exam Name"
                   value={personalInfo.competitive_exam_name}
                   placeholder="Select Competitive Exam"
-                  icon="bookmark-outline"
+                  icon="trophy-outline"
                   iconColor="#D97706"
                   onPress={() => setShowCompetitiveExamNamePicker(true)}
                 />

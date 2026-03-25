@@ -1927,13 +1927,13 @@ export const updateUserProfile = async (
     };
 
     // Core fields
-    if (profileData.username) payload.username = profileData.username;
-    if (profileData.firstName) payload.firstname = profileData.firstName;
-    if (profileData.lastName) payload.lastname = profileData.lastName;
-    if (profileData.email) payload.email = profileData.email;
-    if (profileData.phone) payload.phone1 = profileData.phone;
-    if (profileData.address) payload.address = profileData.address;
-    if (profileData.city) payload.city = profileData.city;
+    if (profileData.username !== undefined && profileData.username !== null) payload.username = profileData.username;
+    if (profileData.firstName !== undefined && profileData.firstName !== null) payload.firstname = profileData.firstName;
+    if (profileData.lastName !== undefined && profileData.lastName !== null) payload.lastname = profileData.lastName;
+    if (profileData.email !== undefined && profileData.email !== null) payload.email = profileData.email;
+    if (profileData.phone !== undefined && profileData.phone !== null) payload.phone1 = profileData.phone;
+    if (profileData.address !== undefined && profileData.address !== null) payload.address = profileData.address;
+    if (profileData.city !== undefined && profileData.city !== null) payload.city = profileData.city;
     payload.country = "IN";
 
     // Profile image file ID (new parameter for image upload)
@@ -1963,7 +1963,7 @@ export const updateUserProfile = async (
 
     // Helper to add custom field if value exists
     const addCustomField = (shortname: string, value: any) => {
-      if (value) {
+      if (value !== undefined && value !== null) {
         customFields.push({ shortname, value: String(value) });
       }
     };
@@ -1986,7 +1986,12 @@ export const updateUserProfile = async (
     addCustomField('10th', profileData.percentage10);
     addCustomField('12th_marks', `<p dir="ltr" style="text-align:left;">${profileData.marks12}</p>`);
 
-    // addCustomField('village', profileData.village); // Removed as requested
+    if (profileData.village !== undefined) {
+      addCustomField('village', profileData.village);
+    }
+    if (profileData.whatsapp_number !== undefined) {
+      addCustomField('whatsapp_number', profileData.whatsapp_number);
+    }
     addCustomField('father', profileData.fatherName);
     addCustomField('mother', profileData.motherName);
     addCustomField('Family_income', profileData.annualIncome); // Note: API uses Family_income or annualincome, user req to match response which showed Family_income

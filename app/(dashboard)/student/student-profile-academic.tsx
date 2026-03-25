@@ -627,7 +627,11 @@ export default function StudentProfileAcademicScreen() {
                     onPress={() => setShowCoursePicker(true)}
                   >
                     <Ionicons name="book-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
-                    <Text style={[{ flex: 1 }, { color: editingRecord.currentCourse ? colors.text : colors.textSecondary }]}>
+                    <Text 
+                      style={[{ flex: 1, marginRight: 8 }, { color: editingRecord.currentCourse ? colors.text : colors.textSecondary }]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
                       {editingRecord.currentCourse || "Select your course"}
                     </Text>
                     <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
@@ -642,7 +646,11 @@ export default function StudentProfileAcademicScreen() {
                     onPress={() => setShowCategoryPicker(true)}
                   >
                     <Ionicons name="grid-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
-                    <Text style={[{ flex: 1 }, { color: editingRecord.currentCourseCategory ? colors.text : colors.textSecondary }]}>
+                    <Text 
+                      style={[{ flex: 1, marginRight: 8 }, { color: editingRecord.currentCourseCategory ? colors.text : colors.textSecondary }]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
                       {editingRecord.currentCourseCategory || "Select category (e.g., Engineering)"}
                     </Text>
                     <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
@@ -657,7 +665,11 @@ export default function StudentProfileAcademicScreen() {
                     onPress={() => setShowMajorPicker(true)}
                   >
                     <Ionicons name="ribbon-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
-                    <Text style={[{ flex: 1 }, { color: editingRecord.major ? colors.text : colors.textSecondary }]}>
+                    <Text 
+                      style={[{ flex: 1, marginRight: 8 }, { color: editingRecord.major ? colors.text : colors.textSecondary }]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
                       {editingRecord.major || "Select your specialization"}
                     </Text>
                     <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
@@ -734,7 +746,11 @@ export default function StudentProfileAcademicScreen() {
                     onPress={() => setShowAcademicYearPicker(true)}
                   >
                     <Ionicons name="calendar" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
-                    <Text style={[{ flex: 1 }, { color: editingRecord.year ? colors.text : colors.textSecondary }]}>
+                    <Text 
+                      style={[{ flex: 1, marginRight: 8 }, { color: editingRecord.year ? colors.text : colors.textSecondary }]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
                       {editingRecord.year || "Year you started"}
                     </Text>
                     <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
@@ -749,7 +765,11 @@ export default function StudentProfileAcademicScreen() {
                     onPress={() => setShowGradYearPicker(true)}
                   >
                     <Ionicons name="flag-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
-                    <Text style={[{ flex: 1 }, { color: editingRecord.graduation ? colors.text : colors.textSecondary }]}>
+                    <Text 
+                      style={[{ flex: 1, marginRight: 8 }, { color: editingRecord.graduation ? colors.text : colors.textSecondary }]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
                       {editingRecord.graduation || "Year you'll graduate"}
                     </Text>
                     <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
