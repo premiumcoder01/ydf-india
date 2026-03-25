@@ -4,11 +4,11 @@ import { updatePassword } from "@/utils/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import React, { useState } from "react";
-import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, View, KeyboardAvoidingView, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ReviewerChangePasswordScreen() {
-    const { colors } = useTheme();
+    const { colors, isDark } = useTheme();
     const inset = useSafeAreaInsets();
     const [loading, setLoading] = useState(false);
     const [currentPassword, setCurrentPassword] = useState("");
@@ -56,50 +56,81 @@ export default function ReviewerChangePasswordScreen() {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <KeyboardAvoidingView
+            style={[styles.container, { backgroundColor: colors.background }]}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
             <AppHeader title="Change Password" onBack={() => router.back()} />
             <ScrollView
-                contentContainerStyle={[styles.content, { paddingBottom: inset.bottom + 20 }]}
+                contentContainerStyle={[styles.content, { paddingBottom: inset.bottom + 40 }]}
                 showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
             >
-                <CustomTextInput
-                    label="Current Password"
-                    value={currentPassword}
-                    onChangeText={setCurrentPassword}
-                    placeholder="Enter current password"
-                    secureTextEntry
-                    showPasswordToggle={true}
-                    togglePosition="right"
-                />
-                <CustomTextInput
-                    label="New Password"
-                    value={newPassword}
-                    onChangeText={setNewPassword}
-                    placeholder="Enter new password"
-                    secureTextEntry
-                    showPasswordToggle={true}
-                    togglePosition="right"
-                />
-                <CustomTextInput
-                    label="Confirm New Password"
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    placeholder="Re-enter new password"
-                    secureTextEntry
-                    showPasswordToggle={true}
-                    togglePosition="right"
-                />
+                <View style={[
+                    styles.formCard,
+                    { 
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                        shadowColor: isDark ? "#000" : "#6b7280",
+                    }
+                ]}>
+                    <CustomTextInput
+                        label="Current Password"
+                        value={currentPassword}
+                        onChangeText={setCurrentPassword}
+                        placeholder="Enter current password"
+                        secureTextEntry
+                        showPasswordToggle={true}
+                        togglePosition="right"
+                        icon="lock-closed-outline"
+                        iconColor={colors.primary}
+                    />
+                    <CustomTextInput
+                        label="New Password"
+                        value={newPassword}
+                        onChangeText={setNewPassword}
+                        placeholder="Enter new password"
+                        secureTextEntry
+                        showPasswordToggle={true}
+                        togglePosition="right"
+                        icon="shield-checkmark-outline"
+                        iconColor={colors.primary}
+                    />
+                    <CustomTextInput
+                        label="Confirm New Password"
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        placeholder="Re-enter new password"
+                        secureTextEntry
+                        showPasswordToggle={true}
+                        togglePosition="right"
+                        icon="shield-checkmark-outline"
+                        iconColor={colors.primary}
+                    />
+                </View>
 
                 <View style={styles.actionContainer}>
                     <Button title="Update Password" onPress={handleChangePassword} loading={loading} />
                 </View>
             </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    content: { padding: 20, gap: 16 },
-    actionContainer: { marginTop: 20 },
+    content: { padding: 20 },
+    formCard: {
+        padding: 20,
+        borderRadius: 16,
+        borderWidth: 1,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 3,
+        marginBottom: 8,
+    },
+    actionContainer: {
+        marginTop: 16,
+    },
 });
