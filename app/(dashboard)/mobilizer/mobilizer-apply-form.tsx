@@ -2,7 +2,7 @@ import { AppHeader, Button, CustomTextInput } from "@/components";
 import Toast from "@/components/Toast";
 import { useTheme } from "@/context/ThemeContext";
 
-import { getMobilizerStudentProfile, getScholarshipDetails, mobilizerApplyForStudent, getDropdownDefinitions, DropdownData } from "@/utils/api";
+import { DropdownData, getDropdownDefinitions, getMobilizerStudentProfile, getScholarshipDetails, mobilizerApplyForStudent } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -449,9 +449,10 @@ export default function MobilizerApplyFormScreen() {
             <AppHeader title="Apply for Scholarship" onBack={() => router.back()} />
 
             <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : undefined}
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
                 style={{ flex: 1 }}
                 keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+
             >
                 <ScrollView
                     ref={scrollRef}
@@ -743,17 +744,19 @@ export default function MobilizerApplyFormScreen() {
                 </TouchableOpacity>
             </Modal>
 
-            {isSubmitLoading && (
-                <Modal transparent animationType="fade" visible={isSubmitLoading}>
-                    <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: 'center', alignItems: 'center' }}>
-                        <View style={{ backgroundColor: isDark ? colors.card : '#fff', padding: 24, borderRadius: 16, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, elevation: 4 }}>
-                            <ActivityIndicator size="large" color={colors.primary} />
-                            <Text style={{ marginTop: 16, fontSize: 16, fontWeight: '700', color: colors.text }}>Submitting Application</Text>
-                            <Text style={{ marginTop: 6, fontSize: 13, color: colors.textSecondary }}>Please wait, do not close the app</Text>
+            {
+                isSubmitLoading && (
+                    <Modal transparent animationType="fade" visible={isSubmitLoading}>
+                        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: 'center', alignItems: 'center' }}>
+                            <View style={{ backgroundColor: isDark ? colors.card : '#fff', padding: 24, borderRadius: 16, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, elevation: 4 }}>
+                                <ActivityIndicator size="large" color={colors.primary} />
+                                <Text style={{ marginTop: 16, fontSize: 16, fontWeight: '700', color: colors.text }}>Submitting Application</Text>
+                                <Text style={{ marginTop: 6, fontSize: 13, color: colors.textSecondary }}>Please wait, do not close the app</Text>
+                            </View>
                         </View>
-                    </View>
-                </Modal>
-            )}
+                    </Modal>
+                )
+            }
 
             <Toast
                 visible={toastVisible}
@@ -761,7 +764,7 @@ export default function MobilizerApplyFormScreen() {
                 type={toastType}
                 onHide={() => setToastVisible(false)}
             />
-        </View>
+        </View >
     );
 }
 

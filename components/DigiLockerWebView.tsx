@@ -33,21 +33,43 @@ export function DigiLockerWebView({ visible, url, redirectUri, onClose, onSucces
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
     // Check if this is the redirect URI (contains code= or error=)
-    if (newUrl.includes("code=") || newUrl.includes("error=") || newUrl.includes(redirectUri)) {
-      console.log("✅ Redirect URL Detected! Closing WebView...");
+    if (newUrl.includes("code=") || newUrl.includes("error=") || (redirectUri && newUrl.includes(redirectUri))) {
+      console.log("✅ Redirect URL Detected in Navigation! Closing WebView...");
       console.log("🔗 Full redirect URL:", newUrl);
 
+      // Stop loading immediately to avoid SSL errors on the redirect domain
+      webViewRef.current?.stopLoading();
+
       // Close WebView and return the URL
-      setTimeout(() => {
-        onSuccess(newUrl);
-      }, 100);
+      onSuccess(newUrl);
     }
   };
 
   const handleError = (syntheticEvent: any) => {
     const { nativeEvent } = syntheticEvent;
+    
+    // IGNORE SSL PROTOCOL ERRORS ON THE REDIRECT DOMAIN
+    // This is the common fix for net::ERR_SSL_PROTOCOL_ERROR on callback URLs
+    if (nativeEvent.url && (nativeEvent.url.includes("code=") || nativeEvent.url.includes(redirectUri))) {
+      console.log("ℹ️ Ignoring WebView error on redirect URL:", nativeEvent.description);
+      return;
+    }
+
     console.error("❌ WebView Error:", nativeEvent);
     onError(nativeEvent.description || "WebView error occurred");
+  };
+
+  const handleShouldStartLoadWithRequest = (request: any) => {
+    const { url } = request;
+    
+    // If the request is for the redirect URI, we can sometimes intercept it here 
+    // before the WebView even tries to load it (and fails with SSL error)
+    if (url.includes("code=") || url.includes("error=") || (redirectUri && url.includes(redirectUri))) {
+      console.log("✅ Redirect URL Intercepted in Request! Closing WebView...");
+      onSuccess(url);
+      return false; // Prevent loading
+    }
+    return true;
   };
 
   return (
@@ -71,6 +93,7 @@ export function DigiLockerWebView({ visible, url, redirectUri, onClose, onSucces
           ref={webViewRef}
           source={{ uri: url }}
           onNavigationStateChange={handleNavigationStateChange}
+          onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
           onError={handleError}
           onLoadStart={() => {
             setLoading(true);

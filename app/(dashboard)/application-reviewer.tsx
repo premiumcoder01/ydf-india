@@ -1,4 +1,4 @@
-import { DashboardHeader, HelloWave } from "@/components";
+import { DashboardHeader } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
 import { getNotifications, getReviewerDashboardStats, getReviewerProgress, getReviewerRecentApplications, getUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
@@ -10,19 +10,16 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   BackHandler,
-  Dimensions,
-  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { PieChart } from "react-native-gifted-charts";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type ApplicationItem = {
   id: string;
@@ -50,10 +47,10 @@ type ReviewerProgress = {
 };
 
 export default function ApplicationReviewerDashboard() {
+
   const { isDark, colors } = useTheme();
   const inset = useSafeAreaInsets();
 
-  // ─── Back Handler ─────────────────────────────────────────────────────────────
   useFocusEffect(
     useCallback(() => {
       const onBackPress = () => {
@@ -68,7 +65,6 @@ export default function ApplicationReviewerDashboard() {
     }, [])
   );
 
-  // ─── State ───────────────────────────────────────────────────────────────────
   const [reviewerName, setReviewerName] = useState("Reviewer");
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,7 +91,6 @@ export default function ApplicationReviewerDashboard() {
 
   const [recentApplications, setRecentApplications] = useState<ApplicationItem[]>([]);
 
-  // ─── Data Fetching ───────────────────────────────────────────────────────────
   const fetchData = async (isRefresh = false) => {
     try {
       if (isRefresh) setRefreshing(true);
@@ -118,7 +113,7 @@ export default function ApplicationReviewerDashboard() {
         if (Array.isArray(notifRes.data)) raw = notifRes.data;
         else if (Array.isArray(notifRes.data.data)) raw = notifRes.data.data;
         else if (Array.isArray(notifRes.data.notifications)) raw = notifRes.data.notifications;
-        
+
         const count = raw.filter((n: any) => !n.is_read).length;
         setUnreadCount(count);
       }
@@ -196,7 +191,7 @@ export default function ApplicationReviewerDashboard() {
       />
 
       {/* Header */}
-      <DashboardHeader 
+      <DashboardHeader
         userName={reviewerName}
         profilePhotoUrl={profilePhotoUrl}
         unreadCount={unreadCount}
@@ -351,8 +346,8 @@ export default function ApplicationReviewerDashboard() {
               animate={{ opacity: 1, translateY: 0 }}
               transition={{ delay: 400 }}
               style={[
-                styles.featureActionCardPremium, 
-                { 
+                styles.featureActionCardPremium,
+                {
                   backgroundColor: isDark ? colors.card : '#fff',
                   borderColor: isDark ? 'rgba(255,255,255,0.04)' : '#eee',
                   borderWidth: 1,
@@ -365,7 +360,7 @@ export default function ApplicationReviewerDashboard() {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={[
-                  styles.featureIconBox, 
+                  styles.featureIconBox,
                   { width: 44, height: 44, borderRadius: 12 }
                 ]}
               >

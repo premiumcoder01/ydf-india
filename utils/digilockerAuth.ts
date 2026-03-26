@@ -160,17 +160,19 @@ export function useDigiLockerWebView() {
   const [visible, setVisible] = useState(false);
   const [url, setUrl] = useState("");
   const [redirectUri, setRedirectUri] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const handleSuccess = (callbackUrl: string) => {
+    // If we're already processing a success, don't do it again
+    if (isProcessing) return;
+    
     currentBrowserUrl = callbackUrl;
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log("✅ REDIRECT URL RECEIVED! This is the callback URL:");
     console.log("🌐 Browser Redirect URL:", callbackUrl);
-    console.log("📋 Current URL (copy this):", callbackUrl);
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     
-    // Update current URL tracker
-    currentBrowserUrl = callbackUrl;
+    setIsProcessing(true);
 
     try {
       const parsed = Linking.parse(callbackUrl);
@@ -222,6 +224,9 @@ export function useDigiLockerWebView() {
   };
 
   const handleError = (error: string) => {
+    // If we've already detected a success (redirect), ignore any subsequent load errors
+    if (isProcessing) return;
+
     console.error("❌ WebView error:", error);
     if (webViewReject) {
       webViewReject(new Error(error));
@@ -251,6 +256,7 @@ export function useDigiLockerWebView() {
   return {
     WebViewComponent,
     show: (authUrl: string, redirect: string) => {
+      setIsProcessing(false);
       setUrl(authUrl);
       setRedirectUri(redirect);
       setVisible(true);

@@ -24,6 +24,7 @@ import {
 import {
   GoogleSignin
 } from '@react-native-google-signin/google-signin';
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 
 
@@ -81,6 +82,8 @@ export default function SignInScreen() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+
+  const inset = useSafeAreaInsets()
 
   const [linkedinModalVisible, setLinkedinModalVisible] = useState(false);
 
@@ -352,7 +355,7 @@ export default function SignInScreen() {
 
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: inset.bottom }]}>
       {/* Toast Component */}
       <Toast
         message={toastMessage}
@@ -506,6 +509,19 @@ export default function SignInScreen() {
                 <Text style={styles.signUpLink}>Create an account</Text>
               </TouchableOpacity>
             </Link>
+          </View>
+
+          <View style={styles.termsContainer}>
+            <Text style={styles.termsText}>
+              By continuing, you agree to our{"\n"}
+              <Link href="/(auth)/terms-of-service">
+                <Text style={styles.termsLink}>Terms of Service</Text>
+              </Link>
+              {" "}and{" "}
+              <Link href="/(auth)/privacy-policy">
+                <Text style={styles.termsLink}>Privacy Policy</Text>
+              </Link>
+            </Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -743,5 +759,21 @@ const styles = StyleSheet.create({
     color: "#333",
     fontWeight: "700",
     fontSize: 15,
+  },
+  termsContainer: {
+    marginTop: 32,
+    paddingHorizontal: 20,
+  },
+  termsText: {
+    fontSize: 13,
+    color: "rgba(51, 51, 51, 0.6)",
+    textAlign: "center",
+    lineHeight: 20,
+    fontWeight: "500",
+  },
+  termsLink: {
+    color: "#333",
+    fontWeight: "700",
+    textDecorationLine: "underline",
   },
 });

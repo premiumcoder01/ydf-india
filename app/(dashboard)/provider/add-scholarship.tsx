@@ -1,6 +1,6 @@
 import { Button, CustomTextInput, ReviewerHeader } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { createScholarship, uploadProfileImage, getDropdownDefinitions, DropdownData } from "@/utils/api";
+import { createScholarship, DropdownData, getDropdownDefinitions, uploadProfileImage } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
@@ -140,8 +140,8 @@ export default function ProviderAddScholarshipScreen() {
     amountType: "fixed",
     fixedAmount: "",
     actualAmountLimit: "",
-    paymentCycle: "Not set",
-    payment_distribution: "Not set",
+    paymentCycle: "",
+    payment_distribution: "",
     states: [],
     districts: [],
     blocks: [],
@@ -285,7 +285,10 @@ export default function ProviderAddScholarshipScreen() {
       if (formData.amountType === "actuals" && !formData.actualAmountLimit.trim()) {
         newErrors.actualAmountLimit = "Actual amount limit is required";
       }
-      if (!formData.payment_distribution || formData.payment_distribution === "Not set") {
+      if (!formData.paymentCycle) {
+        newErrors.paymentCycle = "Payment Cycle is required";
+      }
+      if (!formData.payment_distribution) {
         newErrors.payment_distribution = "Fund Distribution is required";
       }
     } else if (step === 1) {
@@ -393,9 +396,19 @@ export default function ProviderAddScholarshipScreen() {
         ? `${formData.schemeName.toUpperCase().replace(/[^A-Z0-9]/g, '-')}-${Date.now()}`
         : `SCHEME-${Date.now()}`;
 
+      // Format stages with unix timestamps
+      const formattedStages = formData.stages.map(s => ({
+        ...s,
+        startDate: s.startDate ? Math.floor(new Date(s.startDate).getTime() / 1000) : null,
+        endDate: s.endDate ? Math.floor(new Date(s.endDate).getTime() / 1000) : null,
+      }));
+
+      // Clean stream keys (remove level: prefix)
+      const cleanStreams = formData.streams.map(s => s.includes(':') ? s.split(':')[1] : s);
+
       const payload: any = {
         fullname: formData.schemeName,
-        shortname: generatedShortname,
+        shortname: generatedShortname.substring(0, 100), // Ensure within limits
         categoryid: categoryMap[formData.category] || 1,
         summary: formData.description,
         provider_name: formData.providerName,
@@ -406,7 +419,7 @@ export default function ProviderAddScholarshipScreen() {
         fund_amount: parseFloat(formData.amountType === "fixed" ? formData.fixedAmount : formData.actualAmountLimit) || 0,
         scholarship_cycle: formData.paymentCycle,
         payment_distribution: formData.payment_distribution,
-        selection_stages_json: JSON.stringify(formData.stages),
+        selection_stages_json: JSON.stringify(formattedStages),
         geo_eligibility_json: JSON.stringify({
           states: formData.states,
           districts: formData.districts,
@@ -416,12 +429,12 @@ export default function ProviderAddScholarshipScreen() {
         personal_eligibility_json: JSON.stringify({
           gender: formData.gender,
           caste_category: formData.casteCategory,
-          special_category: formData.specialCategory,
+          special_category: formData.specialCategory === "Any category" ? "" : formData.specialCategory,
           income_limit: formData.incomeLimit,
         }),
         academic_eligibility_json: JSON.stringify({
           education_level: formData.educationLevel,
-          streams: formData.streams,
+          streams: cleanStreams.filter(s => s !== "Any"),
           last_class_percent: formData.lastClassPercent,
           tenth_class_percent: formData.tenthClassPercent,
           twelfth_class_percent: formData.twelfthClassPercent,
@@ -544,7 +557,7 @@ export default function ProviderAddScholarshipScreen() {
 
         <View style={styles.inputGroup}>
           <CustomTextInput
-            label="Course Full Name"
+            label="Scheme Full Name"
             placeholder="scheme name"
             value={formData.schemeName}
             onChangeText={(v) => {
@@ -559,7 +572,7 @@ export default function ProviderAddScholarshipScreen() {
 
         <View style={{ flex: 1, marginRight: 8, marginBottom: 10 }}>
           <Text style={[styles.label, { color: colors.text, marginTop: 0 }]}>
-            Course category <Text style={{ color: '#EF4444' }}>*</Text>
+            Scheme category <Text style={{ color: '#EF4444' }}>*</Text>
           </Text>
           <TouchableOpacity
             style={[
@@ -570,7 +583,7 @@ export default function ProviderAddScholarshipScreen() {
               setErrors(prev => ({ ...prev, category: "" }));
               setSelectionModal({
                 show: true,
-                title: "Select Course Category",
+                title: "Select Scheme Category",
                 options: ["All India", "Bihar", "Punjab", "Maharashtra", "Rajasthan", "Delhi", "Gujarat", "Sikar", "Archived Courses"],
                 field: "category"
               });
@@ -602,7 +615,7 @@ export default function ProviderAddScholarshipScreen() {
 
         <View style={[styles.inputGroup, { marginTop: 5 }]}>
           <CustomTextInput
-            label="Course Summary"
+            label="Scheme Summary"
             placeholder="Describe the scholarship objective and benefits..."
             value={formData.description}
             onChangeText={(v) => {
@@ -1265,8 +1278,8 @@ export default function ProviderAddScholarshipScreen() {
               "Caste Certificate": "caste",
             };
 
-            const apiOptions = getOptionsByShortname(shortnameMap[docCategory] || "").map(o => o.label);
-            const selectOptions = apiOptions.length > 0 ? apiOptions : (DOCUMENT_OPTIONS[docCategory] || ["Other"]);
+            const apiOptions = getOptionsByShortname(shortnameMap[docCategory] || "").map(o => o.label).filter(l => l !== 'Select');
+            const selectOptions = apiOptions;
 
             return (
               <View key={docCategory} style={{ marginBottom: 8 }}>

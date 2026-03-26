@@ -155,8 +155,13 @@ export default function WelcomeScreen() {
           <View style={styles.termsContainer}>
             <Text style={styles.termsText}>
               By continuing, you agree to our{"\n"}
-              <Text style={styles.termsLink}>Terms of Service</Text> and{" "}
-              <Text style={styles.termsLink}>Privacy Policy</Text>
+              <Link href="/(auth)/terms-of-service">
+                <Text style={styles.termsLink}>Terms of Service</Text>
+              </Link>
+              {" "}and{" "}
+              <Link href="/(auth)/privacy-policy">
+                <Text style={styles.termsLink}>Privacy Policy</Text>
+              </Link>
             </Text>
           </View>
         </Animated.View>
