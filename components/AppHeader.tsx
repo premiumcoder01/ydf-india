@@ -22,7 +22,7 @@ export default function AppHeader({ title, onBack, rightIcon, rightElement }: Pr
         justifyContent: "space-between",
         padding: 20,
         paddingTop: inset.top,
-        backgroundColor: isDark ? colors.background : "#fff",
+        backgroundColor: isDark ? "#121212" : "#fff",
         borderBottomWidth: 1,
         borderColor: isDark ? colors.border : "#f0f0f0",
       }}
@@ -30,9 +30,20 @@ export default function AppHeader({ title, onBack, rightIcon, rightElement }: Pr
       <TouchableOpacity onPress={onBack} style={{ padding: 8, marginLeft: -8 }}>
         <Ionicons name="arrow-back" size={24} color={isDark ? colors.text : "#333"} />
       </TouchableOpacity>
-      <Text style={{ fontSize: 20, fontWeight: "700", color: isDark ? colors.text : "#333", letterSpacing: -0.5 }}>
-        {title}
-      </Text>
+      <View style={{ flex: 1, marginHorizontal: 12 }}>
+        <Text
+          style={{
+            fontSize: 18,
+            fontWeight: "700",
+            color: isDark ? colors.text : "#333",
+            letterSpacing: -0.5,
+          }}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {title}
+        </Text>
+      </View>
       {!rightElement && !rightIcon ? (
         <TouchableOpacity style={{ padding: 8, marginLeft: -8 }}>
           <Ionicons name="arrow-back" size={24} color={isDark ? colors.background : "#fff"} />

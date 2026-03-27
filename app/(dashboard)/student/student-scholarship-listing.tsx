@@ -1,7 +1,7 @@
-import { AppHeader, SearchBar } from "@/components";
+import { AppHeader, SearchBar, ScholarshipFilterModal, FilterState, DEFAULT_FILTERS, countActiveFilters } from "@/components";
 import Toast from "@/components/Toast";
 import { useTheme } from "@/context/ThemeContext";
-import { bookmarkScholarship, getAllScholarships } from "@/utils/api";
+import { bookmarkScholarship, getAllScholarships, getDropdownDefinitions, DropdownData } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
@@ -20,6 +20,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  TextInput,
 } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 
@@ -90,480 +91,6 @@ const getCategoryColor = (category: string): string => {
   return colors[category] || colors["General"];
 };
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-interface FilterState {
-  statusOpen: boolean;
-  statusExpired: boolean;
-  statusApplied: boolean;
-  statusNotApplied: boolean;
-  statusBookmarked: boolean;
-  categories: string[];
-  dateFrom: string;
-  dateTo: string;
-  progressRange: "all" | "zero" | "low" | "high";
-}
-
-const DEFAULT_FILTERS: FilterState = {
-  statusOpen: false,
-  statusExpired: false,
-  statusApplied: false,
-  statusNotApplied: false,
-  statusBookmarked: false,
-  categories: [],
-  dateFrom: "",
-  dateTo: "",
-  progressRange: "all",
-};
-
-const countActiveFilters = (f: FilterState): number => {
-  let n = 0;
-  if (f.statusOpen) n++;
-  if (f.statusExpired) n++;
-  if (f.statusApplied) n++;
-  if (f.statusNotApplied) n++;
-  if (f.statusBookmarked) n++;
-  if (f.categories.length > 0) n++;
-  if (f.dateFrom) n++;
-  if (f.dateTo) n++;
-  if (f.progressRange !== "all") n++;
-  return n;
-};
-
-// ─── Filter Modal ─────────────────────────────────────────────────────────────
-
-interface FilterModalProps {
-  visible: boolean;
-  onClose: () => void;
-  filters: FilterState;
-  onApply: (f: FilterState) => void;
-  availableCategories: string[];
-  isDark: boolean;
-  colors: any;
-}
-
-function FilterModal({ visible, onClose, filters, onApply, availableCategories, isDark, colors }: FilterModalProps) {
-  const [local, setLocal] = useState<FilterState>(filters);
-  const [datePickerTarget, setDatePickerTarget] = useState<"from" | "to" | null>(null);
-  const slideAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (visible) {
-      setLocal(filters);
-      setDatePickerTarget(null);
-    }
-  }, [visible, filters]);
-
-  const handleDateConfirm = (date: Date) => {
-    const iso = date.toISOString().split("T")[0]; // "YYYY-MM-DD"
-    if (datePickerTarget === "from") {
-      setLocal((p) => ({ ...p, dateFrom: iso }));
-    } else if (datePickerTarget === "to") {
-      setLocal((p) => ({ ...p, dateTo: iso }));
-    }
-    setDatePickerTarget(null);
-  };
-
-  const formatDisplay = (iso: string) => {
-    if (!iso) return "Select date";
-    const d = new Date(iso);
-    return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-  };
-
-  const datePickerMinDate = datePickerTarget === "to" && local.dateFrom
-    ? new Date(local.dateFrom)
-    : undefined;
-  const datePickerMaxDate = datePickerTarget === "from" && local.dateTo
-    ? new Date(local.dateTo)
-    : undefined;
-
-  const bg = isDark ? "#0F0F14" : "#F8F9FF";
-  const card = isDark ? "#1A1A2E" : "#FFFFFF";
-  const border = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF4";
-  const accent = "#6C63FF";
-  const textPrimary = isDark ? "#F0F0FF" : "#1A1A2E";
-  const textSecondary = isDark ? "rgba(240,240,255,0.5)" : "#8B92A5";
-
-  const toggle = (key: keyof FilterState) =>
-    setLocal((p) => ({ ...p, [key]: !p[key] }));
-
-  const toggleCategory = (cat: string) =>
-    setLocal((p) => ({
-      ...p,
-      categories: p.categories.includes(cat)
-        ? p.categories.filter((c) => c !== cat)
-        : [...p.categories, cat],
-    }));
-
-  const filteredCategories = availableCategories;
-
-  const progressOptions: { label: string; value: FilterState["progressRange"]; icon: string; desc: string }[] = [
-    { label: "All", value: "all", icon: "layers-outline", desc: "Show all scholarships" },
-    { label: "0%", value: "zero", icon: "radio-button-off-outline", desc: "Not yet started" },
-    { label: "1–50%", value: "low", icon: "trending-up-outline", desc: "Partially completed" },
-    { label: "51–100%", value: "high", icon: "checkmark-circle-outline", desc: "Nearly complete" },
-  ];
-
-  const statusItems = [
-    { key: "statusOpen" as keyof FilterState, label: "Open", icon: "lock-open-outline", color: "#10B981", desc: "Active scholarships" },
-    { key: "statusExpired" as keyof FilterState, label: "Expired", icon: "time-outline", color: "#EF4444", desc: "Past deadline" },
-    { key: "statusApplied" as keyof FilterState, label: "Applied", icon: "checkmark-done-circle-outline", color: "#3B82F6", desc: "You have applied" },
-    { key: "statusNotApplied" as keyof FilterState, label: "Not Applied", icon: "close-circle-outline", color: "#F59E0B", desc: "Haven't applied yet" },
-    { key: "statusBookmarked" as keyof FilterState, label: "Bookmarked", icon: "bookmark-outline", color: "#8B5CF6", desc: "Your saved scholarships" },
-  ];
-
-  const activeCount = countActiveFilters(local);
-
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" statusBarTranslucent>
-      <View style={{ flex: 1, backgroundColor: bg }}>
-        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={bg} />
-
-        {/* ── Header ── */}
-        <View style={[fStyles.header, { borderBottomColor: border, backgroundColor: isDark ? "#0F0F1A" : "#FFF" }]}>
-          <TouchableOpacity onPress={onClose} style={fStyles.closeBtn} activeOpacity={0.7}>
-            <View style={[fStyles.iconBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "#F0F2FF" }]}>
-              <Ionicons name="close" size={20} color={textPrimary} />
-            </View>
-          </TouchableOpacity>
-
-          <View style={{ flex: 1, marginHorizontal: 16 }}>
-            <Text style={[fStyles.headerTitle, { color: textPrimary }]}>Filters</Text>
-            <Text style={[fStyles.headerSubtitle, { color: textSecondary }]}>
-              {activeCount > 0 ? `${activeCount} filter${activeCount > 1 ? "s" : ""} active` : "Refine your results"}
-            </Text>
-          </View>
-
-          {activeCount > 0 && (
-            <TouchableOpacity
-              onPress={() => setLocal(DEFAULT_FILTERS)}
-              style={[fStyles.resetBtn, { backgroundColor: "rgba(239,68,68,0.1)", borderColor: "rgba(239,68,68,0.2)" }]}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="refresh-outline" size={14} color="#EF4444" />
-              <Text style={{ color: "#EF4444", fontSize: 12, fontWeight: "700", marginLeft: 4 }}>Reset</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* ── Scrollable Content ── */}
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 120, paddingTop: 8 }}
-        >
-
-          {/* Status Filters */}
-          {(
-            <View style={fStyles.section}>
-              <View style={fStyles.sectionHeader}>
-                <View style={[fStyles.sectionIconBg, { backgroundColor: "rgba(108,99,255,0.12)" }]}>
-                  <Ionicons name="toggle-outline" size={16} color={accent} />
-                </View>
-                <Text style={[fStyles.sectionTitle, { color: textPrimary }]}>Status</Text>
-              </View>
-
-              <View style={[fStyles.card, { backgroundColor: card, borderColor: border }]}>
-                {statusItems.map((item, idx) => {
-                  const isOn = local[item.key] as boolean;
-                  return (
-                    <View key={item.key}>
-                      {idx > 0 && <View style={[fStyles.divider, { backgroundColor: border }]} />}
-                      <TouchableOpacity
-                        style={fStyles.switchRow}
-                        onPress={() => toggle(item.key)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={[fStyles.statusIcon, { backgroundColor: `${item.color}18` }]}>
-                          <Ionicons name={item.icon as any} size={18} color={item.color} />
-                        </View>
-                        <View style={{ flex: 1, marginLeft: 14 }}>
-                          <Text style={[fStyles.switchLabel, { color: textPrimary }]}>{item.label}</Text>
-                          <Text style={[fStyles.switchDesc, { color: textSecondary }]}>{item.desc}</Text>
-                        </View>
-                        <Switch
-                          value={isOn}
-                          onValueChange={() => toggle(item.key)}
-                          trackColor={{ false: isDark ? "#2A2A40" : "#E5E7EB", true: `${item.color}60` }}
-                          thumbColor={isOn ? item.color : isDark ? "#555570" : "#CACBCE"}
-                          ios_backgroundColor={isDark ? "#2A2A40" : "#E5E7EB"}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
-          )}
-
-          {/* Category Filter */}
-          {(
-            <View style={fStyles.section}>
-              <View style={fStyles.sectionHeader}>
-                <View style={[fStyles.sectionIconBg, { backgroundColor: "rgba(245,158,11,0.12)" }]}>
-                  <Ionicons name="location-outline" size={16} color="#F59E0B" />
-                </View>
-                <Text style={[fStyles.sectionTitle, { color: textPrimary }]}>Category / Region</Text>
-                {local.categories.length > 0 && (
-                  <View style={[fStyles.countBadge, { backgroundColor: accent }]}>
-                    <Text style={{ color: "#FFF", fontSize: 11, fontWeight: "700" }}>{local.categories.length}</Text>
-                  </View>
-                )}
-              </View>
-
-              <View style={[fStyles.card, { backgroundColor: card, borderColor: border }]}>
-                {filteredCategories.length === 0 ? (
-                  <Text style={{ color: textSecondary, textAlign: "center", paddingVertical: 16 }}>No categories found</Text>
-                ) : (
-                  <View style={fStyles.chipGrid}>
-                    {filteredCategories.map((cat) => {
-                      const catColor = getCategoryColor(cat);
-                      const isActive = local.categories.includes(cat);
-                      return (
-                        <TouchableOpacity
-                          key={cat}
-                          onPress={() => toggleCategory(cat)}
-                          style={[
-                            fStyles.categoryChip,
-                            {
-                              backgroundColor: isActive ? `${catColor}18` : isDark ? "rgba(255,255,255,0.05)" : "#F4F6FF",
-                              borderColor: isActive ? catColor : border,
-                              borderWidth: isActive ? 1.5 : 1,
-                            },
-                          ]}
-                          activeOpacity={0.7}
-                        >
-                          <View style={[fStyles.catDot, { backgroundColor: catColor }]} />
-                          <Text style={{ fontSize: 13, fontWeight: isActive ? "700" : "500", color: isActive ? catColor : textSecondary }}>
-                            {cat}
-                          </Text>
-                          {isActive && <Ionicons name="checkmark" size={13} color={catColor} style={{ marginLeft: 4 }} />}
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
-              </View>
-            </View>
-          )}
-
-          {/* Date Range Filter */}
-          <View style={fStyles.section}>
-            <View style={fStyles.sectionHeader}>
-              <View style={[fStyles.sectionIconBg, { backgroundColor: "rgba(16,185,129,0.12)" }]}>
-                <Ionicons name="calendar-outline" size={16} color="#10B981" />
-              </View>
-              <Text style={[fStyles.sectionTitle, { color: textPrimary }]}>Date Range</Text>
-              {(local.dateFrom || local.dateTo) && (
-                <TouchableOpacity
-                  onPress={() => setLocal((p) => ({ ...p, dateFrom: "", dateTo: "" }))}
-                  style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, backgroundColor: "rgba(239,68,68,0.1)" }}
-                >
-                  <Text style={{ color: "#EF4444", fontSize: 12, fontWeight: "700" }}>Clear</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <View style={[fStyles.card, { backgroundColor: card, borderColor: border }]}>
-              {/* From Date */}
-              <TouchableOpacity
-                style={fStyles.datePickerRow}
-                onPress={() => setDatePickerTarget("from")}
-                activeOpacity={0.7}
-              >
-                <View style={[fStyles.datePickerIconBg, { backgroundColor: "rgba(16,185,129,0.12)" }]}>
-                  <Ionicons name="calendar-clear-outline" size={18} color="#10B981" />
-                </View>
-                <View style={{ flex: 1, marginLeft: 14 }}>
-                  <Text style={[fStyles.switchDesc, { color: textSecondary, marginBottom: 2 }]}>From Date</Text>
-                  <Text style={[
-                    fStyles.switchLabel,
-                    { color: local.dateFrom ? textPrimary : textSecondary, fontWeight: local.dateFrom ? "700" : "400" }
-                  ]}>
-                    {formatDisplay(local.dateFrom)}
-                  </Text>
-                </View>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  {local.dateFrom !== "" && (
-                    <TouchableOpacity
-                      onPress={() => setLocal((p) => ({ ...p, dateFrom: "" }))}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons name="close-circle" size={18} color="#EF4444" />
-                    </TouchableOpacity>
-                  )}
-                  <Ionicons name="chevron-forward" size={16} color={textSecondary} />
-                </View>
-              </TouchableOpacity>
-
-              <View style={[fStyles.divider, { backgroundColor: border }]} />
-
-              {/* To Date */}
-              <TouchableOpacity
-                style={fStyles.datePickerRow}
-                onPress={() => setDatePickerTarget("to")}
-                activeOpacity={0.7}
-              >
-                <View style={[fStyles.datePickerIconBg, { backgroundColor: "rgba(59,130,246,0.12)" }]}>
-                  <Ionicons name="calendar-outline" size={18} color="#3B82F6" />
-                </View>
-                <View style={{ flex: 1, marginLeft: 14 }}>
-                  <Text style={[fStyles.switchDesc, { color: textSecondary, marginBottom: 2 }]}>To Date</Text>
-                  <Text style={[
-                    fStyles.switchLabel,
-                    { color: local.dateTo ? textPrimary : textSecondary, fontWeight: local.dateTo ? "700" : "400" }
-                  ]}>
-                    {formatDisplay(local.dateTo)}
-                  </Text>
-                </View>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  {local.dateTo !== "" && (
-                    <TouchableOpacity
-                      onPress={() => setLocal((p) => ({ ...p, dateTo: "" }))}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons name="close-circle" size={18} color="#EF4444" />
-                    </TouchableOpacity>
-                  )}
-                  <Ionicons name="chevron-forward" size={16} color={textSecondary} />
-                </View>
-              </TouchableOpacity>
-
-              <View style={{ paddingHorizontal: 16, paddingBottom: 14, paddingTop: 4 }}>
-                <Text style={[fStyles.dateHint, { color: textSecondary, paddingHorizontal: 0, paddingBottom: 0 }]}>
-                  📅 Filters scholarships by their closing deadline
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Native Date Picker — renders inside this Modal context */}
-          <DateTimePickerModal
-            isVisible={datePickerTarget !== null}
-            display="spinner"
-            mode="date"
-            textColor={isDark ? "#FFFFFF" : "#000000"}
-            onConfirm={handleDateConfirm}
-            onCancel={() => setDatePickerTarget(null)}
-            minimumDate={datePickerMinDate}
-            maximumDate={datePickerMaxDate}
-            date={
-              datePickerTarget === "from" && local.dateFrom
-                ? new Date(local.dateFrom)
-                : datePickerTarget === "to" && local.dateTo
-                  ? new Date(local.dateTo)
-                  : new Date()
-            }
-            isDarkModeEnabled={isDark}
-          />
-
-          {/* Progress Filter */}
-
-          <View style={fStyles.section}>
-            <View style={fStyles.sectionHeader}>
-              <View style={[fStyles.sectionIconBg, { backgroundColor: "rgba(139,92,246,0.12)" }]}>
-                <Ionicons name="stats-chart-outline" size={16} color="#8B5CF6" />
-              </View>
-              <Text style={[fStyles.sectionTitle, { color: textPrimary }]}>Application Progress</Text>
-            </View>
-
-            <View style={[fStyles.card, { backgroundColor: card, borderColor: border }]}>
-              <View style={fStyles.progressGrid}>
-                {/* Row 1 */}
-                <View style={fStyles.progressRow}>
-                  {progressOptions.slice(0, 2).map((opt) => {
-                    const isActive = local.progressRange === opt.value;
-                    return (
-                      <TouchableOpacity
-                        key={opt.value}
-                        onPress={() => setLocal((p) => ({ ...p, progressRange: opt.value }))}
-                        style={[
-                          fStyles.progressChip,
-                          {
-                            backgroundColor: isActive ? accent : isDark ? "rgba(255,255,255,0.05)" : "#F4F6FF",
-                            borderColor: isActive ? accent : border,
-                          },
-                        ]}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons name={opt.icon as any} size={20} color={isActive ? "#FFF" : textSecondary} />
-                        <Text style={{ fontSize: 14, fontWeight: "700", color: isActive ? "#FFF" : textPrimary, marginTop: 7 }}>
-                          {opt.label}
-                        </Text>
-                        <Text style={{ fontSize: 11, color: isActive ? "rgba(255,255,255,0.7)" : textSecondary, textAlign: "center", marginTop: 3, lineHeight: 15 }}>
-                          {opt.desc}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-                {/* Row 2 */}
-                <View style={fStyles.progressRow}>
-                  {progressOptions.slice(2, 4).map((opt) => {
-                    const isActive = local.progressRange === opt.value;
-                    return (
-                      <TouchableOpacity
-                        key={opt.value}
-                        onPress={() => setLocal((p) => ({ ...p, progressRange: opt.value }))}
-                        style={[
-                          fStyles.progressChip,
-                          {
-                            backgroundColor: isActive ? accent : isDark ? "rgba(255,255,255,0.05)" : "#F4F6FF",
-                            borderColor: isActive ? accent : border,
-                          },
-                        ]}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons name={opt.icon as any} size={20} color={isActive ? "#FFF" : textSecondary} />
-                        <Text style={{ fontSize: 14, fontWeight: "700", color: isActive ? "#FFF" : textPrimary, marginTop: 7 }}>
-                          {opt.label}
-                        </Text>
-                        <Text style={{ fontSize: 11, color: isActive ? "rgba(255,255,255,0.7)" : textSecondary, textAlign: "center", marginTop: 3, lineHeight: 15 }}>
-                          {opt.desc}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            </View>
-          </View>
-
-
-        </ScrollView>
-
-        {/* ── Footer ── */}
-        <View style={[fStyles.footer, { backgroundColor: isDark ? "#0F0F1A" : "#FFF", borderTopColor: border }]}>
-          <TouchableOpacity
-            style={[fStyles.clearAllBtn, { borderColor: border, backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "#F4F6FF" }]}
-            onPress={() => setLocal(DEFAULT_FILTERS)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="trash-outline" size={18} color={textSecondary} />
-            <Text style={{ color: textSecondary, fontWeight: "700", fontSize: 15, marginLeft: 6 }}>Clear All</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[fStyles.applyBtn, { backgroundColor: accent }]}
-            onPress={() => { onApply(local); onClose(); }}
-            activeOpacity={0.85}
-          >
-            <LinearGradient
-              colors={["#7C74FF", "#6C63FF", "#5A52EE"]}
-              style={fStyles.applyBtnGrad}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" />
-              <Text style={{ color: "#FFF", fontWeight: "800", fontSize: 16, marginLeft: 8 }}>
-                Apply Filters{activeCount > 0 ? ` (${activeCount})` : ""}
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-}
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
@@ -580,6 +107,24 @@ export default function ScholarshipListingScreen() {
   const [toastType, setToastType] = useState<"success" | "error" | "info">("success");
   const [filterVisible, setFilterVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [dropdownData, setDropdownData] = useState<DropdownData | null>(null);
+
+  const fetchDropdowns = useCallback(async () => {
+    try {
+      const authDataString = await AsyncStorage.getItem("authData");
+      if (authDataString) {
+        const authData = JSON.parse(authDataString);
+        if (authData.token) {
+          const response = await getDropdownDefinitions(authData.token);
+          if (response.success && response.data) {
+            setDropdownData(response.data);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch dropdowns:", e);
+    }
+  }, []);
 
   // Debounced search
   useEffect(() => {
@@ -601,6 +146,20 @@ export default function ScholarshipListingScreen() {
       const response = await getAllScholarships(token, {
         search: searchQuery || undefined,
         per_page: 100,
+        status: activeFilters.status || undefined,
+        applied: activeFilters.applied !== null ? String(activeFilters.applied) : undefined,
+        bookmarked: activeFilters.bookmarked !== null ? String(activeFilters.bookmarked) : undefined,
+        state: activeFilters.state || undefined,
+        start_date: activeFilters.dateFrom || undefined,
+        end_date: activeFilters.dateTo || undefined,
+        progress_min: activeFilters.progressMin || undefined,
+        progress_max: activeFilters.progressMax || undefined,
+        annual_family_income_max: activeFilters.annualFamilyIncomeMax || undefined,
+        special_category: activeFilters.specialCategory || undefined,
+        last_class_percentage_min: activeFilters.lastClassPercentageMin || undefined,
+        caste_category: activeFilters.casteCategory || undefined,
+        gender: activeFilters.gender || undefined,
+        course_name: activeFilters.courseName || undefined,
       });
 
       if (response.success && response.data) {
@@ -626,10 +185,13 @@ export default function ScholarshipListingScreen() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, activeFilters]);
 
-  useFocusEffect(useCallback(() => { fetchScholarships(); }, [fetchScholarships]));
-  useEffect(() => { fetchScholarships(); }, [searchQuery]);
+  useFocusEffect(useCallback(() => { 
+    fetchDropdowns();
+    fetchScholarships(); 
+  }, [fetchScholarships, fetchDropdowns]));
+  useEffect(() => { fetchScholarships(); }, [searchQuery, activeFilters]);
 
   const searchIndex = useMemo(() => {
     const index = new Map<number, string>();
@@ -653,7 +215,11 @@ export default function ScholarshipListingScreen() {
     if (apiScholarships.length === 0) return [];
     let list = [...apiScholarships];
 
-    // Search
+    // Note: Search is already performed at the API level in fetchScholarships,
+    // so we don't need to re-filter here unless we want an "instant search" 
+    // feel for already-loaded data. However, the user wants backend filtering now.
+    
+    // Client-side search (as a secondary fallback or instant filter)
     if (searchQuery.trim()) {
       const tokens = normalizeText(searchQuery).split(" ").filter(Boolean);
       list = list.filter((s) => {
@@ -662,58 +228,8 @@ export default function ScholarshipListingScreen() {
       });
     }
 
-    const f = activeFilters;
-
-    // Status filters (OR within status group)
-    const anyStatus = f.statusOpen || f.statusExpired || f.statusApplied || f.statusNotApplied || f.statusBookmarked;
-    if (anyStatus) {
-      list = list.filter((s) => {
-        const isBookmarked = s.bookmarked || bookmarks[s.id];
-        if (f.statusOpen && !s.expired && !s.has_applied && s.can_apply !== false) return true;
-        if (f.statusExpired && s.expired) return true;
-        if (f.statusApplied && s.has_applied) return true;
-        if (f.statusNotApplied && !s.has_applied) return true;
-        if (f.statusBookmarked && isBookmarked) return true;
-        return false;
-      });
-    }
-
-    // Category
-    if (f.categories.length > 0) {
-      list = list.filter((s) => f.categories.includes(s.category));
-    }
-
-    // Date range — uses "Closes" date (end_date ?? start_date), same as card display
-    if (f.dateFrom) {
-      const fromTs = new Date(f.dateFrom).getTime();
-      list = list.filter((s) => {
-        const closes = s.end_date || s.start_date;
-        if (!closes) return true; // no date → don't hide it
-        return new Date(closes).getTime() >= fromTs;
-      });
-    }
-    if (f.dateTo) {
-      const toTs = new Date(f.dateTo).getTime();
-      list = list.filter((s) => {
-        const closes = s.end_date || s.start_date;
-        if (!closes) return true; // no date → don't hide it
-        return new Date(closes).getTime() <= toTs;
-      });
-    }
-
-    // Progress
-    if (f.progressRange !== "all") {
-      list = list.filter((s) => {
-        const pct = s.progress_percent ?? 0;
-        if (f.progressRange === "zero") return pct === 0;
-        if (f.progressRange === "low") return pct >= 1 && pct <= 50;
-        if (f.progressRange === "high") return pct >= 51 && pct <= 100;
-        return true;
-      });
-    }
-
     return list;
-  }, [apiScholarships, searchQuery, searchIndex, activeFilters, bookmarks]);
+  }, [apiScholarships, searchQuery, searchIndex]);
 
   const showToast = useCallback((message: string, type: "success" | "error" | "info" = "success") => {
     setToastMessage(message);
@@ -788,13 +304,21 @@ export default function ScholarshipListingScreen() {
           style={[
             styles.cardContainer,
             {
-              backgroundColor: colors.card,
+              backgroundColor: isDark ? "transparent" : colors.card,
               borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB",
               borderLeftWidth: 4,
               borderLeftColor: isExpired ? "#9CA3AF" : categoryColor,
             },
           ]}
         >
+          {isDark && (
+            <LinearGradient
+              colors={["#1e1e1e", "#000000"]}
+              style={StyleSheet.absoluteFill}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            />
+          )}
           <View style={styles.cardHeader}>
             <View style={[styles.cardPill, { backgroundColor: isExpired ? "#F3F4F6" : `${categoryColor}15` }]}>
               <Ionicons name="location-sharp" size={10} color={isExpired ? "#6B7280" : categoryColor} />
@@ -954,21 +478,23 @@ export default function ScholarshipListingScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.activePillsRow}
           >
-            {activeFilters.statusOpen && <ActiveFilterPill label="Open" color="#10B981" onRemove={() => setActiveFilters((p) => ({ ...p, statusOpen: false }))} />}
-            {activeFilters.statusExpired && <ActiveFilterPill label="Expired" color="#EF4444" onRemove={() => setActiveFilters((p) => ({ ...p, statusExpired: false }))} />}
-            {activeFilters.statusApplied && <ActiveFilterPill label="Applied" color="#3B82F6" onRemove={() => setActiveFilters((p) => ({ ...p, statusApplied: false }))} />}
-            {activeFilters.statusNotApplied && <ActiveFilterPill label="Not Applied" color="#F59E0B" onRemove={() => setActiveFilters((p) => ({ ...p, statusNotApplied: false }))} />}
-            {activeFilters.statusBookmarked && <ActiveFilterPill label="Bookmarked" color="#8B5CF6" onRemove={() => setActiveFilters((p) => ({ ...p, statusBookmarked: false }))} />}
-            {activeFilters.categories.map((cat) => (
-              <ActiveFilterPill key={cat} label={cat} color={getCategoryColor(cat)} onRemove={() => setActiveFilters((p) => ({ ...p, categories: p.categories.filter((c) => c !== cat) }))} />
-            ))}
-            {activeFilters.dateFrom && <ActiveFilterPill label={`From: ${activeFilters.dateFrom}`} color="#10B981" onRemove={() => setActiveFilters((p) => ({ ...p, dateFrom: "" }))} />}
-            {activeFilters.dateTo && <ActiveFilterPill label={`To: ${activeFilters.dateTo}`} color="#10B981" onRemove={() => setActiveFilters((p) => ({ ...p, dateTo: "" }))} />}
-            {activeFilters.progressRange !== "all" && (
+            {activeFilters.status && <ActiveFilterPill label={`Status: ${activeFilters.status}`} color="#6C63FF" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, status: "" }))} />}
+            {activeFilters.applied !== null && <ActiveFilterPill label={activeFilters.applied ? "Applied" : "Not Applied"} color="#3B82F6" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, applied: null }))} />}
+            {activeFilters.bookmarked !== null && <ActiveFilterPill label={activeFilters.bookmarked ? "Bookmarked" : "Not Bookmarked"} color="#8B5CF6" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, bookmarked: null }))} />}
+            {activeFilters.state && <ActiveFilterPill label={`State: ${activeFilters.state}`} color="#F59E0B" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, state: "" }))} />}
+            {activeFilters.dateFrom && <ActiveFilterPill label={`From: ${activeFilters.dateFrom}`} color="#EF4444" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, dateFrom: "" }))} />}
+            {activeFilters.dateTo && <ActiveFilterPill label={`To: ${activeFilters.dateTo}`} color="#EF4444" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, dateTo: "" }))} />}
+            {activeFilters.courseName && <ActiveFilterPill label={`Course: ${activeFilters.courseName}`} color="#10B981" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, courseName: "" }))} />}
+            {activeFilters.annualFamilyIncomeMax && <ActiveFilterPill label={`Income < ${activeFilters.annualFamilyIncomeMax}`} color="#8B5CF6" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, annualFamilyIncomeMax: "" }))} />}
+            {activeFilters.lastClassPercentageMin && <ActiveFilterPill label={`Min ${activeFilters.lastClassPercentageMin}%`} color="#10B981" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, lastClassPercentageMin: "" }))} />}
+            {activeFilters.gender && <ActiveFilterPill label={`Gender: ${activeFilters.gender}`} color="#6C63FF" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, gender: "" }))} />}
+            {activeFilters.casteCategory && <ActiveFilterPill label={`Caste: ${activeFilters.casteCategory}`} color="#8B5CF6" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, casteCategory: "" }))} />}
+            {activeFilters.specialCategory && <ActiveFilterPill label={`Special: ${activeFilters.specialCategory}`} color="#F59E0B" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, specialCategory: "" }))} />}
+            {(activeFilters.progressMin || activeFilters.progressMax) && (
               <ActiveFilterPill
-                label={`Progress: ${activeFilters.progressRange === "zero" ? "0%" : activeFilters.progressRange === "low" ? "1–50%" : "51–100%"}`}
-                color="#8B5CF6"
-                onRemove={() => setActiveFilters((p) => ({ ...p, progressRange: "all" }))}
+                label={`Progress: ${activeFilters.progressMin || 0}% - ${activeFilters.progressMax || 100}%`}
+                color="#3B82F6"
+                onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, progressMin: "", progressMax: "" }))}
               />
             )}
             <TouchableOpacity
@@ -1000,14 +526,14 @@ export default function ScholarshipListingScreen() {
       />
 
       {/* Filter Modal */}
-      <FilterModal
+      <ScholarshipFilterModal
         visible={filterVisible}
         onClose={() => setFilterVisible(false)}
         filters={activeFilters}
         onApply={setActiveFilters}
-        availableCategories={availableCategories}
         isDark={isDark}
         colors={colors}
+        dropdownData={dropdownData}
       />
 
       <Toast message={toastMessage} type={toastType} visible={toastVisible} onHide={() => setToastVisible(false)} duration={3000} />
@@ -1115,145 +641,4 @@ const styles = StyleSheet.create({
   emptyStateSubtext: { fontSize: 14, color: "#bbb", marginTop: 4 },
 });
 
-const fStyles = StyleSheet.create({
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingTop: Platform.OS === "ios" ? 54 : (StatusBar.currentHeight ?? 0) + 12,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-  },
-  iconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  closeBtn: { padding: 2 },
-  headerTitle: { fontSize: 22, fontWeight: "800", letterSpacing: -0.5 },
-  headerSubtitle: { fontSize: 12, fontWeight: "500", marginTop: 2 },
-  resetBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  searchWrapper: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    gap: 10,
-  },
-  searchInput: { flex: 1, fontSize: 15, fontWeight: "500" },
-  section: { paddingHorizontal: 20, paddingTop: 24 },
-  sectionHeader: { flexDirection: "row", alignItems: "center", marginBottom: 14, gap: 10 },
-  sectionIconBg: { width: 32, height: 32, borderRadius: 10, justifyContent: "center", alignItems: "center" },
-  sectionTitle: { fontSize: 16, fontWeight: "800", letterSpacing: -0.3, flex: 1 },
-  countBadge: { width: 22, height: 22, borderRadius: 11, justifyContent: "center", alignItems: "center" },
-  card: {
-    borderRadius: 18,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
-  divider: { height: 1, marginHorizontal: 16 },
-  switchRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  statusIcon: { width: 40, height: 40, borderRadius: 12, justifyContent: "center", alignItems: "center" },
-  switchLabel: { fontSize: 15, fontWeight: "700" },
-  switchDesc: { fontSize: 12, marginTop: 2 },
-  chipGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, padding: 16 },
-  categoryChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 24,
-    gap: 6,
-  },
-  catDot: { width: 8, height: 8, borderRadius: 4 },
-  dateRow: { flexDirection: "row", alignItems: "flex-end", padding: 16, gap: 8 },
-  dateLabel: { fontSize: 12, fontWeight: "600", marginBottom: 6 },
-  dateInput: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    gap: 8,
-  },
-  dateInputText: { flex: 1, fontSize: 13, fontWeight: "600" },
-  dateArrow: { width: 32, height: 32, borderRadius: 10, justifyContent: "center", alignItems: "center", marginBottom: 2 },
-  dateHint: { fontSize: 12, paddingHorizontal: 16, paddingBottom: 14, fontStyle: "italic" },
-  progressGrid: { flexDirection: "column", gap: 10, padding: 16 },
-  progressRow: { flexDirection: "row", gap: 10 },
-  progressChip: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    borderWidth: 1.5,
-  },
-  footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    gap: 12,
-    padding: 20,
-    paddingBottom: Platform.OS === "ios" ? 36 : 24,
-    borderTopWidth: 1,
-  },
-  clearAllBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  applyBtn: {
-    flex: 2,
-    borderRadius: 16,
-    overflow: "hidden",
-  },
-  applyBtnGrad: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 16,
-  },
-  datePickerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  datePickerIconBg: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-});
+

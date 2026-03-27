@@ -8,6 +8,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   RefreshControl,
   ScrollView,
   StatusBar,
@@ -18,6 +19,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SearchBar, ScholarshipFilterModal, FilterState, DEFAULT_FILTERS, countActiveFilters } from "@/components";
+import { getDropdownDefinitions, DropdownData } from "@/utils/api";
 
 // ─── Category color palette ──────────────────────────────────────────────────
 const CATEGORY_PALETTE: Record<string, { bg: string; text: string; dot: string }> = {
@@ -50,6 +53,19 @@ function stripHtml(html: string) {
 
 // ─── Stat chip ────────────────────────────────────────────────────────────────
 
+function ActiveFilterPill({ label, color, onRemove }: { label: string; color: string; onRemove: () => void }) {
+  return (
+    <TouchableOpacity
+      style={[styles.activePill, { backgroundColor: `${color}18`, borderColor: `${color}40` }]}
+      onPress={onRemove}
+      activeOpacity={0.7}
+    >
+      <Text style={{ fontSize: 12, fontWeight: "600", color }}>{label}</Text>
+      <Ionicons name="close" size={12} color={color} style={{ marginLeft: 4 }} />
+    </TouchableOpacity>
+  );
+}
+
 // ─── Main screen ──────────────────────────────────────────────────────────────
 export default function StudentRecommendedScholarshipsScreen() {
   const { isDark, colors } = useTheme();
@@ -60,12 +76,17 @@ export default function StudentRecommendedScholarshipsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [scholarships, setScholarships] = useState<any[]>([]);
   const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState("All");
+
   const [toast, setToast] = useState({
     visible: false,
     message: "",
     type: "success" as "success" | "error" | "info",
   });
+  const [filterVisible, setFilterVisible] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [dropdownData, setDropdownData] = useState<DropdownData | null>(null);
+
+  const filterCount = countActiveFilters(activeFilters);
 
   // ── fetch ────────────────────────────────────────────────────────────────────
   const fetchScholarships = async () => {
@@ -75,7 +96,23 @@ export default function StudentRecommendedScholarshipsScreen() {
       const authDataStr = await AsyncStorage.getItem("authData");
       if (!authDataStr) return;
       const { token } = JSON.parse(authDataStr);
-      const response = await getMobilizerStudentScholarships(token, Number(studentId));
+      const response = await getMobilizerStudentScholarships(token, Number(studentId), {
+        search: search || undefined,
+        status: activeFilters.status || undefined,
+        applied: activeFilters.applied !== null ? String(activeFilters.applied) : undefined,
+        bookmarked: activeFilters.bookmarked !== null ? String(activeFilters.bookmarked) : undefined,
+        state: activeFilters.state || undefined,
+        start_date: activeFilters.dateFrom || undefined,
+        end_date: activeFilters.dateTo || undefined,
+        progress_min: activeFilters.progressMin || undefined,
+        progress_max: activeFilters.progressMax || undefined,
+        annual_family_income_max: activeFilters.annualFamilyIncomeMax || undefined,
+        special_category: activeFilters.specialCategory || undefined,
+        last_class_percentage_min: activeFilters.lastClassPercentageMin || undefined,
+        caste_category: activeFilters.casteCategory || undefined,
+        gender: activeFilters.gender || undefined,
+        course_name: activeFilters.courseName || undefined,
+      });
       if (response.success) {
         setScholarships(response.data?.data || response.data?.scholarships || []);
       }
@@ -87,30 +124,26 @@ export default function StudentRecommendedScholarshipsScreen() {
     }
   };
 
-  useEffect(() => { fetchScholarships(); }, [studentId]);
+  useEffect(() => {
+    fetchScholarships();
+  }, [studentId, activeFilters, search]);
+
+  useEffect(() => {
+    const fetchDropdowns = async () => {
+      try {
+        const authDataStr = await AsyncStorage.getItem("authData");
+        if (authDataStr) {
+          const { token } = JSON.parse(authDataStr);
+          const res = await getDropdownDefinitions(token);
+          if (res.success && res.data) setDropdownData(res.data);
+        }
+      } catch (err) { console.error(err); }
+    };
+    fetchDropdowns();
+  }, []);
 
   const onRefresh = () => { setRefreshing(true); fetchScholarships(); };
 
-  // ── categories from data ─────────────────────────────────────────────────────
-  const categories = useMemo(() => {
-    const cats = new Set<string>();
-    scholarships.forEach((s) => { if (s.category) cats.add(s.category); });
-    return ["All", ...Array.from(cats)];
-  }, [scholarships]);
-
-  // ── filtered list ────────────────────────────────────────────────────────────
-  const filtered = useMemo(() => {
-    return scholarships.filter((s) => {
-      const q = search.toLowerCase();
-      const matchSearch =
-        !q ||
-        (s.name || "").toLowerCase().includes(q) ||
-        (s.provider || "").toLowerCase().includes(q) ||
-        (s.category || "").toLowerCase().includes(q);
-      const matchCat = activeCategory === "All" || s.category === activeCategory;
-      return matchSearch && matchCat;
-    });
-  }, [scholarships, search, activeCategory]);
 
   // ── stats ────────────────────────────────────────────────────────────────────
   // ── bookmark ─────────────────────────────────────────────────────────────────
@@ -167,75 +200,79 @@ export default function StudentRecommendedScholarshipsScreen() {
           </View>
         </View>
 
-        {/* Search bar */}
-        <View style={[styles.searchBar, { backgroundColor: inputBg }]}>
-          <Ionicons name="search-outline" size={18} color={isDark ? "#6B7280" : "#9CA3AF"} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Search by name, provider or region…"
-            placeholderTextColor={isDark ? "#4B5563" : "#9CA3AF"}
-            value={search}
-            onChangeText={setSearch}
-            returnKeyType="search"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch("")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close-circle" size={18} color={isDark ? "#6B7280" : "#9CA3AF"} />
-            </TouchableOpacity>
-          )}
+        {/* Search row with Filter icon */}
+        <View style={styles.searchRowWrapper}>
+          <View style={{ flex: 1 }}>
+            <SearchBar
+              value={search}
+              onChangeText={setSearch}
+              onClear={() => setSearch("")}
+              placeholder="Search scholarships..."
+            />
+          </View>
+          <TouchableOpacity
+            onPress={() => setFilterVisible(true)}
+            style={[
+              styles.filterIconBtn,
+              {
+                backgroundColor: filterCount > 0
+                  ? (isDark ? "rgba(108,99,255,0.22)" : "rgba(108,99,255,0.1)")
+                  : (isDark ? "rgba(255,255,255,0.07)" : (isDark ? "#1C1C28" : "#fff")),
+                borderColor: filterCount > 0
+                  ? (isDark ? "rgba(108,99,255,0.55)" : "rgba(108,99,255,0.4)")
+                  : (isDark ? "rgba(255,255,255,0.13)" : "#E5E7EB"),
+              },
+            ]}
+          >
+            <Ionicons
+              name={filterCount > 0 ? "options" : "options-outline"}
+              size={21}
+              color={filterCount > 0 ? "#6C63FF" : (isDark ? "rgba(255,255,255,0.55)" : "#888")}
+            />
+            {filterCount > 0 && (
+              <View style={styles.filterBadge}>
+                <Text style={styles.filterBadgeText}>{filterCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
       </LinearGradient>
 
-      {/* ── Category filter chips ───────────────────────────────────────────── */}
-      {!loading && categories.length > 1 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterRow}
-          style={[styles.filterScroll, { backgroundColor: bg }]}
-        >
-          {categories.map((cat) => {
-            const active = cat === activeCategory;
-            const catStyle = cat === "All" ? { bg: "#6366F1", text: "#fff", dot: "#fff" } : getCategoryStyle(cat);
-            return (
-              <TouchableOpacity
-                key={cat}
-                onPress={() => setActiveCategory(cat)}
-                activeOpacity={0.75}
-                style={[
-                  styles.filterChip,
-                  {
-                    backgroundColor: active ? "#6366F1" : (isDark ? "#1C1C28" : "#fff"),
-                    borderColor: active ? "#6366F1" : (isDark ? "#2D2D44" : "#E5E7EB"),
-                  },
-                ]}
-              >
-                {cat !== "All" && (
-                  <View style={[styles.filterDot, { backgroundColor: active ? "#fff" : catStyle.dot }]} />
-                )}
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    { color: active ? "#fff" : (isDark ? "#94A3B8" : "#374151") },
-                  ]}
-                >
-                  {cat}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+      {/* ── Active filter chips ───────────────────────────────────────────── */}
+      {filterCount > 0 && (
+        <View style={{ backgroundColor: bg }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.activePillsRow}
+          >
+            {activeFilters.status && <ActiveFilterPill label={`Status: ${activeFilters.status}`} color="#6C63FF" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, status: "" }))} />}
+            {activeFilters.applied !== null && <ActiveFilterPill label={activeFilters.applied ? "Applied" : "Not Applied"} color="#3B82F6" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, applied: null }))} />}
+            {activeFilters.bookmarked !== null && <ActiveFilterPill label={activeFilters.bookmarked ? "Bookmarked" : "Not Bookmarked"} color="#8B5CF6" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, bookmarked: null }))} />}
+            {activeFilters.state && <ActiveFilterPill label={`State: ${activeFilters.state}`} color="#F59E0B" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, state: "" }))} />}
+            {activeFilters.dateFrom && <ActiveFilterPill label={`From: ${activeFilters.dateFrom}`} color="#EF4444" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, dateFrom: "" }))} />}
+            {activeFilters.dateTo && <ActiveFilterPill label={`To: ${activeFilters.dateTo}`} color="#EF4444" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, dateTo: "" }))} />}
+            {activeFilters.courseName && <ActiveFilterPill label={`Course: ${activeFilters.courseName}`} color="#10B981" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, courseName: "" }))} />}
+            {activeFilters.annualFamilyIncomeMax && <ActiveFilterPill label={`Income < ${activeFilters.annualFamilyIncomeMax}`} color="#8B5CF6" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, annualFamilyIncomeMax: "" }))} />}
+            {activeFilters.lastClassPercentageMin && <ActiveFilterPill label={`Min ${activeFilters.lastClassPercentageMin}%`} color="#10B981" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, lastClassPercentageMin: "" }))} />}
+            {activeFilters.gender && <ActiveFilterPill label={`Gender: ${activeFilters.gender}`} color="#6C63FF" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, gender: "" }))} />}
+            {activeFilters.casteCategory && <ActiveFilterPill label={`Caste: ${activeFilters.casteCategory}`} color="#8B5CF6" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, casteCategory: "" }))} />}
+            {activeFilters.specialCategory && <ActiveFilterPill label={`Special: ${activeFilters.specialCategory}`} color="#F59E0B" onRemove={() => setActiveFilters((p: FilterState) => ({ ...p, specialCategory: "" }))} />}
+            <TouchableOpacity
+              onPress={() => setActiveFilters(DEFAULT_FILTERS)}
+              style={[styles.clearAllPill, { backgroundColor: isDark ? "rgba(239,68,68,0.12)" : "#FEE2E2" }]}
+            >
+              <Text style={{ fontSize: 12, fontWeight: "700", color: "#EF4444" }}>Clear All</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
       )}
 
       {/* ── Results count ───────────────────────────────────────────────────── */}
       {!loading && (
         <View style={[styles.resultsRow, { backgroundColor: bg }]}>
           <Text style={[styles.resultsText, { color: isDark ? "#64748B" : "#9CA3AF" }]}>
-            {filtered.length === scholarships.length
-              ? `${filtered.length} scholarships found`
-              : `${filtered.length} of ${scholarships.length} matching`}
+            {scholarships.length} scholarships found
           </Text>
         </View>
       )}
@@ -254,8 +291,8 @@ export default function StudentRecommendedScholarshipsScreen() {
               Finding best scholarships…
             </Text>
           </View>
-        ) : filtered.length > 0 ? (
-          filtered.map((item, index) => (
+        ) : scholarships.length > 0 ? (
+          scholarships.map((item: any, index: number) => (
             <ScholarshipCard
               key={item.id || item.scholarship_id || index}
               item={item}
@@ -273,9 +310,19 @@ export default function StudentRecommendedScholarshipsScreen() {
             />
           ))
         ) : (
-          <EmptyState isDark={isDark} hasSearch={!!search} onClear={() => { setSearch(""); setActiveCategory("All"); }} />
+          <EmptyState isDark={isDark} hasSearch={!!search || filterCount > 0} onClear={() => { setSearch(""); setActiveFilters(DEFAULT_FILTERS); }} />
         )}
       </ScrollView>
+
+      <ScholarshipFilterModal
+        visible={filterVisible}
+        onClose={() => setFilterVisible(false)}
+        filters={activeFilters}
+        onApply={(f: FilterState) => { setActiveFilters(f); setFilterVisible(false); }}
+        isDark={isDark}
+        colors={colors}
+        dropdownData={dropdownData}
+      />
 
       <Toast
         visible={toast.visible}
@@ -287,22 +334,21 @@ export default function StudentRecommendedScholarshipsScreen() {
   );
 }
 
-// ─── Scholarship Card ─────────────────────────────────────────────────────────
 function ScholarshipCard({ item, isDark, cardBg, onPress, onBookmark, studentId }: any) {
   const catStyle = getCategoryStyle(item.category);
   const categoryColor = catStyle.dot || "#1E40AF";
-
   const isBookmarked = item.bookmarked;
   const isExpired = item.expired;
   const hasApplied = item.has_applied;
   const deadline = item.end_date || item.deadline;
-
   let statusConfig = { text: "Open", color: "#10B981", bg: "rgba(16, 185, 129, 0.1)" };
   if (isExpired) statusConfig = { text: "Expired", color: "#EF4444", bg: "rgba(239, 68, 68, 0.1)" };
   else if (hasApplied) statusConfig = { text: "Applied", color: "#3B82F6", bg: "rgba(59, 130, 246, 0.1)" };
   else if (item.can_apply === false) statusConfig = { text: "Closed", color: "#F59E0B", bg: "rgba(245, 158, 11, 0.1)" };
-
   const { colors } = useTheme();
+
+
+
 
   return (
     <View
@@ -448,6 +494,53 @@ const styles = StyleSheet.create({
   },
   headerLabel: { color: "rgba(255,255,255,0.65)", fontSize: 12, fontWeight: "500", marginBottom: 2 },
   headerStudentName: { color: "#fff", fontSize: 20, fontWeight: "800", letterSpacing: -0.3 },
+
+  // Search Row
+  searchRowWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingRight: 0,
+    paddingLeft: 0,
+    gap: 12,
+  },
+  filterIconBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
+  },
+  filterBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: "#6C63FF",
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: "#FFF",
+  },
+  filterBadgeText: { color: "#fff", fontSize: 10, fontWeight: "800" },
+  activePillsRow: { flexDirection: "row", paddingHorizontal: 16, paddingVertical: 10, gap: 8, alignItems: "center" },
+  activePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  clearAllPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
 
   // Search
   searchBar: {

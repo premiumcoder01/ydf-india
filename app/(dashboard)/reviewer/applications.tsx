@@ -85,19 +85,22 @@ function SchemeCard({ s, isDark, colors, onPress }: {
   const rejected = s.applications_rejected ?? 0;
   const assignedToMe = s.assigned_to_me ?? 0;
 
+  // Fulfillment represents the Review Progress (Approved + Rejected) / Total
+  const reviewedCount = approved + rejected;
+  const reviewProgress = total > 0 ? (reviewedCount / total) * 100 : 0;
+
   const approvedPct = total > 0 ? (approved / total) * 100 : 0;
   const pendingPct = total > 0 ? (pending / total) * 100 : 0;
   const rejectedPct = total > 0 ? (rejected / total) * 100 : 0;
 
   const status = getStatusInfo(s);
-  const border = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)";
+  const border = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
   const subText = isDark ? "#94A3B8" : "#64748B";
-
 
   return (
     <View style={styles.cardContainer}>
       <LinearGradient
-        colors={isDark ? ["rgba(255,255,255,0.05)", "rgba(255,255,255,0.02)"] : ["#FFFFFF", "#F9FAFB"]}
+        colors={isDark ? ["rgba(30,30,35,0.95)", "rgba(15,15,20,0.98)"] : ["#FFFFFF", "#F8FAFC"]}
         style={[styles.card, { borderColor: border }]}
       >
         {/* Header Section */}
@@ -106,85 +109,96 @@ function SchemeCard({ s, isDark, colors, onPress }: {
             colors={status.gradient as [string, string]}
             style={styles.schemeIconBox}
           >
-            <Ionicons name="school" size={18} color="#fff" />
+            <Ionicons name="school-outline" size={20} color="#fff" />
           </LinearGradient>
 
-          <View style={{ flex: 1, gap: 2 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <Text style={[styles.schemeName, { color: colors.text, flex: 1 }]} numberOfLines={2}>
-                {s.title}
-              </Text>
-
-            </View>
-
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.schemeName, { color: colors.text }]} numberOfLines={2}>
+              {s.title}
+            </Text>
             <View style={styles.catRow}>
-              <Ionicons name="location-sharp" size={9} color="#6366F1" />
-              <Text style={[styles.categoryText, { color: "#6366F1" }]}>{s.category || "All India"}</Text>
-              <View style={[styles.dot, { backgroundColor: subText }]} />
-              <Text style={[styles.dateRangeText, { color: subText }]}>
-                {formatDate(s.start_date)}
-              </Text>
+              <View style={[styles.statusTag, { backgroundColor: status.color + "20" }]}>
+                <View style={[styles.statusDot, { backgroundColor: status.color }]} />
+                <Text style={[styles.statusTagText, { color: status.color }]}>{status.label}</Text>
+              </View>
+              <Text style={[styles.categoryText, { color: colors.textSecondary }]}>{s.category || "General"}</Text>
             </View>
           </View>
         </View>
 
-        {/* Stats Grid */}
-        <View style={styles.statsRow}>
-          <StatBox icon="people" label="Total" value={total} color="#6366F1" isDark={isDark} />
-          <StatBox icon="time" label="Pending" value={pending} color="#F59E0B" isDark={isDark} />
-          <StatBox icon="checkmark-circle" label="Approved" value={approved} color="#10B981" isDark={isDark} />
-          <StatBox icon="close-circle" label="Rejected" value={rejected} color="#EF4444" isDark={isDark} />
+        {/* Info Row: Duration & Assignment */}
+        <View style={styles.infoRow}>
+          <View style={styles.infoItem}>
+            <Ionicons name="calendar-outline" size={12} color={subText} />
+            <Text style={[styles.infoText, { color: subText }]}>
+              {formatDate(s.start_date)} - {formatDate(s.end_date) || 'Open'}
+            </Text>
+          </View>
+          {assignedToMe > 0 && (
+            <View style={styles.assignmentPill}>
+              <Ionicons name="person-circle" size={14} color="#6366F1" />
+              <Text style={styles.assignmentText}>{assignedToMe} Assigned to me</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Stats Section - 2x2 Grid for clarity */}
+        <View style={styles.statsGrid}>
+          <View style={styles.statRowItem}>
+            <StatBox icon="people" label="Total Applied" value={total} color="#6366F1" isDark={isDark} />
+            <StatBox icon="time" label="In Review" value={pending} color="#F59E0B" isDark={isDark} />
+          </View>
+          <View style={styles.statRowItem}>
+            <StatBox icon="checkmark-circle" label="Approved" value={approved} color="#10B981" isDark={isDark} />
+            <StatBox icon="close-circle" label="Rejected" value={rejected} color="#EF4444" isDark={isDark} />
+          </View>
         </View>
 
         {/* Progress Section */}
         {total > 0 && (
           <View style={styles.progressArea}>
             <View style={styles.progressTextRow}>
-              <Text style={[styles.progressLabel, { color: subText }]}>Fulfillment</Text>
-              <Text style={[styles.progressValue, { color: colors.text }]}>{approvedPct.toFixed(0)}%</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text style={[styles.progressLabel, { color: colors.text }]}>Review Progress</Text>
+                <TouchableOpacity onPress={() => Alert.alert("Fulfillment Info", "This tracks the percentage of total applications that have been processed (Approved or Rejected).")}>
+                  <Ionicons name="information-circle-outline" size={12} color={subText} />
+                </TouchableOpacity>
+              </View>
+              <Text style={[styles.progressValue, { color: "#10B981" }]}>{reviewProgress.toFixed(0)}% Complete</Text>
             </View>
             <View style={[styles.progressTrack, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#E2E8F0" }]}>
               {approvedPct > 0 && <View style={[styles.pFill, { width: `${approvedPct}%` as any, backgroundColor: "#10B981" }]} />}
-              {pendingPct > 0 && <View style={[styles.pFill, { width: `${pendingPct}%` as any, backgroundColor: "#F59E0B" }]} />}
               {rejectedPct > 0 && <View style={[styles.pFill, { width: `${rejectedPct}%` as any, backgroundColor: "#EF4444" }]} />}
+              {pendingPct > 0 && <View style={[styles.pFill, { width: `${pendingPct}%` as any, backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "#CBD5E1" }]} />}
             </View>
+            <Text style={[styles.progressSubText, { color: subText }]}>
+              {reviewedCount} / {total} applications processed
+            </Text>
           </View>
         )}
 
         {/* Card Footer */}
         <View style={[styles.cardFooter, { borderTopColor: border }]}>
-          <View style={styles.footerLeftSide}>
-            <View style={[styles.statusTag, { backgroundColor: isDark ? "rgba(99,102,241,0.12)" : "#EEF2FF", marginRight: 8 }]}>
-              <Text style={[styles.statusTagText, { color: "#6366F1" }]}>{status.label}</Text>
-            </View>
-            {assignedToMe > 0 ? (
-              <View style={styles.assignmentPill}>
-                <Ionicons name="person" size={8} color="#6366F1" />
-                <Text style={styles.assignmentText}>{assignedToMe} Assigned</Text>
-              </View>
-            ) : (
-              <Text style={[styles.updatedText, { color: subText }]}>
-                Upd. {s.updated_at?.split(" ")[0]}
-              </Text>
-            )}
-          </View>
+
 
           <View style={styles.actionButtonGroup}>
             <TouchableOpacity
-              style={[styles.actionBtn, styles.detailsBtn]}
+              style={[styles.actionBtn, styles.detailsBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#F1F5F9" }]}
               onPress={() => router.push({
                 pathname: "/(dashboard)/reviewer/scholarship-details",
                 params: { scholarshipId: s.id }
               })}
             >
-              <Text style={styles.detailsBtnText}>Details</Text>
+              <Text style={[styles.detailsBtnText, { color: isDark ? "#fff" : colors.text }]}>View Details</Text>
+              <Ionicons name="chevron-forward" size={14} color={isDark ? "#fff" : colors.text} />
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.actionBtn, styles.applicationsBtn]}
               onPress={onPress}
             >
-              <Text style={styles.applicationsBtnText}>Applicants</Text>
+              <Text style={styles.applicationsBtnText}>View Applicants</Text>
+              <Ionicons name="chevron-forward" size={14} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
@@ -197,12 +211,11 @@ function StatBox({ icon, label, value, color, isDark }: {
   icon: any; label: string; value: number; color: string; isDark: boolean;
 }) {
   return (
-    <View style={styles.statBox}>
-      <View style={[styles.statIconWrap, { backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "#F8FAFC" }]}>
-        <Ionicons name={icon} size={14} color={color} />
+    <View style={[styles.statBox, { borderLeftColor: color + "40" }]}>
+      <View style={styles.statContent}>
+        <Text style={[styles.statNum, { color: isDark ? "#fff" : "#1E293B" }]}>{value}</Text>
+        <Text style={[styles.statSubText, { color: isDark ? "#94A3B8" : "#64748B" }]}>{label}</Text>
       </View>
-      <Text style={[styles.statNum, { color: isDark ? "#fff" : "#1E293B" }]}>{value}</Text>
-      <Text style={[styles.statSubText, { color: isDark ? "#94A3B8" : "#64748B" }]}>{label}</Text>
     </View>
   );
 }
@@ -369,70 +382,104 @@ const styles = StyleSheet.create({
 
   // Updated Card Design
   cardContainer: {
-    borderRadius: 20,
+    borderRadius: 24,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 5,
+    marginBottom: 8,
   },
   card: {
-    padding: 12,
-    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderRadius: 24,
     borderWidth: 1,
-    gap: 10,
+    gap: 16,
   },
 
-  cardHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
+  cardHeader: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   schemeIconBox: {
-    width: 36, height: 36, borderRadius: 10,
+    width: 44, height: 44, borderRadius: 14,
     alignItems: "center", justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
-  schemeName: { fontSize: 13, fontWeight: "700", letterSpacing: -0.2, lineHeight: 18 },
-  catRow: { flexDirection: "row", alignItems: "center", gap: 3, marginTop: 1 },
-  categoryText: { fontSize: 9, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.2 },
-  dot: { width: 2, height: 2, borderRadius: 1, marginHorizontal: 2, opacity: 0.5 },
-  dateRangeText: { fontSize: 10, fontWeight: "500" },
+  schemeName: { fontSize: 16, fontWeight: "800", letterSpacing: -0.4, lineHeight: 22 },
+  catRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
+  categoryText: { fontSize: 11, fontWeight: "600", opacity: 0.8 },
 
-  statusTag: { paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6 },
-  statusTagText: { fontSize: 8, fontWeight: "800", textTransform: "uppercase" },
-
-  statsRow: { flexDirection: "row", gap: 6 },
-  statBox: { flex: 1, alignItems: "center", gap: 2 },
-  statIconWrap: { width: 28, height: 28, borderRadius: 8, alignItems: "center", justifyContent: "center" },
-  statNum: { fontSize: 12, fontWeight: "800" },
-  statSubText: { fontSize: 8, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.1 },
-
-  progressArea: { gap: 4 },
-  progressTextRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
-  progressLabel: { fontSize: 9, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3 },
-  progressValue: { fontSize: 11, fontWeight: "800" },
-  progressTrack: { height: 4, borderRadius: 2, flexDirection: "row", overflow: "hidden" },
-  pFill: { height: "100%" },
-
-  cardFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderTopWidth: 1, paddingTop: 10 },
-  footerLeftSide: { flex: 1, flexDirection: "row", alignItems: "center" },
-  assignmentPill: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(99,102,241,0.1)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-  assignmentText: { color: "#6366F1", fontSize: 9, fontWeight: "700" },
-  updatedText: { fontSize: 9, fontWeight: "500" },
-
-  viewAction: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "rgba(99,102,241,0.08)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  viewActionText: { color: "#6366F1", fontSize: 11, fontWeight: "700" },
-
-  actionButtonGroup: { flexDirection: "row", gap: 5 },
-  actionBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
+  statusTag: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 20
+  },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusTagText: { fontSize: 10, fontWeight: "700", textTransform: "uppercase" },
+
+  infoRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 4 },
+  infoItem: { flexDirection: "row", alignItems: "center", gap: 4 },
+  infoText: { fontSize: 11, fontWeight: "500" },
+
+  assignmentPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(99,102,241,0.1)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12
+  },
+  assignmentText: { color: "#6366F1", fontSize: 10, fontWeight: "700" },
+
+  statsGrid: { gap: 10 },
+  statRowItem: { flexDirection: "row", gap: 10 },
+  statBox: {
+    flex: 1,
+    paddingLeft: 10,
+    borderLeftWidth: 3,
+    paddingVertical: 4,
+  },
+  statContent: { gap: 1 },
+  statNum: { fontSize: 16, fontWeight: "800" },
+  statSubText: { fontSize: 10, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.2 },
+
+  progressArea: { gap: 8, marginTop: 4 },
+  progressTextRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  progressLabel: { fontSize: 12, fontWeight: "700" },
+  progressValue: { fontSize: 12, fontWeight: "800" },
+  progressTrack: { height: 6, borderRadius: 3, flexDirection: "row", overflow: "hidden" },
+  pFill: { height: "100%" },
+  progressSubText: { fontSize: 10, fontWeight: "500", textAlign: "right", marginTop: 2 },
+
+  cardFooter: {
+    alignItems: "flex-end",
+    borderTopWidth: 1,
+    paddingTop: 16
+  },
+  updatedText: { fontSize: 11, fontWeight: "500", fontStyle: 'italic' },
+
+  actionButtonGroup: { flexDirection: "row", gap: 8, paddingRight: 2 },
+  actionBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     justifyContent: "center"
   },
-  detailsBtn: { backgroundColor: "rgba(99,102,241,0.1)" },
-  detailsBtnText: { color: "#6366F1", fontSize: 12, fontWeight: "700" },
-  applicationsBtn: { backgroundColor: "#6366F1", minWidth: 100 },
-  applicationsBtnText: { color: "#fff", fontSize: 12, fontWeight: "700" },
+  detailsBtn: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  detailsBtnText: { fontSize: 12, fontWeight: "700" },
+  applicationsBtn: { backgroundColor: "#6366F1", shadowColor: "#6366F1", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  applicationsBtnText: { color: "#fff", fontSize: 12, fontWeight: "800" },
 
   emptyState: { alignItems: "center", padding: 40, borderRadius: 24, gap: 10 },
   emptyIconRing: { width: 60, height: 60, borderRadius: 30, alignItems: "center", justifyContent: "center", marginBottom: 8 },

@@ -1112,6 +1112,20 @@ export const getAllScholarships = async (
     search?: string;
     page?: number;
     per_page?: number;
+    status?: string | "open" | "expired" | "closed";
+    applied?: boolean | string;
+    bookmarked?: boolean | string;
+    state?: string;
+    start_date?: string;
+    end_date?: string;
+    progress_min?: number | string;
+    progress_max?: number | string;
+    annual_family_income_max?: number | string;
+    special_category?: string;
+    last_class_percentage_min?: number | string;
+    caste_category?: string;
+    gender?: string;
+    course_name?: string;
   }
 ): Promise<ApiResponse> => {
   try {
@@ -1124,14 +1138,24 @@ export const getAllScholarships = async (
     urlObj.searchParams.append("moodlewsrestformat", "json");
 
     // Add optional parameters if provided
-    if (params?.search) {
-      urlObj.searchParams.append("search", params.search);
-    }
-    if (params?.page) {
-      urlObj.searchParams.append("page", String(params.page));
-    }
-    if (params?.per_page) {
-      urlObj.searchParams.append("per_page", String(params.per_page));
+    if (params) {
+      if (params.search) urlObj.searchParams.append("search", params.search);
+      if (params.page) urlObj.searchParams.append("page", String(params.page));
+      if (params.per_page) urlObj.searchParams.append("per_page", String(params.per_page));
+      if (params.status) urlObj.searchParams.append("status", params.status);
+      if (params.applied !== undefined) urlObj.searchParams.append("applied", String(params.applied));
+      if (params.bookmarked !== undefined) urlObj.searchParams.append("bookmarked", String(params.bookmarked));
+      if (params.state) urlObj.searchParams.append("state", params.state);
+      if (params.start_date) urlObj.searchParams.append("start_date", params.start_date);
+      if (params.end_date) urlObj.searchParams.append("end_date", params.end_date);
+      if (params.progress_min !== undefined) urlObj.searchParams.append("progress_min", String(params.progress_min));
+      if (params.progress_max !== undefined) urlObj.searchParams.append("progress_max", String(params.progress_max));
+      if (params.annual_family_income_max !== undefined) urlObj.searchParams.append("annual_family_income_max", String(params.annual_family_income_max));
+      if (params.special_category) urlObj.searchParams.append("special_category", params.special_category);
+      if (params.last_class_percentage_min !== undefined) urlObj.searchParams.append("last_class_percentage_min", String(params.last_class_percentage_min));
+      if (params.caste_category) urlObj.searchParams.append("caste_category", params.caste_category);
+      if (params.gender) urlObj.searchParams.append("gender", params.gender);
+      if (params.course_name) urlObj.searchParams.append("course_name", params.course_name);
     }
 
     const finalUrl = urlObj.toString();
@@ -4852,8 +4876,25 @@ export const getMobilizerRecommendedScholarships = async (
 export const getMobilizerStudentScholarships = async (
   token: string,
   studentId: number,
-  page: number = 1,
-  perPage: number = 100
+  params?: {
+    search?: string;
+    page?: number;
+    per_page?: number;
+    status?: string | "open" | "expired" | "closed";
+    applied?: boolean | string;
+    bookmarked?: boolean | string;
+    state?: string;
+    start_date?: string;
+    end_date?: string;
+    progress_min?: number | string;
+    progress_max?: number | string;
+    annual_family_income_max?: number | string;
+    special_category?: string;
+    last_class_percentage_min?: number | string;
+    caste_category?: string;
+    gender?: string;
+    course_name?: string;
+  }
 ): Promise<ApiResponse> => {
   try {
     const baseUrl = getApiUrl("webservice/rest/server.php");
@@ -4863,8 +4904,26 @@ export const getMobilizerStudentScholarships = async (
     urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_get_scholarships");
     urlObj.searchParams.append("moodlewsrestformat", "json");
     urlObj.searchParams.append("student_id", studentId.toString());
-    urlObj.searchParams.append("page", page.toString());
-    urlObj.searchParams.append("per_page", perPage.toString());
+
+    if (params) {
+      if (params.search) urlObj.searchParams.append("search", params.search);
+      if (params.page) urlObj.searchParams.append("page", String(params.page));
+      if (params.per_page) urlObj.searchParams.append("per_page", String(params.per_page));
+      if (params.status) urlObj.searchParams.append("status", params.status);
+      if (params.applied !== undefined) urlObj.searchParams.append("applied", String(params.applied));
+      if (params.bookmarked !== undefined) urlObj.searchParams.append("bookmarked", String(params.bookmarked));
+      if (params.state) urlObj.searchParams.append("state", params.state);
+      if (params.start_date) urlObj.searchParams.append("start_date", params.start_date);
+      if (params.end_date) urlObj.searchParams.append("end_date", params.end_date);
+      if (params.progress_min !== undefined) urlObj.searchParams.append("progress_min", String(params.progress_min));
+      if (params.progress_max !== undefined) urlObj.searchParams.append("progress_max", String(params.progress_max));
+      if (params.annual_family_income_max !== undefined) urlObj.searchParams.append("annual_family_income_max", String(params.annual_family_income_max));
+      if (params.special_category) urlObj.searchParams.append("special_category", params.special_category);
+      if (params.last_class_percentage_min !== undefined) urlObj.searchParams.append("last_class_percentage_min", String(params.last_class_percentage_min));
+      if (params.caste_category) urlObj.searchParams.append("caste_category", params.caste_category);
+      if (params.gender) urlObj.searchParams.append("gender", params.gender);
+      if (params.course_name) urlObj.searchParams.append("course_name", params.course_name);
+    }
 
     const finalUrl = urlObj.toString();
     console.log("Get Mobilizer Student Scholarships URL:", finalUrl);
@@ -4887,34 +4946,17 @@ export const getMobilizerStudentScholarships = async (
       };
     }
 
-    if (response.ok) {
-      if (data.exception) {
-        return {
-          success: false,
-          error: data.message || data.exception,
-          message: data.message || "Failed to get scholarships",
-        };
-      }
-      return {
-        success: true,
-        data: data,
-        message: "Scholarships retrieved successfully",
-      };
-    } else {
-      return {
-        success: false,
-        error: data.error || data.message || "Failed to retrieve scholarships",
-        message: data.message || "Failed to retrieve scholarships",
-      };
+    if (data.exception) {
+      return { success: false, error: data.message, message: data.message };
     }
+
+    return { success: true, data: data };
   } catch (error: any) {
-    return {
-      success: false,
-      error: error.message || "Network error. Please check your connection.",
-      message: "Failed to connect to server",
-    };
+    return { success: false, error: error.message };
   }
 };
+
+
 
 /**
  * Get Mobilizer Students API call

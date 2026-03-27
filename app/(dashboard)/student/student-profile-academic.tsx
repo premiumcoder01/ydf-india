@@ -1,6 +1,6 @@
 import { AppHeader, Button, CustomTextInput, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { createAcademicDetail, deleteAcademicDetail, getAcademicDetails, updateAcademicDetail } from "@/utils/api";
+import { createAcademicDetail, deleteAcademicDetail, DropdownData, getAcademicDetails, getDropdownDefinitions, updateAcademicDetail } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -37,164 +38,11 @@ interface ValidationErrors {
   [key: string]: string;
 }
 
-const COURSE_OPTIONS = [
-  // Undergraduate - Engineering
-  "B.Tech", "B.E.", "B.Arch", "B.Des", "B.Plan",
-  // Undergraduate - Medical
-  "MBBS", "BDS", "BAMS", "BHMS", "BUMS", "B.Pharm", "BPT", "B.Sc Nursing", "BNYS",
-  // Undergraduate - Science
-  "B.Sc", "B.Sc (Hons)", "B.Sc Agriculture", "B.Sc Forestry", "B.Sc Biotechnology",
-  // Undergraduate - Commerce
-  "B.Com", "B.Com (Hons)", "BBA", "BMS", "BBM",
-  // Undergraduate - Arts & Humanities
-  "B.A.", "B.A. (Hons)", "BFA", "B.Mus", "B.P.Ed", "B.Ed",
-  // Undergraduate - Computer Applications
-  "BCA", "B.Sc IT", "B.Sc CS",
-  // Undergraduate - Law
-  "LLB", "BA LLB", "BBA LLB", "B.Com LLB",
-  // Undergraduate - Others
-  "B.Lib.Sc", "B.J.M.C", "B.F.Tech", "B.H.M", "B.T.M",
+interface Option {
+  label: string;
+  value: string;
+}
 
-  // Postgraduate - Engineering
-  "M.Tech", "M.E.", "M.Arch", "M.Des", "M.Plan",
-  // Postgraduate - Medical
-  "MD", "MS", "MDS", "M.Pharm", "MPT", "M.Sc Nursing",
-  // Postgraduate - Science
-  "M.Sc", "M.Sc (Hons)", "M.Phil",
-  // Postgraduate - Commerce
-  "M.Com", "M.Com (Hons)", "MBA", "PGDM", "MMS", "MFM",
-  // Postgraduate - Arts & Humanities
-  "M.A.", "M.A. (Hons)", "MFA", "M.Mus", "M.P.Ed", "M.Ed",
-  // Postgraduate - Computer Applications
-  "MCA", "M.Sc IT", "M.Sc CS",
-  // Postgraduate - Law
-  "LLM",
-  // Postgraduate - Others
-  "M.Lib.Sc", "M.J.M.C", "M.H.M", "M.T.M", "MSW",
-
-  // Doctoral
-  "Ph.D", "D.Sc", "D.Litt", "DM", "M.Ch",
-
-  // Diploma & Certificate
-  "Diploma", "Advanced Diploma", "PG Diploma", "Certificate Course",
-
-  // Integrated Courses
-  "B.Tech + M.Tech", "BS-MS", "BBA + MBA", "Integrated M.Sc",
-
-  "Other"
-];
-
-const COURSE_CATEGORY_OPTIONS = [
-  // Main Categories
-  "Engineering & Technology",
-  "Medical & Health Sciences",
-  "Science & Research",
-  "Commerce & Business",
-  "Arts & Humanities",
-  "Law & Legal Studies",
-  "Management & Administration",
-  "Computer Applications & IT",
-  "Education & Teaching",
-  "Agriculture & Forestry",
-  "Architecture & Planning",
-  "Design & Fine Arts",
-  "Pharmacy & Pharmaceutical Sciences",
-  "Nursing & Healthcare",
-  "Veterinary Science",
-  "Mass Communication & Journalism",
-  "Hotel Management & Tourism",
-  "Fashion & Textile",
-  "Social Work & Social Sciences",
-  "Library Science",
-  "Physical Education & Sports",
-  "Performing Arts",
-  "Vocational & Skill Development",
-  "Other"
-];
-
-const MAJOR_OPTIONS = [
-  // Computer Science & IT
-  "Computer Science", "Information Technology", "Software Engineering",
-  "Data Science", "Artificial Intelligence", "Machine Learning", "Cyber Security",
-  "Cloud Computing", "Internet of Things (IoT)", "Blockchain Technology",
-  "Computer Networks", "Database Management", "Web Development", "Mobile App Development",
-
-  // Engineering - Core Branches
-  "Mechanical Engineering", "Civil Engineering", "Electrical Engineering",
-  "Electronics Engineering", "Electronics & Communication", "Electronics & Telecommunication",
-  "Chemical Engineering", "Aerospace Engineering", "Automobile Engineering",
-  "Production Engineering", "Industrial Engineering", "Manufacturing Engineering",
-  "Instrumentation Engineering", "Biomedical Engineering", "Biotechnology Engineering",
-  "Environmental Engineering", "Mining Engineering", "Petroleum Engineering",
-  "Agricultural Engineering", "Food Technology", "Textile Engineering",
-  "Marine Engineering", "Naval Architecture", "Robotics & Automation",
-  "Mechatronics", "Nanotechnology", "Material Science",
-
-  // Medical & Health Sciences
-  "General Medicine", "General Surgery", "Pediatrics", "Obstetrics & Gynecology",
-  "Orthopedics", "Ophthalmology", "ENT", "Dermatology", "Psychiatry",
-  "Radiology", "Anesthesiology", "Pathology", "Medical Microbiology", "Pharmacology",
-  "Dentistry", "Oral Surgery", "Orthodontics", "Periodontics", "Prosthodontics",
-  "Nursing", "Physiotherapy", "Occupational Therapy", "Pharmacy", "Ayurveda",
-  "Homeopathy", "Unani", "Naturopathy & Yoga", "Public Health", "Nutrition & Dietetics",
-
-  // Pure Sciences
-  "Physics", "Chemistry", "Mathematics", "Statistics", "Biology", "Zoology",
-  "Botany", "Microbiology", "Biochemistry", "Biotechnology", "Genetics",
-  "Environmental Science", "Geology", "Physical Geography", "Astronomy", "Astrophysics",
-
-  // Commerce & Business
-  "Accounting", "Finance", "Banking", "Taxation", "Auditing", "Cost Accounting",
-  "Financial Management", "Investment Management", "Insurance", "Business Economics",
-  "International Business", "E-Commerce", "Retail Management",
-
-  // Management
-  "Marketing", "Human Resources", "Operations Management", "Supply Chain Management",
-  "Project Management", "Strategic Management", "Entrepreneurship", "Business Analytics",
-  "International Business Management", "Hospitality Management",
-  "Tourism Management", "Event Management", "Sports Management", "Healthcare Management",
-
-  // Arts & Humanities
-  "English", "Hindi", "Sanskrit", "Urdu", "Regional Languages", "Linguistics",
-  "History", "Political Science", "Sociology", "Psychology", "Philosophy",
-  "Anthropology", "Archaeology", "Human Geography", "Economics", "Public Administration",
-  "International Relations", "Social Work", "Women Studies", "Cultural Studies",
-
-  // Law
-  "Constitutional Law", "Criminal Law", "Civil Law", "Corporate Law",
-  "Intellectual Property Law", "Tax Law", "International Law", "Cyber Law",
-  "Environmental Law", "Human Rights Law", "Family Law", "Labour Law",
-
-  // Education
-  "Elementary Education", "Secondary Education", "Special Education",
-  "Educational Psychology", "Educational Technology", "Curriculum Development",
-  "Educational Administration", "Physical Education", "Early Childhood Education",
-
-  // Agriculture & Allied
-  "Agronomy", "Horticulture", "Soil Science", "Plant Pathology", "Entomology",
-  "Agricultural Economics", "Agricultural Extension", "Animal Husbandry",
-  "Dairy Science", "Fisheries", "Forestry", "Veterinary Science",
-
-  // Architecture & Design
-  "Architecture", "Urban Planning", "Landscape Architecture", "Interior Design",
-  "Industrial Design", "Fashion Design", "Graphic Design", "Product Design",
-  "Textile Design", "Animation", "Visual Communication",
-
-  // Mass Communication & Media
-  "Journalism", "Mass Communication", "Advertising", "Public Relations",
-  "Film Making", "Photography", "Video Production", "Digital Media",
-  "Broadcasting", "Print Media", "Electronic Media",
-
-  // Performing Arts
-  "Music", "Dance", "Drama", "Theatre Arts", "Fine Arts", "Painting",
-  "Sculpture", "Applied Arts",
-
-  // Library & Information Science
-  "Library Science", "Information Science", "Archival Science",
-
-  // General & Others
-  "General", "Interdisciplinary Studies", "Liberal Arts", "Other"
-];
 
 // Generate graduation year options (current year to 2040)
 const currentYear = new Date().getFullYear();
@@ -217,11 +65,13 @@ const INITIAL_RECORD: AcademicRecord = {
 export default function StudentProfileAcademicScreen() {
   const { isDark, colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const [dropdowns, setDropdowns] = useState<DropdownData | null>(null);
 
 
   // State for list of records
   const [records, setRecords] = useState<AcademicRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Modal & Editing State
@@ -234,7 +84,8 @@ export default function StudentProfileAcademicScreen() {
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showMajorPicker, setShowMajorPicker] = useState(false);
   const [showGradYearPicker, setShowGradYearPicker] = useState(false);
-  const [showAcademicYearPicker, setShowAcademicYearPicker] = useState(false);
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
 
   // CGPA/Percentage toggle
   const [gradeType, setGradeType] = useState<'cgpa' | 'percentage'>('cgpa');
@@ -246,7 +97,40 @@ export default function StudentProfileAcademicScreen() {
 
   useEffect(() => {
     fetchAcademicDetails();
+    fetchDropdowns();
   }, []);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      fetchAcademicDetails(),
+      fetchDropdowns()
+    ]);
+    setRefreshing(false);
+  }, []);
+
+  const fetchDropdowns = async () => {
+    try {
+      const authData = await AsyncStorage.getItem("authData");
+      if (!authData) return;
+      const { token } = JSON.parse(authData);
+      const response = await getDropdownDefinitions(token);
+      if (response.success && response.data) {
+        setDropdowns(response.data);
+      }
+    } catch (error) {
+      console.error("Error fetching dropdowns:", error);
+    }
+  };
+
+  const getOptionsByShortname = (shortname: string) => {
+    if (!dropdowns) return [];
+    const courseField = dropdowns.course_fields?.find(f => f.shortname === shortname);
+    if (courseField) return courseField.options;
+    const userField = dropdowns.user_fields?.find(f => f.shortname === shortname);
+    if (userField) return userField.options;
+    return [];
+  };
 
   const fetchAcademicDetails = async () => {
     try {
@@ -284,6 +168,12 @@ export default function StudentProfileAcademicScreen() {
   // --- Handlers ---
 
   const handleAddNew = () => {
+    if (records.length >= 4) {
+      setToastMessage("Maximum 4 academic records allowed. Please delete an existing record to add a new one.");
+      setToastType("error");
+      setShowToast(true);
+      return;
+    }
     setEditingRecord({ ...INITIAL_RECORD }); // Keep ID empty for new record
     setValidationErrors({});
     setIsModalVisible(true);
@@ -335,6 +225,7 @@ export default function StudentProfileAcademicScreen() {
     if (!editingRecord.year.trim()) errors.year = "Required";
     if (!editingRecord.currentCourse.trim()) errors.currentCourse = "Required";
     if (!editingRecord.currentCourseCategory.trim()) errors.currentCourseCategory = "Required";
+    if (!editingRecord.major.trim()) errors.major = "Required"; // Added major validation
 
     // Academic Performance Validation (Required)
     if (!editingRecord.gpa || !editingRecord.gpa.trim()) {
@@ -384,6 +275,7 @@ export default function StudentProfileAcademicScreen() {
             academic_year: editingRecord.year,
             graduation_year: editingRecord.graduation,
           };
+          console.log(apiParams)
 
           let response;
           if (editingRecord.id) {
@@ -424,14 +316,26 @@ export default function StudentProfileAcademicScreen() {
 
   // --- Render Components ---
 
-  const SelectionModal = ({ visible, onClose, title, options, selected, onSelect }: any) => {
+  const SelectionModal = ({ visible, onClose, title, options, selected, onSelect }: {
+    visible: boolean;
+    onClose: () => void;
+    title: string;
+    options: Option[] | string[]; // Can be Option objects or string array for GRADUATION_YEAR_OPTIONS
+    selected: string;
+    onSelect: (value: string) => void;
+  }) => {
     const [searchQuery, setSearchQuery] = React.useState("");
 
     if (!visible) return null;
 
+    // Normalize options to {label, value} array
+    const normalizedOptions: Option[] = options.map((opt: Option | string) =>
+      typeof opt === 'string' ? { label: opt, value: opt } : opt
+    );
+
     // Filter options based on search query
-    const filteredOptions = options.filter((opt: string) =>
-      opt.toLowerCase().includes(searchQuery.toLowerCase())
+    const filteredOptions = normalizedOptions.filter((opt: Option) =>
+      opt.label.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     // Reset search when modal closes
@@ -478,16 +382,16 @@ export default function StudentProfileAcademicScreen() {
                 </Text>
               </View>
             ) : (
-              filteredOptions.map((opt: string) => (
+              filteredOptions.map((opt: Option) => (
                 <TouchableOpacity
-                  key={opt}
-                  style={[styles.optionRow, selected === opt && styles.optionSelected, { borderBottomColor: colors.border }]}
-                  onPress={() => onSelect(opt)}
+                  key={opt.value}
+                  style={[styles.optionRow, selected === opt.value && styles.optionSelected, { borderBottomColor: colors.border }]}
+                  onPress={() => onSelect(opt.value)}
                 >
-                  <Text style={[styles.optionText, { color: colors.text }, selected === opt && styles.optionTextSelected]}>
-                    {opt}
+                  <Text style={[styles.optionText, { color: colors.text }, selected === opt.value && styles.optionTextSelected]}>
+                    {opt.label}
                   </Text>
-                  {selected === opt && (
+                  {selected === opt.value && (
                     <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
                   )}
                 </TouchableOpacity>
@@ -521,16 +425,34 @@ export default function StudentProfileAcademicScreen() {
         <ScrollView
           contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 100 }}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
         >
           <View style={styles.headerRow}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Academic Records</Text>
             <TouchableOpacity
-              style={[styles.addButton, { backgroundColor: colors.primary }]}
+              style={[styles.addButton, { backgroundColor: records.length >= 4 ? colors.textSecondary + '50' : colors.primary, opacity: records.length >= 4 ? 0.6 : 1 }]}
               onPress={handleAddNew}
+              activeOpacity={records.length >= 4 ? 1 : 0.7}
             >
               <Ionicons name="add" size={24} color="#fff" />
             </TouchableOpacity>
           </View>
+
+          {records.length >= 4 && (
+            <View style={[styles.warningContainer, { backgroundColor: isDark ? '#3D2A1F' : '#FFF4E5', borderColor: isDark ? '#8A5D3B' : '#FFD699' }]}>
+              <Ionicons name="warning-outline" size={20} color={isDark ? '#FFB84D' : '#E67E22'} />
+              <Text style={[styles.warningText, { color: isDark ? '#FFB84D' : '#D35400' }]}>
+                Maximum limit of 4 records reached. Delete an existing one to add something new.
+              </Text>
+            </View>
+          )}
 
           {records.length === 0 ? (
             <View style={styles.emptyState}>
@@ -627,7 +549,7 @@ export default function StudentProfileAcademicScreen() {
                     onPress={() => setShowCoursePicker(true)}
                   >
                     <Ionicons name="book-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
-                    <Text 
+                    <Text
                       style={[{ flex: 1, marginRight: 8 }, { color: editingRecord.currentCourse ? colors.text : colors.textSecondary }]}
                       numberOfLines={1}
                       ellipsizeMode="tail"
@@ -646,7 +568,7 @@ export default function StudentProfileAcademicScreen() {
                     onPress={() => setShowCategoryPicker(true)}
                   >
                     <Ionicons name="grid-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
-                    <Text 
+                    <Text
                       style={[{ flex: 1, marginRight: 8 }, { color: editingRecord.currentCourseCategory ? colors.text : colors.textSecondary }]}
                       numberOfLines={1}
                       ellipsizeMode="tail"
@@ -665,7 +587,7 @@ export default function StudentProfileAcademicScreen() {
                     onPress={() => setShowMajorPicker(true)}
                   >
                     <Ionicons name="ribbon-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
-                    <Text 
+                    <Text
                       style={[{ flex: 1, marginRight: 8 }, { color: editingRecord.major ? colors.text : colors.textSecondary }]}
                       numberOfLines={1}
                       ellipsizeMode="tail"
@@ -743,15 +665,15 @@ export default function StudentProfileAcademicScreen() {
                   <Text style={[styles.label, { color: colors.textSecondary }]}>Academic Year (Start Year) *</Text>
                   <TouchableOpacity
                     style={[styles.selector, { borderColor: validationErrors.year ? '#EF4444' : colors.border, backgroundColor: isDark ? '#252525' : '#FFFFFF' }]}
-                    onPress={() => setShowAcademicYearPicker(true)}
+                    onPress={() => setShowStartDatePicker(true)}
                   >
                     <Ionicons name="calendar" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
-                    <Text 
+                    <Text
                       style={[{ flex: 1, marginRight: 8 }, { color: editingRecord.year ? colors.text : colors.textSecondary }]}
                       numberOfLines={1}
                       ellipsizeMode="tail"
                     >
-                      {editingRecord.year || "Year you started"}
+                      {editingRecord.year || "Select start date"}
                     </Text>
                     <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
                   </TouchableOpacity>
@@ -759,18 +681,18 @@ export default function StudentProfileAcademicScreen() {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={[styles.label, { color: colors.textSecondary }]}>Expected Graduation Year</Text>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>Expected Academic End Date</Text>
                   <TouchableOpacity
                     style={[styles.selector, { borderColor: colors.border, backgroundColor: isDark ? '#252525' : '#FFFFFF' }]}
-                    onPress={() => setShowGradYearPicker(true)}
+                    onPress={() => setShowEndDatePicker(true)}
                   >
                     <Ionicons name="flag-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
-                    <Text 
+                    <Text
                       style={[{ flex: 1, marginRight: 8 }, { color: editingRecord.graduation ? colors.text : colors.textSecondary }]}
                       numberOfLines={1}
                       ellipsizeMode="tail"
                     >
-                      {editingRecord.graduation || "Year you'll graduate"}
+                      {editingRecord.graduation || "Select end date"}
                     </Text>
                     <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
                   </TouchableOpacity>
@@ -792,7 +714,7 @@ export default function StudentProfileAcademicScreen() {
             visible={showCoursePicker}
             onClose={() => setShowCoursePicker(false)}
             title="Select Course"
-            options={COURSE_OPTIONS}
+            options={getOptionsByShortname("course_name_1")}
             selected={editingRecord.currentCourse}
             onSelect={(val: string) => { handleFieldChange("currentCourse", val); setShowCoursePicker(false); }}
           />
@@ -800,41 +722,43 @@ export default function StudentProfileAcademicScreen() {
             visible={showCategoryPicker}
             onClose={() => setShowCategoryPicker(false)}
             title="Select Category"
-            options={COURSE_CATEGORY_OPTIONS}
+            options={getOptionsByShortname("course_category_1")}
             selected={editingRecord.currentCourseCategory}
             onSelect={(val: string) => { handleFieldChange("currentCourseCategory", val); setShowCategoryPicker(false); }}
           />
           <SelectionModal
-            visible={showMajorPicker}
-            onClose={() => setShowMajorPicker(false)}
-            title="Select Major"
-            options={MAJOR_OPTIONS}
-            selected={editingRecord.major}
-            onSelect={(val: string) => { handleFieldChange("major", val); setShowMajorPicker(false); }}
-          />
+             visible={showMajorPicker}
+             onClose={() => setShowMajorPicker(false)}
+             title="Select Major/Stream"
+             options={getOptionsByShortname("course_stream_1")}
+             selected={editingRecord.major}
+             onSelect={(val: string) => { handleFieldChange("major", val); setShowMajorPicker(false); }}
+           />
 
-          {/* Year Pickers */}
           <DateTimePickerModal
-            isVisible={showAcademicYearPicker}
+            isVisible={showStartDatePicker}
             mode="date"
-            display="spinner"
-            locale="en-GB"
+            minimumDate={new Date(2000, 0, 1)}
+            maximumDate={new Date(2035, 11, 31)}
             onConfirm={(date) => {
-              handleFieldChange("year", date.getFullYear().toString());
-              setShowAcademicYearPicker(false);
+              handleFieldChange("year", date.toISOString().split('T')[0]);
+              setShowStartDatePicker(false);
             }}
-            onCancel={() => setShowAcademicYearPicker(false)}
+            onCancel={() => setShowStartDatePicker(false)}
             isDarkModeEnabled={isDark}
           />
 
-          {/* Graduation Year Dropdown */}
-          <SelectionModal
-            visible={showGradYearPicker}
-            onClose={() => setShowGradYearPicker(false)}
-            title="Expected Graduation Year"
-            options={GRADUATION_YEAR_OPTIONS}
-            selected={editingRecord.graduation}
-            onSelect={(val: string) => { handleFieldChange("graduation", val); setShowGradYearPicker(false); }}
+          <DateTimePickerModal
+            isVisible={showEndDatePicker}
+            mode="date"
+            minimumDate={new Date(2000, 0, 1)}
+            maximumDate={new Date(2040, 11, 31)}
+            onConfirm={(date) => {
+              handleFieldChange("graduation", date.toISOString().split('T')[0]);
+              setShowEndDatePicker(false);
+            }}
+            onCancel={() => setShowEndDatePicker(false)}
+            isDarkModeEnabled={isDark}
           />
         </View>
       </Modal>
@@ -1023,5 +947,20 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     paddingHorizontal: 20,
     lineHeight: 20,
+  },
+  warningContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 20,
+    gap: 10,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '500',
+    lineHeight: 18,
   },
 });

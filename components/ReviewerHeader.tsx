@@ -36,8 +36,8 @@ export default function ReviewerHeader({
       styles.header,
       {
         paddingTop: inset.top,
-        backgroundColor: colors.card,
-        borderBottomColor: colors.border
+        backgroundColor: isDark ? "#0f0f0f" : colors.card,
+        borderBottomColor: isDark ? "rgba(255,255,255,0.05)" : colors.border
       }
     ]}>
       <View style={styles.headerRow}>

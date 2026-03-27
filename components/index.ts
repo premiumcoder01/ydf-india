@@ -7,3 +7,5 @@ export { default as SearchBar } from './SearchBar';
 export { default as CustomTextInput } from './TextInput';
 export { default as Toast } from './Toast';
 export { DashboardHeader } from './DashboardHeader';
+export * from './ScholarshipFilterModal';
+

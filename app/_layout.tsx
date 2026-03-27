@@ -1,5 +1,4 @@
 import { ThemeProvider, useTheme } from "@/context/ThemeContext";
-import { DropdownProvider } from "@/context/DropdownContext";
 import { Stack } from "expo-router";
 import { StatusBar } from "react-native";
 
@@ -9,10 +8,10 @@ function RootLayoutContent() {
 
   return (
     <>
-      <StatusBar 
-        barStyle={isDark ? "light-content" : "dark-content"} 
-        backgroundColor="transparent" 
-        translucent 
+      <StatusBar
+        barStyle={isDark ? "light-content" : "dark-content"}
+        backgroundColor="transparent"
+        translucent
       />
       <Stack screenOptions={{ headerShown: false }}>
         {/* Auth screens */}
@@ -89,9 +88,7 @@ function RootLayoutContent() {
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <DropdownProvider>
-        <RootLayoutContent />
-      </DropdownProvider>
+      <RootLayoutContent />
     </ThemeProvider>
   );
 }
