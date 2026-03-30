@@ -457,7 +457,7 @@ export default function MobilizerApplyFormScreen() {
                 <ScrollView
                     ref={scrollRef}
                     style={styles.scrollView}
-                    contentContainerStyle={{ paddingBottom: 300 }}
+                    contentContainerStyle={{ paddingBottom: 24 }}
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                 >
@@ -806,7 +806,7 @@ const styles = StyleSheet.create({
     checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, justifyContent: 'center', alignItems: 'center', marginTop: 2 },
     declareText: { flex: 1, fontSize: 14, lineHeight: 22 },
     errorText: { color: '#EF4444', fontSize: 12, marginTop: 6 },
-    footer: { position: 'absolute', bottom: 0, left: 0, right: 0, borderTopWidth: 1, shadowColor: "#000", shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 8 },
+    footer: { borderTopWidth: 1, shadowColor: "#000", shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 8 },
     footerInner: { flexDirection: 'row', padding: 16, gap: 12 },
     footerBtn: { flex: 1 },
     modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },

@@ -42,7 +42,7 @@ type AppItem = {
     id: number;
     user: ApplicationUser;
     application_text: string | null;
-    status: "approved" | "rejected" | "not_applied" | "new" | null;
+    status: "approved" | "rejected" | "pending" | "new" | null;
     priority: number;
     assigned_reviewer_id: number | null;
     is_bookmarked: boolean;
@@ -73,12 +73,12 @@ type ParsedApplicationData = {
     financial_info?: string;
 };
 
-const STATUS_TABS: Array<"All" | "new" | "approved" | "rejected" | "not_applied"> = [
+const STATUS_TABS: Array<"All" | "new" | "approved" | "rejected" | "pending"> = [
     "All",
     "new",
     "approved",
     "rejected",
-    "not_applied",
+    "pending",
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -111,12 +111,12 @@ function getStatusConfig(status: AppItem["status"]) {
                 icon: "close-circle" as const,
                 gradient: ["#EF4444", "#DC2626"]
             };
-        case "not_applied":
+        case "pending":
             return {
                 color: "#475569",
                 bg: "rgba(148,163,184,0.1)",
                 bg2: "#F1F5F9",
-                label: "Not Applied",
+                label: "Pending",
                 icon: "document-outline" as const,
                 gradient: ["#94A3B8", "#475569"]
             };
@@ -351,6 +351,7 @@ export default function SchemeApplicationsScreen() {
     const [query, setQuery] = useState(() => (schemeId ? screenStateCache.get(schemeId)?.query : "") || "");
     const [activeTab, setActiveTab] = useState(() => (schemeId ? screenStateCache.get(schemeId)?.activeTab : "All") || "All");
     const [page, setPage] = useState(() => (schemeId ? screenStateCache.get(schemeId)?.page : 1) || 1);
+    const [debouncedQuery, setDebouncedQuery] = useState(query);
 
     const pageSize = 100;
 
@@ -359,6 +360,15 @@ export default function SchemeApplicationsScreen() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [showFilterModal, setShowFilterModal] = useState(false);
+
+    // Debounce query
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedQuery(query);
+            setPage(1); // Reset to first page when query changes
+        }, 500);
+        return () => clearTimeout(handler);
+    }, [query]);
 
     // Sync state to cache whenever it changes
     useEffect(() => {
@@ -377,15 +387,17 @@ export default function SchemeApplicationsScreen() {
             const token = authData?.token;
             if (!token) throw new Error("No authentication token found. Please login again.");
 
-            const isNotAppliedTab = activeTab === "not_applied";
+            const isPendingTab = activeTab === "pending";
             const apiParams: {
-                status: "approved" | "rejected" | "not_applied" | "new" | "";
+                status: "approved" | "rejected" | "pending" | "new" | "";
                 page: number;
                 per_page: number;
+                search: string;
             } = {
-                page: isNotAppliedTab ? 1 : targetPage,
-                per_page: isNotAppliedTab ? 1000 : pageSize,
-                status: activeTab === "All" || isNotAppliedTab ? "" : activeTab,
+                page: targetPage,
+                per_page: pageSize,
+                status: activeTab === "All" ? "" : activeTab,
+                search: debouncedQuery,
             };
 
             const response = await getReviewerApplications(token, schemeId, apiParams);
@@ -393,18 +405,7 @@ export default function SchemeApplicationsScreen() {
                 let fetchedApps = response.data.applications || [];
                 let pgData = response.data.pagination || null;
 
-                // Handle broken backend filter for not_applied users by filtering locally
-                if (isNotAppliedTab) {
-                    fetchedApps = fetchedApps.filter((a: AppItem) => a.status === "not_applied");
-                    // Override pagination since we're forcing a bulk local filter
-                    pgData = {
-                        page: 1,
-                        per_page: fetchedApps.length,
-                        total: fetchedApps.length,
-                        total_pages: 1,
-                    };
-                }
-
+                // Map local status if needed (the API parameter is already updated)
                 setApplications(fetchedApps);
                 setPagination(pgData);
             } else {
@@ -419,32 +420,19 @@ export default function SchemeApplicationsScreen() {
         }
     };
 
-    // Re-fetch whenever the page or tab changes
-    // useEffect(() => {
-    //     if (schemeId) fetchApplications(page);
-    // }, [schemeId, page, activeTab]);
-
     // Use useFocusEffect to fetch when focus returns (e.g. going back from details)
     useFocusEffect(
         useCallback(() => {
             if (schemeId) {
                 fetchApplications(page);
             }
-        }, [schemeId, page, activeTab])
+        }, [schemeId, page, activeTab, debouncedQuery])
     );
 
-    // Client-side search filters the current page only (API has no search param)
+    // Server-side search results (API now handles query parameter)
     const filtered = useMemo(() => {
-        const q = query.trim().toLowerCase();
-        if (!q) return applications;
-        return applications.filter(
-            (a) =>
-                a.user.fullname.toLowerCase().includes(q) ||
-                a.user.email.toLowerCase().includes(q) ||
-                String(a.id).includes(q) ||
-                (a.application_text && a.application_text.toLowerCase().includes(q))
-        );
-    }, [applications, query]);
+        return applications;
+    }, [applications]);
 
     const searchBg = isDark ? "rgba(255,255,255,0.06)" : "#FFFFFF";
     const searchBorder = isDark ? "rgba(255,255,255,0.08)" : "#E2E8F0";
@@ -549,7 +537,7 @@ export default function SchemeApplicationsScreen() {
                                 <View style={[styles.activeFilterPill, { backgroundColor: isDark ? "rgba(99,102,241,0.15)" : "#EEF2FF" }]}>
                                     <Ionicons name="funnel" size={12} color="#6366F1" />
                                     <Text style={styles.activeFilterText}>
-                                        {activeTab === "not_applied" ? "Not Applied" : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+                                        {activeTab === "pending" ? "Pending" : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
                                     </Text>
                                     <TouchableOpacity onPress={() => handleTabChange("All")}>
                                         <Ionicons name="close-circle" size={14} color="#6366F1" />
@@ -613,7 +601,7 @@ export default function SchemeApplicationsScreen() {
                                                     </View>
                                                     <Text style={[styles.filterOptionText, { color: isActive ? "#6366F1" : colors.text }]}>
                                                         {tab === "All" ? "All Applications" :
-                                                            tab === "not_applied" ? "Not Applied" :
+                                                            tab === "pending" ? "Pending" :
                                                                 tab.charAt(0).toUpperCase() + tab.slice(1)}
                                                     </Text>
                                                     {isActive && (

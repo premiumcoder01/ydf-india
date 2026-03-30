@@ -338,6 +338,7 @@ export const sendOtp = async (email: string): Promise<ApiResponse> => {
     urlObj.searchParams.append("identifier", "email");
 
     const finalUrl = urlObj.toString();
+
     console.log(finalUrl, "finalUrl");
     console.log(email, "email");
 
@@ -3030,7 +3031,8 @@ export const getReviewerApplications = async (
   token: string,
   scholarshipId: number,
   params?: {
-    status?: "new" | "approved" | "waitlisted" | "rejected" | "not_applied" | "";
+    status?: "new" | "approved" | "waitlisted" | "rejected" | "pending" | "";
+    search?: string;
     page?: number;
     per_page?: number;
   }
@@ -3046,9 +3048,14 @@ export const getReviewerApplications = async (
     urlObj.searchParams.append("scholarship_id", String(scholarshipId));
 
     // Add optional parameters if provided
-    // Always append status, even if it's an empty string
     if (params?.status !== undefined) {
+      // Map 'pending' back to whatever the server expects?
+      // User said "replaced in the api", so maybe the server accepts 'pending' now.
+      // I'll just append it directly as it's defined in the type.
       urlObj.searchParams.append("status", params.status);
+    }
+    if (params?.search) {
+      urlObj.searchParams.append("search", params.search);
     }
     if (params?.page) {
       urlObj.searchParams.append("page", String(params.page));
@@ -3056,6 +3063,7 @@ export const getReviewerApplications = async (
     if (params?.per_page) {
       urlObj.searchParams.append("per_page", String(params.per_page));
     }
+
 
     const finalUrl = urlObj.toString();
     console.log("Get Reviewer Applications URL:", finalUrl);
@@ -5584,4 +5592,40 @@ export const getDropdownDefinitions = async (token: string): Promise<ApiResponse
   } catch (error: any) {
     return { success: false, error: error.message || "Network error", message: "Failed to connect to server" };
   }
+};
+
+/**
+ * Link an existing student via email to the mobilizer's managed list.
+ */
+export const mobilizerLinkExistingStudent = async (token: string, email: string): Promise<ApiResponse> => {
+    try {
+        const baseUrl = getApiUrl("webservice/rest/server.php");
+        const urlObj = new URL(baseUrl);
+        urlObj.searchParams.append("wstoken", token);
+        urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_link_existing_student");
+        urlObj.searchParams.append("moodlewsrestformat", "json");
+        urlObj.searchParams.append("email", email);
+
+        console.log("🔗 Link Student URL:", urlObj.toString());
+
+        const response = await fetch(urlObj.toString(), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+        });
+
+        const responseText = await response.text();
+        let data: any = {};
+        try {
+            data = responseText ? JSON.parse(responseText) : {};
+        } catch {
+            return { success: false, error: responseText || "Invalid response", message: "Invalid response from server" };
+        }
+
+        if (data.status === 'success' || data.success || !data.exception) {
+            return { success: true, data: data, message: data.message || "Student linked successfully" };
+        }
+        return { success: false, error: data.message || "Failed to link student", message: data.message || "Failed to link existing student" };
+    } catch (error: any) {
+        return { success: false, error: error.message || "Network error", message: "Failed to connect to server" };
+    }
 };

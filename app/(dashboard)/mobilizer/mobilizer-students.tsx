@@ -1,6 +1,6 @@
 import { AppHeader, SearchBar } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { getMobilizerStudents } from "@/utils/api";
+import { getMobilizerStudents, mobilizerLinkExistingStudent } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
@@ -10,11 +10,14 @@ import React, { useCallback, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
+    Modal,
     StatusBar,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
+    Alert,
 } from "react-native";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -228,6 +231,9 @@ export default function MobilizerStudentsScreen() {
     const [students, setStudents] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [linkModalVisible, setLinkModalVisible] = useState(false);
+    const [linkEmail, setLinkEmail] = useState("");
+    const [linking, setLinking] = useState(false);
 
     const filteredStudents = useMemo(() => {
         if (!searchQuery.trim()) return students;
@@ -265,6 +271,35 @@ export default function MobilizerStudentsScreen() {
 
     const onRefresh = () => { setRefreshing(true); fetchStudents(); };
 
+    const handleLinkStudent = async () => {
+        if (!linkEmail.trim()) {
+            Alert.alert("Error", "Please enter an email address");
+            return;
+        }
+
+        try {
+            setLinking(true);
+            const authDataStr = await AsyncStorage.getItem("authData");
+            if (!authDataStr) return;
+            const { token } = JSON.parse(authDataStr);
+            const response = await mobilizerLinkExistingStudent(token, linkEmail.trim());
+
+            if (response.success) {
+                Alert.alert("Success", response.message || "Student linked successfully!");
+                setLinkModalVisible(false);
+                setLinkEmail("");
+                onRefresh();
+            } else {
+                Alert.alert("Error", response.error || "Failed to link student. Make sure the email is correct.");
+            }
+        } catch (err) {
+            console.error("Linking error:", err);
+            Alert.alert("Error", "An unexpected error occurred");
+        } finally {
+            setLinking(false);
+        }
+    };
+
     const bg = isDark ? "#0A0A0F" : "#F4F6FF";
 
     return (
@@ -276,9 +311,22 @@ export default function MobilizerStudentsScreen() {
                 title="My Students"
                 onBack={() => router.back()}
                 rightElement={
-                    <TouchableOpacity onPress={() => router.push("/(dashboard)/mobilizer/mobilizer-add-student")}>
-                        <Ionicons name="add-circle" size={32} color={colors.primary} />
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <TouchableOpacity 
+                            onPress={() => setLinkModalVisible(true)}
+                            style={{ 
+                                paddingHorizontal: 10, 
+                                paddingVertical: 6, 
+                                borderRadius: 8, 
+                                backgroundColor: isDark ? colors.card : '#F3F4F6' 
+                            }}
+                        >
+                            <Ionicons name="link-outline" size={24} color={colors.primary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => router.push("/(dashboard)/mobilizer/mobilizer-add-student")}>
+                            <Ionicons name="add-circle" size={32} color={colors.primary} />
+                        </TouchableOpacity>
+                    </View>
                 }
             />
 
@@ -333,7 +381,60 @@ export default function MobilizerStudentsScreen() {
                     }
                 />
             )}
+
+            {/* Link Existing Student Modal */}
+            <Modal
+                visible={linkModalVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setLinkModalVisible(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalBackdrop}
+                    activeOpacity={1}
+                    onPress={() => setLinkModalVisible(false)}
+                >
+                    <View style={[styles.modalContent, { backgroundColor: isDark ? colors.card : "#fff" }]}>
+                        <View style={styles.modalHeader}>
+                            <Text style={[styles.modalTitle, { color: colors.text }]}>Link Existing Student</Text>
+                            <TouchableOpacity onPress={() => setLinkModalVisible(false)}>
+                                <Ionicons name="close" size={24} color={colors.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+                        <Text style={[styles.modalDesc, { color: colors.textSecondary }]}>
+                            Enter the email address of the student already in the system to add them to your managed list.
+                        </Text>
+                        <View style={[styles.inputContainer, { backgroundColor: isDark ? colors.background : "#F9FAFB", borderColor: isDark ? colors.border : "#E2E8F0" }]}>
+                            <Ionicons name="mail-outline" size={20} color={colors.textSecondary} />
+                            <TextInput
+                                style={[styles.input, { color: colors.text }]}
+                                value={linkEmail}
+                                onChangeText={setLinkEmail}
+                                placeholder="Student Email Address"
+                                placeholderTextColor={colors.textSecondary}
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                            />
+                        </View>
+                        <TouchableOpacity
+                            onPress={handleLinkStudent}
+                            disabled={linking || !linkEmail}
+                            style={[
+                                styles.linkBtn,
+                                { backgroundColor: (linking || !linkEmail) ? colors.textSecondary + "55" : colors.primary }
+                            ]}
+                        >
+                            {linking ? (
+                                <ActivityIndicator color="#fff" size="small" />
+                            ) : (
+                                <Text style={styles.linkBtnText}>Link Student</Text>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
         </View>
+
     );
 }
 
@@ -421,6 +522,7 @@ const styles = StyleSheet.create({
     scholarshipBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
 
     // Empty
+    // Empty
     emptyWrap: { alignItems: "center", justifyContent: "center", marginTop: 60, paddingHorizontal: 24 },
     emptyIcon: {
         width: 96, height: 96, borderRadius: 28,
@@ -428,4 +530,64 @@ const styles = StyleSheet.create({
     },
     emptyTitle: { fontSize: 18, fontWeight: "800", marginBottom: 6, textAlign: "center" },
     emptySub: { fontSize: 13, textAlign: "center", lineHeight: 20 },
+
+    // Modal
+    modalBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    modalContent: {
+        width: '100%',
+        borderRadius: 24,
+        padding: 24,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.2,
+        shadowRadius: 20,
+        elevation: 10,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+    },
+    modalDesc: {
+        fontSize: 14,
+        lineHeight: 20,
+        marginBottom: 20,
+    },
+    inputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        borderRadius: 12,
+        borderWidth: 1.5,
+        height: 52,
+        marginBottom: 20,
+    },
+    input: {
+        flex: 1,
+        marginLeft: 10,
+        fontSize: 15,
+        fontWeight: '500',
+    },
+    linkBtn: {
+        height: 52,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    linkBtnText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
+    },
 });

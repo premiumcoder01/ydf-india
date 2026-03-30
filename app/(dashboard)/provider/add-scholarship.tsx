@@ -1028,7 +1028,7 @@ export default function ProviderAddScholarshipScreen() {
             onPress={() => setSelectionModal({
               show: true,
               title: "Select Caste Category",
-              options: [...getOptionsByShortname('Caste').map(o => o.label), "Any category"],
+              options: [...getOptionsByShortname('caste').map(o => o.label)],
               field: "casteCategory"
             })}
           >
