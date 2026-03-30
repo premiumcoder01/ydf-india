@@ -6,7 +6,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import { AnimatePresence, MotiView } from "moti";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Dimensions,
@@ -33,18 +33,7 @@ const GEO_DATA = {
   villages: ["Village X", "Village Y", "Village Z", "Town Alpha", "Town Beta"],
 };
 
-const DOCUMENT_OPTIONS: Record<string, string[]> = {
-  "Identity Proof": ["Aadhaar Card", "PAN Card", "Voter ID", "Passport", "Driving License", "College ID", "Other"],
-  "Address Proof": ["Aadhaar Card", "Passport", "Voter ID", "Ration Card", "Electricity Bill", "Rent Agreement", "Driving License", "Other"],
-  "Income Certificate": ["Income Certificate", "Salary Slip", "Form 16", "ITR Acknowledgement", "Other"],
-  "Academic Marksheets": ["10th Marksheet", "12th Marksheet", "Graduation Marksheet", "Last Passing Marksheet", "Diploma Certificate", "Other"],
-  "Admission Proof / Fees Receipt": ["Admission Letter", "Fee Receipt", "Bonafide Certificate", "College ID Card", "Other"],
-  "Bank Account Details": ["Bank Passbook", "Cancelled Cheque", "Bank Statement", "Other"],
-  "Disbursement Proof": ["Payment Receipt", "Transaction Screenshot", "Other"],
-  "Caste Certificate": ["Caste Certificate", "Tribe Certificate", "Other"],
-  "Special Category Proof": ["Disability Certificate", "Parent Death Certificate", "Legal Guardian Order", "Affidavit", "Other"],
-  "Other Documents": ["Self Declaration", "Recommendation Letter", "Gap Certificate", "Other"],
-};
+
 
 // --- Types ---
 type Stage = {
@@ -83,7 +72,7 @@ type FormData = {
   casteCategory: string;
   specialCategory: string;
   incomeLimit: string;
-  educationLevel: string[];
+  educationLevel: string;
   streams: string[];
   lastClassPercent: string;
   tenthClassPercent: string;
@@ -150,7 +139,7 @@ export default function ProviderAddScholarshipScreen() {
     casteCategory: "",
     specialCategory: "",
     incomeLimit: "",
-    educationLevel: [],
+    educationLevel: "",
     streams: [],
     lastClassPercent: "",
     tenthClassPercent: "",
@@ -206,6 +195,23 @@ export default function ProviderAddScholarshipScreen() {
     options: [],
     field: "",
   });
+
+  const academicLevels: { label: string; streams: string[] }[] = useMemo(() => {
+    const mainLevels = getOptionsByShortname('academic_qualifications').filter((o: any) => o.value !== 'Select' && o.label !== 'Select');
+
+    const streamShortnameMap: Record<string, string> = {
+      "Any": "any",
+      "School (Class 1-12)": "school_class",
+      "ITI / Diploma": "iti_diploma",
+      "Graduation": "graduation",
+      "Post Graduation": "post_graduation"
+    };
+
+    return mainLevels.map((lvl: any) => ({
+      label: lvl.label,
+      streams: getOptionsByShortname(streamShortnameMap[lvl.label] || "").map((o: any) => o.label)
+    })).filter(level => level.label !== 'Select');
+  }, [dropdownData, getOptionsByShortname]);
 
   const [datePicker, setDatePicker] = useState<{
     show: boolean;
@@ -295,7 +301,7 @@ export default function ProviderAddScholarshipScreen() {
       if (!formData.gender) newErrors.gender = "Gender is required";
       if (!formData.casteCategory) newErrors.casteCategory = "Caste category is required";
       if (!formData.incomeLimit.trim()) newErrors.incomeLimit = "Income limit is required";
-      if (formData.educationLevel.length === 0) newErrors.educationLevel = "Select at least one education level";
+      if (!formData.educationLevel) newErrors.educationLevel = "Select an education level";
     } else if (step === 2) {
       if (formData.requiredDocuments.length === 0) {
         newErrors.requiredDocuments = "Please select at least one required document";
@@ -406,9 +412,36 @@ export default function ProviderAddScholarshipScreen() {
       // Clean stream keys (remove level: prefix)
       const cleanStreams = formData.streams.map(s => s.includes(':') ? s.split(':')[1] : s);
 
+      const getStreamFor = (lvl: string) => formData.streams.find(s => s.startsWith(`${lvl}:`))?.split(':')[1] || "";
+
+      const academicPayload: any = {
+        academic_qualifications: formData.educationLevel,
+        any: getStreamFor("Any"),
+        school_class: getStreamFor("School (Class 1-12)"),
+        iti_diploma: getStreamFor("ITI / Diploma"),
+        graduation: getStreamFor("Graduation"),
+        post_graduation: getStreamFor("Post Graduation"),
+        min_last_class_percentage: formData.lastClassPercent,
+        minimum_10th_class_percentage: formData.tenthClassPercent,
+        minimum_12th_class_percentage: formData.twelfthClassPercent,
+        competitive_exam: formData.competitiveExams,
+        minimum_rank: formData.minRank,
+        minimum_score: formData.minScore,
+      };
+
+      // Also include old keys for backward compatibility as requested
+      academicPayload.education_level = formData.educationLevel ? [formData.educationLevel] : [];
+      academicPayload.streams = cleanStreams.filter(s => s !== "Any");
+      academicPayload.last_class_percent = formData.lastClassPercent;
+      academicPayload.tenth_class_percent = formData.tenthClassPercent;
+      academicPayload.twelfth_class_percent = formData.twelfthClassPercent;
+      academicPayload.competitive_exams = formData.competitiveExams;
+      academicPayload.min_rank = formData.minRank;
+      academicPayload.min_score = formData.minScore;
+
       const payload: any = {
         fullname: formData.schemeName,
-        shortname: generatedShortname.substring(0, 100), // Ensure within limits
+        shortname: generatedShortname.substring(0, 100),
         categoryid: categoryMap[formData.category] || 1,
         summary: formData.description,
         provider_name: formData.providerName,
@@ -430,18 +463,9 @@ export default function ProviderAddScholarshipScreen() {
           gender: formData.gender,
           caste_category: formData.casteCategory,
           special_category: formData.specialCategory === "Any category" ? "" : formData.specialCategory,
-          income_limit: formData.incomeLimit,
+          income_limit: formData.incomeLimit?.toString().trim() || "",
         }),
-        academic_eligibility_json: JSON.stringify({
-          education_level: formData.educationLevel,
-          streams: cleanStreams.filter(s => s !== "Any"),
-          last_class_percent: formData.lastClassPercent,
-          tenth_class_percent: formData.tenthClassPercent,
-          twelfth_class_percent: formData.twelfthClassPercent,
-          competitive_exams: formData.competitiveExams,
-          min_rank: formData.minRank,
-          min_score: formData.minScore,
-        }),
+        academic_eligibility_json: JSON.stringify(academicPayload),
         document_requirements_json: JSON.stringify(formData.requiredDocuments),
       };
 
@@ -1087,64 +1111,78 @@ export default function ProviderAddScholarshipScreen() {
         </View>
         {errors.educationLevel && <Text style={[styles.errorTextSmall, { marginLeft: 16, marginBottom: 8 }]}>{errors.educationLevel}</Text>}
 
-        {/* Education Levels List */}
-        <View style={{ gap: 12 }}>
-          {[
-            { label: "Any", streams: ["Any"] },
-            { label: "School (Class 1-12)", streams: ["Any", "Arts", "Commerce", "Science"] },
-            { label: "ITI / Diploma", streams: ["Any", "Mechanical", "Electrical", "Civil", "CS", "Other"] },
-            { label: "Graduation", streams: ["Any", "B.Tech", "B.Sc", "B.Com", "B.A", "MBBS", "Other"] },
-            { label: "Post Graduation", streams: ["Any", "M.Tech", "M.Sc", "M.Com", "MBA", "Other"] },
-          ].map((level) => {
-            const isLvlSelected = formData.educationLevel.includes(level.label);
-            return (
-              <View key={level.label} style={[styles.stageItem, { backgroundColor: isDark ? colors.surface : "#F9FAFB", borderColor: colors.border, padding: 0, overflow: 'hidden' }]}>
-                <TouchableOpacity
-                  style={{ flexDirection: 'row', alignItems: 'center', padding: 12 }}
-                  onPress={() => {
-                    setErrors(prev => ({ ...prev, educationLevel: "" }));
-                    toggleSelection("educationLevel", level.label);
-                  }}
-                >
-                  <View style={[styles.checkbox, isLvlSelected && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
-                    {isLvlSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
-                  </View>
-                  <Text style={{ marginLeft: 12, fontSize: 15, fontWeight: '600', color: colors.text, flex: 1 }}>{level.label}</Text>
-                  <Ionicons name={isLvlSelected ? "chevron-up" : "chevron-down"} size={16} color={colors.textSecondary} />
-                </TouchableOpacity>
+        <View style={{ gap: 0, marginTop: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
+          {/* Header */}
+          <View style={{ flexDirection: 'row', backgroundColor: isDark ? colors.surface : '#F9FAFB', padding: 12, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+            <Text style={{ flex: 1, fontSize: 12, fontWeight: '700', color: colors.textSecondary }}>QUALIFICATION</Text>
+            <Text style={{ flex: 1, fontSize: 12, fontWeight: '700', color: colors.textSecondary, textAlign: 'right', paddingRight: 10 }}>STREAM / CATEGORY</Text>
+          </View>
 
-                {isLvlSelected && level.streams.length > 0 && (
-                  <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card }}>
-                    <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 8, fontWeight: '600' }}>SELECT STREAMS:</Text>
-                    <View style={styles.chipGrid}>
-                      {level.streams.map(stream => {
-                        const streamKey = `${level.label}:${stream}`;
-                        const isStreamSelected = formData.streams.includes(streamKey);
-                        return (
-                          <TouchableOpacity
-                            key={stream}
-                            style={[
-                              styles.selectionChip,
-                              {
-                                paddingVertical: 6,
-                                paddingHorizontal: 12,
-                                borderRadius: 8,
-                                backgroundColor: isStreamSelected ? colors.primary : colors.surface,
-                                borderColor: isStreamSelected ? colors.primary : colors.border
-                              }
-                            ]}
-                            onPress={() => toggleSelection("streams", streamKey)}
-                          >
-                            <Text style={[styles.chipText, { fontSize: 12, color: isStreamSelected ? "#fff" : colors.text }]}>{stream}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </View>
-                )}
+          {/* Academic Qualifications Main Select */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+            <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: colors.text }}>Academic Qualifications</Text>
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingVertical: 8,
+                paddingHorizontal: 10,
+                backgroundColor: isDark ? colors.surface : '#fff',
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 8
+              }}
+              onPress={() => setSelectionModal({
+                show: true,
+                title: "Select Academic Qualifications",
+                options: getOptionsByShortname('academic_qualifications').map(o => o.label).filter(l => l !== 'Select'),
+                field: "educationLevel",
+                isMulti: false
+              })}
+            >
+              <Text style={{ flex: 1, fontSize: 13, color: formData.educationLevel ? colors.text : colors.textSecondary }} numberOfLines={1}>
+                {formData.educationLevel || "Select"}
+              </Text>
+              <Ionicons name="chevron-down" size={14} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Dynamic Levels - Filtered based on main qualification selection */}
+          {academicLevels
+            .filter(level => level.label === formData.educationLevel)
+            .map((level, idx, filteredArr) => (
+              <View key={level.label} style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: idx === filteredArr.length - 1 ? 0 : 1, borderBottomColor: colors.border }}>
+                <Text style={{ flex: 1, fontSize: 14, fontWeight: '500', color: colors.text }}>{level.label}</Text>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingVertical: 8,
+                    paddingHorizontal: 10,
+                    backgroundColor: isDark ? colors.surface : '#fff',
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 8
+                  }}
+                  onPress={() => setSelectionModal({
+                    show: true,
+                    title: `Select ${level.label} Stream`,
+                    options: level.streams,
+                    field: "academic_streams",
+                    stageId: level.label
+                  })}
+                >
+                  <Text style={{ flex: 1, fontSize: 13, color: colors.text }} numberOfLines={1}>
+                    {formData.streams.find(s => s.startsWith(`${level.label}:`))?.split(":")[1] || "Select"}
+                  </Text>
+                  <Ionicons name="chevron-down" size={14} color={colors.textSecondary} />
+                </TouchableOpacity>
               </View>
-            );
-          })}
+            ))}
         </View>
       </View>
 
@@ -1157,75 +1195,103 @@ export default function ProviderAddScholarshipScreen() {
           <Text style={[styles.cardTitle, { color: colors.text }]}>Merit & Performance</Text>
         </View>
 
-        <View style={styles.row}>
-          <View style={{ flex: 1, marginRight: 8 }}>
-            <CustomTextInput
-              label="Min Last Class %"
-              placeholder="0.0"
-              keyboardType="numeric"
-              value={formData.lastClassPercent}
-              onChangeText={(v) => updateField("lastClassPercent", v)}
-              mainStyle={{ marginBottom: 0 }}
-            />
+        <View style={[styles.geoGrid, { backgroundColor: isDark ? colors.surface : "#fff", borderColor: colors.border, marginBottom: 0 }]}>
+          {/* Min Last Class % */}
+          <View style={styles.geoRow}>
+            <Text style={[styles.geoLabel, { color: colors.text, flex: 1.5 }]}>Minimum Last Class Percentage (%)</Text>
+            <View style={{ flex: 1 }}>
+              <CustomTextInput
+                placeholder="0.0"
+                keyboardType="numeric"
+                value={formData.lastClassPercent}
+                onChangeText={(v) => updateField("lastClassPercent", v)}
+                mainStyle={{ marginBottom: 0 }}
+                inputStyle={{ height: 40, fontSize: 14 }}
+              />
+            </View>
           </View>
-          <View style={{ flex: 1, marginLeft: 8 }}>
-            <CustomTextInput
-              label="Min 10th Class %"
-              placeholder="0.0"
-              keyboardType="numeric"
-              value={formData.tenthClassPercent}
-              onChangeText={(v) => updateField("tenthClassPercent", v)}
-              mainStyle={{ marginBottom: 0 }}
-            />
+
+          {/* Min 10th Class % */}
+          <View style={styles.geoRow}>
+            <Text style={[styles.geoLabel, { color: colors.text, flex: 1.5 }]}>Minimum 10th Class Percentage (%)</Text>
+            <View style={{ flex: 1 }}>
+              <CustomTextInput
+                placeholder="0.0"
+                keyboardType="numeric"
+                value={formData.tenthClassPercent}
+                onChangeText={(v) => updateField("tenthClassPercent", v)}
+                mainStyle={{ marginBottom: 0 }}
+                inputStyle={{ height: 40, fontSize: 14 }}
+              />
+            </View>
+          </View>
+
+          {/* Min 12th Class % */}
+          <View style={[styles.geoRow, { borderBottomWidth: 0 }]}>
+            <Text style={[styles.geoLabel, { color: colors.text, flex: 1.5 }]}>Minimum 12th Class Percentage (%)</Text>
+            <View style={{ flex: 1 }}>
+              <CustomTextInput
+                placeholder="0.0"
+                keyboardType="numeric"
+                value={formData.twelfthClassPercent}
+                onChangeText={(v) => updateField("twelfthClassPercent", v)}
+                mainStyle={{ marginBottom: 0 }}
+                inputStyle={{ height: 40, fontSize: 14 }}
+              />
+            </View>
           </View>
         </View>
 
-        <View style={styles.row}>
-          <View style={{ flex: 1, marginRight: 8 }}>
-            <CustomTextInput
-              label="Min 12th Class %"
-              placeholder="0.0"
-              keyboardType="numeric"
-              value={formData.twelfthClassPercent}
-              onChangeText={(v) => updateField("twelfthClassPercent", v)}
-              mainStyle={{ marginBottom: 0 }}
-            />
-          </View>
-          <View style={{ flex: 1, marginLeft: 8 }}>
-            {/* Empty spacer or additional criteria */}
-          </View>
-        </View>
+        <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 12 }} />
 
-        <View style={{ marginBottom: 12, marginTop: 4, height: 1, backgroundColor: colors.border }} />
-
-        <Text style={[styles.label, { color: colors.text, marginBottom: 12 }]}>Competitive Exam (Optional)</Text>
-        <CustomTextInput
-          label="Exam Name"
-          placeholder="e.g. JEE Mains, NEET, CLAT"
-          value={formData.competitiveExams}
-          onChangeText={(v) => updateField("competitiveExams", v)}
-        />
-
-        <View style={[styles.row, { marginTop: 4 }]}>
-          <View style={{ flex: 1, marginRight: 8 }}>
-            <CustomTextInput
-              label="Min Rank"
-              placeholder="Enter Rank"
-              keyboardType="numeric"
-              value={formData.minRank}
-              onChangeText={(v) => updateField("minRank", v)}
-              mainStyle={{ marginBottom: 0 }}
-            />
+        <View style={[styles.geoGrid, { backgroundColor: isDark ? colors.surface : "#fff", borderColor: colors.border }]}>
+          {/* Competitive Exam Dropdown */}
+          <View style={styles.geoRow}>
+            <Text style={[styles.geoLabel, { color: colors.text, flex: 1.2 }]}>Competitive Exam Name (Optional)</Text>
+            <TouchableOpacity
+              style={[styles.geoDropdown, { flex: 1.5, backgroundColor: isDark ? colors.surface : "#fff", borderColor: colors.border }]}
+              onPress={() => setSelectionModal({
+                show: true,
+                title: "Select Competitive Exam",
+                options: getOptionsByShortname('competitive_exam').map(o => o.label),
+                field: "competitiveExams"
+              })}
+            >
+              <Text style={{ flex: 1, fontSize: 13, color: formData.competitiveExams ? colors.text : colors.textSecondary }} numberOfLines={1}>
+                {formData.competitiveExams || "Select"}
+              </Text>
+              <Ionicons name="chevron-down" size={14} color={colors.textSecondary} />
+            </TouchableOpacity>
           </View>
-          <View style={{ flex: 1, marginLeft: 8 }}>
-            <CustomTextInput
-              label="Min Score"
-              placeholder="Enter Score"
-              keyboardType="numeric"
-              value={formData.minScore}
-              onChangeText={(v) => updateField("minScore", v)}
-              mainStyle={{ marginBottom: 0 }}
-            />
+
+          {/* Min Rank */}
+          <View style={styles.geoRow}>
+            <Text style={[styles.geoLabel, { color: colors.text, flex: 1.2 }]}>Minimum Rank (Optional)</Text>
+            <View style={{ flex: 1.5 }}>
+              <CustomTextInput
+                placeholder="Enter Rank"
+                keyboardType="numeric"
+                value={formData.minRank}
+                onChangeText={(v) => updateField("minRank", v)}
+                mainStyle={{ marginBottom: 0 }}
+                inputStyle={{ height: 40, fontSize: 14 }}
+              />
+            </View>
+          </View>
+
+          {/* Min Score */}
+          <View style={[styles.geoRow, { borderBottomWidth: 0 }]}>
+            <Text style={[styles.geoLabel, { color: colors.text, flex: 1.2 }]}>Minimum Score (Optional)</Text>
+            <View style={{ flex: 1.5 }}>
+              <CustomTextInput
+                placeholder="Enter Score"
+                keyboardType="numeric"
+                value={formData.minScore}
+                onChangeText={(v) => updateField("minScore", v)}
+                mainStyle={{ marginBottom: 0 }}
+                inputStyle={{ height: 40, fontSize: 14 }}
+              />
+            </View>
           </View>
         </View>
       </View>
@@ -1481,6 +1547,14 @@ export default function ProviderAddScholarshipScreen() {
                     } else if (field === "document_description" && stageId) {
                       updateDocumentDescription(stageId, option);
                       setSelectionModal({ ...selectionModal, show: false });
+                    } else if (field === "academic_streams" && stageId) {
+                      const filtered = formData.streams.filter(s => !s.startsWith(`${stageId}:`));
+                      updateField("streams", option === "Select" ? filtered : [...filtered, `${stageId}:${option}`]);
+                      setSelectionModal({ ...selectionModal, show: false });
+                    } else if (field === "educationLevel") {
+                      updateField("educationLevel", option);
+                      updateField("streams", []); // Reset streams when main qualification changes
+                      setSelectionModal({ ...selectionModal, show: false });
                     } else {
                       updateField(field as any, option);
                       setSelectionModal({ ...selectionModal, show: false });
@@ -1493,7 +1567,8 @@ export default function ProviderAddScholarshipScreen() {
                     (!selectionModal.isMulti && formData[selectionModal.field as keyof FormData] === option) ||
                     (selectionModal.field === "stages_name" && formData.stages.find(s => s.id === selectionModal.stageId)?.name === option) ||
                     (selectionModal.field === "stages_mode" && formData.stages.find(s => s.id === selectionModal.stageId)?.mode === option) ||
-                    (selectionModal.field === "document_description" && formData.requiredDocuments.find(d => d.category === selectionModal.stageId)?.description === option)
+                    (selectionModal.field === "document_description" && formData.requiredDocuments.find(d => d.category === selectionModal.stageId)?.description === option) ||
+                    (selectionModal.field === "academic_streams" && formData.streams.includes(`${selectionModal.stageId}:${option}`))
                   ) && (
                       <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
                     )}
