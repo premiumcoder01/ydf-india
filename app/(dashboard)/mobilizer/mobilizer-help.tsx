@@ -53,21 +53,16 @@ export default function MobilizerHelpScreen() {
                     <ContactItem
                         icon="mail"
                         label="Email Support"
-                        sublabel="support@scholarshipapp.com"
-                        onPress={() => Linking.openURL('mailto:support@scholarshipapp.com')}
+                        sublabel="helpdesk@youthdreamersfoundation.org"
+                        onPress={() => Linking.openURL('mailto:helpdesk@youthdreamersfoundation.org')}
                     />
                     <ContactItem
                         icon="call"
                         label="Call Us"
-                        sublabel="+91 1800-123-4567"
-                        onPress={() => Linking.openURL('tel:+9118001234567')}
+                        sublabel="+91 9599681997"
+                        onPress={() => Linking.openURL('tel:+919599681997')}
                     />
-                    <ContactItem
-                        icon="logo-whatsapp"
-                        label="WhatsApp"
-                        sublabel="Chat with our support bot"
-                        onPress={() => Linking.openURL('https://wa.me/9118001234567')}
-                    />
+
                 </View>
 
                 <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 24 }]}>Frequently Asked Questions</Text>

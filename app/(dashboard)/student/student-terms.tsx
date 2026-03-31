@@ -1,11 +1,13 @@
 import { AppHeader } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
 import { getTermsAndConditions } from "@/utils/api";
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import { MotiView } from "moti";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import RenderHtml from "react-native-render-html";
 
 export default function StudentTermsScreen() {
@@ -45,23 +47,69 @@ export default function StudentTermsScreen() {
             color: colors.text,
             fontSize: 15,
             lineHeight: 24,
+            fontFamily: 'System',
         },
         p: {
             color: colors.textSecondary,
-            marginBottom: 10,
+            marginBottom: 16,
+            lineHeight: 24,
         },
-        h1: { color: colors.text, marginTop: 20, marginBottom: 10 },
-        h2: { color: colors.text, marginTop: 20, marginBottom: 10 },
-        h3: { color: colors.text, marginTop: 20, marginBottom: 10 },
-        a: { color: colors.primary, textDecorationLine: 'none' },
-        li: { color: colors.textSecondary },
+        h1: {
+            color: colors.text,
+            marginTop: 24,
+            marginBottom: 12,
+            fontSize: 24,
+            fontWeight: '700',
+        },
+        h2: {
+            color: colors.text,
+            marginTop: 24,
+            marginBottom: 12,
+            fontSize: 20,
+            fontWeight: '700',
+        },
+        h3: {
+            color: colors.text,
+            marginTop: 20,
+            marginBottom: 12,
+            fontSize: 18,
+            fontWeight: '700',
+        },
+        h4: {
+            color: colors.text,
+            marginTop: 18,
+            marginBottom: 10,
+            fontSize: 16,
+            fontWeight: '700',
+            textTransform: 'uppercase',
+            letterSpacing: 0.5,
+        },
+        strong: {
+            color: colors.text,
+            fontWeight: '700',
+        },
+        a: {
+            color: colors.primary,
+            textDecorationLine: 'none',
+            fontWeight: '600',
+        },
+        ul: {
+            marginBottom: 16,
+            paddingLeft: 4,
+        },
+        li: {
+            color: colors.textSecondary,
+            marginBottom: 8,
+            lineHeight: 22,
+        },
     };
 
     return (
         <View style={styles.container}>
             <LinearGradient
-                colors={isDark ? ["#121212", "#1e1e1e"] : ["#fff", "#f8f9fa"]}
+                colors={isDark ? ["#121212", "#121212", "#1e1e1e"] : ["#ffffff", "#ffffff", "#f8f9fa"]}
                 style={styles.background}
+                locations={[0, 0.4, 1]}
             />
 
             <AppHeader title="Terms of Service" onBack={() => router.back()} />
@@ -71,20 +119,41 @@ export default function StudentTermsScreen() {
                     <ActivityIndicator size="large" color={colors.primary} />
                 </View>
             ) : (
-                <ScrollView
-                    style={styles.scrollView}
-                    contentContainerStyle={styles.contentContainer}
-                    showsVerticalScrollIndicator={false}
+                <MotiView
+                    from={{ opacity: 0, translateY: 20 }}
+                    animate={{ opacity: 1, translateY: 0 }}
+                    transition={{ type: 'timing', duration: 600 }}
+                    style={{ flex: 1 }}
                 >
-                    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                        <RenderHtml
-                            contentWidth={width - 80} // adjusted for padding
-                            source={{ html: content }}
-                            tagsStyles={tagsStyles as any}
-                            systemFonts={["System", "sans-serif"]}
-                        />
-                    </View>
-                </ScrollView>
+                    <ScrollView
+                        style={styles.scrollView}
+                        contentContainerStyle={styles.contentContainer}
+                        showsVerticalScrollIndicator={false}
+                    >
+                        <View style={[styles.infoBanner, { backgroundColor: colors.primary + '10' }]}>
+                            <Ionicons name="shield-checkmark" size={24} color={colors.primary} />
+                            <Text style={[styles.infoBannerText, { color: colors.text }]}>
+                                Please read our terms and conditions carefully to understand your rights and responsibilities.
+                            </Text>
+                        </View>
+
+                        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                            <RenderHtml
+                                contentWidth={width - 72} // adjusted for card and content padding
+                                source={{ html: content }}
+                                tagsStyles={tagsStyles as any}
+                                systemFonts={["System", "sans-serif"]}
+                            />
+                        </View>
+
+                        <View style={styles.footer}>
+
+                            <Text style={[styles.footerSubText, { color: colors.textSecondary }]}>
+                                © Youth Dreamers Foundation
+                            </Text>
+                        </View>
+                    </ScrollView>
+                </MotiView>
             )}
         </View>
     );
@@ -106,17 +175,44 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     contentContainer: {
-        padding: 20,
-        paddingBottom: 40,
+        padding: 16,
+        paddingBottom: 60,
+    },
+    infoBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderRadius: 16,
+        marginBottom: 16,
+        gap: 12,
+    },
+    infoBannerText: {
+        flex: 1,
+        fontSize: 13,
+        fontWeight: '500',
+        lineHeight: 18,
     },
     card: {
-        borderRadius: 20,
-        padding: 20,
+        borderRadius: 24,
+        padding: 24,
         borderWidth: 1,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
-        elevation: 4,
-    }
+        shadowOpacity: 0.05,
+        shadowRadius: 15,
+        elevation: 3,
+    },
+    footer: {
+        marginTop: 32,
+        alignItems: 'center',
+        gap: 4,
+    },
+    footerText: {
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    footerSubText: {
+        fontSize: 12,
+        opacity: 0.7,
+    },
 });

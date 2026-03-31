@@ -88,7 +88,6 @@ export default function ReviewerAboutScreen() {
               </LinearGradient>
             </View>
             <Text style={[styles.appName, { color: colors.text }]}>Reviewer Portal</Text>
-            <Text style={[styles.appVersion, { color: colors.textSecondary }]}>Version 1.0.0</Text>
 
             <RenderHtml
               contentWidth={width - 80}
@@ -172,10 +171,6 @@ export default function ReviewerAboutScreen() {
               <Ionicons name="chevron-forward" size={18} color={isDark ? colors.textSecondary : "#999"} />
             </TouchableOpacity>
           </View>
-
-          <Text style={[styles.copyrightText, { color: colors.textSecondary }]}>
-            © 2025 YDF India. All rights reserved.
-          </Text>
 
           <View style={{ height: 40 }} />
         </ScrollView>

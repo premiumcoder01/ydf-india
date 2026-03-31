@@ -632,28 +632,16 @@ export default function StudentProfileAcademicScreen() {
                 {/* Grade Type Toggle */}
                 <View style={styles.inputGroup}>
                   <Text style={[styles.label, { color: colors.textSecondary }]}>Grade Type</Text>
-                  <View style={styles.toggleContainer}>
+                    <View style={styles.toggleContainer}>
                     <TouchableOpacity
                       style={[styles.toggleButton, gradeType === 'cgpa' && styles.toggleButtonActive, { borderColor: colors.border, backgroundColor: gradeType === 'cgpa' ? colors.primary : (isDark ? '#252525' : '#FFFFFF') }]}
-                      onPress={() => {
-                        setGradeType('cgpa');
-                        // Conversion logic: if switching to CGPA and value > 10, likely needs conversion
-                        if (editingRecord.gpa && parseFloat(editingRecord.gpa) > 10) {
-                          handleFieldChange("gpa", (parseFloat(editingRecord.gpa) / 10).toFixed(2));
-                        }
-                      }}
+                      onPress={() => setGradeType('cgpa')}
                     >
                       <Text style={[styles.toggleText, { color: gradeType === 'cgpa' ? '#FFFFFF' : colors.textSecondary }]}>CGPA</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.toggleButton, gradeType === 'percentage' && styles.toggleButtonActive, { borderColor: colors.border, backgroundColor: gradeType === 'percentage' ? colors.primary : (isDark ? '#252525' : '#FFFFFF') }]}
-                      onPress={() => {
-                        setGradeType('percentage');
-                        // Conversion logic: if switching to Percentage and value <= 10, likely needs conversion
-                        if (editingRecord.gpa && parseFloat(editingRecord.gpa) <= 10) {
-                          handleFieldChange("gpa", (parseFloat(editingRecord.gpa) * 10).toFixed(2));
-                        }
-                      }}
+                      onPress={() => setGradeType('percentage')}
                     >
                       <Text style={[styles.toggleText, { color: gradeType === 'percentage' ? '#FFFFFF' : colors.textSecondary }]}>Percentage</Text>
                     </TouchableOpacity>
@@ -661,11 +649,11 @@ export default function StudentProfileAcademicScreen() {
                 </View>
 
                 <CustomTextInput
-                  label={gradeType === 'cgpa' ? 'CGPA (out of 10) *' : 'Percentage (%) *'}
+                  label="Academic Performance (CGPA / %) *"
                   value={editingRecord.gpa}
                   onChangeText={(t) => handleFieldChange("gpa", t)}
                   keyboardType="decimal-pad"
-                  placeholder={gradeType === 'cgpa' ? 'e.g., 8.5' : 'e.g., 85'}
+                  placeholder="e.g., 8.5 or 85"
                   error={validationErrors.gpa}
                   style={{ marginBottom: 0 }}
                 />

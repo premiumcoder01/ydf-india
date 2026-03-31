@@ -6,7 +6,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function StudentContactSupportScreen() {
     const { isDark, colors } = useTheme();
@@ -112,25 +112,34 @@ export default function StudentContactSupportScreen() {
                     </View>
 
                     <View style={styles.infoSection}>
-                        <View style={[styles.infoItem, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.8)", borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
+                        <TouchableOpacity
+                            activeOpacity={0.7}
+                            onPress={() => Linking.openURL("mailto:helpdesk@youthdreamersfoundation.org")}
+                            style={[styles.infoItem, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.8)", borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}
+                        >
                             <View style={[styles.iconContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#E3F2FD" }]}>
                                 <Ionicons name="mail-outline" size={20} color={colors.primary} />
                             </View>
                             <View>
                                 <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Email Us</Text>
-                                <Text style={[styles.infoValue, { color: colors.text }]}>support@studentportal.com</Text>
+                                <Text style={[styles.infoValue, { color: colors.text }]}>
+                                    helpdesk@youthdreamersfoundation.org</Text>
                             </View>
-                        </View>
+                        </TouchableOpacity>
 
-                        <View style={[styles.infoItem, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.8)", borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
+                        <TouchableOpacity
+                            activeOpacity={0.7}
+                            onPress={() => Linking.openURL("tel:+919599681997")}
+                            style={[styles.infoItem, { backgroundColor: isDark ? colors.card : "rgba(255, 255, 255, 0.8)", borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}
+                        >
                             <View style={[styles.iconContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#E3F2FD" }]}>
                                 <Ionicons name="call-outline" size={20} color={colors.primary} />
                             </View>
                             <View>
                                 <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Call Us</Text>
-                                <Text style={[styles.infoValue, { color: colors.text }]}>+91 1234567890</Text>
+                                <Text style={[styles.infoValue, { color: colors.text }]}>+91 9599681997</Text>
                             </View>
-                        </View>
+                        </TouchableOpacity>
                     </View>
 
                     <View style={{ height: 40 }} />
@@ -221,7 +230,7 @@ const styles = StyleSheet.create({
         fontWeight: "600",
     },
     infoValue: {
-        fontSize: 15,
+        fontSize: 13,
         color: "#333",
         fontWeight: "600",
     },

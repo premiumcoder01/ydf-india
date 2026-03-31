@@ -1,10 +1,11 @@
-import { ReviewerHeader } from "@/components";
+import { AppHeader } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
 import { getAboutPage } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import { MotiView } from "moti";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import RenderHtml from "react-native-render-html";
@@ -46,139 +47,182 @@ export default function ProviderAboutScreen() {
       color: colors.text,
       fontSize: 15,
       lineHeight: 24,
+      fontFamily: 'System',
     },
     p: {
       color: colors.textSecondary,
-      marginBottom: 10,
+      marginBottom: 16,
+      lineHeight: 24,
     },
-    h1: { color: colors.text, marginTop: 20, marginBottom: 10 },
-    h2: { color: colors.text, marginTop: 20, marginBottom: 10 },
-    h3: { color: colors.text, marginTop: 20, marginBottom: 10 },
-    a: { color: colors.primary, textDecorationLine: 'none' },
-    li: { color: colors.textSecondary },
+    h1: { 
+      color: colors.text, 
+      marginTop: 24, 
+      marginBottom: 12,
+      fontSize: 24,
+      fontWeight: '700',
+    },
+    h2: { 
+      color: colors.text, 
+      marginTop: 24, 
+      marginBottom: 12,
+      fontSize: 20,
+      fontWeight: '700',
+    },
+    h3: { 
+      color: colors.text, 
+      marginTop: 20, 
+      marginBottom: 12,
+      fontSize: 18,
+      fontWeight: '700',
+    },
+    h4: { 
+        color: colors.text, 
+        marginTop: 18, 
+        marginBottom: 10,
+        fontSize: 16,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    strong: {
+        color: colors.text,
+        fontWeight: '700',
+    },
+    a: { 
+      color: colors.primary, 
+      textDecorationLine: 'none',
+      fontWeight: '600',
+    },
+    ul: {
+        marginBottom: 16,
+        paddingLeft: 4,
+    },
+    li: { 
+        color: colors.textSecondary,
+        marginBottom: 8,
+        lineHeight: 22,
+    },
   };
 
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={isDark ? ["#000", "#000"] : ["#fff", "#f8f9fa"]}
+        colors={isDark ? ["#121212", "#121212", "#1e1e1e"] : ["#ffffff", "#ffffff", "#f8f9fa"]}
         style={styles.background}
+        locations={[0, 0.4, 1]}
       />
 
-      <ReviewerHeader title="About & Support" />
+      <AppHeader title="About Us" onBack={() => router.back()} />
 
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
+        <MotiView
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 600 }}
+          style={{ flex: 1 }}
         >
-          {/* About Content Card */}
-          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.appIconContainer}>
-              <LinearGradient
-                colors={["#667eea", "#764ba2"]}
-                style={styles.appIcon}
-              >
-                <Ionicons name="business" size={32} color="#fff" />
-              </LinearGradient>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.contentContainer}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Hero Section */}
+            <View style={styles.heroSection}>
+              <View style={[styles.appIconContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(102, 126, 234, 0.1)" }]}>
+                <LinearGradient
+                  colors={["#667eea", "#764ba2"]}
+                  style={styles.appIcon}
+                >
+                  <Ionicons name="business" size={40} color="#fff" />
+                </LinearGradient>
+              </View>
+              <Text style={[styles.appName, { color: colors.text }]}>Provider Portal</Text>
+              <View style={[styles.versionBadge, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)" }]}>
+                <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.0.0</Text>
+              </View>
             </View>
-            <Text style={[styles.appName, { color: colors.text }]}>Provider Portal</Text>
-            <Text style={[styles.appVersion, { color: colors.textSecondary }]}>Version 1.0.0</Text>
 
-            <RenderHtml
-              contentWidth={width - 80}
-              source={{ html: content }}
-              tagsStyles={tagsStyles as any}
-              systemFonts={["System", "sans-serif"]}
-            />
-          </View>
+            {/* Main Content Card */}
+            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <RenderHtml
+                contentWidth={width - 72}
+                source={{ html: content }}
+                tagsStyles={tagsStyles as any}
+                systemFonts={["System", "sans-serif"]}
+              />
+            </View>
 
-          {/* Information & Support Section */}
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Information & Support
-          </Text>
-          <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <TouchableOpacity
-              style={[styles.settingItem, { borderBottomColor: colors.border }]}
-              activeOpacity={0.7}
-              onPress={() => router.push("/(dashboard)/provider/terms-conditions")}
-            >
-              <View style={styles.settingInfo}>
-                <View style={[styles.settingIconContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f8f8" }]}>
-                  <Ionicons
-                    name="document-text-outline"
-                    size={20}
-                    color="#2196F3"
-                  />
-                </View>
-                <View style={styles.settingText}>
-                  <Text style={[styles.settingTitle, { color: colors.text }]}>Terms of Service</Text>
-                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
-                    Read our terms and conditions
-                  </Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={isDark ? colors.textSecondary : "#999"} />
-            </TouchableOpacity>
+            {/* Support Links Section */}
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Help & Support
+            </Text>
+            
+            <View style={styles.linksContainer}>
+                <TouchableOpacity 
+                    activeOpacity={0.7}
+                    onPress={() => router.push("/(dashboard)/provider/terms-conditions")}
+                    style={[styles.linkRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+                >
+                    <View style={styles.linkLeft}>
+                        <View style={[styles.iconWrapper, { backgroundColor: "rgba(33, 150, 243, 0.1)" }]}>
+                            <Ionicons name="document-text-outline" size={20} color="#2196F3" />
+                        </View>
+                        <View>
+                            <Text style={[styles.linkText, { color: colors.text }]}>Terms of Service</Text>
+                            <Text style={[styles.linkSubtext, { color: colors.textSecondary }]}>View policies and conditions</Text>
+                        </View>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.settingItem, { borderBottomColor: colors.border }]}
-              activeOpacity={0.7}
-              onPress={() => router.push("/(dashboard)/provider/help-support")}
-            >
-              <View style={styles.settingInfo}>
-                <View style={[styles.settingIconContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f8f8" }]}>
-                  <Ionicons
-                    name="help-circle-outline"
-                    size={20}
-                    color="#FF9800"
-                  />
-                </View>
-                <View style={styles.settingText}>
-                  <Text style={[styles.settingTitle, { color: colors.text }]}>Help Center</Text>
-                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
-                    Find answers to common questions
-                  </Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={isDark ? colors.textSecondary : "#999"} />
-            </TouchableOpacity>
+                <TouchableOpacity 
+                    activeOpacity={0.7}
+                    onPress={() => router.push("/(dashboard)/provider/help-support")}
+                    style={[styles.linkRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+                >
+                    <View style={styles.linkLeft}>
+                        <View style={[styles.iconWrapper, { backgroundColor: "rgba(255, 152, 0, 0.1)" }]}>
+                            <Ionicons name="help-circle-outline" size={20} color="#FF9800" />
+                        </View>
+                        <View>
+                            <Text style={[styles.linkText, { color: colors.text }]}>Help Center</Text>
+                            <Text style={[styles.linkSubtext, { color: colors.textSecondary }]}>FAQs and guides</Text>
+                        </View>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.settingItem, { borderBottomWidth: 0 }]}
-              activeOpacity={0.7}
-              onPress={() => router.push("/(dashboard)/provider/contact-support")}
-            >
-              <View style={styles.settingInfo}>
-                <View style={[styles.settingIconContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f8f8" }]}>
-                  <Ionicons
-                    name="chatbubble-ellipses-outline"
-                    size={20}
-                    color="#9C27B0"
-                  />
-                </View>
-                <View style={styles.settingText}>
-                  <Text style={[styles.settingTitle, { color: colors.text }]}>Contact Support</Text>
-                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
-                    Get help from our team
-                  </Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={isDark ? colors.textSecondary : "#999"} />
-            </TouchableOpacity>
-          </View>
+                <TouchableOpacity 
+                    activeOpacity={0.7}
+                    onPress={() => router.push("/(dashboard)/provider/contact-support")}
+                    style={[styles.linkRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+                >
+                    <View style={styles.linkLeft}>
+                        <View style={[styles.iconWrapper, { backgroundColor: "rgba(156, 39, 176, 0.1)" }]}>
+                            <Ionicons name="chatbubble-ellipses-outline" size={20} color="#9C27B0" />
+                        </View>
+                        <View>
+                            <Text style={[styles.linkText, { color: colors.text }]}>Contact Support</Text>
+                            <Text style={[styles.linkSubtext, { color: colors.textSecondary }]}>Get direct assistance</Text>
+                        </View>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+                </TouchableOpacity>
+            </View>
 
-          <Text style={[styles.copyrightText, { color: colors.textSecondary }]}>
-            © 2025 YDF India. All rights reserved.
-          </Text>
+            <View style={styles.footer}>
+              <Text style={[styles.footerSubText, { color: colors.textSecondary }]}>
+                © Youth Dreamers Foundation. All rights reserved.
+              </Text>
+            </View>
 
-          <View style={{ height: 40 }} />
-        </ScrollView>
+            <View style={{ height: 40 }} />
+          </ScrollView>
+        </MotiView>
       )}
     </View>
   );
@@ -200,94 +244,107 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    padding: 20,
+    padding: 16,
     paddingBottom: 40,
   },
-  card: {
+  heroSection: {
+    alignItems: 'center',
+    marginBottom: 32,
+    marginTop: 16,
+  },
+  appIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  appIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#667eea",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    elevation: 8,
+  },
+  appName: {
+    fontSize: 26,
+    fontWeight: "800",
+    marginBottom: 8,
+    letterSpacing: -0.5,
+  },
+  versionBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
     borderRadius: 20,
+  },
+  versionText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  card: {
+    borderRadius: 24,
     padding: 24,
     borderWidth: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  appIconContainer: {
-    marginBottom: 16,
-  },
-  appIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#667eea",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  appName: {
-    fontSize: 24,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  appVersion: {
-    fontSize: 13,
-    marginBottom: 16,
+    shadowOpacity: 0.05,
+    shadowRadius: 15,
+    elevation: 3,
+    marginBottom: 32,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 12,
+    fontWeight: "800",
+    marginBottom: 16,
+    marginLeft: 8,
+    letterSpacing: -0.3,
   },
-  settingsCard: {
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-    marginBottom: 24,
+  linksContainer: {
+    gap: 12,
   },
-  settingItem: {
+  linkRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 14,
-    borderBottomWidth: 1,
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
   },
-  settingInfo: {
+  linkLeft: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 16,
     flex: 1,
-    gap: 12,
   },
-  settingIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+  iconWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },
-  settingText: {
-    flex: 1,
-  },
-  settingTitle: {
-    fontSize: 15,
+  linkText: {
+    fontSize: 16,
     fontWeight: "600",
     marginBottom: 2,
   },
-  settingDescription: {
-    fontSize: 13,
-  },
-  copyrightText: {
+  linkSubtext: {
     fontSize: 12,
-    textAlign: "center",
+    opacity: 0.8,
+  },
+  footer: {
+    marginTop: 48,
+    alignItems: 'center',
+  },
+  footerSubText: {
+    fontSize: 12,
+    opacity: 0.7,
+    textAlign: 'center',
   },
 });

@@ -3,7 +3,6 @@ import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { MotiView } from "moti";
 import React from "react";
 import {
   Platform,
@@ -34,6 +33,10 @@ export default function ReviewerSettingsScreen() {
 
   const handleTermsConditions = () => {
     router.push("/(dashboard)/reviewer/terms-conditions");
+  };
+
+  const handlePrivacyPolicy = () => {
+    router.push("/(dashboard)/reviewer/privacy-policy");
   };
 
   const handleAbout = () => {
@@ -94,21 +97,7 @@ export default function ReviewerSettingsScreen() {
             colors={isDark ? ["#1E293B", "#0F172A"] : ["#FFFFFF", "#F8FAFC"]}
             style={[styles.settingsCardPremium, { borderColor: isDark ? "#334155" : "#E2E8F0" }]}
           >
-            <TouchableOpacity style={styles.settingItemPremium} onPress={handleHelpSupport} activeOpacity={0.7}>
-              <View style={styles.settingLeft}>
-                <LinearGradient
-                  colors={isDark ? ["rgba(33, 150, 243, 0.3)", "rgba(33, 150, 243, 0.1)"] : ["#E3F2FD", "#E1F5FE"]}
-                  style={styles.settingIconPremium}
-                >
-                  <Ionicons name="help-circle" size={20} color="#2196F3" />
-                </LinearGradient>
-                <View style={styles.settingContent}>
-                  <Text style={[styles.settingTitle, { color: colors.text }]}>Help & Support</Text>
-                  <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>FAQs and documentation</Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={isDark ? "#475569" : "#CBD5E1"} />
-            </TouchableOpacity>
+
 
             <View style={[styles.premiumDivider, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)" }]} />
 
@@ -156,6 +145,24 @@ export default function ReviewerSettingsScreen() {
 
             <View style={[styles.premiumDivider, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)" }]} />
 
+            <TouchableOpacity style={styles.settingItemPremium} onPress={handlePrivacyPolicy} activeOpacity={0.7}>
+              <View style={styles.settingLeft}>
+                <LinearGradient
+                  colors={isDark ? ["rgba(3, 169, 244, 0.3)", "rgba(3, 169, 244, 0.1)"] : ["#E1F5FE", "#B3E5FC"]}
+                  style={styles.settingIconPremium}
+                >
+                  <Ionicons name="shield-checkmark" size={20} color="#03A9F4" />
+                </LinearGradient>
+                <View style={styles.settingContent}>
+                  <Text style={[styles.settingTitle, { color: colors.text }]}>Privacy Policy</Text>
+                  <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>How we handle your data</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={isDark ? "#475569" : "#CBD5E1"} />
+            </TouchableOpacity>
+
+            <View style={[styles.premiumDivider, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)" }]} />
+
             <TouchableOpacity style={styles.settingItemPremium} onPress={handleAbout} activeOpacity={0.7}>
               <View style={styles.settingLeft}>
                 <LinearGradient
@@ -174,16 +181,7 @@ export default function ReviewerSettingsScreen() {
           </LinearGradient>
         </View>
 
-        {/* App Version */}
-        <MotiView
-          from={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'timing', duration: 800 }}
-          style={styles.versionContainer}
-        >
-          <Text style={[styles.versionLabel, { color: colors.textSecondary }]}>App Version</Text>
-          <Text style={[styles.versionValue, { color: colors.text }]}>{appVersion}</Text>
-        </MotiView>
+
       </ScrollView>
     </View>
   );

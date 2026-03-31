@@ -24,11 +24,6 @@ export default function ProviderHelpSupportScreen() {
       a: "View all scholarship applications in the Applications tab. You can filter by status, review applicant profiles, and approve or reject applications with feedback.",
       icon: "📋"
     },
-    {
-      q: "What payment methods are supported?",
-      a: "We support bank transfers, UPI, credit/debit cards, and digital wallets for disbursing scholarship funds directly to recipients.",
-      icon: "💳"
-    },
   ];
 
 
@@ -114,9 +109,7 @@ export default function ProviderHelpSupportScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.footer}>
-            <Text style={[styles.footerText, { color: colors.textSecondary }]}>Average response time: ~2 hours</Text>
-          </View>
+
         </View>
       </ScrollView>
     </View>

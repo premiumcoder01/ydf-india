@@ -377,14 +377,7 @@ export default function MobilizerProfileScreen() {
                         </View>
                     </View>
 
-                    {/* ── Footer ────────────────────────────────────────────── */}
-                    <View style={styles.footer}>
-                        <View style={[styles.versionBadge, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)" }]}>
-                            <Ionicons name="code-slash" size={13} color={colors.textSecondary} />
-                            <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.0.0</Text>
-                        </View>
-                        <Text style={[styles.copyright, { color: colors.textSecondary }]}>© 2024 YDF. All rights reserved.</Text>
-                    </View>
+
                 </View>
             </Animated.ScrollView>
         </View>

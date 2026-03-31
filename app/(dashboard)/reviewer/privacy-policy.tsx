@@ -10,7 +10,7 @@ import React, { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import RenderHtml from "react-native-render-html";
 
-export default function StudentPrivacyScreen() {
+export default function ReviewerPrivacyScreen() {
     const { isDark, colors } = useTheme();
     const { width } = useWindowDimensions();
     const [content, setContent] = useState("");
@@ -54,30 +54,30 @@ export default function StudentPrivacyScreen() {
             marginBottom: 16,
             lineHeight: 24,
         },
-        h1: {
-            color: colors.text,
-            marginTop: 24,
+        h1: { 
+            color: colors.text, 
+            marginTop: 24, 
             marginBottom: 12,
             fontSize: 24,
             fontWeight: '700',
         },
-        h2: {
-            color: colors.text,
-            marginTop: 24,
+        h2: { 
+            color: colors.text, 
+            marginTop: 24, 
             marginBottom: 12,
             fontSize: 20,
             fontWeight: '700',
         },
-        h3: {
-            color: colors.text,
-            marginTop: 20,
+        h3: { 
+            color: colors.text, 
+            marginTop: 20, 
             marginBottom: 12,
             fontSize: 18,
             fontWeight: '700',
         },
-        h4: {
-            color: colors.text,
-            marginTop: 18,
+        h4: { 
+            color: colors.text, 
+            marginTop: 18, 
             marginBottom: 10,
             fontSize: 16,
             fontWeight: '700',
@@ -88,8 +88,8 @@ export default function StudentPrivacyScreen() {
             color: colors.text,
             fontWeight: '700',
         },
-        a: {
-            color: colors.primary,
+        a: { 
+            color: colors.primary, 
             textDecorationLine: 'none',
             fontWeight: '600',
         },
@@ -97,7 +97,7 @@ export default function StudentPrivacyScreen() {
             marginBottom: 16,
             paddingLeft: 4,
         },
-        li: {
+        li: { 
             color: colors.textSecondary,
             marginBottom: 8,
             lineHeight: 22,
@@ -147,9 +147,8 @@ export default function StudentPrivacyScreen() {
                         </View>
 
                         <View style={styles.footer}>
-
                             <Text style={[styles.footerSubText, { color: colors.textSecondary }]}>
-                                © Youth Dreamers Foundation
+                                © Youth Dreamers Foundation. All rights reserved.
                             </Text>
                         </View>
                     </ScrollView>
@@ -206,10 +205,6 @@ const styles = StyleSheet.create({
         marginTop: 32,
         alignItems: 'center',
         gap: 4,
-    },
-    footerText: {
-        fontSize: 13,
-        fontWeight: '600',
     },
     footerSubText: {
         fontSize: 12,

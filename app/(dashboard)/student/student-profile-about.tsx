@@ -33,7 +33,6 @@ export default function StudentProfileAboutScreen() {
               </LinearGradient>
             </View>
             <Text style={[styles.appName, { color: colors.text }]}>Student Portal</Text>
-            <Text style={[styles.appVersion, { color: colors.textSecondary }]}>Version 1.0.0</Text>
             <Text style={[styles.appDescription, { color: colors.textSecondary }]}>
               Empowering students by connecting them with donors and
               opportunities. We strive to make education accessible and
@@ -138,9 +137,7 @@ export default function StudentProfileAboutScreen() {
             </TouchableOpacity>
           </View>
 
-          <Text style={[styles.copyrightText, { color: colors.textSecondary }]}>
-            © 2025 Student Portal. All rights reserved.
-          </Text>
+
         </View>
 
         <View style={{ height: 40 }} />
