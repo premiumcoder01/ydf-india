@@ -54,30 +54,30 @@ export default function ReviewerTermsScreen() {
             marginBottom: 16,
             lineHeight: 24,
         },
-        h1: { 
-            color: colors.text, 
-            marginTop: 24, 
+        h1: {
+            color: colors.text,
+            marginTop: 24,
             marginBottom: 12,
             fontSize: 24,
             fontWeight: '700',
         },
-        h2: { 
-            color: colors.text, 
-            marginTop: 24, 
+        h2: {
+            color: colors.text,
+            marginTop: 24,
             marginBottom: 12,
             fontSize: 20,
             fontWeight: '700',
         },
-        h3: { 
-            color: colors.text, 
-            marginTop: 20, 
+        h3: {
+            color: colors.text,
+            marginTop: 20,
             marginBottom: 12,
             fontSize: 18,
             fontWeight: '700',
         },
-        h4: { 
-            color: colors.text, 
-            marginTop: 18, 
+        h4: {
+            color: colors.text,
+            marginTop: 18,
             marginBottom: 10,
             fontSize: 16,
             fontWeight: '700',
@@ -88,8 +88,8 @@ export default function ReviewerTermsScreen() {
             color: colors.text,
             fontWeight: '700',
         },
-        a: { 
-            color: colors.primary, 
+        a: {
+            color: colors.primary,
             textDecorationLine: 'none',
             fontWeight: '600',
         },
@@ -97,7 +97,7 @@ export default function ReviewerTermsScreen() {
             marginBottom: 16,
             paddingLeft: 4,
         },
-        li: { 
+        li: {
             color: colors.textSecondary,
             marginBottom: 8,
             lineHeight: 22,
@@ -146,9 +146,12 @@ export default function ReviewerTermsScreen() {
                             />
                         </View>
 
+
+
+                        {/* Copyright Notice */}
                         <View style={styles.footer}>
-                            <Text style={[styles.footerSubText, { color: colors.textSecondary }]}>
-                                © Youth Dreamers Foundation. All rights reserved.
+                            <Text style={[styles.footerText, { color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.45)" }]}>
+                                © {new Date().getFullYear()} Youth Dreamers Foundation. All rights reserved.
                             </Text>
                         </View>
                     </ScrollView>
@@ -203,11 +206,12 @@ const styles = StyleSheet.create({
     },
     footer: {
         marginTop: 32,
+        marginBottom: 20,
         alignItems: 'center',
-        gap: 4,
     },
-    footerSubText: {
+    footerText: {
         fontSize: 12,
-        opacity: 0.7,
+        fontWeight: '500',
+        textAlign: 'center',
     },
 });

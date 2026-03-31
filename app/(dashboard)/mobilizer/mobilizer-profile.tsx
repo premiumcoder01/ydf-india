@@ -37,6 +37,18 @@ function cleanPhone(phone: string): string {
     return phone;
 }
 
+function isValidValue(val: any): boolean {
+    if (val === null || val === undefined || val === "") return false;
+    if (typeof val === "string") {
+        const lower = val.toLowerCase().trim();
+        if (lower === "select" || lower === "select any one" || lower === "0" || lower === "null" || lower === "undefined") {
+            return false;
+        }
+    }
+    if (val === 0 || val === "0") return false;
+    return true;
+}
+
 export default function MobilizerProfileScreen() {
     const { isDark, toggleTheme, colors } = useTheme();
     const insets = useSafeAreaInsets();
@@ -90,7 +102,7 @@ export default function MobilizerProfileScreen() {
     // ── Sub-components ────────────────────────────────────────────────────────
 
     const InfoRow = ({ icon, label, value, color, isLast = false }: any) => {
-        if (!value) return null;
+        if (!isValidValue(value)) return null;
         return (
             <View style={[
                 styles.infoRow,
@@ -227,10 +239,10 @@ export default function MobilizerProfileScreen() {
                             </View>
                         ) : null}
 
-                        {(profile?.city || state) ? (
+                        {isValidValue(profile?.city) || isValidValue(state) ? (
                             <View style={styles.heroMetaRow}>
                                 <Ionicons name="location-outline" size={13} color="rgba(255,255,255,0.75)" />
-                                <Text style={styles.heroMetaText}>{[profile?.city, state].filter(Boolean).join(", ")}</Text>
+                                <Text style={styles.heroMetaText}>{[profile?.city, state].filter(isValidValue).join(", ")}</Text>
                             </View>
                         ) : null}
 
@@ -243,22 +255,29 @@ export default function MobilizerProfileScreen() {
                         ) : null}
 
                         {/* Stats strip */}
-                        <View style={styles.statsStrip}>
-                            <View style={styles.statItem}>
-                                <Text style={styles.statValue}>{session || "—"}</Text>
-                                <Text style={styles.statLabel}>Session</Text>
-                            </View>
-                            <View style={styles.statDivider} />
-                            <View style={styles.statItem}>
-                                <Text style={styles.statValue}>{passing12th || "—"}</Text>
-                                <Text style={styles.statLabel}>12th Pass</Text>
-                            </View>
-                            <View style={styles.statDivider} />
-                            <View style={styles.statItem}>
-                                <Text style={styles.statValue}>{passing10th || "—"}</Text>
-                                <Text style={styles.statLabel}>10th Pass</Text>
-                            </View>
-                        </View>
+                        {(() => {
+                            const stats = [
+                                { label: "Session", value: session },
+                                { label: "12th Pass", value: passing12th },
+                                { label: "10th Pass", value: passing10th }
+                            ].filter(s => isValidValue(s.value));
+
+                            if (stats.length === 0) return null;
+
+                            return (
+                                <View style={styles.statsStrip}>
+                                    {stats.map((stat, index) => (
+                                        <React.Fragment key={stat.label}>
+                                            <View style={styles.statItem}>
+                                                <Text style={styles.statValue}>{stat.value}</Text>
+                                                <Text style={styles.statLabel}>{stat.label}</Text>
+                                            </View>
+                                            {index < stats.length - 1 && <View style={styles.statDivider} />}
+                                        </React.Fragment>
+                                    ))}
+                                </View>
+                            );
+                        })()}
                     </LinearGradient>
                 </Animated.View>
 
@@ -270,7 +289,7 @@ export default function MobilizerProfileScreen() {
                             <InfoRow icon="mail-outline" label="Email Address" value={profile?.email} color="#2563eb" />
                             <InfoRow icon="call-outline" label="Phone Number" value={cleanPhone(profile?.phone1 || profile?.phone2 || "")} color="#10B981" />
                             <InfoRow icon="phone-portrait-outline" label="Alt. Phone" value={profile?.phone2 !== profile?.phone1 ? cleanPhone(profile?.phone2 || "") : ""} color="#06B6D4" />
-                            <InfoRow icon="location-outline" label="City / State" value={[profile?.city, state].filter(Boolean).join(", ")} color="#F59E0B" isLast />
+                            <InfoRow icon="location-outline" label="City / State" value={[profile?.city, state].filter(isValidValue).join(", ")} color="#F59E0B" isLast />
                         </View>
                     </View>
 
@@ -287,7 +306,7 @@ export default function MobilizerProfileScreen() {
                     </View>
 
                     {/* ── Location Info ─────────────────────────────────────── */}
-                    {(state || district || domicileDistrict) ? (
+                    {isValidValue(state) || isValidValue(district) || isValidValue(domicileDistrict) ? (
                         <View style={styles.section}>
                             <SectionTitle title="Location Details" icon="map-outline" />
                             <View style={[styles.card, { backgroundColor: isDark ? colors.card : "#fff", borderColor: isDark ? colors.border : "#eee" }]}>
@@ -299,7 +318,7 @@ export default function MobilizerProfileScreen() {
                     ) : null}
 
                     {/* ── Academic Info ─────────────────────────────────────── */}
-                    {(board12th || stream12th || passing10th || passing12th) ? (
+                    {isValidValue(board12th) || isValidValue(stream12th) || isValidValue(passing10th) || isValidValue(passing12th) ? (
                         <View style={styles.section}>
                             <SectionTitle title="Academic Details" icon="school-outline" />
                             <View style={[styles.card, { backgroundColor: isDark ? colors.card : "#fff", borderColor: isDark ? colors.border : "#eee" }]}>
@@ -312,7 +331,7 @@ export default function MobilizerProfileScreen() {
                     ) : null}
 
                     {/* ── Application Info ──────────────────────────────────── */}
-                    {(applStatus || schemeName) ? (
+                    {isValidValue(applStatus) || isValidValue(schemeName) ? (
                         <View style={styles.section}>
                             <SectionTitle title="Application Details" icon="document-text-outline" />
                             <View style={[styles.card, { backgroundColor: isDark ? colors.card : "#fff", borderColor: isDark ? colors.border : "#eee" }]}>
@@ -377,8 +396,14 @@ export default function MobilizerProfileScreen() {
                         </View>
                     </View>
 
-
+                    {/* Copyright Notice */}
+                    <View style={styles.footer}>
+                        <Text style={[styles.footerText, { color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.45)" }]}>
+                            © {new Date().getFullYear()} Youth Dreamers Foundation. All rights reserved.
+                        </Text>
+                    </View>
                 </View>
+                <View style={{ height: 50 }} />
             </Animated.ScrollView>
         </View>
     );
@@ -483,6 +508,19 @@ const styles = StyleSheet.create({
     /* Info row */
     infoRow: { flexDirection: "row", alignItems: "center", paddingVertical: 13, paddingHorizontal: 12 },
     infoIcon: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", marginRight: 14 },
+
+    /* Footer */
+    footer: {
+        marginTop: 10,
+        marginBottom: 20,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    footerText: {
+        fontSize: 12,
+        fontWeight: "500",
+        textAlign: "center",
+    },
     infoText: { flex: 1 },
     infoLabel: { fontSize: 11, fontWeight: "600", marginBottom: 2, textTransform: "uppercase", letterSpacing: 0.3 },
     infoValue: { fontSize: 15, fontWeight: "700" },
@@ -492,8 +530,6 @@ const styles = StyleSheet.create({
     actionIcon: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", marginRight: 14 },
     actionLabel: { flex: 1, fontSize: 16, fontWeight: "600" },
 
-    /* Footer */
-    footer: { alignItems: "center", marginTop: 8, gap: 8 },
     versionBadge: {
         flexDirection: "row", alignItems: "center", gap: 6,
         paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,

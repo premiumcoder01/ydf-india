@@ -346,23 +346,25 @@ export default function ScholarshipProviderDashboard() {
           {/* Top Metric Cards Row */}
           <View style={styles.topMetricsRow}>
             {/* Total Scholarships */}
+            {/* Total Scholarships */}
             <LinearGradient
               colors={['#10B981', '#059669']}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
               style={styles.metricGradientCard}
             >
-              <View style={{ position: 'absolute', width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.07)', top: -20, right: -20 }} />
-              <View style={{ position: 'absolute', width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.04)', bottom: -40, left: -40 }} />
-              <View style={styles.metricGradientTop}>
-                <MotiView animate={{ scale: [1, 1.05, 1] }} transition={{ loop: true, type: 'timing', duration: 2000 }} style={styles.metricGradientIcon}>
-                  <Ionicons name="school" size={22} color="#fff" />
-                </MotiView>
-                <Text style={styles.metricGradientNumber}>{stats.totalScholarshipsCreated}</Text>
-              </View>
-              <Text style={styles.metricGradientLabel}>Total Scholarships</Text>
-              <View style={styles.metricGradientBadge}>
-                <Text style={styles.metricGradientBadgeText}>{stats.activeScholarships} Active</Text>
-              </View>
+              <View style={styles.metricDecorator1} />
+              <View style={styles.metricDecorator2} />
+              <MotiView 
+                from={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'timing', duration: 500 }}
+              >
+                <View style={styles.metricIconWrapper}>
+                  <Ionicons name="school" size={18} color="#fff" />
+                </View>
+                <Text style={styles.metricValueText}>{stats.totalScholarshipsCreated}</Text>
+                <Text style={styles.metricLabelText}>Total Scholarships</Text>
+              </MotiView>
             </LinearGradient>
 
             {/* Total Applications */}
@@ -371,18 +373,19 @@ export default function ScholarshipProviderDashboard() {
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
               style={styles.metricGradientCard}
             >
-              <View style={{ position: 'absolute', width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.07)', top: -20, right: -20 }} />
-              <View style={{ position: 'absolute', width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.04)', bottom: -40, left: -40 }} />
-              <View style={styles.metricGradientTop}>
-                <MotiView animate={{ scale: [1, 1.05, 1] }} transition={{ loop: true, type: 'timing', duration: 2000, delay: 500 }} style={styles.metricGradientIcon}>
-                  <Ionicons name="people" size={22} color="#fff" />
-                </MotiView>
-                <Text style={styles.metricGradientNumber}>{stats.totalApplicants}</Text>
-              </View>
-              <Text style={styles.metricGradientLabel}>Total Applications</Text>
-              <View style={styles.metricGradientBadge}>
-                <Text style={styles.metricGradientBadgeText}>{stats.approvedStudents} Selected</Text>
-              </View>
+              <View style={styles.metricDecorator1} />
+              <View style={styles.metricDecorator2} />
+              <MotiView 
+                from={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'timing', duration: 500, delay: 100 }}
+              >
+                <View style={styles.metricIconWrapper}>
+                  <Ionicons name="people" size={18} color="#fff" />
+                </View>
+                <Text style={styles.metricValueText}>{stats.totalApplicants}</Text>
+                <Text style={styles.metricLabelText}>Total Applications</Text>
+              </MotiView>
             </LinearGradient>
           </View>
 
@@ -478,7 +481,7 @@ export default function ScholarshipProviderDashboard() {
           </MotiView>
 
           {/* Financial Overview */}
-          <MotiView
+          {/* <MotiView
             from={{ opacity: 0, translateY: 15 }}
             animate={{ opacity: 1, translateY: 0 }}
             transition={{ type: 'timing', duration: 450, delay: 200 }}
@@ -491,7 +494,6 @@ export default function ScholarshipProviderDashboard() {
               <Text style={[styles.cardHeaderTitle, { color: colors.text, fontSize: 17 }]}>Financial Reporting</Text>
             </View>
 
-            {/* Amount row */}
             <View style={styles.financialAmountRow}>
               <View style={styles.financialAmountBlock}>
                 <Text style={[styles.financialAmountLabel, { color: colors.textSecondary }]}>Total Allocation</Text>
@@ -511,7 +513,6 @@ export default function ScholarshipProviderDashboard() {
               </LinearGradient>
             </View>
 
-            {/* Progress */}
             <View style={styles.financialProgressWrap}>
               <View style={styles.financialProgressHeader}>
                 <Text style={[styles.financialProgressLabel, { color: colors.textSecondary, fontSize: 12 }]}>Fund Utilization Ratio</Text>
@@ -534,7 +535,7 @@ export default function ScholarshipProviderDashboard() {
                 Glow Balance: <Text style={{ color: colors.text, fontWeight: '700' }}>{formatCurrency(Math.max(stats.totalFundAllocated - stats.fundsUtilized, 0))}</Text>
               </Text>
             </View>
-          </MotiView>
+          </MotiView> */}
         </View>
 
         {/* Scholarship Progress */}
@@ -544,7 +545,7 @@ export default function ScholarshipProviderDashboard() {
           transition={{ type: 'timing', duration: 450, delay: 300 }}
           style={styles.sectionContainer}
         >
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Campaign Management</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Scholarship Progress</Text>
           <View style={[styles.financialCard, { backgroundColor: isDark ? colors.card : '#fff', borderColor: isDark ? "rgba(255,255,255,0.05)" : '#eee', padding: 18 }]}>
             <View style={styles.financialProgressWrap}>
               <View style={styles.financialProgressHeader}>
@@ -767,57 +768,59 @@ const styles = StyleSheet.create({
   topMetricsRow: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 14,
+    marginBottom: 16,
   },
   metricGradientCard: {
     flex: 1,
     borderRadius: 24,
-    padding: 20,
+    padding: 18,
+    paddingBottom: 22,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
     elevation: 8,
+    overflow: 'hidden',
   },
-  metricGradientTop: {
-    flexDirection: 'row',
+  metricDecorator1: {
+    position: 'absolute',
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    top: -30,
+    right: -20,
+  },
+  metricDecorator2: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    bottom: -15,
+    left: -10,
+  },
+  metricIconWrapper: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
-    gap: 12
+    marginBottom: 16,
   },
-  metricGradientIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  metricGradientNumber: {
+  metricValueText: {
     fontSize: 28,
     fontWeight: '800',
     color: '#fff',
+    letterSpacing: -0.5,
+    marginBottom: 2,
   },
-  metricGradientLabel: {
+  metricLabelText: {
     fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.95)',
-    lineHeight: 18,
-    marginBottom: 14,
-    textAlign: "center",
-  },
-  metricGradientBadge: {
-    alignSelf: 'center',
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  metricGradientBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#fff',
+    color: 'rgba(255,255,255,0.85)',
+    letterSpacing: 0.2,
   },
 
   // ── Application Status Card ──

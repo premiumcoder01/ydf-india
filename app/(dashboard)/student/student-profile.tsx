@@ -283,7 +283,15 @@ export default function StudentProfileScreen() {
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
 
-        <View style={{ height: 30 }} />
+
+        {/* Copyright Notice */}
+        <View style={styles.footer}>
+          <Text style={[styles.footerText, { color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.45)" }]}>
+            © {new Date().getFullYear()} Youth Dreamers Foundation. All rights reserved.
+          </Text>
+        </View>
+
+        <View style={{ height: 50 }} />
       </ScrollView>
 
       {/* Logout Modal */}
@@ -589,5 +597,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#fff",
+  },
+  /* Footer */
+  footer: {
+    marginTop: 20,
+    marginBottom: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerText: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });

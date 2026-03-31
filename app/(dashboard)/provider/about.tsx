@@ -54,53 +54,53 @@ export default function ProviderAboutScreen() {
       marginBottom: 16,
       lineHeight: 24,
     },
-    h1: { 
-      color: colors.text, 
-      marginTop: 24, 
+    h1: {
+      color: colors.text,
+      marginTop: 24,
       marginBottom: 12,
       fontSize: 24,
       fontWeight: '700',
     },
-    h2: { 
-      color: colors.text, 
-      marginTop: 24, 
+    h2: {
+      color: colors.text,
+      marginTop: 24,
       marginBottom: 12,
       fontSize: 20,
       fontWeight: '700',
     },
-    h3: { 
-      color: colors.text, 
-      marginTop: 20, 
+    h3: {
+      color: colors.text,
+      marginTop: 20,
       marginBottom: 12,
       fontSize: 18,
       fontWeight: '700',
     },
-    h4: { 
-        color: colors.text, 
-        marginTop: 18, 
-        marginBottom: 10,
-        fontSize: 16,
-        fontWeight: '700',
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
+    h4: {
+      color: colors.text,
+      marginTop: 18,
+      marginBottom: 10,
+      fontSize: 16,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
     },
     strong: {
-        color: colors.text,
-        fontWeight: '700',
+      color: colors.text,
+      fontWeight: '700',
     },
-    a: { 
-      color: colors.primary, 
+    a: {
+      color: colors.primary,
       textDecorationLine: 'none',
       fontWeight: '600',
     },
     ul: {
-        marginBottom: 16,
-        paddingLeft: 4,
+      marginBottom: 16,
+      paddingLeft: 4,
     },
-    li: { 
-        color: colors.textSecondary,
-        marginBottom: 8,
-        lineHeight: 22,
+    li: {
+      color: colors.textSecondary,
+      marginBottom: 8,
+      lineHeight: 22,
     },
   };
 
@@ -130,21 +130,7 @@ export default function ProviderAboutScreen() {
             contentContainerStyle={styles.contentContainer}
             showsVerticalScrollIndicator={false}
           >
-            {/* Hero Section */}
-            <View style={styles.heroSection}>
-              <View style={[styles.appIconContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(102, 126, 234, 0.1)" }]}>
-                <LinearGradient
-                  colors={["#667eea", "#764ba2"]}
-                  style={styles.appIcon}
-                >
-                  <Ionicons name="business" size={40} color="#fff" />
-                </LinearGradient>
-              </View>
-              <Text style={[styles.appName, { color: colors.text }]}>Provider Portal</Text>
-              <View style={[styles.versionBadge, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)" }]}>
-                <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.0.0</Text>
-              </View>
-            </View>
+
 
             {/* Main Content Card */}
             <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -158,65 +144,65 @@ export default function ProviderAboutScreen() {
 
             {/* Support Links Section */}
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Help & Support
+              Help & Support
             </Text>
-            
+
             <View style={styles.linksContainer}>
-                <TouchableOpacity 
-                    activeOpacity={0.7}
-                    onPress={() => router.push("/(dashboard)/provider/terms-conditions")}
-                    style={[styles.linkRow, { backgroundColor: colors.card, borderColor: colors.border }]}
-                >
-                    <View style={styles.linkLeft}>
-                        <View style={[styles.iconWrapper, { backgroundColor: "rgba(33, 150, 243, 0.1)" }]}>
-                            <Ionicons name="document-text-outline" size={20} color="#2196F3" />
-                        </View>
-                        <View>
-                            <Text style={[styles.linkText, { color: colors.text }]}>Terms of Service</Text>
-                            <Text style={[styles.linkSubtext, { color: colors.textSecondary }]}>View policies and conditions</Text>
-                        </View>
-                    </View>
-                    <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-                </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => router.push("/(dashboard)/provider/terms-conditions")}
+                style={[styles.linkRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+              >
+                <View style={styles.linkLeft}>
+                  <View style={[styles.iconWrapper, { backgroundColor: "rgba(33, 150, 243, 0.1)" }]}>
+                    <Ionicons name="document-text-outline" size={20} color="#2196F3" />
+                  </View>
+                  <View>
+                    <Text style={[styles.linkText, { color: colors.text }]}>Terms of Service</Text>
+                    <Text style={[styles.linkSubtext, { color: colors.textSecondary }]}>View policies and conditions</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
 
-                <TouchableOpacity 
-                    activeOpacity={0.7}
-                    onPress={() => router.push("/(dashboard)/provider/help-support")}
-                    style={[styles.linkRow, { backgroundColor: colors.card, borderColor: colors.border }]}
-                >
-                    <View style={styles.linkLeft}>
-                        <View style={[styles.iconWrapper, { backgroundColor: "rgba(255, 152, 0, 0.1)" }]}>
-                            <Ionicons name="help-circle-outline" size={20} color="#FF9800" />
-                        </View>
-                        <View>
-                            <Text style={[styles.linkText, { color: colors.text }]}>Help Center</Text>
-                            <Text style={[styles.linkSubtext, { color: colors.textSecondary }]}>FAQs and guides</Text>
-                        </View>
-                    </View>
-                    <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-                </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => router.push("/(dashboard)/provider/help-support")}
+                style={[styles.linkRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+              >
+                <View style={styles.linkLeft}>
+                  <View style={[styles.iconWrapper, { backgroundColor: "rgba(255, 152, 0, 0.1)" }]}>
+                    <Ionicons name="help-circle-outline" size={20} color="#FF9800" />
+                  </View>
+                  <View>
+                    <Text style={[styles.linkText, { color: colors.text }]}>Help Center</Text>
+                    <Text style={[styles.linkSubtext, { color: colors.textSecondary }]}>FAQs and guides</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
 
-                <TouchableOpacity 
-                    activeOpacity={0.7}
-                    onPress={() => router.push("/(dashboard)/provider/contact-support")}
-                    style={[styles.linkRow, { backgroundColor: colors.card, borderColor: colors.border }]}
-                >
-                    <View style={styles.linkLeft}>
-                        <View style={[styles.iconWrapper, { backgroundColor: "rgba(156, 39, 176, 0.1)" }]}>
-                            <Ionicons name="chatbubble-ellipses-outline" size={20} color="#9C27B0" />
-                        </View>
-                        <View>
-                            <Text style={[styles.linkText, { color: colors.text }]}>Contact Support</Text>
-                            <Text style={[styles.linkSubtext, { color: colors.textSecondary }]}>Get direct assistance</Text>
-                        </View>
-                    </View>
-                    <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-                </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => router.push("/(dashboard)/provider/contact-support")}
+                style={[styles.linkRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+              >
+                <View style={styles.linkLeft}>
+                  <View style={[styles.iconWrapper, { backgroundColor: "rgba(156, 39, 176, 0.1)" }]}>
+                    <Ionicons name="chatbubble-ellipses-outline" size={20} color="#9C27B0" />
+                  </View>
+                  <View>
+                    <Text style={[styles.linkText, { color: colors.text }]}>Contact Support</Text>
+                    <Text style={[styles.linkSubtext, { color: colors.textSecondary }]}>Get direct assistance</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
             </View>
 
             <View style={styles.footer}>
-              <Text style={[styles.footerSubText, { color: colors.textSecondary }]}>
-                © Youth Dreamers Foundation. All rights reserved.
+              <Text style={[styles.footerSubText, { color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.45)" }]}>
+                © {new Date().getFullYear()} Youth Dreamers Foundation. All rights reserved.
               </Text>
             </View>
 
@@ -344,7 +330,7 @@ const styles = StyleSheet.create({
   },
   footerSubText: {
     fontSize: 12,
-    opacity: 0.7,
+    fontWeight: '500',
     textAlign: 'center',
   },
 });

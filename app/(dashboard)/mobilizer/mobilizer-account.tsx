@@ -8,7 +8,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Image,
@@ -32,6 +32,69 @@ interface ValidationErrors {
 
 
 
+interface SelectionModalProps {
+    visible: boolean;
+    onClose: () => void;
+    title: string;
+    options: string[];
+    selected: string;
+    onSelect: (val: string) => void;
+    insets: any;
+    colors: any;
+    isDark: boolean;
+}
+
+const SelectionModal = ({ visible, onClose, title, options, selected, onSelect, insets, colors, isDark }: SelectionModalProps) => (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+        <View style={styles.modalOverlay}>
+            <TouchableOpacity
+                style={styles.modalBackdrop}
+                onPress={onClose}
+                activeOpacity={1}
+            />
+            <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20, backgroundColor: colors.surface }]}>
+            <View style={styles.imageOptionsHandle}>
+                <View style={[styles.handleBar, { backgroundColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)" }]} />
+            </View>
+                <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+                    <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
+                    <TouchableOpacity
+                        onPress={onClose}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        style={[styles.modalCloseBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)" }]}
+                    >
+                        <Ionicons name="close" size={18} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                </View>
+                <ScrollView style={{ maxHeight: 350 }} showsVerticalScrollIndicator={false}>
+                    {options.map((opt: string) => (
+                        <TouchableOpacity
+                            key={opt}
+                            style={[
+                                styles.optionRow,
+                                selected === opt && { backgroundColor: isDark ? "rgba(124,58,237,0.15)" : "rgba(124,58,237,0.06)" },
+                                { borderBottomColor: colors.border },
+                            ]}
+                            onPress={() => { onSelect(opt); }}
+                            activeOpacity={0.7}
+                        >
+                            <Text style={[styles.optionText, { color: colors.text }, selected === opt && { color: "#7C3AED", fontWeight: "600" }]}>
+                                {opt}
+                            </Text>
+                            {selected === opt ? (
+                                <View style={styles.checkCircle}>
+                                    <Ionicons name="checkmark" size={14} color="#fff" />
+                                </View>
+                            ) : (
+                                <View style={[styles.emptyCircle, { borderColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)" }]} />
+                            )}
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
+        </View>
+    </Modal>
+);
 
 export default function MobilizerAccountScreen() {
     const { isDark, colors } = useTheme();
@@ -132,27 +195,19 @@ export default function MobilizerAccountScreen() {
     const [toastMessage, setToastMessage] = useState("");
     const [toastType, setToastType] = useState<"success" | "error" | "info">("error");
 
-    const [showReligionPicker, setShowReligionPicker] = useState(false);
-    const [showCastePicker, setShowCastePicker] = useState(false);
-
-    const [showGenderPicker, setShowGenderPicker] = useState(false);
     const [showDatePicker, setShowDatePicker] = useState(false);
-    const [showIncomePicker, setShowIncomePicker] = useState(false);
-    const [showSchemePicker, setShowSchemePicker] = useState(false);
-    const [showRegisteringAsPicker, setShowRegisteringAsPicker] = useState(false);
-    const [showYearOfCoursePicker, setShowYearOfCoursePicker] = useState(false);
-    const [showBoard12thPicker, setShowBoard12thPicker] = useState(false);
-    const [showStream12thPicker, setShowStream12thPicker] = useState(false);
-    const [showPassingYear12thPicker, setShowPassingYear12thPicker] = useState(false);
-    const [showApplicationYearPicker, setShowApplicationYearPicker] = useState(false);
-    const [showDomicileStatePicker, setShowDomicileStatePicker] = useState(false);
-    const [showSpecialCategoryPicker, setShowSpecialCategoryPicker] = useState(false);
-    const [showDistrictPicker, setShowDistrictPicker] = useState(false);
-    const [showSessionPicker, setShowSessionPicker] = useState(false);
-    const [showPassing10thPicker, setShowPassing10thPicker] = useState(false);
-    const [showApplicationTypePicker, setShowApplicationTypePicker] = useState(false);
-    const [showCompetitiveExamPicker, setShowCompetitiveExamPicker] = useState(false);
-    const [showCompetitiveExamNamePicker, setShowCompetitiveExamNamePicker] = useState(false);
+    const [selectionModal, setSelectionModal] = useState<{
+        visible: boolean;
+        title: string;
+        options: string[];
+        field: keyof typeof personalInfo | null;
+    }>({
+        visible: false,
+        title: "",
+        options: [],
+        field: null,
+    });
+
 
 
 
@@ -599,57 +654,19 @@ export default function MobilizerAccountScreen() {
         </View>
     );
 
-    const SelectionModal = ({ visible, onClose, title, options, selected, onSelect }: any) => (
-        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-            <View style={styles.modalOverlay}>
-                <TouchableOpacity
-                    style={styles.modalBackdrop}
-                    onPress={onClose}
-                    activeOpacity={1}
-                />
-                <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20, backgroundColor: colors.surface }]}>
-                    <View style={styles.imageOptionsHandle}>
-                        <View style={[styles.handleBar, { backgroundColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)" }]} />
-                    </View>
-                    <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-                        <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
-                        <TouchableOpacity
-                            onPress={onClose}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                            style={[styles.modalCloseBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)" }]}
-                        >
-                            <Ionicons name="close" size={18} color={colors.textSecondary} />
-                        </TouchableOpacity>
-                    </View>
-                    <ScrollView style={{ maxHeight: 350 }} showsVerticalScrollIndicator={false}>
-                        {options.map((opt: string) => (
-                            <TouchableOpacity
-                                key={opt}
-                                style={[
-                                    styles.optionRow,
-                                    selected === opt && { backgroundColor: isDark ? "rgba(124,58,237,0.15)" : "rgba(124,58,237,0.06)" },
-                                    { borderBottomColor: colors.border },
-                                ]}
-                                onPress={() => { onSelect(opt); }}
-                                activeOpacity={0.7}
-                            >
-                                <Text style={[styles.optionText, { color: colors.text }, selected === opt && { color: "#7C3AED", fontWeight: "600" }]}>
-                                    {opt}
-                                </Text>
-                                {selected === opt ? (
-                                    <View style={styles.checkCircle}>
-                                        <Ionicons name="checkmark" size={14} color="#fff" />
-                                    </View>
-                                ) : (
-                                    <View style={[styles.emptyCircle, { borderColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)" }]} />
-                                )}
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </View>
-            </View>
-        </Modal>
-    );
+    const lastOpenTime = useRef(0);
+    const openSelectionModal = (title: string, options: string[], field: keyof typeof personalInfo) => {
+        const now = Date.now();
+        if (now - lastOpenTime.current < 500) return;
+        lastOpenTime.current = now;
+
+        setSelectionModal({
+            visible: true,
+            title,
+            options,
+            field,
+        });
+    };
 
 
     return (
@@ -847,14 +864,14 @@ export default function MobilizerAccountScreen() {
                                 placeholder="Select Application Type"
                                 icon="document-text-outline"
                                 iconColor="#059669"
-                                onPress={() => setShowApplicationTypePicker(true)}
+                                onPress={() => openSelectionModal("Select Application Type", APPLICATION_TYPE_OPTIONS, "application_type")}
                             />
                             <PickerRow
                                 label="Domicile State"
                                 value={personalInfo.domicileState}
                                 icon="flag-outline"
                                 iconColor="#059669"
-                                onPress={() => setShowDomicileStatePicker(true)}
+                                onPress={() => openSelectionModal("Select Domicile State", DOMICILE_STATE_OPTIONS, "domicileState")}
                             />
 
                             <PickerRow
@@ -862,7 +879,7 @@ export default function MobilizerAccountScreen() {
                                 value={personalInfo.domicileDistrict}
                                 icon="map-outline"
                                 iconColor="#059669"
-                                onPress={() => setShowDistrictPicker(true)}
+                                onPress={() => openSelectionModal("Select Domicile District", DISTRICT_OPTIONS, "domicileDistrict")}
                             />
 
                             <PickerRow
@@ -871,7 +888,7 @@ export default function MobilizerAccountScreen() {
                                 placeholder="Select Income Range"
                                 icon="cash-outline"
                                 iconColor="#059669"
-                                onPress={() => setShowIncomePicker(true)}
+                                onPress={() => openSelectionModal("Select Annual Income", ANNUAL_INCOME_OPTIONS, "annualIncome")}
                                 error={validationErrors.annualIncome}
                             />
 
@@ -880,7 +897,7 @@ export default function MobilizerAccountScreen() {
                                 value={personalInfo.specialCategory}
                                 icon="star-outline"
                                 iconColor="#059669"
-                                onPress={() => setShowSpecialCategoryPicker(true)}
+                                onPress={() => openSelectionModal("Select Special Category", SPECIAL_CATEGORY_OPTIONS, "specialCategory")}
                             />
 
                             <PickerRow
@@ -889,7 +906,7 @@ export default function MobilizerAccountScreen() {
                                 placeholder="Select Year"
                                 icon="calendar-outline"
                                 iconColor="#059669"
-                                onPress={() => setShowApplicationYearPicker(true)}
+                                onPress={() => openSelectionModal("Select Application Year", APPLICATION_YEAR_OPTIONS, "applicationYear")}
                             />
 
                             <PickerRow
@@ -898,7 +915,7 @@ export default function MobilizerAccountScreen() {
                                 placeholder="Select Type"
                                 icon="id-card-outline"
                                 iconColor="#059669"
-                                onPress={() => setShowRegisteringAsPicker(true)}
+                                onPress={() => openSelectionModal("Registering As", REGISTERING_AS_OPTIONS, "registeringAs")}
                             />
 
                             <PickerRow
@@ -907,7 +924,7 @@ export default function MobilizerAccountScreen() {
                                 placeholder="Select Year"
                                 icon="calendar-outline"
                                 iconColor="#059669"
-                                onPress={() => setShowPassingYear12thPicker(true)}
+                                onPress={() => openSelectionModal("Select 12th Passing Year", PASSING_YEAR_12TH_OPTIONS, "passingYear12th")}
                             />
 
                             <CustomTextInput
@@ -926,7 +943,7 @@ export default function MobilizerAccountScreen() {
                                 value={personalInfo.gender}
                                 icon="body-outline"
                                 iconColor="#059669"
-                                onPress={() => setShowGenderPicker(true)}
+                                onPress={() => openSelectionModal("Select Gender", GENDER_OPTIONS, "gender")}
                                 error={validationErrors.gender}
                             />
 
@@ -973,7 +990,7 @@ export default function MobilizerAccountScreen() {
                                 value={personalInfo.religion}
                                 icon="heart-circle-outline"
                                 iconColor="#059669"
-                                onPress={() => setShowReligionPicker(true)}
+                                onPress={() => openSelectionModal("Select Religion", RELIGION_OPTIONS, "religion")}
                                 error={validationErrors.religion}
                             />
 
@@ -982,7 +999,7 @@ export default function MobilizerAccountScreen() {
                                 value={personalInfo.caste}
                                 icon="layers-outline"
                                 iconColor="#059669"
-                                onPress={() => setShowCastePicker(true)}
+                                onPress={() => openSelectionModal("Select Caste", CASTE_OPTIONS, "caste")}
                                 error={validationErrors.caste}
                             />
 
@@ -1077,7 +1094,7 @@ export default function MobilizerAccountScreen() {
                                 placeholder="Select Session"
                                 icon="calendar-outline"
                                 iconColor="#D97706"
-                                onPress={() => setShowSessionPicker(true)}
+                                onPress={() => openSelectionModal("Select Session", SESSION_OPTIONS, "session")}
                             />
 
                             <PickerRow
@@ -1086,7 +1103,7 @@ export default function MobilizerAccountScreen() {
                                 placeholder="Select Year"
                                 icon="hourglass-outline"
                                 iconColor="#D97706"
-                                onPress={() => setShowYearOfCoursePicker(true)}
+                                onPress={() => openSelectionModal("Select Year of Course", YEAR_OF_COURSE_OPTIONS, "yearOfCourse")}
                             />
 
                             <PickerRow
@@ -1095,7 +1112,7 @@ export default function MobilizerAccountScreen() {
                                 placeholder="Select Year"
                                 icon="calendar-outline"
                                 iconColor="#D97706"
-                                onPress={() => setShowPassing10thPicker(true)}
+                                onPress={() => openSelectionModal("Select 10th Passing Year", PASSING_10TH_OPTIONS, "passing10th")}
                             />
 
                             <CustomTextInput
@@ -1115,7 +1132,7 @@ export default function MobilizerAccountScreen() {
                                 placeholder="Select Board"
                                 icon="school-outline"
                                 iconColor="#D97706"
-                                onPress={() => setShowBoard12thPicker(true)}
+                                onPress={() => openSelectionModal("Select 12th Board", BOARD_12TH_OPTIONS, "board12th")}
                             />
 
                             <PickerRow
@@ -1124,7 +1141,7 @@ export default function MobilizerAccountScreen() {
                                 placeholder="Select Stream"
                                 icon="git-branch-outline"
                                 iconColor="#D97706"
-                                onPress={() => setShowStream12thPicker(true)}
+                                onPress={() => openSelectionModal("Select Stream in 12th", STREAM_12TH_OPTIONS, "stream12th")}
                             />
                             <CustomTextInput
                                 label="12th Marks"
@@ -1143,7 +1160,7 @@ export default function MobilizerAccountScreen() {
                                 placeholder="Select Preparing For Competitive Exam"
                                 icon="help-circle-outline"
                                 iconColor="#D97706"
-                                onPress={() => setShowCompetitiveExamPicker(true)}
+                                onPress={() => openSelectionModal("Preparing For Competitive Exam", COMPETITIVE_EXAM_OPTIONS, "competitive_exam")}
                             />
 
                             {personalInfo.competitive_exam === "Yes" && (
@@ -1153,7 +1170,7 @@ export default function MobilizerAccountScreen() {
                                     placeholder="Select Competitive Exam"
                                     icon="bookmark-outline"
                                     iconColor="#D97706"
-                                    onPress={() => setShowCompetitiveExamNamePicker(true)}
+                                    onPress={() => openSelectionModal("Select Competitive Exam Name", COMPETITIVE_EXAM_NAME_OPTIONS, "competitive_exam_name")}
                                 />
                             )}
                         </View>
@@ -1183,230 +1200,20 @@ export default function MobilizerAccountScreen() {
             />
 
             <SelectionModal
-                visible={showReligionPicker}
-                onClose={() => setShowReligionPicker(false)}
-                title="Select Religion"
-                options={RELIGION_OPTIONS}
-                selected={personalInfo.religion}
+                visible={selectionModal.visible}
+                onClose={() => setSelectionModal(prev => ({ ...prev, visible: false }))}
+                title={selectionModal.title}
+                options={selectionModal.options}
+                selected={selectionModal.field ? personalInfo[selectionModal.field] : ""}
                 onSelect={(val: string) => {
-                    handlePersonalInfoChange("religion", val);
-                    setShowReligionPicker(false);
+                    if (selectionModal.field) {
+                        handlePersonalInfoChange(selectionModal.field, val);
+                    }
+                    setSelectionModal(prev => ({ ...prev, visible: false }));
                 }}
-            />
-
-            <SelectionModal
-                visible={showSessionPicker}
-                onClose={() => setShowSessionPicker(false)}
-                title="Select Session"
-                options={SESSION_OPTIONS}
-                selected={personalInfo.session}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("session", val);
-                    setShowSessionPicker(false);
-                }}
-            />
-
-            <SelectionModal
-                visible={showPassing10thPicker}
-                onClose={() => setShowPassing10thPicker(false)}
-                title="Select 10th Passing Year"
-                options={PASSING_10TH_OPTIONS}
-                selected={personalInfo.passing10th}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("passing10th", val);
-                    setShowPassing10thPicker(false);
-                }}
-            />
-
-            <SelectionModal
-                visible={showIncomePicker}
-                onClose={() => setShowIncomePicker(false)}
-                title="Select Annual Income"
-                options={ANNUAL_INCOME_OPTIONS}
-                selected={personalInfo.annualIncome}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("annualIncome", val);
-                    setShowIncomePicker(false);
-                }}
-            />
-
-            <SelectionModal
-                visible={showSchemePicker}
-                onClose={() => setShowSchemePicker(false)}
-                title="Select Scheme"
-                options={SCHEME_OPTIONS}
-                selected={personalInfo.schemeName}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("schemeName", val);
-                    setShowSchemePicker(false);
-                }}
-            />
-
-            <SelectionModal
-                visible={showRegisteringAsPicker}
-                onClose={() => setShowRegisteringAsPicker(false)}
-                title="Registering As"
-                options={REGISTERING_AS_OPTIONS}
-                selected={personalInfo.registeringAs}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("registeringAs", val);
-                    setShowRegisteringAsPicker(false);
-                }}
-            />
-            <SelectionModal
-                visible={showCastePicker}
-                onClose={() => setShowCastePicker(false)}
-                title="Select Caste"
-                options={CASTE_OPTIONS}
-                selected={personalInfo.caste}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("caste", val);
-                    setShowCastePicker(false);
-                }}
-            />
-
-            <SelectionModal
-                visible={showGenderPicker}
-                onClose={() => setShowGenderPicker(false)}
-                title="Select Gender"
-                options={GENDER_OPTIONS}
-                selected={personalInfo.gender}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("gender", val);
-                    setShowGenderPicker(false);
-                }}
-            />
-
-            <SelectionModal
-                visible={showDomicileStatePicker}
-                onClose={() => setShowDomicileStatePicker(false)}
-                title="Select Domicile State"
-                options={DOMICILE_STATE_OPTIONS}
-                selected={personalInfo.domicileState}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("domicileState", val);
-                    setShowDomicileStatePicker(false);
-                }}
-            />
-
-            <SelectionModal
-                visible={showSpecialCategoryPicker}
-                onClose={() => setShowSpecialCategoryPicker(false)}
-                title="Select Special Category"
-                options={SPECIAL_CATEGORY_OPTIONS}
-                selected={personalInfo.specialCategory}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("specialCategory", val);
-                    setShowSpecialCategoryPicker(false);
-                }}
-            />
-
-            <SelectionModal
-                visible={showDistrictPicker}
-                onClose={() => setShowDistrictPicker(false)}
-                title="Select Domicile District"
-                options={DISTRICT_OPTIONS}
-                selected={personalInfo.domicileDistrict}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("domicileDistrict", val);
-                    setShowDistrictPicker(false);
-                }}
-            />
-
-            <SelectionModal
-                visible={showYearOfCoursePicker}
-                onClose={() => setShowYearOfCoursePicker(false)}
-                title="Select Year of Course"
-                options={YEAR_OF_COURSE_OPTIONS}
-                selected={personalInfo.yearOfCourse}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("yearOfCourse", val);
-                    setShowYearOfCoursePicker(false);
-                }}
-            />
-
-            <SelectionModal
-                visible={showBoard12thPicker}
-                onClose={() => setShowBoard12thPicker(false)}
-                title="Select 12th Board"
-                options={BOARD_12TH_OPTIONS}
-                selected={personalInfo.board12th}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("board12th", val);
-                    setShowBoard12thPicker(false);
-                }}
-            />
-
-            <SelectionModal
-                visible={showStream12thPicker}
-                onClose={() => setShowStream12thPicker(false)}
-                title="Select Stream in 12th"
-                options={STREAM_12TH_OPTIONS}
-                selected={personalInfo.stream12th}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("stream12th", val);
-                    setShowStream12thPicker(false);
-                }}
-            />
-
-            <SelectionModal
-                visible={showPassingYear12thPicker}
-                onClose={() => setShowPassingYear12thPicker(false)}
-                title="Select 12th Passing Year"
-                options={PASSING_YEAR_12TH_OPTIONS}
-                selected={personalInfo.passingYear12th}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("passingYear12th", val);
-                    setShowPassingYear12thPicker(false);
-                }}
-            />
-
-            <SelectionModal
-                visible={showApplicationYearPicker}
-                onClose={() => setShowApplicationYearPicker(false)}
-                title="Select Application Year"
-                options={APPLICATION_YEAR_OPTIONS}
-                selected={personalInfo.applicationYear}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("applicationYear", val);
-                    setShowApplicationYearPicker(false);
-                }}
-            />
-
-            <SelectionModal
-                visible={showApplicationTypePicker}
-                onClose={() => setShowApplicationTypePicker(false)}
-                title="Select Application Type"
-                options={APPLICATION_TYPE_OPTIONS}
-                selected={personalInfo.application_type}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("application_type", val);
-                    setShowApplicationTypePicker(false);
-                }}
-            />
-
-            <SelectionModal
-                visible={showCompetitiveExamPicker}
-                onClose={() => setShowCompetitiveExamPicker(false)}
-                title="Preparing For Competitive Exam"
-                options={COMPETITIVE_EXAM_OPTIONS}
-                selected={personalInfo.competitive_exam}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("competitive_exam", val);
-                    setShowCompetitiveExamPicker(false);
-                }}
-            />
-
-            <SelectionModal
-                visible={showCompetitiveExamNamePicker}
-                onClose={() => setShowCompetitiveExamNamePicker(false)}
-                title="Select Competitive Exam Name"
-                options={COMPETITIVE_EXAM_NAME_OPTIONS}
-                selected={personalInfo.competitive_exam_name}
-                onSelect={(val: string) => {
-                    handlePersonalInfoChange("competitive_exam_name", val);
-                    setShowCompetitiveExamNamePicker(false);
-                }}
+                insets={insets}
+                colors={colors}
+                isDark={isDark}
             />
 
             {/* Image Options Modal */}

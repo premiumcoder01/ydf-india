@@ -79,15 +79,7 @@ export default function ReviewerAboutScreen() {
         >
           {/* About Content Card */}
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.appIconContainer}>
-              <LinearGradient
-                colors={["#667eea", "#764ba2"]}
-                style={styles.appIcon}
-              >
-                <Ionicons name="business" size={32} color="#fff" />
-              </LinearGradient>
-            </View>
-            <Text style={[styles.appName, { color: colors.text }]}>Reviewer Portal</Text>
+
 
             <RenderHtml
               contentWidth={width - 80}
@@ -173,6 +165,13 @@ export default function ReviewerAboutScreen() {
           </View>
 
           <View style={{ height: 40 }} />
+
+          {/* Copyright Notice */}
+          <View style={styles.footer}>
+            <Text style={[styles.footerText, { color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.45)" }]}>
+              © {new Date().getFullYear()} Youth Dreamers Foundation. All rights reserved.
+            </Text>
+          </View>
         </ScrollView>
       )}
     </View>
@@ -281,8 +280,15 @@ const styles = StyleSheet.create({
   settingDescription: {
     fontSize: 13,
   },
-  copyrightText: {
+  footer: {
+    marginTop: 15,
+    marginBottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerText: {
     fontSize: 12,
-    textAlign: "center",
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });

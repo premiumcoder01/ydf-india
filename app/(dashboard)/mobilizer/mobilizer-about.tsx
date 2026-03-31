@@ -83,6 +83,13 @@ export default function MobilizerAboutScreen() {
                 </View>
 
 
+
+                {/* Copyright Notice */}
+                <View style={styles.footer}>
+                    <Text style={[styles.copyright, { color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.45)" }]}>
+                        © {new Date().getFullYear()} Youth Dreamers Foundation. All rights reserved.
+                    </Text>
+                </View>
             </ScrollView>
         </View>
     );
@@ -199,16 +206,13 @@ const styles = StyleSheet.create({
         fontWeight: '600'
     },
     footer: {
-        marginTop: 48,
+        marginTop: 24,
+        marginBottom: 20,
         alignItems: 'center',
-        gap: 4
     },
     copyright: {
-        fontSize: 13,
-        fontWeight: '600'
-    },
-    rights: {
         fontSize: 12,
-        opacity: 0.7
-    }
+        fontWeight: '500',
+        textAlign: 'center',
+    },
 });

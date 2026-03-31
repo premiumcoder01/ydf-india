@@ -70,7 +70,7 @@ export default function ProviderKycScreen() {
         // Handle nested data structure: { success: true, data: { status: "...", ... } }
         const kycData = response.data.data ? response.data.data : response.data;
 
-        const rawStatus = kycData.status || "New";
+        const rawStatus = kycData.status || (kycData.success ? "pending" : "New");
         const status = rawStatus.toLowerCase() as KycStatusType;
         setKycStatus(status);
 
@@ -577,8 +577,8 @@ export default function ProviderKycScreen() {
         <View style={[styles.statusBanner, { backgroundColor: statusConfig.bg }]}>
           <Ionicons name={statusConfig.icon} size={28} color={statusConfig.color} />
           <View style={styles.statusContent}>
-            <Text style={[styles.statusTitle, { color: statusConfig.color }]}>
-              KYC Status: {kycStatus}
+            <Text style={[styles.statusTitle, { color: statusConfig.color, textTransform: 'capitalize' }]}>
+              KYC Status: {kycStatus === 'pending' ? 'Under Review' : kycStatus}
             </Text>
             <Text style={[styles.statusText, { color: statusConfig.color }]}>
               {kycStatus === "New" && "Complete the form below to verify your account"}
@@ -741,7 +741,7 @@ export default function ProviderKycScreen() {
               Application Submitted
             </Text>
             <Text style={{ textAlign: 'center', color: colors.textSecondary, marginTop: 10, maxWidth: '80%', lineHeight: 22 }}>
-              Your KYC application is currently {kycStatus.toLowerCase()}. You will be able to manage your account once verification is complete.
+              Your KYC application is currently {kycStatus === 'pending' ? 'under review' : kycStatus.toLowerCase()}. You will be able to manage your account once verification is complete.
             </Text>
             <TouchableOpacity
               style={{ marginTop: 30, backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10 }}

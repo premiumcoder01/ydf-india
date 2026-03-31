@@ -100,7 +100,9 @@ export default function ProviderProfileScreen() {
             const kycResponse = await getDonorKycStatus(token);
             if (kycResponse.success && kycResponse.data) {
               const kycData = kycResponse.data.data ?? kycResponse.data;
-              setProviderData(prev => ({ ...prev, kycStatus: kycData.status || "New" }));
+              // If status is explicit, use it. Otherwise, if data.success is true, it means submitted -> "Pending"
+              let status = kycData.status || (kycData.success ? "Pending" : "New");
+              setProviderData(prev => ({ ...prev, kycStatus: status }));
             }
           } catch (_) { }
         } catch (error) {
@@ -191,8 +193,8 @@ export default function ProviderProfileScreen() {
         <TouchableOpacity
           onPress={() => setExpanded(isExpanded ? null : id)}
           activeOpacity={0.85}
-          style={[styles.accordionHeader, { 
-            backgroundColor: isDark ? colors.card : '#fff', 
+          style={[styles.accordionHeader, {
+            backgroundColor: isDark ? colors.card : '#fff',
             borderColor: isDark ? colors.border : 'rgba(0,0,0,0.04)',
             borderBottomLeftRadius: isExpanded ? 0 : 20,
             borderBottomRightRadius: isExpanded ? 0 : 20,
@@ -211,7 +213,7 @@ export default function ProviderProfileScreen() {
             <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
           </MotiView>
         </TouchableOpacity>
-        
+
         {isExpanded && (
           <MotiView
             from={{ opacity: 0, scaleY: 0.95 }}
@@ -375,6 +377,15 @@ export default function ProviderProfileScreen() {
             <ActionItem icon="information-circle-outline" label="About" onPress={() => router.push("/(dashboard)/provider/about")} color="#0EA5E9" />
             <ActionItem icon="log-out-outline" label="Logout" onPress={handleLogout} color="#EF4444" isLast />
           </View>
+          
+          {/* Copyright Notice */}
+          <View style={styles.footer}>
+            <Text style={[styles.footerText, { color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.45)" }]}>
+              © {new Date().getFullYear()} Youth Dreamers Foundation. All rights reserved.
+            </Text>
+          </View>
+
+          <View style={{ height: 50 }} />
         </View>
       </Animated.ScrollView>
     </View>
@@ -486,4 +497,17 @@ const styles = StyleSheet.create({
   actionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16 },
   actionIcon: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
   actionLabel: { flex: 1, fontSize: 16, fontWeight: '600' },
+
+  /* Footer */
+  footer: {
+    marginTop: 15,
+    marginBottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerText: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
 });

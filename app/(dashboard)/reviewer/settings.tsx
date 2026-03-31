@@ -181,7 +181,14 @@ export default function ReviewerSettingsScreen() {
           </LinearGradient>
         </View>
 
+        {/* Copyright Notice */}
+        <View style={styles.footer}>
+          <Text style={[styles.footerText, { color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.45)" }]}>
+            © {new Date().getFullYear()} Youth Dreamers Foundation. All rights reserved.
+          </Text>
+        </View>
 
+        <View style={{ height: 50 }} />
       </ScrollView>
     </View>
   );
@@ -275,5 +282,17 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "900",
     letterSpacing: -0.5,
+  },
+  /* Footer */
+  footer: {
+    marginTop: 15,
+    marginBottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerText: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });
