@@ -2791,6 +2791,7 @@ export const updateFinancialInfo = async (
     bank_name: string;
     account_number: string;
     ifsc: string;
+    account_type: string;
   }
 ): Promise<ApiResponse> => {
   try {
@@ -2806,6 +2807,7 @@ export const updateFinancialInfo = async (
     urlObj.searchParams.append("bank_name", params.bank_name);
     urlObj.searchParams.append("account_number", params.account_number);
     urlObj.searchParams.append("ifsc", params.ifsc);
+    urlObj.searchParams.append("account_type", params.account_type);
 
     const finalUrl = urlObj.toString();
     console.log("Update Financial Info URL:", finalUrl);

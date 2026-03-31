@@ -14,8 +14,11 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
+    Animated,
+    Dimensions
 } from "react-native";
+import AnimatedRN, { FadeInUp, Layout } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 
@@ -28,119 +31,40 @@ interface ValidationErrors {
 const getBankGradient = (bankName: string): readonly [string, string, ...string[]] => {
     const name = bankName.toLowerCase();
 
-    // SBI - Blue
+    // SBI - Deep Blue
     if (name.includes('state bank of india') || name.includes('sbi')) {
-        return ['#1a237e', '#283593', '#1e88e5'];
+        return ['#1e3a8a', '#1e40af', '#1d4ed8'];
     }
-    // HDFC - Navy Blue
+    // HDFC - Navy Professional
     if (name.includes('hdfc')) {
-        return ['#00103a', '#002663', '#004c8f'];
+        return ['#0f172a', '#1e293b', '#334155'];
     }
-    // ICICI - Orange/Maroon
+    // ICICI - Sophisticated Orange
     if (name.includes('icici')) {
-        return ['#8B1D15', '#C03308', '#F37E20'];
+        return ['#9a3412', '#c2410c', '#ea580c'];
     }
-    // Axis - Burgundy
+    // Axis - Deep Burgundy
     if (name.includes('axis')) {
-        return ['#58081f', '#8e1233', '#ae2848'];
+        return ['#701a35', '#831843', '#9d174d'];
     }
-    // Kotak - Red
+    // Kotak - Premium Red
     if (name.includes('kotak')) {
-        return ['#a30000', '#da1710', '#ed1c24'];
+        return ['#991b1b', '#b91c1c', '#dc2626'];
     }
     // PNB - Maroon
     if (name.includes('punjab national') || name.includes('pnb')) {
-        return ['#6e1220', '#a21a2e', '#cf2840'];
+        return ['#7f1d1d', '#991b1b', '#b91c1c'];
     }
-    // Bank of Baroda - Orange
+    // Bank of Baroda - Modern Orange
     if (name.includes('baroda') || name.includes('bob')) {
-        return ['#d35400', '#e67e22', '#f39c12'];
+        return ['#c2410c', '#ea580c', '#f97316'];
     }
-    // IDFC First - Red/Burnt Orange
+    // IDFC First - Elegant Red
     if (name.includes('idfc')) {
-        return ['#680811', '#93121b', '#b91c26'];
+        return ['#7f1d1d', '#b91c1c', '#ef4444'];
     }
-    // Union Bank - Red/Dark Blue
-    if (name.includes('union bank')) {
-        return ['#c0392b', '#2980b9', '#1a237e'];
-    }
-    // Canara - Blue/Yellow
-    if (name.includes('canara')) {
-        return ['#004886', '#0065bd', '#007fff'];
-    }
-    // IndusInd - Crimson
-    if (name.includes('indusind')) {
-        return ['#570814', '#851020', '#b31b30'];
-    }
-    // Yes Bank - Deep Blue
-    if (name.includes('yes bank')) {
-        return ['#002d6b', '#0045a5', '#01579b'];
-    }
-    // Bank of India (BOI) - Blue/Red
-    if (name.includes('bank of india') || name.includes('boi')) {
-        return ['#003366', '#0055a4', '#d41113'];
-    }
-    // Central Bank of India - Blue/Yellow
-    if (name.includes('central bank')) {
-        return ['#004b93', '#0067b1', '#ffcc00'];
-    }
-    // Indian Bank - Blue/Gold
-    if (name.includes('indian bank')) {
-        return ['#1a3c61', '#214e7a', '#c29b40'];
-    }
-    // Bank of Maharashtra - Blue
-    if (name.includes('maharashtra')) {
-        return ['#004b91', '#0069c0', '#42a5f5'];
-    }
-    // UCO Bank - Blue/Yellow
-    if (name.includes('uco bank')) {
-        return ['#005ca8', '#0077c8', '#ffdf00'];
-    }
-    // Federal Bank - Blue/Green
-    if (name.includes('federal bank')) {
-        return ['#004a99', '#0067b1', '#579d42'];
-    }
-    // Bandhan Bank - Blue/Yellow
-    if (name.includes('bandhan')) {
-        return ['#004b91', '#006bd1', '#ffc107'];
-    }
-    // IDBI - Green/Blue
-    if (name.includes('idbi')) {
-        return ['#006a4d', '#004a99', '#00966b'];
-    }
-    // Paytm - Cyan/Blue
-    if (name.includes('paytm')) {
-        return ['#00baf2', '#002e6e', '#002970'];
-    }
-    // Airtel Payments Bank - Red
-    if (name.includes('airtel')) {
-        return ['#e40000', '#f12711', '#f5af19'];
-    }
-    // Post Office / IPPB - Blue/Red
-    if (name.includes('post office') || name.includes('ippb')) {
-        return ['#004fa3', '#e31e24', '#003366'];
-    }
-    // Karnataka Bank - Red/Yellow
-    if (name.includes('karnataka bank')) {
-        return ['#ed1c24', '#fcee21', '#c1272d'];
-    }
-    // AU Small Finance Bank - Deep Blue/Orange
-    if (name.includes('au small') || name.includes('au bank')) {
-        return ['#152e5d', '#3154a1', '#f15a24'];
-    }
-
-    // American Express - Iconic Platinum/Silver
-    if (name.includes('american express') || name.includes('amex')) {
-        return ['#8e9eab', '#abbaba', '#8e9eab'];
-    }
-
-    // RRBs / Grameen Banks - Generic Premium Blue/Light Blue
-    if (name.includes('grameen') || name.includes('rural') || name.includes('gramin')) {
-        return ['#0d47a1', '#1976d2', '#64b5f6'];
-    }
-
     // Default Premium Royal Gradient
-    return ['#1a237e', '#283593', '#3949ab'];
+    return ['#312e81', '#3730a3', '#4338ca'];
 };
 
 export default function StudentProfileFinancialScreen() {
@@ -329,119 +253,133 @@ export default function StudentProfileFinancialScreen() {
     return (
         <View style={styles.container}>
             <LinearGradient
-                colors={isDark ? ["#121212", "#121212", "#1e1e1e"] : ["#fff", "#fff", "#f2c44d"]}
+                colors={isDark ? ["#0F172A", "#1E293B", "#0F172A"] : ["#F8FAFC", "#F1F5F9", "#E2E8F0"]}
                 style={styles.background}
-                locations={[0, 0.3, 1]}
             />
 
             <AppHeader title="Financial Information" onBack={() => router.back()} />
 
-            <ScrollView style={styles.content}>
+            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
                 {/* Check if financial info is empty */}
                 {!financialInfo.bankAccountNo && !financialInfo.bankName && !financialInfo.ifscCode ? (
                     // Empty State
-                    <View style={styles.emptyStateContainer}>
-                        <View style={[styles.emptyIconContainer, { backgroundColor: isDark ? '#1E1E1E' : '#F5F5F5' }]}>
-                            <Ionicons name="card-outline" size={64} color={colors.textSecondary} />
+                    <AnimatedRN.View entering={FadeInUp.duration(600).springify()} style={styles.emptyStateContainer}>
+                        <View style={[styles.emptyIconContainer, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
+                            <Ionicons name="card-outline" size={64} color={colors.primary} />
                         </View>
-                        <Text style={[styles.emptyTitle, { color: colors.text }]}>No Bank Account Added</Text>
+                        <Text style={[styles.emptyTitle, { color: colors.text }]}>No Bank Account Found</Text>
                         <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                            Add your bank account details to receive scholarship funds directly to your account.
+                            Securely add your bank account to receive scholarship funds directly and track your disbursements.
                         </Text>
                         <TouchableOpacity
                             style={[styles.addAccountBtn, { backgroundColor: colors.primary }]}
                             onPress={openEditModal}
                             activeOpacity={0.8}
                         >
-                            <Ionicons name="add-circle-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-                            <Text style={styles.addAccountBtnText}>Add Bank Account</Text>
+                            <Ionicons name="add" size={24} color="#fff" style={{ marginRight: 8 }} />
+                            <Text style={styles.addAccountBtnText}>Configure Bank Account</Text>
                         </TouchableOpacity>
 
-                        <View style={[styles.infoCard, { backgroundColor: isDark ? '#1E1E1E' : '#FFF', borderColor: colors.border, marginTop: 30 }]}>
-                            <Ionicons name="information-circle-outline" size={24} color={colors.primary} />
-                            <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                                This bank account will be used for transferring scholarship funds. Please ensure the details are correct and the account is active.
+                        <View style={[styles.notificationBox, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.5)' : '#EFF6FF', borderColor: isDark ? colors.border : '#DBEAFE' }]}>
+                            <Ionicons name="shield-checkmark-outline" size={20} color={colors.primary} />
+                            <Text style={[styles.notificationText, { color: isDark ? colors.textSecondary : '#1E40AF' }]}>
+                                Your data is protected with 256-bit encryption. We only use this for scholarship disbursements.
                             </Text>
                         </View>
-                    </View>
+                    </AnimatedRN.View>
                 ) : (
                     // Bank Card Display
                     <>
-                        <View style={styles.cardContainer}>
+                        <AnimatedRN.View entering={FadeInUp.delay(200).duration(800).springify()} style={styles.cardContainer}>
                             <LinearGradient
                                 colors={getBankGradient(financialInfo.bankName)}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 1 }}
                                 style={styles.bankCard}
                             >
-                                {/* Card Header: Bank Name & Edit */}
+                                {/* Patterns overlay */}
+                                <View style={styles.cardPattern} />
+                                
+                                {/* Card Header */}
                                 <View style={styles.cardHeader}>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={styles.bankLabel}>Bank Name</Text>
-                                        <Text style={styles.bankName} numberOfLines={1} ellipsizeMode="tail">
-                                            {financialInfo.bankName || "Your Bank Name"}
-                                        </Text>
+                                    <View style={styles.bankIdentity}>
+                                        <View style={styles.bankLogoPlaceholder}>
+                                            <Ionicons name="business" size={18} color="#fff" />
+                                        </View>
+                                        <View>
+                                            <Text style={styles.bankLabel}>Bank Name</Text>
+                                            <Text style={styles.bankName} numberOfLines={1}>
+                                                {financialInfo.bankName || "Your Bank Name"}
+                                            </Text>
+                                        </View>
                                     </View>
                                     <TouchableOpacity
-                                        style={styles.editIconBtn}
+                                        style={styles.modernEditBtn}
                                         onPress={openEditModal}
-                                        activeOpacity={0.8}
+                                        activeOpacity={0.7}
                                     >
-                                        <Ionicons name="create-outline" size={18} color="#fff" />
+                                        <Ionicons name="pencil" size={16} color="#fff" />
                                     </TouchableOpacity>
                                 </View>
 
-                                {/* Chip & Contactless */}
-                                <View style={styles.cardChipRow}>
-                                    <View style={styles.chip} />
-                                    <Ionicons name="wifi" size={20} color="rgba(255,255,255,0.4)" style={{ transform: [{ rotate: '90deg' }] }} />
+                                {/* Chip & NFC */}
+                                <View style={styles.cardTechRow}>
+                                    <LinearGradient 
+                                        colors={['#FFD700', '#FDB931', '#977A1A']} 
+                                        style={styles.chipPremium} 
+                                    />
+                                    <Ionicons name="wifi-outline" size={22} color="rgba(255,255,255,0.6)" style={{ transform: [{ rotate: '90deg' }] }} />
                                 </View>
 
-                                {/* Card Number */}
-                                <View style={styles.cardNumberContainer}>
-                                    <Text style={styles.cardNumber}>
-                                        {financialInfo.bankAccountNo ? (financialInfo.bankAccountNo.match(/.{1,4}/g)?.join(' ') || financialInfo.bankAccountNo) : "•••• •••• •••• ••••"}
+                                {/* Account Number */}
+                                <View style={styles.accountNumberRow}>
+                                    <Text style={styles.accountNumberText}>
+                                        {financialInfo.bankAccountNo ? (financialInfo.bankAccountNo.match(/.{1,4}/g)?.join('  ') || financialInfo.bankAccountNo) : "****  ****  ****  ****"}
                                     </Text>
                                 </View>
 
-                                {/* Card Footer: Redesigned Stacking */}
-                                <View style={styles.cardFooterNew}>
-                                    <View style={styles.glassContainer}>
-                                        <View style={styles.holderSection}>
-                                            <Text style={styles.cardLabelSmall}>Account Holder</Text>
-                                            <Text style={styles.cardValueLarge} numberOfLines={1} ellipsizeMode="tail">
-                                                {financialInfo.accountHolderName || "STUDENT NAME"}
-                                            </Text>
-                                        </View>
-                                        <View style={styles.ifscSection}>
-                                            <Text style={styles.cardLabelSmall}>IFSC Code</Text>
-                                            <Text style={styles.ifscValue}>
-                                                {financialInfo.ifscCode || "IFSCXXXX"}
-                                            </Text>
-                                        </View>
+                                {/* Footer Highlights */}
+                                <View style={styles.glassFooter}>
+                                    <View style={styles.footerCol}>
+                                        <Text style={styles.footerLabel}>ACCOUNT HOLDER</Text>
+                                        <Text style={styles.footerValue} numberOfLines={1}>
+                                            {financialInfo.accountHolderName.toUpperCase() || "NOT SET"}
+                                        </Text>
+                                    </View>
+                                    <View style={styles.footerCol}>
+                                        <Text style={styles.footerLabel}>IFSC CODE</Text>
+                                        <Text style={styles.footerValue}>
+                                            {financialInfo.ifscCode || "IFSCXXXX"}
+                                        </Text>
                                     </View>
                                 </View>
-
-                                <View style={[styles.circleGreeting, { right: -50, top: -50 }]} />
-                                <View style={[styles.circleGreeting, { left: -50, bottom: -50 }]} />
                             </LinearGradient>
-                            {financialInfo.updatedAt ? (
-                                <View style={{ marginTop: 12, alignItems: 'center' }}>
-                                    <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-                                        Last Updated: {new Date(financialInfo.updatedAt).toLocaleString(undefined, { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
+
+                            {financialInfo.updatedAt && (
+                                <View style={styles.updateBadgeContainer}>
+                                    <View style={[styles.updateBadge, { backgroundColor: isDark ? '#1E293B' : '#E2E8F0' }]}>
+                                        <Ionicons name="time-outline" size={12} color={colors.textSecondary} />
+                                        <Text style={[styles.updateBadgeText, { color: colors.textSecondary }]}>
+                                            Verified: {new Date(financialInfo.updatedAt).toLocaleDateString()}
+                                        </Text>
+                                    </View>
+                                </View>
+                            )}
+                        </AnimatedRN.View>
+
+                        <AnimatedRN.View entering={FadeInUp.delay(400).duration(800).springify()} style={styles.infoSection}>
+                            <View style={[styles.premiumNotice, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.4)' : '#FFFFFF', borderColor: isDark ? colors.border : '#E2E8F0' }]}>
+                                <View style={[styles.noticeIcon, { backgroundColor: isDark ? '#1D4ED8' : '#DBEAFE' }]}>
+                                    <Ionicons name="information-circle" size={22} color={isDark ? '#fff' : '#2563EB'} />
+                                </View>
+                                <View style={styles.noticeContent}>
+                                    <Text style={[styles.noticeTitle, { color: colors.text }]}>Verification Active</Text>
+                                    <Text style={[styles.noticeText, { color: colors.textSecondary }]}>
+                                        These details are used for all fund transfers. Ensure the account remains active to avoid payment delays.
                                     </Text>
                                 </View>
-                            ) : null}
-                        </View>
-
-                        <View style={styles.infoSection}>
-                            <View style={[styles.infoCard, { backgroundColor: isDark ? '#1E1E1E' : '#FFF', borderColor: colors.border }]}>
-                                <Ionicons name="information-circle-outline" size={24} color={colors.primary} />
-                                <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                                    This bank account will be used for transferring scholarship funds. Please ensure the details are correct and the account is active.
-                                </Text>
                             </View>
-                        </View>
+                        </AnimatedRN.View>
                     </>
                 )}
             </ScrollView>
@@ -571,259 +509,247 @@ const styles = StyleSheet.create({
     },
     content: {
         flex: 1,
-        padding: 20,
+        paddingHorizontal: 20,
     },
     cardContainer: {
-        marginBottom: 30,
-        marginTop: 10,
+        marginBottom: 20,
+        marginTop: 20,
+        width: '100%',
     },
     bankCard: {
-        borderRadius: 20,
+        borderRadius: 24,
         padding: 24,
-        minHeight: 220,
+        minHeight: 230,
+        width: '100%',
         justifyContent: 'space-between',
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.3,
-        shadowRadius: 15,
-        elevation: 10,
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.4,
+        shadowRadius: 16,
+        elevation: 12,
         position: 'relative',
         overflow: 'hidden',
     },
-    circleGreeting: {
+    cardPattern: {
         position: 'absolute',
-        width: 150,
-        height: 150,
-        borderRadius: 75,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        zIndex: 0,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        opacity: 0.05,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        // Could add a real pattern image here
     },
     cardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        zIndex: 2,
+    },
+    bankIdentity: {
+        flexDirection: 'row',
         alignItems: 'center',
-        zIndex: 1,
-        marginBottom: 8,
+        gap: 12,
+        flex: 1,
+    },
+    bankLogoPlaceholder: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)',
     },
     bankLabel: {
         color: 'rgba(255,255,255,0.6)',
         fontSize: 10,
         fontWeight: '600',
         textTransform: 'uppercase',
-        letterSpacing: 1.2,
-        marginBottom: 2,
+        letterSpacing: 1,
     },
     bankName: {
         color: '#fff',
-        fontSize: 16,
-        fontWeight: '700',
-        letterSpacing: 0.3,
+        fontSize: 18,
+        fontWeight: '800',
+        letterSpacing: 0.5,
     },
-    editIconBtn: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+    modernEditBtn: {
+        width: 34,
+        height: 34,
+        borderRadius: 12,
         backgroundColor: 'rgba(255,255,255,0.15)',
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.2)',
-        position: "absolute",
-        top: -15,
-        right: -15,
     },
-    cardChipRow: {
+    cardTechRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
-        marginBottom: 15,
-        zIndex: 1,
+        gap: 16,
+        marginTop: 10,
+        zIndex: 2,
     },
-    chip: {
-        width: 40,
-        height: 30,
+    chipPremium: {
+        width: 45,
+        height: 34,
         borderRadius: 6,
-        backgroundColor: '#e0c9a6',
-        borderWidth: 1,
-        borderColor: '#bfa780',
+        borderWidth: 0.5,
+        borderColor: 'rgba(0,0,0,0.1)',
     },
-    cardNumberContainer: {
-        marginVertical: 5,
-        zIndex: 1,
+    accountNumberRow: {
+        marginVertical: 15,
+        zIndex: 2,
     },
-    cardNumber: {
+    accountNumberText: {
         color: '#fff',
-        fontSize: 20,
-        fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-        letterSpacing: 3,
-        textShadowColor: 'rgba(0,0,0,0.3)',
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 2,
-    },
-    cardFooterNew: {
-        marginTop: 15,
-        zIndex: 1,
-    },
-    glassContainer: {
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        padding: 12,
-        borderRadius: 12,
-        gap: 10,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-    },
-    holderSection: {
-        flex: 2,
-        marginRight: 10,
-    },
-    ifscSection: {
-        flex: 1,
-
-    },
-    cardLabelSmall: {
-        color: 'rgba(255,255,255,0.5)',
-        fontSize: 9,
-        fontWeight: '700',
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-        marginBottom: 2,
-    },
-    cardValueLarge: {
-        color: '#fff',
-        fontSize: 15,
-        fontWeight: '700',
-        letterSpacing: 0.2,
-    },
-    ifscValue: {
-        color: 'rgba(255,255,255,0.9)',
-        fontSize: 13,
+        fontSize: 22,
         fontWeight: '600',
-        letterSpacing: 0.5,
+        letterSpacing: 2,
+        fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     },
-    updatedAtContainer: {
-        position: 'absolute',
-        top: 24,
-        left: 0,
-        right: 0,
-        alignItems: 'center',
-    },
-    updatedAtText: {
-        color: 'rgba(255,255,255,0.4)',
-        fontSize: 10,
-    },
-    infoSection: {
-        paddingHorizontal: 5,
-    },
-    infoCard: {
-        flexDirection: 'row',
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 1,
-        gap: 12,
-        alignItems: 'flex-start',
-    },
-    infoText: {
-        flex: 1,
-        fontSize: 13,
-        lineHeight: 20,
-    },
-    // Modal Styles
-    fullScreenModal: {
-        flex: 1,
-    },
-    modalHeader: {
+    glassFooter: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingBottom: 16,
-        borderBottomWidth: 1,
+        backgroundColor: 'rgba(255,255,255,0.12)',
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.15)',
+        zIndex: 2,
     },
-    modalTitle: {
-        fontSize: 22,
+    footerCol: {
+        flex: 1,
+    },
+    footerLabel: {
+        color: 'rgba(255,255,255,0.5)',
+        fontSize: 9,
+        fontWeight: 'bold',
+        marginBottom: 4,
+    },
+    footerValue: {
+        color: '#fff',
+        fontSize: 14,
         fontWeight: '700',
     },
-    closeBtn: {
-        padding: 4,
+    updateBadgeContainer: {
+        alignItems: 'center',
+        marginTop: 16,
     },
-    modalBody: {
-        flex: 1,
-        paddingHorizontal: 20,
-        paddingTop: 24,
-    },
-    input: {
-        marginBottom: 20,
-    },
-    modalFooter: {
+    updateBadge: {
         flexDirection: 'row',
-        gap: 12,
-        paddingHorizontal: 20,
-        paddingTop: 16,
-        borderTopWidth: 1,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 8,
-    },
-    cancelBtn: {
-        flex: 1,
-        paddingVertical: 14,
-        borderRadius: 12,
-        borderWidth: 1,
-        justifyContent: 'center',
         alignItems: 'center',
+        gap: 6,
+        paddingVertical: 6,
+        paddingHorizontal: 14,
+        borderRadius: 20,
     },
-    cancelBtnText: {
+    updateBadgeText: {
+        fontSize: 12,
         fontWeight: '600',
-        fontSize: 16,
     },
-    // Empty State Styles
-    emptyStateContainer: {
-        flex: 1,
+    infoSection: {
+        marginTop: 10,
+        paddingBottom: 40,
+    },
+    premiumNotice: {
+        flexDirection: 'row',
+        padding: 20,
+        borderRadius: 20,
+        borderWidth: 1,
+        gap: 16,
         alignItems: 'center',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.03,
+        shadowRadius: 10,
+        elevation: 1,
+    },
+    noticeIcon: {
+        width: 44,
+        height: 44,
+        borderRadius: 14,
         justifyContent: 'center',
-        paddingHorizontal: 30,
+        alignItems: 'center',
+    },
+    noticeContent: {
+        flex: 1,
+    },
+    noticeTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        marginBottom: 2,
+    },
+    noticeText: {
+        fontSize: 13,
+        lineHeight: 18,
+    },
+    // Empty State
+    emptyStateContainer: {
+        alignItems: 'center',
         paddingTop: 60,
+        paddingHorizontal: 20,
     },
     emptyIconContainer: {
         width: 120,
         height: 120,
-        borderRadius: 60,
+        borderRadius: 40,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 24,
+        marginBottom: 30,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.05,
+        shadowRadius: 20,
+        elevation: 2,
     },
     emptyTitle: {
-        fontSize: 22,
-        fontWeight: '700',
+        fontSize: 24,
+        fontWeight: '800',
         marginBottom: 12,
         textAlign: 'center',
     },
     emptySubtitle: {
-        fontSize: 15,
-        lineHeight: 22,
+        fontSize: 16,
+        lineHeight: 24,
         textAlign: 'center',
-        marginBottom: 32,
-        paddingHorizontal: 10,
+        marginBottom: 35,
+        paddingHorizontal: 15,
     },
     addAccountBtn: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 14,
-        paddingHorizontal: 28,
-        borderRadius: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 4,
+        height: 56,
+        paddingHorizontal: 32,
+        borderRadius: 16,
+        shadowColor: '#3b82f6',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.25,
+        shadowRadius: 15,
+        elevation: 6,
     },
     addAccountBtnText: {
         color: '#fff',
         fontSize: 16,
-        fontWeight: '600',
+        fontWeight: '700',
+    },
+    notificationBox: {
+        marginTop: 40,
+        flexDirection: 'row',
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        gap: 12,
+        alignItems: 'center',
+    },
+    notificationText: {
+        flex: 1,
+        fontSize: 13,
+        lineHeight: 19,
+        fontWeight: '500',
     },
 
     // Bank Dropdown Styles
@@ -893,5 +819,71 @@ const styles = StyleSheet.create({
     inlineNoResultsText: {
         fontSize: 14,
         textAlign: 'center',
+    },
+    // Modal Styles
+    fullScreenModal: {
+        flex: 1,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingBottom: 16,
+        borderBottomWidth: 1,
+    },
+    modalTitle: {
+        fontSize: 22,
+        fontWeight: '800',
+        letterSpacing: -0.5,
+    },
+    closeBtn: {
+        padding: 4,
+    },
+    modalBody: {
+        flex: 1,
+        paddingHorizontal: 20,
+        paddingTop: 24,
+    },
+    input: {
+        marginBottom: 20,
+    },
+    modalFooter: {
+        flexDirection: 'row',
+        gap: 12,
+        paddingHorizontal: 20,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 8,
+    },
+    cancelBtn: {
+        flex: 1,
+        paddingVertical: 14,
+        borderRadius: 14,
+        borderWidth: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    cancelBtnText: {
+        fontWeight: '700',
+        fontSize: 16,
+    },
+    infoCard: {
+        flexDirection: 'row',
+        padding: 18,
+        borderRadius: 18,
+        borderWidth: 1,
+        gap: 12,
+        alignItems: 'flex-start',
+    },
+    infoText: {
+        flex: 1,
+        fontSize: 13,
+        lineHeight: 20,
+        fontWeight: '500',
     },
 });
