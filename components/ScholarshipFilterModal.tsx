@@ -415,7 +415,7 @@ export function ScholarshipFilterModal({
               style={[fStyles.card, { borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)", borderWidth: 1.5 }]}
             >
               <PickerRow
-                label="Course Selection"
+                label="Course Name"
                 icon="book-outline"
                 color="#3B82F6"
                 value={local.courseName}
@@ -424,7 +424,7 @@ export function ScholarshipFilterModal({
               />
               <View style={[fStyles.divider, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)" }]} />
               {renderInputField(
-                "Min Percentage (%)",
+                "Last Class Percentage (%)",
                 local.lastClassPercentageMin,
                 (v) => setLocal((p) => ({ ...p, lastClassPercentageMin: v })),
                 "e.g. 60",
@@ -443,7 +443,7 @@ export function ScholarshipFilterModal({
               style={[fStyles.card, { borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)", borderWidth: 1.5 }]}
             >
               <PickerRow
-                label="Max Annual Income"
+                label="Family Annual Income"
                 icon="cash-outline"
                 color="#10B981"
                 value={local.annualFamilyIncomeMax}

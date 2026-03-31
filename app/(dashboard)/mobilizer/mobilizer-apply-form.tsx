@@ -38,7 +38,7 @@ import { z } from "zod";
 const formSchema = z.object({
     fullName: z.string().min(2, "Full name is required"),
     email: z.string().email("Invalid email"),
-    phone: z.string().min(8, "Phone is required"),
+    phone: z.string().regex(/^[6-9]\d{9}$/, "Phone number must be a valid 10-digit Indian number"),
     studentId: z.string().min(1, "Student ID is required"),
     institution: z.string().min(2, "Institution is required"),
     major: z.string().min(2, "Major is required"),
@@ -217,7 +217,14 @@ export default function MobilizerApplyFormScreen() {
                                     ...getValues(),
                                     fullName: studentData.fullname || `${studentData.firstname} ${studentData.lastname}`,
                                     email: studentData.email,
-                                    phone: studentData.phone1 || studentData.phone || cf.phone_number || "",
+                                    phone: (() => {
+                                        let p = studentData.phone1 || studentData.phone || cf.phone_number || "";
+                                        if (typeof p === 'string') {
+                                            p = p.replace(/\D/g, '');
+                                            if (p.length > 10 && p.startsWith('91')) p = p.substring(p.length - 10);
+                                        }
+                                        return p;
+                                    })(),
                                     studentId: String(studentData.id),
                                     institution: studentData.institution || studentData.academic_details?.[0]?.institution || "",
                                     major: studentData.major || studentData.academic_details?.[0]?.major || "",
@@ -304,7 +311,7 @@ export default function MobilizerApplyFormScreen() {
                     application_text: values.statement,
                     fullname: values.fullName,
                     email: values.email,
-                    phone: values.phone,
+                    phone: values.phone.length === 10 ? `91${values.phone}` : values.phone,
                     student_id_number: values.studentId,
                     institution: values.institution,
                     major: values.major,
@@ -489,9 +496,74 @@ export default function MobilizerApplyFormScreen() {
                                 <Controller control={control} name="email" render={({ field: { onChange, value, onBlur } }) => (
                                     <CustomTextInput label="Email Address" placeholder="student@example.com" value={value} onChangeText={onChange} onBlur={onBlur} keyboardType="email-address" autoCapitalize="none" error={errors.email?.message} required />
                                 )} />
-                                <Controller control={control} name="phone" render={({ field: { onChange, value, onBlur } }) => (
-                                    <CustomTextInput label="Phone Number" placeholder="+91 98765 43210" value={value} onChangeText={onChange} onBlur={onBlur} keyboardType="phone-pad" error={errors.phone?.message} required />
-                                )} />
+                                <Controller
+                                    control={control}
+                                    name="phone"
+                                    render={({ field: { onChange, value, onBlur } }) => (
+                                        <View style={{ marginBottom: 16 }}>
+                                            <Text style={{ fontSize: 13, fontWeight: "600", marginBottom: 8, color: colors.text }}>
+                                                Phone Number <Text style={{ color: "#EF4444" }}>*</Text>
+                                            </Text>
+                                            <View
+                                                style={[
+                                                    {
+                                                        flexDirection: "row",
+                                                        alignItems: "center",
+                                                        borderWidth: 1,
+                                                        borderColor: errors.phone ? "#EF4444" : "rgba(51, 51, 51, 0.1)",
+                                                        borderRadius: 12,
+                                                        backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#fff",
+                                                        height: 50,
+                                                        overflow: "hidden",
+                                                    },
+                                                ]}
+                                            >
+                                                <View
+                                                    style={{
+                                                        flexDirection: "row",
+                                                        alignItems: "center",
+                                                        paddingHorizontal: 12,
+                                                        height: "100%",
+                                                        borderRightWidth: 1,
+                                                        borderRightColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(51, 51, 51, 0.1)",
+                                                        backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "#FAFAFA",
+                                                    }}
+                                                >
+                                                    <Text style={{ fontSize: 18, marginRight: 6 }}>🇮🇳</Text>
+                                                    <Text style={{ fontSize: 15, fontWeight: "600", color: colors.text }}>+91</Text>
+                                                </View>
+                                                <TextInput
+                                                    value={value}
+                                                    onChangeText={(text) => {
+                                                        const numeric = text.replace(/[^0-9]/g, "");
+                                                        if (numeric.length > 10) {
+                                                            onChange(numeric.slice(0, 10));
+                                                        } else {
+                                                            onChange(numeric);
+                                                        }
+                                                    }}
+                                                    onBlur={onBlur}
+                                                    placeholder="Mobile Number"
+                                                    placeholderTextColor={colors.textSecondary}
+                                                    keyboardType="number-pad"
+                                                    maxLength={10}
+                                                    style={{
+                                                        flex: 1,
+                                                        paddingHorizontal: 12,
+                                                        fontSize: 15,
+                                                        color: colors.text,
+                                                        height: "100%",
+                                                    }}
+                                                />
+                                            </View>
+                                            {errors.phone && (
+                                                <Text style={{ fontSize: 12, color: "#EF4444", marginTop: 4 }}>
+                                                    {errors.phone.message}
+                                                </Text>
+                                            )}
+                                        </View>
+                                    )}
+                                />
                                 <Controller control={control} name="studentId" render={({ field: { onChange, value, onBlur } }) => (
                                     <CustomTextInput label="Student ID" placeholder="Enter student ID" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.studentId?.message} required />
                                 )} />

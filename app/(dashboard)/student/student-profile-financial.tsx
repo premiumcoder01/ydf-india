@@ -13,145 +13,12 @@ import {
     ScrollView,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
-    View,
+    View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-// Comprehensive list of Indian Banks
-const INDIAN_BANKS = [
-    // Public Sector Banks
-    "State Bank of India (SBI)",
-    "Punjab National Bank (PNB)",
-    "Bank of Baroda (BOB)",
-    "Canara Bank",
-    "Union Bank of India",
-    "Indian Bank",
-    "Bank of India (BOI)",
-    "Central Bank of India",
-    "Indian Overseas Bank (IOB)",
-    "UCO Bank",
-    "Bank of Maharashtra",
-    "Punjab & Sind Bank",
 
-    // Private Sector Banks
-    "HDFC Bank",
-    "ICICI Bank",
-    "Axis Bank",
-    "Kotak Mahindra Bank",
-    "IndusInd Bank",
-    "Yes Bank",
-    "IDFC First Bank",
-    "Federal Bank",
-    "RBL Bank",
-    "South Indian Bank",
-    "Karur Vysya Bank",
-    "City Union Bank",
-    "Tamilnad Mercantile Bank",
-    "Lakshmi Vilas Bank",
-    "Nainital Bank",
-    "Dhanlaxmi Bank",
-    "Jammu & Kashmir Bank",
-    "Karnataka Bank",
-    "Bandhan Bank",
-    "CSB Bank",
-    "DCB Bank",
-
-    // Small Finance Banks
-    "AU Small Finance Bank",
-    "Equitas Small Finance Bank",
-    "Ujjivan Small Finance Bank",
-    "Suryoday Small Finance Bank",
-    "Utkarsh Small Finance Bank",
-    "ESAF Small Finance Bank",
-    "Fincare Small Finance Bank",
-    "Jana Small Finance Bank",
-    "North East Small Finance Bank",
-    "Capital Small Finance Bank",
-    "Shivalik Small Finance Bank",
-
-    // Payment Banks
-    "Paytm Payments Bank",
-    "Airtel Payments Bank",
-    "India Post Payments Bank",
-    "Fino Payments Bank",
-    "Jio Payments Bank",
-    "NSDL Payments Bank",
-
-    // Foreign Banks
-    "Citibank",
-    "HSBC Bank",
-    "Standard Chartered Bank",
-    "Deutsche Bank",
-    "Barclays Bank",
-    "Bank of America",
-    "American Express Banking Corp",
-    "DBS Bank",
-    "Mizuho Bank",
-    "MUFG Bank",
-    "Sumitomo Mitsui Banking Corporation",
-    "BNP Paribas",
-    "Credit Suisse",
-    "Royal Bank of Scotland",
-    "UBS AG",
-    "Societe Generale",
-
-    // Cooperative Banks
-    "Saraswat Cooperative Bank",
-    "Cosmos Cooperative Bank",
-    "Abhyudaya Cooperative Bank",
-    "TJSB Sahakari Bank",
-    "Bharat Cooperative Bank",
-    "Gujarat State Cooperative Bank",
-    "Maharashtra State Cooperative Bank",
-    "Karnataka State Cooperative Bank",
-    "Andhra Pradesh State Cooperative Bank",
-    "Tamil Nadu State Cooperative Bank",
-
-    // Regional Rural Banks (Major ones)
-    "Andhra Pradesh Grameena Vikas Bank",
-    "Andhra Pragathi Grameena Bank",
-    "Arunachal Pradesh Rural Bank",
-    "Aryavart Bank",
-    "Assam Gramin Vikash Bank",
-    "Bangiya Gramin Vikash Bank",
-    "Baroda Gujarat Gramin Bank",
-    "Baroda Rajasthan Kshetriya Gramin Bank",
-    "Baroda UP Bank",
-    "Chaitanya Godavari Grameena Bank",
-    "Chhattisgarh Rajya Gramin Bank",
-    "Dakshin Bihar Gramin Bank",
-    "Ellaquai Dehati Bank",
-    "Himachal Pradesh Gramin Bank",
-    "J&K Grameen Bank",
-    "Jharkhand Rajya Gramin Bank",
-    "Karnataka Gramin Bank",
-    "Karnataka Vikas Grameena Bank",
-    "Kerala Gramin Bank",
-    "Madhya Pradesh Gramin Bank",
-    "Madhyanchal Gramin Bank",
-    "Maharashtra Gramin Bank",
-    "Manipur Rural Bank",
-    "Meghalaya Rural Bank",
-    "Mizoram Rural Bank",
-    "Nagaland Rural Bank",
-    "Odisha Gramya Bank",
-    "Paschim Banga Gramin Bank",
-    "Prathama UP Gramin Bank",
-    "Puduvai Bharathiar Grama Bank",
-    "Punjab Gramin Bank",
-    "Rajasthan Marudhara Gramin Bank",
-    "Saptagiri Grameena Bank",
-    "Saurashtra Gramin Bank",
-    "Telangana Grameena Bank",
-    "Tripura Gramin Bank",
-    "Utkal Grameen Bank",
-    "Uttar Bihar Gramin Bank",
-    "Uttarakhand Gramin Bank",
-    "Uttarbanga Kshetriya Gramin Bank",
-    "Vidharbha Konkan Gramin Bank",
-].sort(); // Alphabetically sorted
 
 interface ValidationErrors {
     [key: string]: string;
@@ -285,6 +152,7 @@ export default function StudentProfileFinancialScreen() {
         ifscCode: "",
         bankName: "",
         accountHolderName: "",
+        accountType: "",
         updatedAt: "",
     });
 
@@ -294,6 +162,7 @@ export default function StudentProfileFinancialScreen() {
         ifscCode: "",
         bankName: "",
         accountHolderName: "",
+        accountType: "",
     });
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
@@ -323,6 +192,7 @@ export default function StudentProfileFinancialScreen() {
                                 ifscCode: data.ifsc || "",
                                 bankName: data.bank_name || "",
                                 accountHolderName: data.accountholder || "",
+                                accountType: data.account_type || "",
                                 updatedAt: data.updated_at || "",
                             });
                         }
@@ -344,6 +214,7 @@ export default function StudentProfileFinancialScreen() {
             ifscCode: financialInfo.ifscCode,
             bankName: financialInfo.bankName,
             accountHolderName: financialInfo.accountHolderName,
+            accountType: financialInfo.accountType,
         });
         setValidationErrors({});
         setIsEditModalVisible(true);
@@ -373,6 +244,11 @@ export default function StudentProfileFinancialScreen() {
             errors.accountHolderName = "Account holder name is required";
         } else if (editForm.accountHolderName.trim().length < 3) {
             errors.accountHolderName = "Name must be at least 3 characters";
+        }
+
+        // Account Type Validation
+        if (!editForm.accountType.trim()) {
+            errors.accountType = "Account type is required";
         }
 
         // Account Number Validation
@@ -423,6 +299,7 @@ export default function StudentProfileFinancialScreen() {
                 accountholder: editForm.accountHolderName,
                 bank_name: editForm.bankName,
                 account_number: editForm.bankAccountNo,
+                account_type: editForm.accountType,
                 ifsc: editForm.ifscCode
             };
 
@@ -617,6 +494,14 @@ export default function StudentProfileFinancialScreen() {
                             style={styles.input}
                             error={validationErrors.bankAccountNo}
                             placeholder="Enter full account number"
+                        />
+                        <CustomTextInput
+                            label="Account Type *"
+                            value={editForm.accountType}
+                            onChangeText={(val: string) => handleEditChange("accountType", val)}
+                            style={styles.input}
+                            error={validationErrors.accountType}
+                            placeholder="e.g. Savings, Current"
                         />
                         <CustomTextInput
                             label="IFSC Code *"

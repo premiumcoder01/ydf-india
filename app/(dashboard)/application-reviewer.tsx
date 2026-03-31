@@ -179,7 +179,7 @@ export default function ApplicationReviewerDashboard() {
   const chartData = isChartEmpty ? [{ value: 1, color: isDark ? '#475569' : '#E2E8F0' }] : pieData;
 
   const totalProcessed = stats.approved + stats.rejected;
-  const totalAssigned = stats.total_applications_assigned;
+  const computedTotal = Math.max(stats.total_applications_assigned, stats.pending_review + stats.approved + stats.rejected);
 
   // ─── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -213,49 +213,44 @@ export default function ApplicationReviewerDashboard() {
         >
           <View style={[styles.premiumCardContainer, { shadowColor: isDark ? colors.primary : "#000" }]}>
             <LinearGradient
-              colors={isDark ? ["#1E293B", "#0F172A"] : ["#FFFFFF", "#F1F5F9"]}
+              colors={isDark ? ["#1E293B", "#0F172A"] : ["#FFFFFF", "#F8FAFC"]}
               style={[styles.chartCard, { borderColor: isDark ? "#334155" : "#E2E8F0" }]}
             >
               <View style={styles.chartHeader}>
                 <View>
-                  <Text style={[styles.chartTitle, { color: colors.text }]}>Performance Insights</Text>
-                  <Text style={[styles.chartSubtitle, { color: colors.textSecondary }]}>Real-time application tracking</Text>
+                  <Text style={[styles.chartTitle, { color: colors.text }]}>Application Status</Text>
+                  <Text style={[styles.chartSubtitle, { color: colors.textSecondary }]}>Overall review progress</Text>
                 </View>
-                <LinearGradient
-                  colors={isDark ? ["#475569", "#334155"] : ["#E2E8F0", "#F1F5F9"]}
-                  style={styles.totalBadgePremium}
-                >
-                  <Text style={[styles.totalBadgeText, { color: colors.text }]}>{stats.total_applications_assigned}</Text>
+                <View style={[styles.totalBadgePremium, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)" }]}>
+                  <Text style={[styles.totalBadgeText, { color: colors.text }]}>{computedTotal}</Text>
                   <Text style={[styles.totalBadgeSubtext, { color: colors.textSecondary }]}>TOTAL</Text>
-                </LinearGradient>
+                </View>
               </View>
 
               <View style={styles.chartContent}>
-                {/* Donut Chart with shadow/glow effect */}
+                {/* Donut Chart */}
                 <View style={styles.chartWrapperPremium}>
-                  <View style={styles.chartGlow}>
-                    <PieChart
-                      data={chartData}
-                      donut
-                      radius={70}
-                      innerRadius={55}
-                      innerCircleColor={isDark ? "#1E293B" : "#FFFFFF"}
-                      centerLabelComponent={() => {
-                        const percent = isChartEmpty || totalAssigned === 0 ? 0 : Math.round((totalProcessed / totalAssigned) * 100);
-                        return (
-                          <View style={{ justifyContent: 'center', alignItems: 'center' }}>
-                            <Text style={{ fontSize: 26, color: colors.text, fontWeight: '800', letterSpacing: -1 }}>
-                              {percent}%
-                            </Text>
-                            <Text style={{ fontSize: 10, color: colors.textSecondary, fontWeight: '700', textTransform: 'uppercase' }}>Done</Text>
-                          </View>
-                        );
-                      }}
-                    />
-                  </View>
+                  <PieChart
+                    data={chartData}
+                    donut
+                    radius={65}
+                    innerRadius={52}
+                    innerCircleColor={isDark ? "#1E293B" : "#FFFFFF"}
+                    centerLabelComponent={() => {
+                      const percent = isChartEmpty || computedTotal === 0 ? 0 : Math.round((totalProcessed / computedTotal) * 100);
+                      return (
+                        <View style={{ justifyContent: 'center', alignItems: 'center' }}>
+                          <Text style={{ fontSize: 24, color: colors.text, fontWeight: '800' }}>
+                            {percent}%
+                          </Text>
+                          <Text style={{ fontSize: 9, color: colors.textSecondary, fontWeight: '700' }}>REVIEWED</Text>
+                        </View>
+                      );
+                    }}
+                  />
                 </View>
 
-                {/* Refined Legend */}
+                {/* Legend Container */}
                 <View style={styles.legendContainerPremium}>
                   <ChartLegend color="#F59E0B" label="Pending" value={stats.pending_review} isDark={isDark} />
                   <ChartLegend color="#10B981" label="Approved" value={stats.approved} isDark={isDark} />
@@ -265,6 +260,10 @@ export default function ApplicationReviewerDashboard() {
             </LinearGradient>
           </View>
         </MotiView>
+
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Review Activity</Text>
+        </View>
 
         {/* ─── Key Metrics List (Vertical) ─── */}
         <View style={styles.verticalMetricsContainer}>

@@ -9,6 +9,7 @@ import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     FlatList,
     Modal,
     StatusBar,
@@ -17,7 +18,6 @@ import {
     TextInput,
     TouchableOpacity,
     View,
-    Alert,
 } from "react-native";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -189,12 +189,12 @@ function StudentCard({ item, isDark }: { item: any; isDark: boolean }) {
 
                 {/* ── Footer ── */}
                 <View style={styles.footer}>
-                    <View style={styles.joinedRow}>
+                    {/* <View style={styles.joinedRow}>
                         <Ionicons name="time-outline" size={13} color={subText} />
                         <Text style={[styles.joinedText, { color: subText }]}>
                             Joined {formatDate(item.created_at)}
                         </Text>
-                    </View>
+                    </View> */}
                     <TouchableOpacity
                         activeOpacity={0.85}
                         onPress={() =>
@@ -312,13 +312,13 @@ export default function MobilizerStudentsScreen() {
                 onBack={() => router.back()}
                 rightElement={
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             onPress={() => setLinkModalVisible(true)}
-                            style={{ 
-                                paddingHorizontal: 10, 
-                                paddingVertical: 6, 
-                                borderRadius: 8, 
-                                backgroundColor: isDark ? colors.card : '#F3F4F6' 
+                            style={{
+                                paddingHorizontal: 10,
+                                paddingVertical: 6,
+                                borderRadius: 8,
+                                backgroundColor: isDark ? colors.card : '#F3F4F6'
                             }}
                         >
                             <Ionicons name="link-outline" size={24} color={colors.primary} />
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
     infoCellText: { fontSize: 13, fontWeight: "500", flex: 1 },
 
     // Footer
-    footer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    footer: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end" },
     joinedRow: { flexDirection: "row", alignItems: "center", gap: 4 },
     joinedText: { fontSize: 11, fontWeight: "500" },
     actionsRow: { flexDirection: "row", gap: 8 },

@@ -76,7 +76,7 @@ const getCategoryColor = (category: string): string => {
     Delhi: "#795548",
     Sikar: "#607D8B",
   };
-  return colors[category] || "#666";
+  return colors[category] || "#6366F1";
 };
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -461,8 +461,8 @@ export default function ReviewerScholarshipDetailsScreen() {
             <LinearGradient
               colors={[
                 getCategoryColor(scholarship.category || "General"),
-                getCategoryColor(scholarship.category || "General") + "DD",
-                getCategoryColor(scholarship.category || "General") + "BB"
+                getCategoryColor(scholarship.category || "General") + "E6",
+                getCategoryColor(scholarship.category || "General") + "CC"
               ]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
@@ -993,6 +993,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     minHeight: 220,
     justifyContent: "space-between",
+    backgroundColor: "#6366F1", // Fallback color
   },
   decorativeCircle1: {
     position: "absolute",

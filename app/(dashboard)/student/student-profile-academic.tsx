@@ -28,6 +28,7 @@ interface AcademicRecord {
   institution: string;
   major: string;
   gpa: string;
+  gradeType?: 'cgpa' | 'percentage';
   graduation: string;
   year: string;
   currentCourse: string;
@@ -56,6 +57,7 @@ const INITIAL_RECORD: AcademicRecord = {
   institution: "",
   major: "",
   gpa: "",
+  gradeType: 'cgpa',
   graduation: "",
   year: "",
   currentCourse: "",
@@ -146,6 +148,7 @@ export default function StudentProfileAcademicScreen() {
               institution: item.institution || "",
               major: item.major || "",
               gpa: item.cgpa ? item.cgpa.toString() : (item.percentage ? item.percentage.toString() : ""),
+              gradeType: item.percentage && !item.cgpa ? 'percentage' : 'cgpa',
               graduation: item.graduation_year ? item.graduation_year.toString() : "",
               year: item.academic_year ? item.academic_year.toString() : "",
               currentCourse: item.course_name || "",
@@ -174,13 +177,15 @@ export default function StudentProfileAcademicScreen() {
       setShowToast(true);
       return;
     }
-    setEditingRecord({ ...INITIAL_RECORD }); // Keep ID empty for new record
+    setEditingRecord({ ...INITIAL_RECORD });
+    setGradeType('cgpa');
     setValidationErrors({});
     setIsModalVisible(true);
   };
 
   const handleEdit = (record: AcademicRecord) => {
     setEditingRecord({ ...record });
+    setGradeType(record.gradeType || 'cgpa');
     setValidationErrors({});
     setIsModalVisible(true);
   };
@@ -270,8 +275,8 @@ export default function StudentProfileAcademicScreen() {
             category: editingRecord.currentCourseCategory,
             institution: editingRecord.institution,
             major: editingRecord.major,
-            percentage: editingRecord.gpa,
-            cgpa: editingRecord.gpa,
+            percentage: gradeType === 'percentage' ? editingRecord.gpa : "",
+            cgpa: gradeType === 'cgpa' ? editingRecord.gpa : "",
             academic_year: editingRecord.year,
             graduation_year: editingRecord.graduation,
           };
@@ -533,7 +538,7 @@ export default function StudentProfileAcademicScreen() {
           </View>
 
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-            <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 24, paddingBottom: insets.bottom + 60 }} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 24, paddingBottom: insets.bottom + 100 }} showsVerticalScrollIndicator={false}>
 
               {/* Course & Category Section */}
               <View style={[styles.formSection, { backgroundColor: isDark ? '#1A1A1A' : '#F8F9FA', borderColor: colors.border }]}>
@@ -630,13 +635,25 @@ export default function StudentProfileAcademicScreen() {
                   <View style={styles.toggleContainer}>
                     <TouchableOpacity
                       style={[styles.toggleButton, gradeType === 'cgpa' && styles.toggleButtonActive, { borderColor: colors.border, backgroundColor: gradeType === 'cgpa' ? colors.primary : (isDark ? '#252525' : '#FFFFFF') }]}
-                      onPress={() => setGradeType('cgpa')}
+                      onPress={() => {
+                        setGradeType('cgpa');
+                        // Conversion logic: if switching to CGPA and value > 10, likely needs conversion
+                        if (editingRecord.gpa && parseFloat(editingRecord.gpa) > 10) {
+                          handleFieldChange("gpa", (parseFloat(editingRecord.gpa) / 10).toFixed(2));
+                        }
+                      }}
                     >
                       <Text style={[styles.toggleText, { color: gradeType === 'cgpa' ? '#FFFFFF' : colors.textSecondary }]}>CGPA</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.toggleButton, gradeType === 'percentage' && styles.toggleButtonActive, { borderColor: colors.border, backgroundColor: gradeType === 'percentage' ? colors.primary : (isDark ? '#252525' : '#FFFFFF') }]}
-                      onPress={() => setGradeType('percentage')}
+                      onPress={() => {
+                        setGradeType('percentage');
+                        // Conversion logic: if switching to Percentage and value <= 10, likely needs conversion
+                        if (editingRecord.gpa && parseFloat(editingRecord.gpa) <= 10) {
+                          handleFieldChange("gpa", (parseFloat(editingRecord.gpa) * 10).toFixed(2));
+                        }
+                      }}
                     >
                       <Text style={[styles.toggleText, { color: gradeType === 'percentage' ? '#FFFFFF' : colors.textSecondary }]}>Percentage</Text>
                     </TouchableOpacity>
@@ -727,13 +744,13 @@ export default function StudentProfileAcademicScreen() {
             onSelect={(val: string) => { handleFieldChange("currentCourseCategory", val); setShowCategoryPicker(false); }}
           />
           <SelectionModal
-             visible={showMajorPicker}
-             onClose={() => setShowMajorPicker(false)}
-             title="Select Major/Stream"
-             options={getOptionsByShortname("course_stream_1")}
-             selected={editingRecord.major}
-             onSelect={(val: string) => { handleFieldChange("major", val); setShowMajorPicker(false); }}
-           />
+            visible={showMajorPicker}
+            onClose={() => setShowMajorPicker(false)}
+            title="Select Major/Stream"
+            options={getOptionsByShortname("course_stream_1")}
+            selected={editingRecord.major}
+            onSelect={(val: string) => { handleFieldChange("major", val); setShowMajorPicker(false); }}
+          />
 
           <DateTimePickerModal
             isVisible={showStartDatePicker}
