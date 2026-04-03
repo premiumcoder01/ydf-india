@@ -165,6 +165,10 @@ export default function StudentProfilePersonalScreen() {
     return emailRegex.test(email);
   };
 
+  const validateName = (name: string): boolean => {
+    const nameRegex = /^[A-Za-z\s.-]+$/;
+    return nameRegex.test(name.trim());
+  };
 
 
   const fetchUserProfile = useCallback(async () => {
@@ -298,10 +302,24 @@ export default function StudentProfilePersonalScreen() {
 
     if (!personalInfo.firstName.trim()) {
       errors.firstName = "First name is required";
+    } else if (!validateName(personalInfo.firstName)) {
+      errors.firstName = "First name can only contain letters";
     }
+
     if (!personalInfo.lastName.trim()) {
       errors.lastName = "Last name is required";
+    } else if (!validateName(personalInfo.lastName)) {
+      errors.lastName = "Last name can only contain letters";
     }
+
+    if (personalInfo.fatherName && !validateName(personalInfo.fatherName)) {
+      errors.fatherName = "Father's name can only contain letters";
+    }
+
+    if (personalInfo.motherName && !validateName(personalInfo.motherName)) {
+      errors.motherName = "Mother's name can only contain letters";
+    }
+
     if (!validateEmail(personalInfo.email)) {
       errors.email = "Please enter a valid email address";
     }

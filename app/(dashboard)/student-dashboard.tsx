@@ -354,7 +354,15 @@ export default function StudentDashboardScreen() {
         const formatDate = (dateStr: string) => {
           if (!dateStr) return "N/A";
           try {
-            return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+            const date = new Date(dateStr);
+            const day = date.getDate();
+            const months = [
+              "January", "February", "March", "April", "May", "June",
+              "July", "August", "September", "October", "November", "December"
+            ];
+            const month = months[date.getMonth()];
+            const year = date.getFullYear();
+            return `${day} ${month} ${year}`;
           } catch { return dateStr.split(' ')[0]; }
         };
         const mapped = (appsRes.data.active || []).map((app: any) => {

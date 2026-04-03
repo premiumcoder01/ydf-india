@@ -32,8 +32,8 @@ import { z } from "zod";
 const formSchema = z.object({
     username: z.string().min(4, "Username must be at least 4 characters"),
     password: z.string().min(8, "Password must be at least 8 characters").regex(/[A-Z]/, "Must contain uppercase").regex(/[0-9]/, "Must contain number").regex(/[^a-zA-Z0-9]/, "Must contain special char"),
-    firstname: z.string().min(1, "First name is required"),
-    lastname: z.string().min(1, "Last name is required"),
+    firstname: z.string().min(1, "First name is required").regex(/^[A-Za-z\s.-]+$/, "First name can only contain letters"),
+    lastname: z.string().min(1, "Last name is required").regex(/^[A-Za-z\s.-]+$/, "Last name can only contain letters"),
     email: z.string().email("Invalid email address"),
     phone1: z.string().optional(),
     city: z.string().optional(),
@@ -55,8 +55,8 @@ const formSchema = z.object({
     marks_12_value: z.string().optional(),
     graduation_type: z.string().optional(),
     graduation_value: z.string().optional(),
-    father_name: z.string().optional(),
-    mother_name: z.string().optional(),
+    father_name: z.string().optional().refine(val => !val || /^[A-Za-z\s.-]+$/.test(val), { message: "Father's name can only contain letters" }),
+    mother_name: z.string().optional().refine(val => !val || /^[A-Za-z\s.-]+$/.test(val), { message: "Mother's name can only contain letters" }),
     domicile_state: z.string().optional(),
     family_annual_income: z.string().optional(),
 }).superRefine((data, ctx) => {
@@ -86,24 +86,6 @@ const MARKS_TYPE_OPTIONS = [{ label: "CGPA", value: "cgpa" }, { label: "Percenta
 
 
 
-const ACADEMIC_LEVEL_OPTIONS = [
-    "Diploma", "Undergraduate (UG)", "Post Graduate (PG)", "Ph.D", "Other"
-];
-
-const STREAM_OPTIONS = [
-    "Engineering & Technology", "Medical & Health Sciences", "Science & Research", "Commerce & Business",
-    "Arts & Humanities", "Law & Legal Studies", "Management & Administration", "Computer Applications & IT",
-    "Education & Teaching", "Agriculture & Forestry", "Architecture & Planning", "Design & Fine Arts",
-    "Pharmacy & Pharmaceutical Sciences", "Nursing & Healthcare", "Veterinary Science",
-    "Mass Communication & Journalism", "Hotel Management & Tourism", "Fashion & Textile",
-    "Social Work & Social Sciences", "Library Science", "Physical Education & Sports", "Performing Arts",
-    "Vocational & Skill Development", "Other"
-];
-
-const YEAR_OPTIONS = ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year", "Passed Out"];
-
-
-
 
 export default function MobilizerAddStudentScreen() {
     const { isDark, colors } = useTheme();
@@ -111,20 +93,26 @@ export default function MobilizerAddStudentScreen() {
 
     const getOptionsByShortname = useCallback((shortname: string) => {
         if (!dropdownData) return [];
-        const courseField = dropdownData.course_fields?.find((f: any) => f.shortname === shortname || f.shortname.trim() === shortname.trim());
+        const courseField = dropdownData.course_fields?.find((f: any) => f.shortname.toLowerCase() === shortname.toLowerCase());
         if (courseField) return courseField.options;
 
-        const userField = dropdownData.user_fields?.find((f: any) => f.shortname === shortname || f.shortname.trim() === shortname.trim());
+        const userField = dropdownData.user_fields?.find((f: any) => f.shortname.toLowerCase() === shortname.toLowerCase());
         if (userField) return userField.options;
 
         return [];
     }, [dropdownData]);
+
     const insets = useSafeAreaInsets();
 
-    const GENDER_OPTIONS = getOptionsByShortname('Gender').map((o: any) => o.label);
-    const RELIGION_OPTIONS = getOptionsByShortname('Religion').map((o: any) => o.label);
-    const CASTE_OPTIONS = getOptionsByShortname('Caste').map((o: any) => o.label);
-    const ANNUAL_INCOME_OPTIONS = getOptionsByShortname('Family_income').map((o: any) => o.label);
+    const GENDER_OPTIONS = getOptionsByShortname('gender').map((o: any) => o.label);
+    const RELIGION_OPTIONS = getOptionsByShortname('religion').map((o: any) => o.label);
+    const CASTE_OPTIONS = getOptionsByShortname('caste').map((o: any) => o.label);
+    const ANNUAL_INCOME_OPTIONS = getOptionsByShortname('family_income').map((o: any) => o.label);
+    const STATE_OPTIONS = getOptionsByShortname('state').map((o: any) => o.label);
+    const DISTRICT_OPTIONS = getOptionsByShortname('district').map((o: any) => o.label);
+    const ACADEMIC_LEVEL_OPTIONS = getOptionsByShortname('academic_qualifications').map((o: any) => o.label);
+    const STREAM_OPTIONS = getOptionsByShortname('course_category_1').map((o: any) => o.label);
+    const YEAR_OPTIONS = getOptionsByShortname('year_of_course').map((o: any) => o.label);
 
     const [loading, setLoading] = useState(false);
 
@@ -481,11 +469,19 @@ export default function MobilizerAddStudentScreen() {
                         <Controller control={control} name="address" render={({ field: { onChange, value, onBlur } }) => (
                             <CustomTextInput label="Address" placeholder="Full address" value={value || ""} onChangeText={onChange} onBlur={onBlur} multiline />
                         )} />
-                        <Controller control={control} name="city" render={({ field: { onChange, value, onBlur } }) => (
-                            <CustomTextInput icon="business-outline" label="City" placeholder="City" value={value || ""} onChangeText={onChange} onBlur={onBlur} />
+                        <Controller control={control} name="city" render={({ field: { value } }) => (
+                            <TouchableOpacity onPress={() => openPicker("city", "Select City/District", DISTRICT_OPTIONS)}>
+                                <View pointerEvents="none">
+                                    <CustomTextInput icon="business-outline" label="City" placeholder="Select City" value={value || ""} editable={false} onChangeText={() => { }} inputStyle={{ opacity: 1 }} rightIcon="chevron-down" />
+                                </View>
+                            </TouchableOpacity>
                         )} />
-                        <Controller control={control} name="state" render={({ field: { onChange, value, onBlur } }) => (
-                            <CustomTextInput icon="map-outline" label="State" placeholder="State" value={value || ""} onChangeText={onChange} onBlur={onBlur} />
+                        <Controller control={control} name="state" render={({ field: { value } }) => (
+                            <TouchableOpacity onPress={() => openPicker("state", "Select State", STATE_OPTIONS)}>
+                                <View pointerEvents="none">
+                                    <CustomTextInput icon="map-outline" label="State" placeholder="Select State" value={value || ""} editable={false} onChangeText={() => { }} inputStyle={{ opacity: 1 }} rightIcon="chevron-down" />
+                                </View>
+                            </TouchableOpacity>
                         )} />
                         <Controller control={control} name="domicile_state" render={({ field: { onChange, value, onBlur } }) => (
                             <CustomTextInput icon="flag-outline" label="Domicile State" placeholder="e.g. Uttar Pradesh, Bihar" value={value || ""} onChangeText={onChange} onBlur={onBlur} />
@@ -503,7 +499,7 @@ export default function MobilizerAddStudentScreen() {
                         <Controller control={control} name="academic_level" render={({ field: { value } }) => (
                             <TouchableOpacity onPress={() => openPicker("academic_level", "Academic Level", ACADEMIC_LEVEL_OPTIONS)}>
                                 <View pointerEvents="none">
-                                    <CustomTextInput icon="school-outline" label="Academic Level" placeholder="e.g. UG, PG" value={value || ""} editable={false} onChangeText={() => { }} inputStyle={{ opacity: 1, fontWeight: "400" }} rightIcon="chevron-down" />
+                                    <CustomTextInput icon="school-outline" label="Academic Level" placeholder="e.g. UG, PG" value={value || ""} editable={false} onChangeText={() => { }} inputStyle={{ opacity: 1 }} rightIcon="chevron-down" />
                                 </View>
                             </TouchableOpacity>
                         )} />

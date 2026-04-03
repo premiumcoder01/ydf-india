@@ -81,7 +81,8 @@ export default function ApplicationStatusScreen() {
       if (!dateStr) return "N/A";
       try {
         const date = new Date(dateStr);
-        return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+        const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
       } catch (e) {
         return dateStr.split(' ')[0];
       }

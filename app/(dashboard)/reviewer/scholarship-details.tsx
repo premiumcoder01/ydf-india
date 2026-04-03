@@ -79,6 +79,17 @@ const getCategoryColor = (category: string): string => {
   return colors[category] || "#6366F1";
 };
 
+const formatDate = (dateStr: string | null | undefined) => {
+  if (!dateStr) return "N/A";
+  try {
+    const date = new Date(dateStr);
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+  } catch (e) {
+    return dateStr;
+  }
+};
+
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ReviewerScholarshipDetailsScreen() {
@@ -570,14 +581,14 @@ export default function ReviewerScholarshipDetailsScreen() {
             <Ionicons name="calendar" size={20} color={colors.primary} />
             <Text style={[styles.gridLabel, { color: colors.text }]}>Start Date</Text>
             <Text style={[styles.gridValue, { color: colors.text }]}>
-              {scholarship.start_date ? new Date(scholarship.start_date).toLocaleDateString() : "N/A"}
+              {formatDate(scholarship.start_date)}
             </Text>
           </View>
           <View style={[styles.gridItem, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
             <Ionicons name="hourglass" size={20} color="#F59E0B" />
             <Text style={[styles.gridLabel, { color: colors.text }]}>End Date</Text>
             <Text style={[styles.gridValue, { color: colors.text }]}>
-              {scholarship.end_date ? new Date(scholarship.end_date).toLocaleDateString() : (scholarship.application_deadline ? new Date(scholarship.application_deadline).toLocaleDateString() : "No Deadline")}
+              {scholarship.end_date ? formatDate(scholarship.end_date) : (scholarship.application_deadline ? formatDate(scholarship.application_deadline) : "No Deadline")}
             </Text>
           </View>
         </View>

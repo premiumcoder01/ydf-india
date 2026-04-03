@@ -43,8 +43,34 @@ const STATUS_MAP: Record<string, { color: string; bg: string; label: string }> =
 };
 const getStatus = (s: string) => STATUS_MAP[s] ?? { color: "#94A3B8", bg: "#F1F5F9", label: s };
 
-const formatDate = (d: string) =>
-    new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+const formatDate = (d: string) => {
+    if (!d) return "";
+    const date = new Date(d);
+    if (isNaN(date.getTime())) return d;
+    const day = date.getDate();
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const month = months[date.getMonth()].toLowerCase();
+    const year = date.getFullYear();
+    return `${day} ${month} ${year}`;
+};
+
+const formatDOB = (v: any) => {
+    if (!v || v === "0" || v === 0 || v === "Select") return null;
+    let d: Date;
+    // Handle timestamp strings like "1013020200"
+    if (!isNaN(Number(v)) && String(v).length >= 10) {
+        d = new Date(Number(v) * 1000);
+    } else {
+        d = new Date(v);
+    }
+    if (isNaN(d.getTime())) return v;
+
+    const day = d.getDate();
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const month = months[d.getMonth()].toLowerCase();
+    const year = d.getFullYear();
+    return `${day} ${month} ${year}`;
+};
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -100,12 +126,13 @@ function SectionCard({
 
     // Format helper to replace "Select" values
     const formatValue = (val: any) => {
-        if (!val) return "";
-        const s = String(val).toLowerCase().trim();
-        if (s === "select" || s === "choose..." || s === "select any one") {
+        if (val === undefined || val === null) return "";
+        const s = String(val).trim();
+        const lower = s.toLowerCase();
+        if (lower === "select" || lower === "choose..." || lower === "select any one" || lower === "") {
             return "Not Provided";
         }
-        return val;
+        return s;
     };
 
     return (
@@ -116,9 +143,15 @@ function SectionCard({
                 </View>
                 <Text style={[scStyles.title, { color: main }]}>{title}</Text>
             </View>
-            {valid.map((row, i) => {
+            {rows.map((row, i) => {
                 const formattedVal = formatValue(row.value);
                 const isPlaceholder = formattedVal === "Not Provided";
+
+                // Only skip if the value is truly empty/null AND it's not one of those "Select" placeholders
+                // Wait, the logic should be: if it's "Not Provided", we show it, but if it's basically null or "0", we might skip.
+                // Re-evaluating skip logic based on user request "use all info"
+                const skip = !row.value && row.value !== 0 && row.value !== "0";
+                if (skip) return null;
 
                 return (
                     <TouchableOpacity
@@ -126,7 +159,7 @@ function SectionCard({
                         onPress={row.action}
                         disabled={!row.action}
                         activeOpacity={0.7}
-                        style={[scStyles.row, i === valid.length - 1 && scStyles.lastRow, { borderBottomColor: bdr }]}
+                        style={[scStyles.row, i === rows.length - 1 && scStyles.lastRow, { borderBottomColor: bdr }]}
                     >
                         <View style={[scStyles.rowIcon, { backgroundColor: isDark ? "#1C1C28" : "#F8FAFF" }]}>
                             <Ionicons name={row.icon as any} size={15} color={sub} />
@@ -163,35 +196,63 @@ const scStyles = StyleSheet.create({
     actionPill: { width: 28, height: 28, borderRadius: 9, alignItems: "center", justifyContent: "center" },
 });
 
-function RecentApplications({ apps, isDark }: { apps: any[]; isDark: boolean }) {
+function RecentApplications({ apps, isDark, studentId, studentName }: { apps: any[]; isDark: boolean; studentId: number; studentName: string }) {
     if (!apps?.length) return null;
     const bg = isDark ? "#13131A" : "#FFFFFF";
     const bdr = isDark ? "#1E1E2E" : "#F1F5F9";
     const sub = isDark ? "#64748B" : "#94A3B8";
     const main = isDark ? "#F1F5F9" : "#0F172A";
+
+    const handlePress = (app: any) => {
+        router.push({
+            pathname: "/(dashboard)/mobilizer/mobilizer-scholarship-details",
+            params: {
+                scholarshipId: app.scholarship?.id,
+                applicationId: app.id,
+                status: app.status,
+                studentId,
+                studentName
+            }
+        });
+    };
+
     return (
         <View style={{ marginBottom: 16 }}>
-            <Text style={[raStyles.heading, { color: main }]}>Recent Applications</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingHorizontal: 4 }}>
+                <Text style={[raStyles.heading, { color: main, marginBottom: 0 }]}>Recent Applications</Text>
+
+            </View>
             <View style={[raStyles.card, { backgroundColor: bg, borderColor: bdr }]}>
                 {apps.map((app, i) => {
                     const st = getStatus(app.status);
                     return (
-                        <View key={app.id} style={[raStyles.row, i === apps.length - 1 && raStyles.lastRow, { borderBottomColor: bdr }]}>
-                            <View style={[raStyles.numBadge, { backgroundColor: "#6366F118" }]}>
-                                <Text style={raStyles.numText}>{i + 1}</Text>
+                        <TouchableOpacity
+                            key={app.id}
+                            activeOpacity={0.7}
+                            onPress={() => handlePress(app)}
+                            style={[raStyles.row, i === apps.length - 1 && raStyles.lastRow, { borderBottomColor: bdr }]}
+                        >
+                            <View style={[raStyles.numBadge, { backgroundColor: isDark ? "#1C1C2A" : "#F8FAFF" }]}>
+                                <Ionicons name="document-text" size={14} color="#6366F1" />
                             </View>
                             <View style={raStyles.rowBody}>
-                                <Text style={[raStyles.schName, { color: main }]} numberOfLines={2}>
+                                <Text style={[raStyles.schName, { color: main }]} numberOfLines={1}>
                                     {app.scholarship?.name || "Unknown Scholarship"}
                                 </Text>
-                                <Text style={[raStyles.date, { color: sub }]}>
-                                    {formatDate(app.created_at)}
-                                </Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                    <Text style={[raStyles.date, { color: sub }]}>
+                                        {formatDate(app.created_at)}
+                                    </Text>
+                                    <View style={{ width: 3, height: 3, borderRadius: 2, backgroundColor: sub + "44" }} />
+                                    <Text style={[raStyles.date, { color: st.color, fontWeight: '700' }]}>
+                                        {st.label}
+                                    </Text>
+                                </View>
                             </View>
-                            <View style={[raStyles.statusPill, { backgroundColor: st.bg }]}>
-                                <Text style={[raStyles.statusText, { color: st.color }]}>{st.label}</Text>
+                            <View style={raStyles.chevronWrap}>
+                                <Ionicons name="chevron-forward" size={16} color={sub} />
                             </View>
-                        </View>
+                        </TouchableOpacity>
                     );
                 })}
             </View>
@@ -204,13 +265,14 @@ const raStyles = StyleSheet.create({
     card: { borderRadius: 20, borderWidth: 1, overflow: "hidden", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
     row: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 14, borderBottomWidth: 1, gap: 12 },
     lastRow: { borderBottomWidth: 0 },
-    numBadge: { width: 28, height: 28, borderRadius: 9, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+    numBadge: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center", flexShrink: 0 },
     numText: { color: "#6366F1", fontSize: 12, fontWeight: "800" },
     rowBody: { flex: 1, gap: 3 },
-    schName: { fontSize: 13, fontWeight: "700", lineHeight: 18 },
+    schName: { fontSize: 14, fontWeight: "700", lineHeight: 20 },
     date: { fontSize: 11, fontWeight: "500" },
     statusPill: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8, flexShrink: 0 },
     statusText: { fontSize: 11, fontWeight: "700", textTransform: "capitalize" },
+    chevronWrap: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
 });
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
@@ -256,63 +318,84 @@ export default function MobilizerStudentProfileScreen() {
         const ad = student.academic_details?.[0] || {};
         const handleCall = (n: string) => Linking.openURL(`tel:${n}`);
         const handleEmail = (e: string) => Linking.openURL(`mailto:${e}`);
+
+        const flbk = (keys: string[], defaultVal: any = null) => {
+            for (const k of keys) {
+                const v = cf[k];
+                if (v && String(v).trim() !== "" && !["select", "choose...", "select any one", "0", "nan"].includes(String(v).toLowerCase().trim())) {
+                    return v;
+                }
+            }
+            return defaultVal || cf[keys[0]];
+        };
+
         return [
             {
                 icon: "person-circle-outline", iconColor: "#6366F1", title: "Personal Details",
                 rows: [
-                    { label: "Gender", value: cf.Gender, icon: "person-outline" },
-                    { label: "Date of Birth", value: cf.DOB !== "0" && cf.DOB !== 0 ? cf.DOB : null, icon: "calendar-outline" },
-                    { label: "Religion", value: cf.Religion, icon: "moon-outline" },
-                    { label: "Caste", value: cf.Caste, icon: "people-outline" },
-                    { label: "Category", value: cf.Category || cf.category, icon: "bookmark-outline" },
-                    { label: "Father's Name", value: cf.father, icon: "male-outline" },
-                    { label: "Mother's Name", value: cf.mother, icon: "female-outline" },
-                    { label: "Family Income", value: cf.Family_income, icon: "cash-outline" },
+                    { label: "Full Name", value: student.fullname, icon: "person-outline" },
+                    { label: "Username", value: student.username, icon: "at-outline" },
+                    { label: "Gender", value: flbk(["Gender", "gender"]), icon: "transgender-outline" },
+                    { label: "Date of Birth", value: formatDOB(flbk(["DOB", "date_of_birth", "date_of_birth_in_aadhar_card"])), icon: "calendar-outline" },
+                    { label: "Religion", value: flbk(["Religion", "religion"]), icon: "moon-outline" },
+                    { label: "Caste", value: flbk(["Caste", "caste", "cast_in_the_caste_certificate"]), icon: "people-outline" },
+                    { label: "Category", value: flbk(["category", "Category", "Caste_Category"]), icon: "bookmark-outline" },
+                    { label: "Father's Name", value: flbk(["father", "father_name"]), icon: "male-outline" },
+                    { label: "Mother's Name", value: flbk(["mother", "mother_name"]), icon: "female-outline" },
+                    { label: "Family Income", value: flbk(["Family_income", "income_in_income_certificate", "income"]), icon: "cash-outline" },
                 ],
             },
             {
                 icon: "call-outline", iconColor: "#10B981", title: "Contact Information",
                 rows: [
-                    { label: "Phone", value: student.phone1 || cf.phone_number, icon: "call-outline", action: () => handleCall(student.phone1 || cf.phone_number), actionIcon: "call" },
-                    { label: "Email", value: student.email, icon: "mail-outline", action: () => handleEmail(student.email), actionIcon: "mail" },
-                    { label: "City", value: student.city || cf.city, icon: "location-outline" },
-                    { label: "District", value: cf.district || cf.domicile_district || cf.College_District, icon: "map-outline" },
-                    { label: "State", value: cf.State, icon: "earth-outline" },
-                    { label: "Village", value: cf.Village, icon: "home-outline" },
+                    { label: "Primary Phone", value: student.phone1, icon: "call-outline", action: () => handleCall(student.phone1), actionIcon: "call" },
+                    { label: "Secondary Phone", value: student.phone2 || flbk(["mobile", "phone_number", "whatsapp_number"]), icon: "phone-portrait-outline" },
+                    { label: "Email Address", value: student.email, icon: "mail-outline", action: () => handleEmail(student.email), actionIcon: "mail" },
+                    { label: "City", value: student.city || flbk(["city", "City"]), icon: "location-outline" },
+                    { label: "District", value: flbk(["district", "domicile_district", "domicile_place_in_domicile", "College_District"]), icon: "map-outline" },
+                    { label: "State", value: flbk(["State", "state", "State_Name"]), icon: "earth-outline" },
+                    { label: "Village / Area", value: flbk(["Village", "village", "area", "address"]), icon: "home-outline" },
+                    { label: "Address", value: student.address, icon: "navigate-outline" },
                 ],
             },
             {
                 icon: "school-outline", iconColor: "#F59E0B", title: "Current Education",
                 rows: [
-                    { label: "Course", value: ad.course_name || cf.course, icon: "school-outline" },
-                    { label: "Major / Stream", value: ad.major || cf.stream_in_12th, icon: "flask-outline" },
-                    { label: "Institute", value: student.institution || ad.institution || cf.college_name || cf.university, icon: "business-outline" },
-                    { label: "CGPA", value: ad.cgpa, icon: "star-outline" },
-                    { label: "Percentage", value: ad.percentage || cf.percentage_12, icon: "pie-chart-outline" },
-                    { label: "Session", value: cf.session, icon: "time-outline" },
-                    { label: "Year of Course", value: cf.year_of_course || ad.academic_year, icon: "calendar-number-outline" },
-                    { label: "Graduation Year", value: ad.graduation_year, icon: "school-outline" },
-                    { label: "Annual Fees", value: cf.fees, icon: "wallet-outline" },
+                    { label: "Course Name", value: ad.course_name || flbk(["course", "course_name_1", "current_course_in_fee_receipt"]), icon: "school-outline" },
+                    { label: "Major / Stream", value: ad.major || flbk(["stream_in_12th", "course_stream_1"]), icon: "flask-outline" },
+                    { label: "Institution", value: student.institution || ad.institution || flbk(["university", "college_name", "college_university_name_1", "current_institute_name_in_fee_receipt"]), icon: "business-outline" },
+                    { label: "Current CGPA", value: ad.cgpa || flbk(["grade_in_cgpa_1", "cgpa"]), icon: "star-outline" },
+                    { label: "Percentage %", value: ad.percentage || flbk(["grade_in_percentage_1", "percentage"]), icon: "pie-chart-outline" },
+                    { label: "Academic Session", value: flbk(["session", "academic_session"]), icon: "time-outline" },
+                    { label: "Course Year", value: flbk(["year_of_course", "current_course_year_in_fee_receipt"]) || ad.academic_year, icon: "calendar-number-outline" },
+                    { label: "Exp. Graduation", value: ad.graduation_year || flbk(["expected_academic_end_date_1", "graduation_year"]), icon: "school-outline" },
+                    { label: "Academic Type", value: flbk(["stem_non_stem", "course_category_1"]), icon: "hardware-chip-outline" },
                 ],
             },
             {
                 icon: "library-outline", iconColor: "#EC4899", title: "Education History",
                 rows: [
-                    { label: "12th Board", value: cf["12th_board"] || cf["12th"], icon: "library-outline" },
-                    { label: "Stream", value: cf.stream_in_12th, icon: "flask-outline" },
-                    { label: "Passing Year", value: cf["12th_passing_year"], icon: "calendar-outline" },
-                    { label: "Percentage", value: cf.percentage_12, icon: "pie-chart-outline" },
-                    { label: "10th Board", value: cf.passing_10th || cf["10th"], icon: "book-outline" },
+                    { label: "12th Board", value: flbk(["12th_board", "board_12"]), icon: "library-outline" },
+                    { label: "12th Stream", value: flbk(["stream_in_12th"]), icon: "flask-outline" },
+                    { label: "12th Passing Year", value: flbk(["12th_passing_year"]), icon: "calendar-outline" },
+                    { label: "12th Percentage", value: flbk(["percentage_12", "last_year_marksheet_percentage"]), icon: "pie-chart-outline" },
+                    { label: "10th Board", value: flbk(["passing_10th", "board_10"]), icon: "book-outline" },
+                    { label: "10th Percentage", value: flbk(["10th", "percentage_10"]), icon: "star-half-outline" },
                 ],
             },
             {
-                icon: "card-outline", iconColor: "#3B82F6", title: "Documents & IDs",
+                icon: "card-outline", iconColor: "#3B82F6", title: "Documents & Registry",
                 rows: [
-                    { label: "Aadhar Number", value: cf.aachar_card_number, icon: "card-outline" },
-                    { label: "Name in Aadhar", value: cf.name_in_aadhar_card, icon: "person-circle-outline" },
-                    { label: "Income (Certificate)", value: cf.income_in_income_certificate ? `₹${cf.income_in_income_certificate}` : null, icon: "document-text-outline" },
-                    { label: "Income Cert. Date", value: cf.issue_date_of_income_certificate, icon: "calendar-outline" },
-                    { label: "Registered As", value: cf.Registering_as, icon: "information-circle-outline" },
+                    { label: "Aadhar Name", value: flbk(["name_in_aadhar_card", "aadhar_name"]), icon: "person-circle-outline" },
+                    { label: "Aadhar ID", value: flbk(["aadhar_card", "idnumber", "aachar_card_number"]), icon: "card-outline" },
+                    { label: "Aadhar DOB", value: formatDOB(flbk(["date_of_birth_in_aadhar_card"])), icon: "calendar-clear-outline" },
+                    { label: "Income Limit", value: flbk(["Family_income", "income"]), icon: "cash-outline" },
+                    { label: "Income Cert ID", value: flbk(["income_certificate", "income_cert_no"]), icon: "document-text-outline" },
+                    { label: "Income Cert Date", value: formatDOB(flbk(["issue_date_of_income_certificate"])), icon: "calendar-outline" },
+                    { label: "Domicile Cert Date", value: formatDOB(flbk(["issue_date_of_domicile_certificate"])), icon: "calendar-number-outline" },
+                    { label: "Registered As", value: flbk(["Registering_as", "application_type"]), icon: "information-circle-outline" },
+                    { label: "Source", value: flbk(["source", "how_did_you_hear"]), icon: "search-outline" },
+                    { label: "Department", value: student.department || flbk(["department"]), icon: "layers-outline" },
                 ],
             },
         ];
@@ -375,13 +458,13 @@ export default function MobilizerStudentProfileScreen() {
                         {student.institution ? (
                             <View style={styles.heroPill}>
                                 <Ionicons name="business-outline" size={12} color="rgba(255,255,255,0.8)" />
-                                <Text style={styles.heroPillText}>{student.institution}</Text>
+                                <Text style={styles.heroPillText} numberOfLines={1}>{String(student.institution).trim()}</Text>
                             </View>
                         ) : null}
                         {student.city ? (
                             <View style={[styles.heroPill, { marginTop: 4 }]}>
                                 <Ionicons name="location-outline" size={12} color="rgba(255,255,255,0.8)" />
-                                <Text style={styles.heroPillText}>{student.city}, {student.country || "IN"}</Text>
+                                <Text style={styles.heroPillText}>{String(student.city).trim()}, {student.country || "IN"}</Text>
                             </View>
                         ) : null}
 
@@ -391,41 +474,66 @@ export default function MobilizerStudentProfileScreen() {
                             <Text style={styles.activeText}>Active Student</Text>
                         </View>
 
-                        {/* Quick actions */}
+                        {/* Quick actions - 4 Column Layout */}
                         <View style={styles.quickActions}>
-                            {(student.phone1 || student.parsed_custom_fields?.phone_number) ? (
+                            <View style={{ flexDirection: "row", gap: 10 }}>
+
                                 <TouchableOpacity
                                     style={styles.qaBtn}
                                     activeOpacity={0.8}
                                     onPress={() => Linking.openURL(`tel:${student.phone1 || student.parsed_custom_fields?.phone_number}`)}
                                 >
-                                    <Ionicons name="call" size={18} color={grad[0]} />
+                                    <View style={[styles.qaIconPill, { backgroundColor: grad[0] + "15" }]}>
+                                        <Ionicons name="call" size={18} color={grad[0]} />
+                                    </View>
                                     <Text style={[styles.qaBtnText, { color: grad[0] }]}>Call</Text>
                                 </TouchableOpacity>
-                            ) : null}
-                            {student.email ? (
+
                                 <TouchableOpacity
                                     style={styles.qaBtn}
                                     activeOpacity={0.8}
                                     onPress={() => Linking.openURL(`mailto:${student.email}`)}
                                 >
-                                    <Ionicons name="mail" size={18} color={grad[0]} />
+                                    <View style={[styles.qaIconPill, { backgroundColor: grad[0] + "15" }]}>
+                                        <Ionicons name="mail" size={18} color={grad[0]} />
+                                    </View>
                                     <Text style={[styles.qaBtnText, { color: grad[0] }]}>Email</Text>
                                 </TouchableOpacity>
-                            ) : null}
-                            <TouchableOpacity
-                                style={styles.qaBtn}
-                                activeOpacity={0.8}
-                                onPress={() =>
-                                    router.push({
-                                        pathname: "/(dashboard)/mobilizer/student-scholarships",
-                                        params: { studentId: student.id, studentName: student.fullname || `${student.firstname} ${student.lastname}` },
-                                    })
-                                }
-                            >
-                                <Ionicons name="school" size={18} color={grad[0]} />
-                                <Text style={[styles.qaBtnText, { color: grad[0] }]}>Scholarships</Text>
-                            </TouchableOpacity>
+                            </View>
+
+                            <View style={{ flexDirection: "row", gap: 10 }}>
+
+
+                                <TouchableOpacity
+                                    style={styles.qaBtn}
+                                    activeOpacity={0.8}
+                                    onPress={() =>
+                                        router.push({
+                                            pathname: "/(dashboard)/mobilizer/student-scholarships",
+                                            params: { studentId: student.id, studentName: student.fullname || `${student.firstname} ${student.lastname}` },
+                                        })
+                                    }
+                                >
+                                    <View style={[styles.qaIconPill, { backgroundColor: grad[0] + "15" }]}>
+                                        <Ionicons name="school" size={18} color={grad[0]} />
+                                    </View>
+                                    <Text style={[styles.qaBtnText, { color: grad[0] }]}>Scholarships</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.qaBtn}
+                                    activeOpacity={0.8}
+                                    onPress={() => router.push({
+                                        pathname: "/(dashboard)/mobilizer/mobilizer-bookmarked-scholarships",
+                                        params: { studentId: student.id, studentName: student.fullname || `${student.firstname} ${student.lastname}` }
+                                    })}
+                                >
+                                    <View style={[styles.qaIconPill, { backgroundColor: grad[0] + "15" }]}>
+                                        <Ionicons name="bookmark" size={18} color={grad[0]} />
+                                    </View>
+                                    <Text style={[styles.qaBtnText, { color: grad[0] }]}>Bookmarks</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     </LinearGradient>
 
@@ -433,40 +541,13 @@ export default function MobilizerStudentProfileScreen() {
                     <StatStrip summary={student.applications_summary} isDark={isDark} />
 
                     {/* ── Recent Applications ── */}
-                    <RecentApplications apps={student.recent_applications} isDark={isDark} />
+                    <RecentApplications
+                        apps={student.recent_applications}
+                        isDark={isDark}
+                        studentId={student.id}
+                        studentName={student.fullname || `${student.firstname} ${student.lastname}`}
+                    />
 
-                    {/* ── Bookmarked Scholarships ── */}
-                    <TouchableOpacity
-                        activeOpacity={0.85}
-                        onPress={() => router.push({
-                            pathname: "/(dashboard)/mobilizer/mobilizer-bookmarked-scholarships",
-                            params: { studentId: student.id, studentName: student.fullname || `${student.firstname} ${student.lastname}` }
-                        })}
-                        style={[scStyles.card, { backgroundColor: isDark ? "#13131A" : "#FFFFFF", borderColor: isDark ? "#1E1E2E" : "#F1F5F9", padding: 16 }]}
-                    >
-                        <LinearGradient
-                            colors={isDark ? ["rgba(99, 102, 241, 0.15)", "rgba(139, 92, 246, 0.05)"] : ["#EEF2FF", "#F5F3FF"]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={{ borderRadius: 16, padding: 16 }}
-                        >
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                                <View style={{
-                                    width: 46, height: 46, borderRadius: 14, backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#FFFFFF",
-                                    justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1
-                                }}>
-                                    <Ionicons name="bookmark" size={22} color="#6366F1" />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={{ fontSize: 16, fontWeight: "800", color: isDark ? "#F1F5F9" : "#1E1B4B" }}>Saved Scholarships</Text>
-                                    <Text style={{ fontSize: 12, marginTop: 4, color: isDark ? "#94A3B8" : "#4338CA", fontWeight: "500" }}>Manage collected bookmarks</Text>
-                                </View>
-                                <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(99,102,241,0.1)", justifyContent: 'center', alignItems: 'center' }}>
-                                    <Ionicons name="chevron-forward-sharp" size={16} color="#6366F1" />
-                                </View>
-                            </View>
-                        </LinearGradient>
-                    </TouchableOpacity>
 
                     {/* ── Info sections ── */}
                     {sections?.map((s) => (
@@ -509,11 +590,15 @@ const styles = StyleSheet.create({
     activeText: { color: "#fff", fontSize: 12, fontWeight: "700" },
 
     // Quick actions
-    quickActions: { flexDirection: "row", gap: 12 },
+    quickActions: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 12, width: '100%' },
     qaBtn: {
-        flexDirection: "row", alignItems: "center", gap: 6,
-        backgroundColor: "rgba(255,255,255,0.92)",
-        paddingHorizontal: 16, paddingVertical: 9, borderRadius: 14,
+        width: '48.5%',
+        flexDirection: "row", alignItems: "center", gap: 10,
+        backgroundColor: "rgba(255,255,255,0.95)",
+        paddingHorizontal: 16, paddingVertical: 14, borderRadius: 16,
+        shadowColor: "#000", shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
     },
-    qaBtnText: { fontSize: 13, fontWeight: "700" },
+    qaIconPill: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    qaBtnText: { flex: 1, fontSize: 9, fontWeight: "800", textTransform: 'uppercase', letterSpacing: 0.2 },
 });

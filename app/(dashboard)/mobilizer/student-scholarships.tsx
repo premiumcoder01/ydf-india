@@ -1,26 +1,22 @@
-import { Toast } from "@/components";
+import { DEFAULT_FILTERS, FilterState, ScholarshipFilterModal, SearchBar, Toast, countActiveFilters } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { bookmarkScholarship, getMobilizerStudentScholarships } from "@/utils/api";
+import { DropdownData, bookmarkScholarship, getDropdownDefinitions, getMobilizerStudentScholarships } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Platform,
   RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { SearchBar, ScholarshipFilterModal, FilterState, DEFAULT_FILTERS, countActiveFilters } from "@/components";
-import { getDropdownDefinitions, DropdownData } from "@/utils/api";
 
 // ─── Category color palette ──────────────────────────────────────────────────
 const CATEGORY_PALETTE: Record<string, { bg: string; text: string; dot: string }> = {
@@ -39,17 +35,7 @@ function getCategoryStyle(cat?: string | null) {
   return CATEGORY_PALETTE[cat] ?? DEFAULT_CATEGORY;
 }
 
-// ─── Strip HTML tags ──────────────────────────────────────────────────────────
-function stripHtml(html: string) {
-  return html
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&nbsp;/g, " ")
-    .trim();
-}
+
 
 // ─── Stat chip ────────────────────────────────────────────────────────────────
 

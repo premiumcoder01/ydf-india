@@ -398,6 +398,17 @@ export default function MobilizerScholarshipDetailsScreen() {
         return "#6366F1";
     };
 
+    const formatDate = (dateStr: string | null | undefined) => {
+        if (!dateStr) return "N/A";
+        try {
+            const date = new Date(dateStr);
+            const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+        } catch (e) {
+            return dateStr;
+        }
+    };
+
     return (
         <View style={[styles.container, { backgroundColor: isDark ? "#0f0f0f" : "#F8F9FA" }]}>
             <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#0f0f0f" : "#F8F9FA"} />
@@ -518,7 +529,11 @@ export default function MobilizerScholarshipDetailsScreen() {
                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                                         <Ionicons name="calendar-outline" size={16} color="rgba(255,255,255,0.9)" />
                                         <Text style={styles.deadlineValue}>
-                                            {deadline ? new Date(deadline).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "No Deadline"}
+                                            {deadline ? (() => {
+                                                const date = new Date(deadline);
+                                                const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                                                return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+                                            })() : "No Deadline"}
                                         </Text>
                                     </View>
                                 </View>
@@ -583,14 +598,14 @@ export default function MobilizerScholarshipDetailsScreen() {
                         <Ionicons name="calendar" size={20} color={colors.primary} />
                         <Text style={[styles.gridLabel, { color: colors.text }]}>Start Date</Text>
                         <Text style={[styles.gridValue, { color: colors.text }]}>
-                            {scholarship.start_date ? new Date(scholarship.start_date).toLocaleDateString() : "N/A"}
+                            {formatDate(scholarship.start_date)}
                         </Text>
                     </View>
                     <View style={[styles.gridItem, { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#333" : "#E5E7EB" }]}>
                         <Ionicons name="hourglass" size={20} color="#F59E0B" />
                         <Text style={[styles.gridLabel, { color: colors.text }]}>End Date</Text>
                         <Text style={[styles.gridValue, { color: colors.text }]}>
-                            {scholarship.end_date ? new Date(scholarship.end_date).toLocaleDateString() : (scholarship.application_deadline ? new Date(scholarship.application_deadline).toLocaleDateString() : "No Deadline")}
+                            {scholarship.end_date ? formatDate(scholarship.end_date) : (scholarship.application_deadline ? formatDate(scholarship.application_deadline) : "No Deadline")}
                         </Text>
                     </View>
                 </View>
@@ -787,7 +802,7 @@ export default function MobilizerScholarshipDetailsScreen() {
                                                                             </View>
                                                                             {activity.document?.due_date && (
                                                                                 <Text style={[styles.activitySubtext, { color: colors.textSecondary }]}>
-                                                                                    Due: {new Date(activity.document.due_date).toLocaleDateString()}
+                                                                                    Due: {formatDate(activity.document.due_date)}
                                                                                 </Text>
                                                                             )}
                                                                         </View>
@@ -841,7 +856,7 @@ export default function MobilizerScholarshipDetailsScreen() {
                                                                                         )}
                                                                                         {file.uploaded_at && (
                                                                                             <Text style={[styles.fileMeta, { color: colors.textSecondary }]}>
-                                                                                                · {new Date(file.uploaded_at).toLocaleDateString()}
+                                                                                                · {formatDate(file.uploaded_at)}
                                                                                             </Text>
                                                                                         )}
                                                                                     </View>
@@ -890,7 +905,7 @@ export default function MobilizerScholarshipDetailsScreen() {
                                                                             </View>
                                                                             {activity.document?.due_date && (
                                                                                 <Text style={[styles.activitySubtext, { color: colors.textSecondary }]}>
-                                                                                    Due: {new Date(activity.document.due_date).toLocaleDateString()}
+                                                                                    Due: {formatDate(activity.document.due_date)}
                                                                                 </Text>
                                                                             )}
                                                                         </View>

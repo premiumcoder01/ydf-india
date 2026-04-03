@@ -54,14 +54,20 @@ export default function SignUpScreen() {
 
   // Real-time validation functions
   const validateFirstName = (value: string) => {
-    if (value.trim().length >= 2) {
+    const nameRegex = /^[A-Za-z\s.-]+$/;
+    if (value.trim().length >= 2 && nameRegex.test(value.trim())) {
       setErrors(prev => ({ ...prev, firstName: undefined }));
+    } else if (value.trim().length > 0 && !nameRegex.test(value.trim())) {
+      setErrors(prev => ({ ...prev, firstName: "First name can only contain letters" }));
     }
   };
 
   const validateLastName = (value: string) => {
-    if (value.trim().length >= 2) {
+    const nameRegex = /^[A-Za-z\s.-]+$/;
+    if (value.trim().length >= 2 && nameRegex.test(value.trim())) {
       setErrors(prev => ({ ...prev, lastName: undefined }));
+    } else if (value.trim().length > 0 && !nameRegex.test(value.trim())) {
+      setErrors(prev => ({ ...prev, lastName: "Last name can only contain letters" }));
     }
   };
 
@@ -105,11 +111,17 @@ export default function SignUpScreen() {
       consent?: string;
     } = {};
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    const nameRegex = /^[A-Za-z\s.-]+$/;
 
     if (firstName.trim().length < 2)
       nextErrors.firstName = "Enter your first name";
+    else if (!nameRegex.test(firstName.trim()))
+      nextErrors.firstName = "First name can only contain letters";
+
     if (lastName.trim().length < 2)
       nextErrors.lastName = "Enter your last name";
+    else if (!nameRegex.test(lastName.trim()))
+      nextErrors.lastName = "Last name can only contain letters";
     // Strict check for common domain typos
     const lowerEmail = email.toLowerCase();
     if (!emailRegex.test(email)) {
@@ -127,7 +139,7 @@ export default function SignUpScreen() {
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._-])[A-Za-z\d@$!%*?&._-]{8,}$/;
     if (!passwordRegex.test(password)) {
       nextErrors.password =
-        "Password must be at least 8 chars with 1 uppercase, 1 lowercase, 1 number, & 1 special char";
+        "Password must be at least 8 characters with 1 uppercase, 1 lowercase, 1 number, & 1 special character";
     }
     if (confirmPassword.length < 6)
       nextErrors.confirmPassword = "Minimum 6 characters";
@@ -357,8 +369,8 @@ export default function SignUpScreen() {
               forceLight={true}
             />
             <Text style={styles.passwordHelper}>
-              Must be at least 8 chars, including 1 uppercase, 1 lowercase, 1
-              number, and 1 special char.
+              Must be at least 8 characters, including 1 uppercase, 1 lowercase, 1
+              number, and 1 special character.
             </Text>
 
             {/* Confirm Password Input */}
