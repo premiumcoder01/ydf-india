@@ -1,6 +1,6 @@
 import { AppHeader, SearchBar } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { getMobilizerStudents, mobilizerLinkExistingStudent } from "@/utils/api";
+import { getMobilizerStudents, mobilizerLinkExistingStudent, mobilizerRemoveStudent } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
@@ -83,7 +83,7 @@ function levelStyle(level?: string | null) {
 }
 
 // ─── Student Card ─────────────────────────────────────────────────────────────
-function StudentCard({ item, isDark }: { item: any; isDark: boolean }) {
+function StudentCard({ item, isDark, onDelete }: { item: any; isDark: boolean; onDelete: (id: number, name: string) => void }) {
     const cf = parseCustomFields(item.custom_fields);
     const avatarColor = getAvatarColor(item.id);
     const initials = getInitials(item.firstname, item.lastname);
@@ -191,12 +191,13 @@ function StudentCard({ item, isDark }: { item: any; isDark: boolean }) {
 
                 {/* ── Footer ── */}
                 <View style={styles.footer}>
-                    {/* <View style={styles.joinedRow}>
-                        <Ionicons name="time-outline" size={13} color={subText} />
-                        <Text style={[styles.joinedText, { color: subText }]}>
-                            Joined {formatDate(item.created_at)}
-                        </Text>
-                    </View> */}
+                    <TouchableOpacity
+                        onPress={() => onDelete(item.id, item.fullname || `${item.firstname} ${item.lastname}`)}
+                        style={[styles.deleteBtn, { backgroundColor: isDark ? "#450A0A" : "#FEF2F2" }]}
+                    >
+                        <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                    </TouchableOpacity>
+
                     <TouchableOpacity
                         activeOpacity={0.85}
                         onPress={() =>
@@ -236,6 +237,42 @@ export default function MobilizerStudentsScreen() {
     const [linkModalVisible, setLinkModalVisible] = useState(false);
     const [linkEmail, setLinkEmail] = useState("");
     const [linking, setLinking] = useState(false);
+    const [removing, setRemoving] = useState<number | null>(null);
+
+    const handleRemoveStudent = async (studentId: number, studentName: string) => {
+        Alert.alert(
+            "Remove Student",
+            `Are you sure you want to remove ${studentName} from your panel?`,
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Remove",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            setRemoving(studentId);
+                            const authDataStr = await AsyncStorage.getItem("authData");
+                            if (!authDataStr) return;
+                            const { token } = JSON.parse(authDataStr);
+                            const response = await mobilizerRemoveStudent(token, studentId);
+
+                            if (response.success) {
+                                Alert.alert("Success", response.message || "Student removed successfully from your panel");
+                                fetchStudents();
+                            } else {
+                                Alert.alert("Error", response.error || "Failed to remove student");
+                            }
+                        } catch (err) {
+                            console.error("Remove error:", err);
+                            Alert.alert("Error", "An unexpected error occurred");
+                        } finally {
+                            setRemoving(null);
+                        }
+                    }
+                }
+            ]
+        );
+    };
 
     const filteredStudents = useMemo(() => {
         if (!searchQuery.trim()) return students;
@@ -363,7 +400,7 @@ export default function MobilizerStudentsScreen() {
                 <FlatList
                     data={filteredStudents}
                     keyExtractor={(item) => String(item.id)}
-                    renderItem={({ item }) => <StudentCard item={item} isDark={isDark} />}
+                    renderItem={({ item }) => <StudentCard item={item} isDark={isDark} onDelete={handleRemoveStudent} />}
                     contentContainerStyle={styles.listContent}
                     showsVerticalScrollIndicator={false}
                     refreshing={refreshing}
@@ -400,8 +437,8 @@ export default function MobilizerStudentsScreen() {
                         activeOpacity={1}
                         onPress={() => setLinkModalVisible(false)}
                     >
-                        <View 
-                            onStartShouldSetResponder={() => true} 
+                        <View
+                            onStartShouldSetResponder={() => true}
                             style={[styles.modalContent, { backgroundColor: isDark ? colors.card : "#fff" }]}
                         >
                             <View style={styles.modalHeader}>
@@ -516,7 +553,7 @@ const styles = StyleSheet.create({
     infoCellText: { fontSize: 13, fontWeight: "500", flex: 1 },
 
     // Footer
-    footer: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end" },
+    footer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10 },
     joinedRow: { flexDirection: "row", alignItems: "center", gap: 4 },
     joinedText: { fontSize: 11, fontWeight: "500" },
     actionsRow: { flexDirection: "row", gap: 8 },
@@ -525,6 +562,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10,
     },
     actionBtnText: { fontSize: 12, fontWeight: "700" },
+    deleteBtn: {
+        width: 40, height: 40, borderRadius: 12,
+        justifyContent: "center", alignItems: "center",
+    },
     scholarshipBtn: {
         flexDirection: "row", alignItems: "center", gap: 6,
         paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12,

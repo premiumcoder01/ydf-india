@@ -5109,6 +5109,73 @@ export const getMobilizerStudentProfile = async (
   }
 };
 
+/**
+ * Remove (Unlink) Student managed by the current mobilizer.
+ */
+export const mobilizerRemoveStudent = async (
+  token: string,
+  studentId: number
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_remove_student");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("student_id", studentId.toString());
+
+    const finalUrl = urlObj.toString();
+    console.log("Remove Student URL:", finalUrl);
+
+    const response = await fetch(finalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    if (response.ok) {
+      if (data.exception) {
+        return {
+          success: false,
+          error: data.message || data.exception,
+          message: data.message || "Failed to remove student"
+        };
+      }
+      return {
+        success: true,
+        data: data,
+        message: data.message || "Student removed successfully from your panel"
+      };
+    } else {
+      return {
+        success: false,
+        error: data.error || data.message || "Failed to remove student",
+        message: data.message || "Failed to remove student"
+      };
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server"
+    };
+  }
+};
+
+
 
 /**
  * Get Mobilizer Applications API call

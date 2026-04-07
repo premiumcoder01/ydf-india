@@ -1,6 +1,6 @@
 import { DashboardHeader, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { getMobilizerDashboardStats, getMobilizerStudents, getMobilizerUpcomingDeadlines, getNotifications, getUserProfile } from "@/utils/api";
+import { getMobilizerDashboardStats, getMobilizerStudents, getMobilizerUpcomingDeadlines, getNotifications, getUserProfile, mobilizerRemoveStudent } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -217,6 +217,37 @@ export default function StudentMobilizerDashboard() {
     });
   };
 
+  const handleRemoveStudent = async (studentId: number, studentName: string) => {
+    Alert.alert(
+      "Remove Student",
+      `Are you sure you want to remove ${studentName} from your panel?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const authDataStr = await AsyncStorage.getItem("authData");
+              if (!authDataStr) return;
+              const { token } = JSON.parse(authDataStr);
+              const response = await mobilizerRemoveStudent(token, studentId);
+
+              if (response.success) {
+                setToast({ visible: true, message: response.message || "Student removed", type: "success" });
+                fetchData();
+              } else {
+                setToast({ visible: true, message: response.error || "Failed to remove", type: "error" });
+              }
+            } catch (err) {
+              setToast({ visible: true, message: "An error occurred", type: "error" });
+            }
+          }
+        }
+      ]
+    );
+  };
+
 
   return (
     <View style={styles.container}>
@@ -322,71 +353,6 @@ export default function StudentMobilizerDashboard() {
           </View>
         </MotiView>
 
-        {/* Upcoming Deadlines */}
-        {/* <MotiView
-          from={{ opacity: 0, translateY: 15 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 400, delay: 150 }}
-          style={styles.sectionContainer}
-        >
-          <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Critical Deadlines</Text>
-          </View>
-          <View style={[styles.cardList, { backgroundColor: isDark ? colors.card : '#fff', borderColor: isDark ? 'rgba(255,255,255,0.04)' : '#eee', overflow: 'hidden', elevation: 2 }]}>
-            {upcomingDeadlines.map((item, index) => {
-              const daysLeft = item.days_remaining;
-              let badgeColor = "#10B981";
-              let badgeText = "rgba(16, 185, 129, 0.1)";
-
-              if (daysLeft <= 7) {
-                badgeColor = "#EF4444";
-                badgeText = "rgba(239, 68, 68, 0.1)";
-              } else if (daysLeft <= 30) {
-                badgeColor = "#FF9800";
-                badgeText = "rgba(255, 152, 0, 0.1)";
-              }
-
-              return (
-                <TouchableOpacity
-                  key={item.scholarship_id || index}
-                  style={[
-                    styles.listItem,
-                    { borderBottomColor: isDark ? 'rgba(255,255,255,0.04)' : '#eee' },
-                    index === upcomingDeadlines.length - 1 && { borderBottomWidth: 0 }
-                  ]}
-                  onPress={() => router.push({ pathname: "/(dashboard)/mobilizer/mobilizer-scholarship-details", params: { scholarshipId: item.scholarship_id } })}
-                  activeOpacity={0.8}
-                >
-                  <View style={[styles.listItemIcon, { backgroundColor: badgeText }]}>
-                    <Ionicons name="time" size={16} color={badgeColor} />
-                  </View>
-                  <View style={styles.listItemBody}>
-                    <Text style={[styles.listItemTitle, { color: colors.text, fontWeight: '700' }]}>{item.scholarship_name}</Text>
-                    <Text style={[styles.listItemSub, { color: colors.textSecondary, fontSize: 11 }]}>
-                      Deadline: {new Date(item.deadline).toLocaleDateString()}
-                    </Text>
-                  </View>
-                  <View style={{
-                    backgroundColor: badgeText,
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                    borderRadius: 8,
-                    marginLeft: 8
-                  }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: badgeColor }}>
-                      {daysLeft} days
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-            {upcomingDeadlines.length === 0 && (
-              <View style={styles.emptyState}>
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No upcoming deadlines</Text>
-              </View>
-            )}
-          </View>
-        </MotiView> */}
 
 
 
@@ -418,7 +384,7 @@ export default function StudentMobilizerDashboard() {
                 const academic = isAcademicEmpty ? "Academic Details Pending" : (student.academic_level || customFields?.course);
 
                 return (
-                  <TouchableOpacity
+                  <View
                     key={student.id}
                     style={[
                       styles.studentHorizontalCard,
@@ -430,42 +396,59 @@ export default function StudentMobilizerDashboard() {
                         shadowRadius: 12,
                         elevation: 4,
                         padding: 14,
-                        marginBottom: 4,
+                        marginBottom: 10,
                       }
                     ]}
-                    onPress={() => handleStudentPress(student)}
-                    activeOpacity={0.85}
                   >
-                    <View style={[styles.studentCardAvatar, { backgroundColor: avatarColor + "15", borderWidth: 2, borderColor: avatarColor + "40" }]}>
-                      {student.picture && !student.picture.includes("gravatar.com/avatar/default") ? (
-                        <Image source={{ uri: student.picture }} style={styles.studentAvatarImg} />
-                      ) : (
-                        <Text style={[styles.studentInitials, { color: avatarColor, fontWeight: '800' }]}>{initials}</Text>
-                      )}
-                    </View>
-
-                    <View style={styles.studentCardInfo}>
-                      <Text style={[styles.studentCardName, { color: colors.text, fontWeight: '800', fontSize: 16 }]} numberOfLines={1}>
-                        {displayName}
-                      </Text>
-                      <View style={styles.studentCardDetailRow}>
-                        <Ionicons name="school-outline" size={13} color={isAcademicEmpty ? "#FF9800" : colors.textSecondary} />
-                        <Text style={[styles.studentCardDetail, { color: isAcademicEmpty ? "#FF9800" : colors.textSecondary }, isAcademicEmpty && { fontStyle: 'italic', fontSize: 11.5 }]} numberOfLines={1}>
-                          {academic}
-                        </Text>
+                    <TouchableOpacity 
+                      style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}
+                      onPress={() => handleStudentPress(student)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.studentCardAvatar, { backgroundColor: avatarColor + "15", borderWidth: 2, borderColor: avatarColor + "40" }]}>
+                        {student.picture && !student.picture.includes("gravatar.com/avatar/default") ? (
+                          <Image source={{ uri: student.picture }} style={styles.studentAvatarImg} />
+                        ) : (
+                          <Text style={[styles.studentInitials, { color: avatarColor, fontWeight: '800' }]}>{initials}</Text>
+                        )}
                       </View>
-                      <View style={styles.studentCardDetailRow}>
-                        <Ionicons name="location-outline" size={13} color={colors.textSecondary} />
-                        <Text style={[styles.studentCardDetail, { color: colors.textSecondary }]} numberOfLines={1}>
-                          {student.city && student.city !== 'IN' ? student.city : "India"}
-                        </Text>
-                      </View>
-                    </View>
 
-                    <View style={[styles.studentCardAction, { backgroundColor: colors.primary + "12", width: 34, height: 34, borderRadius: 12 }]}>
-                      <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+                      <View style={styles.studentCardInfo}>
+                        <Text style={[styles.studentCardName, { color: colors.text, fontWeight: '800', fontSize: 16 }]} numberOfLines={1}>
+                          {displayName}
+                        </Text>
+                        <View style={styles.studentCardDetailRow}>
+                          <Ionicons name="school-outline" size={13} color={isAcademicEmpty ? "#FF9800" : colors.textSecondary} />
+                          <Text style={[styles.studentCardDetail, { color: isAcademicEmpty ? "#FF9800" : colors.textSecondary }, isAcademicEmpty && { fontStyle: 'italic', fontSize: 11.5 }]} numberOfLines={1}>
+                            {academic}
+                          </Text>
+                        </View>
+                        <View style={styles.studentCardDetailRow}>
+                          <Ionicons name="location-outline" size={13} color={colors.textSecondary} />
+                          <Text style={[styles.studentCardDetail, { color: colors.textSecondary }]} numberOfLines={1}>
+                            {student.city && student.city !== 'IN' ? student.city : "India"}
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+
+                    <View style={styles.dashboardStudentActions}>
+                      <TouchableOpacity 
+                        onPress={() => router.push({ pathname: "/(dashboard)/mobilizer/mobilizer-student-profile", params: { studentId: student.id } })}
+                        style={[styles.dashboardActionBtn, { backgroundColor: isDark ? "#1E293B" : "#F1F5F9" }]}
+                      >
+                        <Ionicons name="person-outline" size={16} color={isDark ? "#94A3B8" : "#475569"} />
+                        <Text style={[styles.dashboardActionText, { color: isDark ? "#94A3B8" : "#475569" }]}>View Detail</Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                        onPress={() => handleRemoveStudent(student.id, displayName)}
+                        style={[styles.dashboardDeleteBtn, { backgroundColor: isDark ? "#450A0A" : "#FEF2F2" }]}
+                      >
+                        <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                      </TouchableOpacity>
                     </View>
-                  </TouchableOpacity>
+                  </View>
                 );
               })}
 
@@ -1149,16 +1132,15 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   studentHorizontalCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 16,
+    flexDirection: 'column',
+    padding: 14,
+    borderRadius: 20,
     borderWidth: 1,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 3,
   },
   studentCardAvatar: {
     width: 48,
@@ -1228,5 +1210,34 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 14,
+  },
+  dashboardStudentActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.06)',
+  },
+  dashboardActionBtn: {
+    flex: 1,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  dashboardActionText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  dashboardDeleteBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
