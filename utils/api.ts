@@ -3033,7 +3033,7 @@ export const getReviewerApplications = async (
   token: string,
   scholarshipId: number,
   params?: {
-    status?: "new" | "approved" | "waitlisted" | "rejected" | "pending" | "";
+    status?: "new" | "approved" | "waitlisted" | "rejected" | "pending" | "applied" | "";
     search?: string;
     page?: number;
     per_page?: number;

@@ -113,7 +113,7 @@ interface ApplicationDetails {
   id: number;
   user: User;
   application_text: string | null;
-  status: "approved" | "rejected" | "not_applied" | null;
+  status: "approved" | "rejected" | "applied" | "not_applied" | "pending" | null;
   priority: number;
   assigned_reviewer: AssignedReviewer;
   is_bookmarked: boolean;
@@ -172,16 +172,26 @@ function getStatusCfg(status: ApplicationDetails["status"]) {
         icon: "document-outline" as const,
         gradient: ["#94A3B8", "#475569"]
       };
-    default:
+    case "applied":
+    case "pending":
       return {
-        color: "#4F46E5",
+        color: "#6366F1",
         bg: "rgba(99,102,241,0.1)",
         bg2: "#EEF2FF",
-        label: "Pending",
+        label: "Applied",
         icon: "time-outline" as const,
         gradient: ["#6366F1", "#4F46E5"]
       };
-  }
+    default:
+      return {
+        color: "#6366F1",
+        bg: "rgba(148,163,184,0.1)",
+        bg2: "#F1F5F9",
+        label: "Applied",
+        icon: "document-outline" as const,
+        gradient: ["#94A3B8", "#475569"]
+      };
+    }
 }
 
 function getAvatarColor(name: string) {

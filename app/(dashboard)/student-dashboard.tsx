@@ -454,47 +454,71 @@ export default function StudentDashboardScreen() {
         >
           <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 16 }]}>Application Analytics</Text>
           <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
-            <LinearGradient colors={['#3B82F6', '#1D4ED8']} style={{ flex: 1, borderRadius: 24, padding: 18, elevation: 2 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="document-text" size={18} color="#fff" />
+            <TouchableOpacity
+              style={{ flex: 1 }}
+              activeOpacity={0.8}
+              onPress={() => router.push({ pathname: "/(dashboard)/student/student-application-status", params: { tab: "active" } })}
+            >
+              <LinearGradient colors={['#3B82F6', '#1D4ED8']} style={{ borderRadius: 24, padding: 18, elevation: 2 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="document-text" size={18} color="#fff" />
+                  </View>
+                  <Text style={{ fontSize: 24, fontWeight: '800', color: '#fff' }}>{statusCounts.applied}</Text>
                 </View>
-                <Text style={{ fontSize: 24, fontWeight: '800', color: '#fff' }}>{statusCounts.applied}</Text>
-              </View>
-              <Text style={{ fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.9)', textTransform: 'uppercase', letterSpacing: 0.3 }}>Applied</Text>
-            </LinearGradient>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.9)', textTransform: 'uppercase', letterSpacing: 0.3 }}>Applied</Text>
+              </LinearGradient>
+            </TouchableOpacity>
 
-            <LinearGradient colors={['#10B981', '#059669']} style={{ flex: 1, borderRadius: 24, padding: 18, elevation: 2 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="checkmark-circle" size={18} color="#fff" />
+            <TouchableOpacity
+              style={{ flex: 1 }}
+              activeOpacity={0.8}
+              onPress={() => router.push({ pathname: "/(dashboard)/student/student-application-status", params: { tab: "past", status: "Approved" } })}
+            >
+              <LinearGradient colors={['#10B981', '#059669']} style={{ borderRadius: 24, padding: 18, elevation: 2 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                  </View>
+                  <Text style={{ fontSize: 24, fontWeight: '800', color: '#fff' }}>{statusCounts.approved}</Text>
                 </View>
-                <Text style={{ fontSize: 24, fontWeight: '800', color: '#fff' }}>{statusCounts.approved}</Text>
-              </View>
-              <Text style={{ fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.9)', textTransform: 'uppercase', letterSpacing: 0.3 }}>Approved</Text>
-            </LinearGradient>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.9)', textTransform: 'uppercase', letterSpacing: 0.3 }}>Approved</Text>
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
 
           <View style={{ flexDirection: 'row', gap: 12 }}>
-            <LinearGradient colors={['#FF9800', '#F57C00']} style={{ flex: 1, borderRadius: 24, padding: 18, elevation: 2 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="time" size={18} color="#fff" />
+            <TouchableOpacity
+              style={{ flex: 1 }}
+              activeOpacity={0.8}
+              onPress={() => router.push({ pathname: "/(dashboard)/student/student-application-status", params: { tab: "active", status: "New" } })}
+            >
+              <LinearGradient colors={['#FF9800', '#F57C00']} style={{ borderRadius: 24, padding: 18, elevation: 2 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="time" size={18} color="#fff" />
+                  </View>
+                  <Text style={{ fontSize: 24, fontWeight: '800', color: '#fff' }}>{statusCounts.pending}</Text>
                 </View>
-                <Text style={{ fontSize: 24, fontWeight: '800', color: '#fff' }}>{statusCounts.pending}</Text>
-              </View>
-              <Text style={{ fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.9)', textTransform: 'uppercase', letterSpacing: 0.3 }}>Pending</Text>
-            </LinearGradient>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.9)', textTransform: 'uppercase', letterSpacing: 0.3 }}>Pending</Text>
+              </LinearGradient>
+            </TouchableOpacity>
 
-            <LinearGradient colors={['#EF4444', '#B91C1C']} style={{ flex: 1, borderRadius: 24, padding: 18, elevation: 2 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="close-circle" size={18} color="#fff" />
+            <TouchableOpacity
+              style={{ flex: 1 }}
+              activeOpacity={0.8}
+              onPress={() => router.push({ pathname: "/(dashboard)/student/student-application-status", params: { tab: "past", status: "Rejected" } })}
+            >
+              <LinearGradient colors={['#EF4444', '#B91C1C']} style={{ borderRadius: 24, padding: 18, elevation: 2 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="close-circle" size={18} color="#fff" />
+                  </View>
+                  <Text style={{ fontSize: 24, fontWeight: '800', color: '#fff' }}>{statusCounts.rejected}</Text>
                 </View>
-                <Text style={{ fontSize: 24, fontWeight: '800', color: '#fff' }}>{statusCounts.rejected}</Text>
-              </View>
-              <Text style={{ fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.9)', textTransform: 'uppercase', letterSpacing: 0.3 }}>Rejected</Text>
-            </LinearGradient>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.9)', textTransform: 'uppercase', letterSpacing: 0.3 }}>Rejected</Text>
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
         </MotiView>
 
@@ -877,20 +901,7 @@ export default function StudentDashboardScreen() {
               )}
             </View>
 
-            {/* <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 }}>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: "#10B981" }]} />
-                <Text style={[styles.legendText, { color: colors.text, fontWeight: '600', fontSize: 12 }]}>{applicationProgress.approved} Approved</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: "#FF9800" }]} />
-                <Text style={[styles.legendText, { color: colors.text, fontWeight: '600', fontSize: 12 }]}>{applicationProgress.pending} Pending</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: "#EF4444" }]} />
-                <Text style={[styles.legendText, { color: colors.text, fontWeight: '600', fontSize: 12 }]}>{applicationProgress.rejected} Rejected</Text>
-              </View>
-            </View> */}
+
           </View>
         </MotiView>
 

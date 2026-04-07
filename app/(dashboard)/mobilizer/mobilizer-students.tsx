@@ -11,7 +11,9 @@ import {
     ActivityIndicator,
     Alert,
     FlatList,
+    KeyboardAvoidingView,
     Modal,
+    Platform,
     StatusBar,
     StyleSheet,
     Text,
@@ -386,52 +388,60 @@ export default function MobilizerStudentsScreen() {
             <Modal
                 visible={linkModalVisible}
                 transparent
-                animationType="fade"
+                animationType="slide"
                 onRequestClose={() => setLinkModalVisible(false)}
             >
-                <TouchableOpacity
-                    style={styles.modalBackdrop}
-                    activeOpacity={1}
-                    onPress={() => setLinkModalVisible(false)}
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={{ flex: 1 }}
                 >
-                    <View style={[styles.modalContent, { backgroundColor: isDark ? colors.card : "#fff" }]}>
-                        <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: colors.text }]}>Link Existing Student</Text>
-                            <TouchableOpacity onPress={() => setLinkModalVisible(false)}>
-                                <Ionicons name="close" size={24} color={colors.textSecondary} />
+                    <TouchableOpacity
+                        style={styles.modalBackdrop}
+                        activeOpacity={1}
+                        onPress={() => setLinkModalVisible(false)}
+                    >
+                        <View 
+                            onStartShouldSetResponder={() => true} 
+                            style={[styles.modalContent, { backgroundColor: isDark ? colors.card : "#fff" }]}
+                        >
+                            <View style={styles.modalHeader}>
+                                <Text style={[styles.modalTitle, { color: colors.text }]}>Link Existing Student</Text>
+                                <TouchableOpacity onPress={() => setLinkModalVisible(false)}>
+                                    <Ionicons name="close" size={24} color={colors.textSecondary} />
+                                </TouchableOpacity>
+                            </View>
+                            <Text style={[styles.modalDesc, { color: colors.textSecondary }]}>
+                                Enter the email address of the student already in the system to add them to your managed list.
+                            </Text>
+                            <View style={[styles.inputContainer, { backgroundColor: isDark ? colors.background : "#F9FAFB", borderColor: isDark ? colors.border : "#E2E8F0" }]}>
+                                <Ionicons name="mail-outline" size={20} color={colors.textSecondary} />
+                                <TextInput
+                                    style={[styles.input, { color: colors.text }]}
+                                    value={linkEmail}
+                                    onChangeText={setLinkEmail}
+                                    placeholder="Student Email Address"
+                                    placeholderTextColor={colors.textSecondary}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                />
+                            </View>
+                            <TouchableOpacity
+                                onPress={handleLinkStudent}
+                                disabled={linking || !linkEmail}
+                                style={[
+                                    styles.linkBtn,
+                                    { backgroundColor: (linking || !linkEmail) ? colors.textSecondary + "55" : colors.primary }
+                                ]}
+                            >
+                                {linking ? (
+                                    <ActivityIndicator color="#fff" size="small" />
+                                ) : (
+                                    <Text style={styles.linkBtnText}>Link Student</Text>
+                                )}
                             </TouchableOpacity>
                         </View>
-                        <Text style={[styles.modalDesc, { color: colors.textSecondary }]}>
-                            Enter the email address of the student already in the system to add them to your managed list.
-                        </Text>
-                        <View style={[styles.inputContainer, { backgroundColor: isDark ? colors.background : "#F9FAFB", borderColor: isDark ? colors.border : "#E2E8F0" }]}>
-                            <Ionicons name="mail-outline" size={20} color={colors.textSecondary} />
-                            <TextInput
-                                style={[styles.input, { color: colors.text }]}
-                                value={linkEmail}
-                                onChangeText={setLinkEmail}
-                                placeholder="Student Email Address"
-                                placeholderTextColor={colors.textSecondary}
-                                keyboardType="email-address"
-                                autoCapitalize="none"
-                            />
-                        </View>
-                        <TouchableOpacity
-                            onPress={handleLinkStudent}
-                            disabled={linking || !linkEmail}
-                            style={[
-                                styles.linkBtn,
-                                { backgroundColor: (linking || !linkEmail) ? colors.textSecondary + "55" : colors.primary }
-                            ]}
-                        >
-                            {linking ? (
-                                <ActivityIndicator color="#fff" size="small" />
-                            ) : (
-                                <Text style={styles.linkBtnText}>Link Student</Text>
-                            )}
-                        </TouchableOpacity>
-                    </View>
-                </TouchableOpacity>
+                    </TouchableOpacity>
+                </KeyboardAvoidingView>
             </Modal>
         </View>
 

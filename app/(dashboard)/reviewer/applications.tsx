@@ -54,7 +54,7 @@ function getStatusInfo(s: Scholarship) {
     gradient: ["#94A3B8", "#64748B"]
   };
   if (pending === total) return {
-    label: "Pending",
+    label: "Applied",
     color: "#F59E0B",
     gradient: ["#FBBF24", "#F59E0B"]
   };
@@ -146,7 +146,7 @@ function SchemeCard({ s, isDark, colors, onPress }: {
         <View style={styles.statsGrid}>
           <View style={styles.statRowItem}>
             <StatBox icon="people" label="Total Applied" value={total} color="#6366F1" isDark={isDark} />
-            <StatBox icon="time" label="In Review" value={pending} color="#F59E0B" isDark={isDark} />
+            <StatBox icon="time" label="Applied" value={pending} color="#F59E0B" isDark={isDark} />
           </View>
           <View style={styles.statRowItem}>
             <StatBox icon="checkmark-circle" label="Approved" value={approved} color="#10B981" isDark={isDark} />

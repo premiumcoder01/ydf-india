@@ -42,16 +42,33 @@ const formSchema = z.object({
     studentId: z.string().min(1, "Student ID is required"),
     institution: z.string().min(2, "Institution is required"),
     major: z.string().min(2, "Major is required"),
-    gradDate: z.string().min(4, "Graduation date is required"),
-    currentYear: z.string().min(1, "Current year is required"),
+    gradDate: z.string().optional(),
+    currentYear: z.string().optional(),
     gpa: z.string().refine((v) => v === "" || (!Number.isNaN(Number(v)) && Number(v) <= 100.0 && Number(v) >= 0), {
         message: "Please enter a valid percentage (0-100)",
     }),
     statement: z.string().optional().default(""),
     activities: z.string().optional().default(""),
     financial: z.string().optional().default(""),
-
     agreed: z.boolean().refine((v) => v, { message: "You must agree before submitting" }),
+}).superRefine((data, ctx) => {
+    const HIDDEN_FIELDS_MAJORS = ["10th Grade (Secondary)", "12th Grade (Higher Secondary)"];
+    if (!HIDDEN_FIELDS_MAJORS.includes(data.major)) {
+        if (!data.gradDate || data.gradDate.trim().length === 0) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Graduation year is required",
+                path: ["gradDate"],
+            });
+        }
+        if (!data.currentYear || data.currentYear.trim().length === 0) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Current year is required",
+                path: ["currentYear"],
+            });
+        }
+    }
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -157,12 +174,16 @@ export default function MobilizerApplyFormScreen() {
             statement: "",
             activities: "",
             financial: "",
-
             agreed: false,
         },
         mode: "onSubmit",
         reValidateMode: "onSubmit",
     });
+
+    const watchedMajor = watch("major");
+    const isGradeStudent = useMemo(() => {
+        return ["10th Grade (Secondary)", "12th Grade (Higher Secondary)"].includes(watchedMajor);
+    }, [watchedMajor]);
 
 
 
@@ -592,26 +613,30 @@ export default function MobilizerApplyFormScreen() {
                                         </View>
                                     </TouchableOpacity>
                                 )} />
-                                <Controller control={control} name="gradDate" render={({ field: { onChange, value } }) => (
-                                    <TouchableOpacity onPress={() => {
-                                        const currentYear = new Date().getFullYear();
-                                        const years = Array.from({ length: 10 }, (_, i) => String(currentYear + i));
-                                        setOptionPickerState({ visible: true, title: "Select Graduation Year", options: years, onSelect: (val) => onChange(val) });
-                                    }}>
-                                        <View pointerEvents="none">
-                                            <CustomTextInput label="Expected Graduation Year" placeholder="Select Year" value={value} editable={false} error={errors.gradDate?.message} onChangeText={() => { }} required rightIcon="calendar-outline" />
-                                        </View>
-                                    </TouchableOpacity>
-                                )} />
-                                <Controller control={control} name="currentYear" render={({ field: { onChange, value } }) => (
-                                    <TouchableOpacity onPress={() => {
-                                        setOptionPickerState({ visible: true, title: "Current Year of Study", options: ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year", "Internship", "PhD"], onSelect: (val) => onChange(val) });
-                                    }}>
-                                        <View pointerEvents="none">
-                                            <CustomTextInput label="Current Year of Study" placeholder="Select Year" value={value} editable={false} error={errors.currentYear?.message} onChangeText={() => { }} required rightIcon="school-outline" />
-                                        </View>
-                                    </TouchableOpacity>
-                                )} />
+                                {!isGradeStudent && (
+                                    <>
+                                        <Controller control={control} name="gradDate" render={({ field: { onChange, value } }) => (
+                                            <TouchableOpacity onPress={() => {
+                                                const currYear = new Date().getFullYear();
+                                                const years = Array.from({ length: 10 }, (_, i) => String(currYear + i));
+                                                setOptionPickerState({ visible: true, title: "Select Graduation Year", options: years, onSelect: (val) => onChange(val) });
+                                            }}>
+                                                <View pointerEvents="none">
+                                                    <CustomTextInput label="Expected Graduation Year" placeholder="Select Year" value={value || ""} editable={false} error={errors.gradDate?.message} onChangeText={() => { }} required rightIcon="calendar-outline" />
+                                                </View>
+                                            </TouchableOpacity>
+                                        )} />
+                                        <Controller control={control} name="currentYear" render={({ field: { onChange, value } }) => (
+                                            <TouchableOpacity onPress={() => {
+                                                setOptionPickerState({ visible: true, title: "Current Year of Study", options: ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year", "Internship", "PhD"], onSelect: (val) => onChange(val) });
+                                            }}>
+                                                <View pointerEvents="none">
+                                                    <CustomTextInput label="Current Year of Study" placeholder="Select Year" value={value || ""} editable={false} error={errors.currentYear?.message} onChangeText={() => { }} required rightIcon="school-outline" />
+                                                </View>
+                                            </TouchableOpacity>
+                                        )} />
+                                    </>
+                                )}
                                 <Controller control={control} name="gpa" render={({ field: { onChange, value, onBlur } }) => (
                                     <View style={{ marginBottom: 16 }}>
                                         <CustomTextInput label="Last Exam Percentage (%) (Optional)" placeholder="e.g. 82.5" value={value} onChangeText={onChange} onBlur={onBlur} keyboardType="numeric" error={errors.gpa?.message} maxLength={5} />
@@ -685,8 +710,12 @@ export default function MobilizerApplyFormScreen() {
                                         <Text style={[styles.summarySectionTitle, { color: colors.primary }]}>Academic Details</Text>
                                         <SummaryRow label="Institution" value={allValues.institution} />
                                         <SummaryRow label="Major" value={allValues.major} />
-                                        <SummaryRow label="Graduation Date" value={allValues.gradDate} />
-                                        <SummaryRow label="Current Year" value={allValues.currentYear} />
+                                        {!["10th Grade (Secondary)", "12th Grade (Higher Secondary)"].includes(allValues.major || "") && (
+                                            <>
+                                                <SummaryRow label="Graduation Date" value={allValues.gradDate || ""} />
+                                                <SummaryRow label="Current Year" value={allValues.currentYear || ""} />
+                                            </>
+                                        )}
                                         <SummaryRow label="CGPA" value={allValues.gpa} />
                                     </View>
 

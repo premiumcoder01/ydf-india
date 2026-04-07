@@ -4,7 +4,7 @@ import { getMyApplications } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,13 +21,32 @@ const statusColors = {
 export default function ApplicationStatusScreen() {
   const { isDark, colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = useState<"active" | "past">("active");
-  const [searchQuery, setSearchQuery] = useState("");
+  const params = useLocalSearchParams();
+  const initialTab = (params.tab as "active" | "past") || "active";
+  const [activeTab, setActiveTab] = useState<"active" | "past">(initialTab);
+  const [searchQuery, setSearchQuery] = useState((params.status as string) || "");
+  const [isFilteredView, setIsFilteredView] = useState(!!params.status);
   const [activeApplications, setActiveApplications] = useState<any[]>([]);
   const [pastApplications, setPastApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const isDataLoaded = useRef(false);
+
+  // Sync tab if param changes
+  useEffect(() => {
+    if (params.tab && (params.tab === "active" || params.tab === "past")) {
+      setActiveTab(params.tab as "active" | "past");
+    }
+    if (params.status) {
+      setSearchQuery(params.status as string);
+      setIsFilteredView(true);
+    }
+  }, [params.tab, params.status]);
+
+  const clearFilter = () => {
+    setSearchQuery("");
+    setIsFilteredView(false);
+  };
 
   // Update data loaded ref
   useEffect(() => {
@@ -125,14 +144,15 @@ export default function ApplicationStatusScreen() {
   const currentApplications = activeTab === "active" ? activeApplications : pastApplications;
 
   const filteredApplications = useMemo(() => {
-    if (!searchQuery.trim()) return currentApplications;
+    const rawList = isFilteredView ? [...activeApplications, ...pastApplications] : currentApplications;
+    if (!searchQuery.trim()) return rawList;
     const query = searchQuery.toLowerCase();
-    return currentApplications.filter(app =>
+    return rawList.filter(app =>
       app.title.toLowerCase().includes(query) ||
       app.shortname.toLowerCase().includes(query) ||
       app.statusText.toLowerCase().includes(query)
     );
-  }, [currentApplications, searchQuery]);
+  }, [activeApplications, pastApplications, currentApplications, searchQuery, isFilteredView]);
 
   const renderApplicationCard = ({ item }: { item: any }) => (
     <TouchableOpacity
@@ -188,54 +208,77 @@ export default function ApplicationStatusScreen() {
 
       {/* Fixed Header */}
       <View style={styles.fixedHeader}>
-        <AppHeader title="My Applications" onBack={() => router.back()} />
-
-
+        <AppHeader
+          title={isFilteredView ? `${searchQuery} Applications` : "My Applications"}
+          onBack={() => {
+            if (isFilteredView) {
+              clearFilter();
+            } else {
+              router.back();
+            }
+          }}
+        />
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
           <SearchBar
             value={searchQuery}
-            onChangeText={setSearchQuery}
-            onClear={() => setSearchQuery("")}
+            onChangeText={(t) => {
+              setSearchQuery(t);
+              if (!t) setIsFilteredView(false);
+            }}
+            onClear={clearFilter}
             placeholder="Search applications..."
           />
         </View>
 
-        {/* Tabs */}
-        <View style={[styles.tabsContainer, { backgroundColor: isDark ? "#1e1e1e" : "#f5f5f5" }]}>
-          <TouchableOpacity
-            style={[
-              styles.tab,
-              activeTab === "active" && styles.activeTab,
-              activeTab === "active" && { backgroundColor: colors.primary }
-            ]}
-            onPress={() => setActiveTab("active")}
-          >
-            <Text style={[
-              styles.tabText,
-              { color: activeTab === "active" ? "#fff" : colors.textSecondary }
-            ]}>
-              Active ({activeApplications.length})
-            </Text>
-          </TouchableOpacity>
+        {/* Tabs - Hidden in Filter View */}
+        {!isFilteredView ? (
+          <View style={[styles.tabsContainer, { backgroundColor: isDark ? "#1e1e1e" : "#f5f5f5" }]}>
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                activeTab === "active" && styles.activeTab,
+                activeTab === "active" && { backgroundColor: colors.primary }
+              ]}
+              onPress={() => setActiveTab("active")}
+            >
+              <Text style={[
+                styles.tabText,
+                { color: activeTab === "active" ? "#fff" : colors.textSecondary }
+              ]}>
+                Active ({activeApplications.length})
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.tab,
-              activeTab === "past" && styles.activeTab,
-              activeTab === "past" && { backgroundColor: colors.primary }
-            ]}
-            onPress={() => setActiveTab("past")}
-          >
-            <Text style={[
-              styles.tabText,
-              { color: activeTab === "past" ? "#fff" : colors.textSecondary }
-            ]}>
-              Past ({pastApplications.length})
-            </Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                activeTab === "past" && styles.activeTab,
+                activeTab === "past" && { backgroundColor: colors.primary }
+              ]}
+              onPress={() => setActiveTab("past")}
+            >
+              <Text style={[
+                styles.tabText,
+                { color: activeTab === "past" ? "#fff" : colors.textSecondary }
+              ]}>
+                Past ({pastApplications.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.filterModeIndicator}>
+            <View style={[styles.filterLabel, { backgroundColor: colors.primary + '15' }]}>
+              <Ionicons name="filter" size={14} color={colors.primary} />
+              <Text style={[styles.filterText, { color: colors.primary }]}>Showing results for "{searchQuery}"</Text>
+            </View>
+            <TouchableOpacity onPress={clearFilter} style={styles.clearFilterButton}>
+              <Text style={[styles.clearFilterText, { color: colors.textSecondary }]}>Show All</Text>
+              <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* Application List */}
@@ -442,5 +485,36 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 14,
     marginTop: 4,
+  },
+  filterModeIndicator: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    marginBottom: 16,
+    gap: 12,
+  },
+  filterLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    flex: 1,
+  },
+  filterText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  clearFilterButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 6,
+  },
+  clearFilterText: {
+    fontSize: 13,
+    fontWeight: "700",
   },
 });

@@ -72,7 +72,6 @@ export default function TermsOfServiceScreen() {
           {/* <View style={styles.badge}>
             <Text style={styles.badgeText}>Last Updated: 18th March, 2026</Text>
           </View> */}
-          <Text style={styles.welcomeTitle}>Welcome to YDF</Text>
           <Text style={styles.introParagraph}>
             Welcome to the YDF Scholarships App, operated by Youth Dreamers Foundation (“YDF”, “we”, “our”, or “us”). By accessing or using the YDF App, you agree to comply with and be bound by the following Terms of Service. Please read them carefully.
           </Text>

@@ -72,7 +72,6 @@ export default function PrivacyPolicyScreen() {
           {/* <View style={styles.badge}>
             <Text style={styles.badgeText}>Last Updated: 18th March, 2026</Text>
           </View> */}
-          <Text style={styles.welcomeTitle}>Privacy Matters</Text>
           <Text style={styles.introParagraph}>
             Youth Dreamers Foundation (“YDF”, “we”, “our”, or “us”) is committed to protecting your privacy. This Privacy Policy explains how we collect, use, store, and share your information when you use the YDF Scholarships App, including its integration with our Scholarships Management Platform (SMP) powered by Moodle.
           </Text>
