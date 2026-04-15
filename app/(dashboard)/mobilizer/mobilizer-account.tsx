@@ -53,9 +53,9 @@ const SelectionModal = ({ visible, onClose, title, options, selected, onSelect, 
                 activeOpacity={1}
             />
             <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20, backgroundColor: colors.surface }]}>
-            <View style={styles.imageOptionsHandle}>
-                <View style={[styles.handleBar, { backgroundColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)" }]} />
-            </View>
+                <View style={styles.imageOptionsHandle}>
+                    <View style={[styles.handleBar, { backgroundColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)" }]} />
+                </View>
                 <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                     <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
                     <TouchableOpacity
@@ -928,14 +928,14 @@ export default function MobilizerAccountScreen() {
                                 onPress={() => openSelectionModal("Select Application Year", APPLICATION_YEAR_OPTIONS, "applicationYear")}
                             />
 
-                            <PickerRow
+                            {/* <PickerRow
                                 label="You are registering as"
                                 value={personalInfo.registeringAs}
                                 placeholder="Select Type"
                                 icon="id-card-outline"
                                 iconColor="#059669"
                                 onPress={() => openSelectionModal("Registering As", REGISTERING_AS_OPTIONS, "registeringAs")}
-                            />
+                            /> */}
 
                             <PickerRow
                                 label="12th Passing Year"

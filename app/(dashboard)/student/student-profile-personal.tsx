@@ -614,7 +614,7 @@ export default function StudentProfilePersonalScreen() {
         <View style={[styles.pickerIconWrap, { backgroundColor: value ? iconColor + "22" : (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)") }]}>
           <Ionicons name={icon} size={16} color={value ? iconColor : colors.textSecondary} />
         </View>
-        <Text 
+        <Text
           style={[styles.selectorText, { color: colors.text, flex: 1, marginLeft: 10, marginRight: 24 }, !value && styles.placeholderText]}
           numberOfLines={1}
           ellipsizeMode="tail"
@@ -978,14 +978,14 @@ export default function StudentProfilePersonalScreen() {
                 onPress={() => setShowApplicationYearPicker(true)}
               />
 
-              <PickerRow
+              {/* <PickerRow
                 label="You are registering as"
                 value={personalInfo.registeringAs}
                 placeholder="Select Type"
                 icon="id-card-outline"
                 iconColor="#059669"
                 onPress={() => setShowRegisteringAsPicker(true)}
-              />
+              /> */}
 
               <PickerRow
                 label="12th Passing Year"

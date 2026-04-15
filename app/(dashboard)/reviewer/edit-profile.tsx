@@ -910,14 +910,14 @@ export default function ReviewerEditProfileScreen() {
                 onPress={() => setShowApplicationYearPicker(true)}
               />
 
-              <PickerRow
+              {/* <PickerRow
                 label="You are registering as"
                 value={personalInfo.registeringAs}
                 placeholder="Select Type"
                 icon="id-card-outline"
                 iconColor="#059669"
                 onPress={() => setShowRegisteringAsPicker(true)}
-              />
+              /> */}
 
               <PickerRow
                 label="12th Passing Year"

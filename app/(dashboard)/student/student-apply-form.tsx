@@ -1,6 +1,6 @@
 import { AppHeader, Button, CustomTextInput, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
-import { getAcademicDetails, getScholarshipDetails, getUserProfile, submitApplication, type AcademicDetailItem, getDropdownDefinitions, DropdownData } from "@/utils/api";
+import { DropdownData, getAcademicDetails, getDropdownDefinitions, getScholarshipDetails, getUserProfile, submitApplication, type AcademicDetailItem } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -76,7 +76,7 @@ const FIELDS_BY_STEP: Record<string, (keyof FormValues)[]> = {
 
 export default function ApplyFormScreen() {
   const { isDark, colors } = useTheme();
-  
+
   const [dropdownData, setDropdownData] = useState<DropdownData | null>(null);
 
   const getOptionsByShortname = useCallback((shortname: string) => {
@@ -156,6 +156,9 @@ export default function ApplyFormScreen() {
   const [academicModalSearch, setAcademicModalSearch] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [isAcademicFromProfile, setIsAcademicFromProfile] = useState(false);
+  const [isFinancialFromProfile, setIsFinancialFromProfile] = useState(false);
+  const [showProfileRedirectModal, setShowProfileRedirectModal] = useState(false);
 
   // Filter options based on search query
   const filteredOptions = useMemo(() => {
@@ -220,31 +223,63 @@ export default function ApplyFormScreen() {
         // 2. User profile prefill
         const response = await getUserProfile(token);
         if (cancelled) return;
-        if (response.success && response.data?.user) {
+        if (response.success && response.data) {
           const user = response.data.user;
-          const getField = (shortname: string) =>
-            user.customfields?.find((f: any) => f.shortname === shortname)?.value || "";
+          if (user) {
+            const getField = (shortname: string) =>
+              user.customfields?.find((f: any) => f.shortname === shortname)?.value || "";
 
-          reset({
-            ...getValues(),
-            fullName: user.fullname || `${user.firstname} ${user.lastname}` || "",
-            email: user.email || "",
-            phone: (() => {
+            const phoneValue = (() => {
               let p = user.phone1 || user.phone || getField('phone') || "";
               if (typeof p === 'string') {
                 p = p.replace(/\D/g, '');
                 if (p.length > 10 && p.startsWith('91')) p = p.substring(p.length - 10);
               }
               return p;
-            })(),
-            studentId: user.username || getField('student_id') || "",
-            institution: user.institution || getField('institution') || "",
-            major: user.major || getField('major') || "",
-            gradDate: user.graduationdate || getField('graduationdate') || "",
-            currentYear: user.academicyear || getField('academicyear') || "",
-            gpa: user.gpa || getField('gpa') || "",
-            financial: getField('financial_info') || "",
-          });
+            })();
+
+            const prefilledValues = {
+              fullName: user.fullname || `${user.firstname} ${user.lastname}` || "",
+              email: user.email || "",
+              phone: phoneValue,
+              studentId: user.username || getField('student_id') || "",
+              institution: user.institution || getField('institution') || getField('college_university_name_1') || "",
+              major: user.major || getField('major') || getField('course_name_1') || "",
+              gradDate: user.graduationdate || getField('graduationdate') || getField('expected_academic_end_date_1') || "",
+              currentYear: user.academicyear || getField('academicyear') || getField('academic_start_year_1') || "",
+              gpa: user.gpa || getField('gpa') || getField('grade_in_cgpa_1') || "",
+              financial: getField('financial_info') || getField('Family_income') || "",
+            };
+
+            // Define mandatory fields for profile completeness
+            const mandatoryFields = ['institution', 'major', 'gradDate', 'currentYear', 'financial'];
+            const isIncomplete = mandatoryFields.some(f => {
+              const val = prefilledValues[f as keyof typeof prefilledValues];
+              return !val || val === "Select" || val === "0" || val === "";
+            });
+
+            if (isIncomplete) {
+              setShowProfileRedirectModal(true);
+            }
+
+            // Lock academic fields if all academic data is present
+            const isAcademicFilled = !!prefilledValues.institution && 
+                                    !!prefilledValues.major && 
+                                    prefilledValues.major !== "Select" &&
+                                    !!prefilledValues.gradDate && 
+                                    !!prefilledValues.currentYear;
+            
+            // Lock financial field if present
+            const isFinancialFilled = !!prefilledValues.financial && prefilledValues.financial !== "Select";
+
+            setIsAcademicFromProfile(isAcademicFilled);
+            setIsFinancialFromProfile(isFinancialFilled);
+
+            reset({
+              ...getValues(),
+              ...prefilledValues,
+            });
+          }
         }
 
         // 3. Draft recovery (after profile so merge is correct)
@@ -647,7 +682,7 @@ export default function ApplyFormScreen() {
                     <Text style={{ marginLeft: 10, fontSize: 14, color: colors.textSecondary }}>Loading your academic data...</Text>
                   </View>
                 )}
-                {!loadingAcademicDetails && academicDetailsList.length > 0 && (
+                {!loadingAcademicDetails && academicDetailsList.length > 0 && !isAcademicFromProfile && (
                   <TouchableOpacity
                     onPress={() => {
                       setAcademicModalSearch("");
@@ -745,58 +780,60 @@ export default function ApplyFormScreen() {
                 </Modal>
 
                 <Controller control={control} name="institution" render={({ field: { onChange, value, onBlur } }) => (
-                  <CustomTextInput label="Institution Name" placeholder="Enter your institution" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.institution?.message} required />
+                  <CustomTextInput label="Institution Name" placeholder="Enter your institution" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.institution?.message} required editable={!isAcademicFromProfile} />
                 )} />
                 <Controller control={control} name="major" render={({ field: { onChange, value } }) => (
-                  <TouchableOpacity onPress={() => {
-                    setOptionPickerState({
-                      visible: true,
-                      title: "Select Major / Field of Study",
-                      options: [
-                        "Computer Science",
-                        "Information Technology",
-                        "Data Science / AI",
-                        "Mechanical Engineering",
-                        "Civil Engineering",
-                        "Electrical / Electronics Engineering",
-                        "Biomedical Engineering",
-                        "Chemical Engineering",
-                        "Aerospace / Aeronautical Engineering",
-                        "Medicine (MBBS)",
-                        "Dental (BDS)",
-                        "Nursing",
-                        "Pharmacy",
-                        "Business Administration (BBA/MBA)",
-                        "Finance / Accounting",
-                        "Economics",
-                        "Marketing",
-                        "Law (LLB/LLM)",
-                        "History",
-                        "Political Science",
-                        "Psychology",
-                        "Sociology",
-                        "English / Literature",
-                        "Physics",
-                        "Chemistry",
-                        "Mathematics",
-                        "Biology / Biotechnology",
-                        "Environmental Science",
-                        "Architecture",
-                        "Design (Fashion/Graphic/Interior)",
-                        "Journalism / Mass Communication",
-                        "Agriculture / Horticulture",
-                        "Veterinary Science",
-                        "Education / Teaching",
-                        "Hotel Management / Hospitality",
-                        "Vocational Training (ITI)",
-                        "Polytechnic / Diploma",
-                        "10th Grade (Secondary)",
-                        "12th Grade (Higher Secondary)",
-                        "Other"
-                      ],
-                      onSelect: (val) => onChange(val)
-                    });
-                  }}>
+                  <TouchableOpacity
+                    disabled={isAcademicFromProfile}
+                    onPress={() => {
+                      setOptionPickerState({
+                        visible: true,
+                        title: "Select Major / Field of Study",
+                        options: [
+                          "Computer Science",
+                          "Information Technology",
+                          "Data Science / AI",
+                          "Mechanical Engineering",
+                          "Civil Engineering",
+                          "Electrical / Electronics Engineering",
+                          "Biomedical Engineering",
+                          "Chemical Engineering",
+                          "Aerospace / Aeronautical Engineering",
+                          "Medicine (MBBS)",
+                          "Dental (BDS)",
+                          "Nursing",
+                          "Pharmacy",
+                          "Business Administration (BBA/MBA)",
+                          "Finance / Accounting",
+                          "Economics",
+                          "Marketing",
+                          "Law (LLB/LLM)",
+                          "History",
+                          "Political Science",
+                          "Psychology",
+                          "Sociology",
+                          "English / Literature",
+                          "Physics",
+                          "Chemistry",
+                          "Mathematics",
+                          "Biology / Biotechnology",
+                          "Environmental Science",
+                          "Architecture",
+                          "Design (Fashion/Graphic/Interior)",
+                          "Journalism / Mass Communication",
+                          "Agriculture / Horticulture",
+                          "Veterinary Science",
+                          "Education / Teaching",
+                          "Hotel Management / Hospitality",
+                          "Vocational Training (ITI)",
+                          "Polytechnic / Diploma",
+                          "10th Grade (Secondary)",
+                          "12th Grade (Higher Secondary)",
+                          "Other"
+                        ],
+                        onSelect: (val) => onChange(val)
+                      });
+                    }}>
                     <View pointerEvents="none">
                       <CustomTextInput
                         label="Major / Field of Study"
@@ -806,23 +843,25 @@ export default function ApplyFormScreen() {
                         onChangeText={() => { }}
                         error={errors.major?.message}
                         required
-                        inputStyle={{ color: colors.text, opacity: 1 }}
-                        rightIcon="chevron-down"
+                        inputStyle={{ color: colors.text, opacity: isAcademicFromProfile ? 0.6 : 1 }}
+                        rightIcon={isAcademicFromProfile ? undefined : "chevron-down"}
                       />
                     </View>
                   </TouchableOpacity>
                 )} />
                 <Controller control={control} name="gradDate" render={({ field: { onChange, value } }) => (
-                  <TouchableOpacity onPress={() => {
-                    const currentYear = new Date().getFullYear();
-                    const years = Array.from({ length: 10 }, (_, i) => String(currentYear + i));
-                    setOptionPickerState({
-                      visible: true,
-                      title: "Select Graduation Year",
-                      options: years,
-                      onSelect: (val) => onChange(val)
-                    });
-                  }}>
+                  <TouchableOpacity
+                    disabled={isAcademicFromProfile}
+                    onPress={() => {
+                      const currentYear = new Date().getFullYear();
+                      const years = Array.from({ length: 10 }, (_, i) => String(currentYear + i));
+                      setOptionPickerState({
+                        visible: true,
+                        title: "Select Graduation Year",
+                        options: years,
+                        onSelect: (val) => onChange(val)
+                      });
+                    }}>
                     <View pointerEvents="none">
                       <CustomTextInput
                         label="Expected Graduation Year"
@@ -832,21 +871,23 @@ export default function ApplyFormScreen() {
                         error={errors.gradDate?.message}
                         onChangeText={() => { }}
                         required
-                        inputStyle={{ color: colors.text, opacity: 1 }}
-                        rightIcon="calendar-outline"
+                        inputStyle={{ color: colors.text, opacity: isAcademicFromProfile ? 0.6 : 1 }}
+                        rightIcon={isAcademicFromProfile ? undefined : "calendar-outline"}
                       />
                     </View>
                   </TouchableOpacity>
                 )} />
                 <Controller control={control} name="currentYear" render={({ field: { onChange, value } }) => (
-                  <TouchableOpacity onPress={() => {
-                    setOptionPickerState({
-                      visible: true,
-                      title: "Current Year of Study",
-                      options: ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year", "Internship", "PhD"],
-                      onSelect: (val) => onChange(val)
-                    });
-                  }}>
+                  <TouchableOpacity
+                    disabled={isAcademicFromProfile}
+                    onPress={() => {
+                      setOptionPickerState({
+                        visible: true,
+                        title: "Current Year of Study",
+                        options: ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year", "Internship", "PhD"],
+                        onSelect: (val) => onChange(val)
+                      });
+                    }}>
                     <View pointerEvents="none">
                       <CustomTextInput
                         label="Current Year of Study"
@@ -856,8 +897,8 @@ export default function ApplyFormScreen() {
                         error={errors.currentYear?.message}
                         onChangeText={() => { }}
                         required
-                        inputStyle={{ color: colors.text, opacity: 1 }}
-                        rightIcon="school-outline"
+                        inputStyle={{ color: colors.text, opacity: isAcademicFromProfile ? 0.6 : 1 }}
+                        rightIcon={isAcademicFromProfile ? undefined : "school-outline"}
                       />
                     </View>
                   </TouchableOpacity>
@@ -871,6 +912,7 @@ export default function ApplyFormScreen() {
                       onChangeText={onChange}
                       onBlur={onBlur}
                       keyboardType="numeric"
+                      editable={!isAcademicFromProfile}
                       error={errors.gpa?.message}
                       mainStyle={{ marginBottom: 4 }}
                       maxLength={5}
@@ -886,14 +928,16 @@ export default function ApplyFormScreen() {
             {currentStepKey === "family" && (
               <Section>
                 <Controller control={control} name="financial" render={({ field: { onChange, value } }) => (
-                  <TouchableOpacity onPress={() => {
-                    setOptionPickerState({
-                      visible: true,
-                      title: "Family Annual Income",
-                      options: getOptionsByShortname('Family_income').map(o => o.label),
-                      onSelect: (val) => onChange(val)
-                    });
-                  }}>
+                  <TouchableOpacity
+                    disabled={isFinancialFromProfile}
+                    onPress={() => {
+                      setOptionPickerState({
+                        visible: true,
+                        title: "Family Annual Income",
+                        options: getOptionsByShortname('Family_income').map(o => o.label),
+                        onSelect: (val) => onChange(val)
+                      });
+                    }}>
                     <View pointerEvents="none">
                       <CustomTextInput
                         label="Family Annual Income (Optional)"
@@ -902,8 +946,8 @@ export default function ApplyFormScreen() {
                         editable={false}
                         onChangeText={() => { }}
                         error={errors.financial?.message}
-                        inputStyle={{ color: colors.text, opacity: 1 }}
-                        rightIcon="chevron-down"
+                        inputStyle={{ color: colors.text, opacity: isFinancialFromProfile ? 0.6 : 1 }}
+                        rightIcon={isFinancialFromProfile ? undefined : "chevron-down"}
                       />
                     </View>
                   </TouchableOpacity>
@@ -1221,6 +1265,81 @@ export default function ApplyFormScreen() {
         type={toast.type}
         onHide={() => setToast((prev) => ({ ...prev, visible: false }))}
       />
+
+      {/* Profile Completion Redirect Modal */}
+      <Modal
+        visible={showProfileRedirectModal}
+        transparent
+        animationType="fade"
+      >
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <View style={{
+            backgroundColor: isDark ? colors.surface : '#ffffff',
+            padding: 32,
+            borderRadius: 28,
+            alignItems: 'center',
+            width: '100%',
+            maxWidth: 400,
+            shadowColor: '#000',
+            shadowOpacity: 0.3,
+            shadowRadius: 20,
+            elevation: 12
+          }}>
+            <View style={{
+              width: 80,
+              height: 80,
+              borderRadius: 40,
+              backgroundColor: "#8B5CF615",
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: 24
+            }}>
+              <Ionicons name="school" size={40} color="#8B5CF6" />
+            </View>
+            <Text style={{ fontSize: 24, fontWeight: '800', color: colors.text, textAlign: 'center', marginBottom: 12 }}>
+              Profile Incomplete
+            </Text>
+            <Text style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', lineHeight: 24, marginBottom: 32 }}>
+              To ensure a smooth application process, please complete your academic and financial information in your profile before proceeding.
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => {
+                setShowProfileRedirectModal(false);
+                router.push("/(dashboard)/student/student-profile-personal");
+              }}
+              activeOpacity={0.8}
+              style={{
+                width: '100%',
+                height: 54,
+                backgroundColor: colors.primary,
+                borderRadius: 16,
+                justifyContent: 'center',
+                alignItems: 'center',
+                flexDirection: 'row',
+                gap: 8,
+                shadowColor: colors.primary,
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+                shadowOffset: { width: 0, height: 4 },
+              }}
+            >
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Complete Profile</Text>
+              <Ionicons name="arrow-forward" size={18} color="#fff" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setShowProfileRedirectModal(false);
+                router.back()
+              }}
+              style={{ marginTop: 20, padding: 8 }}
+            >
+              <Text style={{ color: colors.textSecondary, fontWeight: '600', fontSize: 15 }}>Close and go back</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View >
   );
 }
