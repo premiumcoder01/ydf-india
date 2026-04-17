@@ -206,6 +206,7 @@ const styles = StyleSheet.create({
   brandTextContainer: {
     alignItems: "center",
     gap: 12,
+    marginBottom: 20
   },
   brandTitle: {
     fontSize: 44,

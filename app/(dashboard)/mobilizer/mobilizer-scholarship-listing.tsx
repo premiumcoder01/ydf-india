@@ -646,7 +646,7 @@ export default function MobilizerScholarshipListingScreen() {
                             <Text style={[styles.viewBtnText, { color: colors.text }]}>Details</Text>
                         </TouchableOpacity>
 
-                        {!isExpired && !hasApplied ? (
+                        {!isExpired && !hasApplied && progressPercent === 0 ? (
                             <TouchableOpacity
                                 onPress={() => {
                                     setSelectedScholarshipForApply(item.id);
@@ -661,23 +661,32 @@ export default function MobilizerScholarshipListingScreen() {
                                 <Ionicons name="arrow-forward" size={16} color="#FFF" />
                             </TouchableOpacity>
                         ) : (
-                            <View
+                            <TouchableOpacity
+                                onPress={() =>
+                                    router.push({
+                                        pathname: "/(dashboard)/mobilizer/mobilizer-scholarship-details",
+                                        params: { scholarshipId: item.id },
+                                    })
+                                }
                                 style={[
                                     styles.applyBtn,
                                     hasApplied
                                         ? { backgroundColor: isDark ? "rgba(16, 185, 129, 0.2)" : "#DCFCE7", borderWidth: 1, borderColor: isDark ? "#065F46" : "#86EFAC" }
-                                        : { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#F3F4F6", opacity: 0.8 }
+                                        : progressPercent > 0
+                                            ? { backgroundColor: isDark ? "rgba(99, 102, 241, 0.2)" : "#E0E7FF", borderWidth: 1, borderColor: isDark ? "#4338CA" : "#A5B4FC" }
+                                            : { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#F3F4F6", opacity: 0.8 }
                                 ]}
+                                disabled={!hasApplied && progressPercent === 0}
                             >
-                                <Text style={[styles.applyBtnText, { color: hasApplied ? (isDark ? "#34D399" : "#166534") : colors.textSecondary }]}>
-                                    {hasApplied ? "Applied" : "Closed"}
+                                <Text style={[styles.applyBtnText, { color: hasApplied ? (isDark ? "#34D399" : "#166534") : progressPercent > 0 ? (isDark ? "#818CF8" : "#4338CA") : colors.textSecondary }]}>
+                                    {hasApplied ? "Applied" : progressPercent > 0 ? "Continue" : "Closed"}
                                 </Text>
                                 <Ionicons
-                                    name={hasApplied ? "checkmark-circle" : "lock-closed"}
+                                    name={hasApplied ? "checkmark-circle" : progressPercent > 0 ? "arrow-forward" : "lock-closed"}
                                     size={16}
-                                    color={hasApplied ? (isDark ? "#34D399" : "#166534") : colors.textSecondary}
+                                    color={hasApplied ? (isDark ? "#34D399" : "#166534") : progressPercent > 0 ? (isDark ? "#818CF8" : "#4338CA") : colors.textSecondary}
                                 />
-                            </View>
+                            </TouchableOpacity>
                         )}
 
                         <TouchableOpacity

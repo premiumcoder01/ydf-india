@@ -295,7 +295,9 @@ export default function MobilizerScholarshipDetailsScreen() {
     // Simplify application closed logic: rely on API 'expired' flag primarily
     const isApplicationClosed = scholarship?.expired === true;
     // True when the student has NOT yet applied — all module activities are locked
-    const isNotApplied = scholarship?.application_status === 'not_applied' || !scholarship?.has_applied;
+    // Modified: Also check if progress_percent is 0 or undefined to allow existing web progress to unlock modules
+    const isNotApplied = (scholarship?.application_status === 'not_applied' || !scholarship?.has_applied) && 
+                         (scholarship?.progress_percent === 0 || scholarship?.progress_percent === undefined);
 
     if (loading) {
         return (
@@ -1222,13 +1224,16 @@ export default function MobilizerScholarshipDetailsScreen() {
                     <Text style={styles.fullWidthButtonText}>
                         {scholarship.has_applied
                             ? "Application Submitted"
-                            : scholarship.expired
-                                ? "Scholarship Expired"
-                                : scholarship.can_apply === false
-                                    ? "Closed"
-                                    : "Apply Now"}
+                            : scholarship.progress_percent > 0
+                                ? "Continue Application"
+                                : scholarship.expired
+                                    ? "Scholarship Expired"
+                                    : scholarship.can_apply === false
+                                        ? "Closed"
+                                        : "Apply Now"}
                     </Text>
-                    {!scholarship.has_applied && !scholarship.expired && scholarship.can_apply !== false && <Ionicons name="arrow-forward" size={20} color="#FFF" />}
+                    {(!scholarship.has_applied && scholarship.progress_percent === 0) && !scholarship.expired && scholarship.can_apply !== false && <Ionicons name="arrow-forward" size={20} color="#FFF" />}
+                    {(scholarship.progress_percent > 0 && !scholarship.has_applied) && <Ionicons name="arrow-forward" size={20} color="#FFF" />}
                 </TouchableOpacity>
             </View>
 

@@ -151,7 +151,7 @@ export default function CustomTextInput({
           style={[
             styles.input,
             { color: colors.text },
-            !editable && { opacity: 0.6 },
+            !editable && { opacity: 1 }, // Keep full opacity for pre-filled/picker-controlled fields
             inputStyle,
             multiline && { height: 100, textAlignVertical: 'top' }
           ]}

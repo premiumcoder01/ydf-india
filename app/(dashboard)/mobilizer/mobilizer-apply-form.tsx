@@ -54,17 +54,17 @@ const formSchema = z.object({
 }).superRefine((data, ctx) => {
     const HIDDEN_FIELDS_MAJORS = ["10th Grade (Secondary)", "12th Grade (Higher Secondary)"];
     if (!HIDDEN_FIELDS_MAJORS.includes(data.major)) {
-        if (!data.gradDate || data.gradDate.trim().length === 0) {
+        if (!data.gradDate || !/^\d{4}$/.test(data.gradDate.trim())) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
-                message: "Graduation year is required",
+                message: "Please enter a valid 4-digit graduation year",
                 path: ["gradDate"],
             });
         }
-        if (!data.currentYear || data.currentYear.trim().length === 0) {
+        if (!data.currentYear || !/^\d{4}$/.test(data.currentYear.trim())) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
-                message: "Current year is required",
+                message: "Please enter a valid 4-digit current year",
                 path: ["currentYear"],
             });
         }
@@ -120,12 +120,6 @@ export default function MobilizerApplyFormScreen() {
     const [toastVisible, setToastVisible] = useState(false);
     const [toastMessage, setToastMessage] = useState("");
     const [toastType, setToastType] = useState<"success" | "error" | "info">("success");
-
-    const [datePickerState, setDatePickerState] = useState<{
-        visible: boolean;
-        mode: "date" | "time";
-        field: keyof FormValues | null;
-    }>({ visible: false, mode: "date", field: null });
 
     const [isSubmitLoading, setIsSubmitLoading] = useState(false);
 
@@ -233,13 +227,30 @@ export default function MobilizerApplyFormScreen() {
 
                                 setSelectedStudent(studentData);
 
+                                const v = (...args: any[]) => {
+                                    for (const arg of args) {
+                                        if (arg !== null && arg !== undefined) {
+                                            if (typeof arg === 'string') {
+                                                const trimmed = arg.trim();
+                                                const lower = trimmed.toLowerCase();
+                                                if (trimmed !== "" && lower !== "select" && lower !== "choose..." && lower !== "select any one" && lower !== "n/a") {
+                                                    return trimmed;
+                                                }
+                                            } else {
+                                                return arg;
+                                            }
+                                        }
+                                    }
+                                    return "";
+                                };
+
                                 // Pre-fill form
                                 reset({
                                     ...getValues(),
-                                    fullName: studentData.fullname || `${studentData.firstname} ${studentData.lastname}`,
+                                    fullName: v(studentData.fullname, `${studentData.firstname} ${studentData.lastname}`),
                                     email: studentData.email,
                                     phone: (() => {
-                                        let p = studentData.phone1 || studentData.phone || cf.phone_number || "";
+                                        let p = studentData.phone1 || studentData.phone || cf.phone_number || cf.mobile || "";
                                         if (typeof p === 'string') {
                                             p = p.replace(/\D/g, '');
                                             if (p.length > 10 && p.startsWith('91')) p = p.substring(p.length - 10);
@@ -247,12 +258,18 @@ export default function MobilizerApplyFormScreen() {
                                         return p;
                                     })(),
                                     studentId: String(studentData.id),
-                                    institution: studentData.institution || studentData.academic_details?.[0]?.institution || "",
-                                    major: studentData.major || studentData.academic_details?.[0]?.major || "",
-                                    gradDate: studentData.gradDate || studentData.academic_details?.[0]?.graduation_year || "",
-                                    currentYear: studentData.currentYear || studentData.current_year || studentData.academic_details?.[0]?.academic_year || "",
-                                    gpa: studentData.gpa || studentData.academic_details?.[0]?.cgpa || "",
-                                    financial: cf.Family_income || "",
+                                    institution: v(studentData.institution, cf.college_name, cf.institution_name, studentData.academic_details?.[0]?.institution),
+                                    major: v(studentData.major, cf.course, cf.major_field, studentData.academic_details?.[0]?.major),
+                                    gradDate: String(v(studentData.gradDate, cf["12th_passing_year"], cf.graduation_year, studentData.academic_details?.[0]?.graduation_year)).substring(0, 4),
+                                    currentYear: (() => {
+                                        let val = v(studentData.currentYear, cf.year_of_course, cf.current_year, cf.session, studentData.academic_details?.[0]?.academic_year);
+                                        if (typeof val === 'string' && val.length > 4) {
+                                            return val.substring(0, 4);
+                                        }
+                                        return String(val).substring(0, 4);
+                                    })(),
+                                    gpa: String(v(studentData.gpa, cf.percentage_12, cf["10th"], studentData.academic_details?.[0]?.cgpa)),
+                                    financial: v(cf.Family_income, cf.annual_income),
                                 });
                             } else {
                                 Alert.alert("Error", "Failed to load student details");
@@ -289,24 +306,7 @@ export default function MobilizerApplyFormScreen() {
 
     const back = () => setStepIndex((i) => Math.max(0, i - 1));
 
-    const openDatePicker = (field: keyof FormValues, mode: "date" | "time" = "date") => {
-        setDatePickerState({ visible: true, mode, field });
-    };
 
-    const handleDateConfirm = (selectedDate: Date) => {
-        const currentField = datePickerState.field;
-        setDatePickerState({ visible: false, mode: "date", field: null });
-        if (!selectedDate || !currentField) return;
-        if (currentField === "gradDate") {
-            const month = selectedDate.getMonth() + 1;
-            const year = selectedDate.getFullYear();
-            const formatted = `${month.toString().padStart(2, '0')}/${year}`;
-            setValue("gradDate", formatted, { shouldValidate: true });
-        } else if (currentField === "currentYear") {
-            const year = selectedDate.getFullYear().toString();
-            setValue("currentYear", year, { shouldValidate: true });
-        }
-    };
 
 
 
@@ -615,25 +615,11 @@ export default function MobilizerApplyFormScreen() {
                                 )} />
                                 {!isGradeStudent && (
                                     <>
-                                        <Controller control={control} name="gradDate" render={({ field: { onChange, value } }) => (
-                                            <TouchableOpacity onPress={() => {
-                                                const currYear = new Date().getFullYear();
-                                                const years = Array.from({ length: 10 }, (_, i) => String(currYear + i));
-                                                setOptionPickerState({ visible: true, title: "Select Graduation Year", options: years, onSelect: (val) => onChange(val) });
-                                            }}>
-                                                <View pointerEvents="none">
-                                                    <CustomTextInput label="Expected Graduation Year" placeholder="Select Year" value={value || ""} editable={false} error={errors.gradDate?.message} onChangeText={() => { }} required rightIcon="calendar-outline" />
-                                                </View>
-                                            </TouchableOpacity>
+                                        <Controller control={control} name="gradDate" render={({ field: { onChange, value, onBlur } }) => (
+                                            <CustomTextInput label="Expected Graduation Year" placeholder="YYYY" value={value || ""} onChangeText={onChange} onBlur={onBlur} keyboardType="numeric" maxLength={4} error={errors.gradDate?.message} required rightIcon="calendar-outline" />
                                         )} />
-                                        <Controller control={control} name="currentYear" render={({ field: { onChange, value } }) => (
-                                            <TouchableOpacity onPress={() => {
-                                                setOptionPickerState({ visible: true, title: "Current Year of Study", options: ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year", "Internship", "PhD"], onSelect: (val) => onChange(val) });
-                                            }}>
-                                                <View pointerEvents="none">
-                                                    <CustomTextInput label="Current Year of Study" placeholder="Select Year" value={value || ""} editable={false} error={errors.currentYear?.message} onChangeText={() => { }} required rightIcon="school-outline" />
-                                                </View>
-                                            </TouchableOpacity>
+                                        <Controller control={control} name="currentYear" render={({ field: { onChange, value, onBlur } }) => (
+                                            <CustomTextInput label="Current Year of Study" placeholder="YYYY" value={value || ""} onChangeText={onChange} onBlur={onBlur} keyboardType="numeric" maxLength={4} error={errors.currentYear?.message} required rightIcon="calendar-outline" />
                                         )} />
                                     </>
                                 )}
@@ -779,14 +765,7 @@ export default function MobilizerApplyFormScreen() {
             </KeyboardAvoidingView>
 
 
-            {/* Date Picker Modal */}
-            <DateTimePickerModal
-                isVisible={datePickerState.visible}
-                mode={datePickerState.mode}
-                onConfirm={handleDateConfirm}
-                onCancel={() => setDatePickerState({ visible: false, mode: "date", field: null })}
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            />
+
 
             {/* Option Picker Modal */}
             <Modal
