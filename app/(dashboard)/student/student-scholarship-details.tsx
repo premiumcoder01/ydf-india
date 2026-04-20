@@ -297,7 +297,7 @@ export default function ScholarshipDetailsScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: isDark ? "#121212" : "#FFF9EC" }]}>
-        <AppHeader title="Scholarship Details" onBack={() => router.back()} />
+        <AppHeader title="Scholarship Details" onBack={() => router.navigate("/(dashboard)/student-dashboard")} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading scholarship details...</Text>
@@ -309,13 +309,13 @@ export default function ScholarshipDetailsScreen() {
   if (error || !scholarship) {
     return (
       <View style={[styles.container, { backgroundColor: isDark ? "#121212" : "#FFF9EC" }]}>
-        <AppHeader title="Scholarship Details" onBack={() => router.back()} />
+        <AppHeader title="Scholarship Details" onBack={() => router.navigate("/(dashboard)/student-dashboard")} />
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={64} color="#F44336" />
           <Text style={[styles.errorText, { color: colors.text }]}>{error || "Scholarship not found"}</Text>
           <Button
             title="Go Back"
-            onPress={() => router.back()}
+            onPress={() => router.navigate("/(dashboard)/student-dashboard")}
             variant="primary"
             style={styles.errorButton}
           />
@@ -402,7 +402,7 @@ export default function ScholarshipDetailsScreen() {
 
       <AppHeader
         title="Scholarship Details"
-        onBack={() => router.back()}
+        onBack={() => router.navigate("/(dashboard)/student-dashboard")}
         rightElement={
           <TouchableOpacity
             onPress={handleBookmark}

@@ -563,7 +563,7 @@ export default function StudentProfilePersonalScreen() {
         setToastMessage("Personal information updated successfully");
         setToastType("success");
         setShowToast(true);
-        router.back();
+        router.replace("/(dashboard)/student/student-profile");
       } else {
         setToastMessage(response.error || "Failed to update profile");
         setToastType("error");
@@ -688,7 +688,7 @@ export default function StudentProfilePersonalScreen() {
         locations={[0, 0.3, 1]}
       />
 
-      <AppHeader title="Personal Information" onBack={() => router.back()} />
+      <AppHeader title="Personal Information" onBack={() => router.navigate("/(dashboard)/student/student-profile")} />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}

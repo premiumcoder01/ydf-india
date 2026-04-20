@@ -419,7 +419,7 @@ export default function BookmarkedScholarshipsScreen() {
       <View style={styles.fixedHeader}>
         <AppHeader
           title="Saved Scholarships"
-          onBack={() => router.back()}
+          onBack={() => router.navigate("/(dashboard)/student-dashboard")}
         />
         <LinearGradient
           colors={isDark

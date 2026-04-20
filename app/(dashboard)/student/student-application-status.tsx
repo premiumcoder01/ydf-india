@@ -214,7 +214,7 @@ export default function ApplicationStatusScreen() {
             if (isFilteredView) {
               clearFilter();
             } else {
-              router.back();
+              router.navigate("/(dashboard)/student-dashboard");
             }
           }}
         />

@@ -40,7 +40,7 @@ export default function StudentContactSupportScreen() {
                         setShowToast(true);
                         setFormData({ subject: "", message: "" });
                         setTimeout(() => {
-                            router.back();
+                            router.replace("/(dashboard)/student-dashboard");
                         }, 2000);
                     } else {
                         setToastMessage(response.error || "Failed to send message");
@@ -66,7 +66,7 @@ export default function StudentContactSupportScreen() {
                 locations={[0, 0.3, 1]}
             />
 
-            <AppHeader title="Contact Support" onBack={() => router.back()} />
+            <AppHeader title="Contact Support" onBack={() => router.navigate("/(dashboard)/student-dashboard")} />
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === "ios" ? "padding" : "height"}

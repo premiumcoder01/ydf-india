@@ -4,7 +4,7 @@ import { DropdownData, getAcademicDetails, getDropdownDefinitions, getScholarshi
 import { Ionicons } from "@expo/vector-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { MotiView } from "moti";
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Controller, useForm, type Resolver } from "react-hook-form";
@@ -159,6 +159,11 @@ export default function ApplyFormScreen() {
   const [isAcademicFromProfile, setIsAcademicFromProfile] = useState(false);
   const [isFinancialFromProfile, setIsFinancialFromProfile] = useState(false);
   const [showProfileRedirectModal, setShowProfileRedirectModal] = useState(false);
+  const [redirectTarget, setRedirectTarget] = useState<{ path: string; label: string; description: string }>({
+    path: "/(dashboard)/student/student-profile-academic",
+    label: "Complete Academic Info",
+    description: "Please complete your academic information in your profile."
+  });
 
   // Filter options based on search query
   const filteredOptions = useMemo(() => {
@@ -238,51 +243,55 @@ export default function ApplyFormScreen() {
               return p;
             })();
 
-            const prefilledValues = {
+            const personalPrefill = {
               fullName: user.fullname || `${user.firstname} ${user.lastname}` || "",
               email: user.email || "",
               phone: phoneValue,
               studentId: user.username || getField('student_id') || "",
-              institution: user.institution || getField('institution') || getField('college_university_name_1') || "",
-              major: user.major || getField('major') || getField('course_name_1') || "",
-              gradDate: user.graduationdate || getField('graduationdate') || getField('expected_academic_end_date_1') || "",
-              currentYear: user.academicyear || getField('academicyear') || getField('academic_start_year_1') || "",
-              gpa: user.gpa || getField('gpa') || getField('grade_in_cgpa_1') || "",
-              financial: getField('financial_info') || getField('Family_income') || "",
             };
 
-            // Define mandatory fields for profile completeness
-            const mandatoryFields = ['institution', 'major', 'gradDate', 'currentYear', 'financial'];
-            const isIncomplete = mandatoryFields.some(f => {
-              const val = prefilledValues[f as keyof typeof prefilledValues];
-              return !val || val === "Select" || val === "0" || val === "";
-            });
 
-            if (isIncomplete) {
-              setShowProfileRedirectModal(true);
-            }
 
-            // Lock academic fields if all academic data is present
-            const isAcademicFilled = !!prefilledValues.institution && 
-                                    !!prefilledValues.major && 
-                                    prefilledValues.major !== "Select" &&
-                                    !!prefilledValues.gradDate && 
-                                    !!prefilledValues.currentYear;
-            
+            const financialPrefill = {
+              financial: getField('Family_income') || getField('financial_info') || "",
+            };
+
+            const prefilledValues = {
+              ...personalPrefill,
+              ...financialPrefill,
+            };
+
+
             // Lock financial field if present
-            const isFinancialFilled = !!prefilledValues.financial && prefilledValues.financial !== "Select";
+            const isFinancialFilled = !!prefilledValues.financial &&
+              prefilledValues.financial !== "Select" &&
+              prefilledValues.financial !== "0";
 
-            setIsAcademicFromProfile(isAcademicFilled);
             setIsFinancialFromProfile(isFinancialFilled);
 
             reset({
               ...getValues(),
-              ...prefilledValues,
+              ...personalPrefill,
+              ...financialPrefill, // Keep financial prefilled if available
+              // We do NOT prefill academicPrefill automatically here as per user request
             });
           }
         }
 
-        // 3. Draft recovery (after profile so merge is correct)
+        // 3. Academic details fetch on screen render
+        if (!academicFetchedRef.current) {
+          try {
+            const academicRes = await getAcademicDetails(token);
+            if (!cancelled && academicRes.success && Array.isArray(academicRes.data) && academicRes.data.length > 0) {
+              setAcademicDetailsList(academicRes.data);
+              academicFetchedRef.current = true;
+            }
+          } catch (e) {
+            console.error("Failed to fetch academic details in bootstrap", e);
+          }
+        }
+
+        // 4. Draft recovery (after profile so merge is correct)
         if (uid && scholarshipId) {
           const draftKey = `draft_application_${uid}_${scholarshipId}`;
           const savedDraft = await AsyncStorage.getItem(draftKey);
@@ -312,7 +321,7 @@ export default function ApplyFormScreen() {
           }
         }
 
-        // 4. Fetch dropdowns
+        // 5. Fetch dropdowns
         const dropResponse = await getDropdownDefinitions(token);
         if (dropResponse.success && dropResponse.data && !cancelled) {
           setDropdownData(dropResponse.data);
@@ -345,30 +354,31 @@ export default function ApplyFormScreen() {
     }
   }, [userId, scholarshipId, getValues]);
 
-  useEffect(() => {
-    if (currentStepKey !== "academic" || academicFetchedRef.current) return;
-
-    const fetchAcademicDetails = async () => {
-      setLoadingAcademicDetails(true);
-      try {
-        const authDataStr = await AsyncStorage.getItem("authData");
-        if (!authDataStr) return;
-        const { token } = JSON.parse(authDataStr);
-        if (!token) return;
-        const res = await getAcademicDetails(token);
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
-          setAcademicDetailsList(res.data);
-          academicFetchedRef.current = true;
+  // Re-fetch academic details when returning from academic profile page (if no data yet)
+  useFocusEffect(
+    useCallback(() => {
+      if (loading || academicFetchedRef.current) return;
+      const refetch = async () => {
+        setLoadingAcademicDetails(true);
+        try {
+          const authDataStr = await AsyncStorage.getItem("authData");
+          if (!authDataStr) return;
+          const { token } = JSON.parse(authDataStr);
+          if (!token) return;
+          const res = await getAcademicDetails(token);
+          if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+            setAcademicDetailsList(res.data);
+            academicFetchedRef.current = true;
+          }
+        } catch (e) {
+          console.error("Academic re-fetch error", e);
+        } finally {
+          setLoadingAcademicDetails(false);
         }
-      } catch (e) {
-        console.error("Failed to fetch academic details", e);
-      } finally {
-        setLoadingAcademicDetails(false);
-      }
-    };
-
-    fetchAcademicDetails();
-  }, [currentStepKey]);
+      };
+      refetch();
+    }, [loading])
+  );
 
   const next = useCallback(async () => {
     const fields = FIELDS_BY_STEP[currentStepKey];
@@ -377,12 +387,35 @@ export default function ApplyFormScreen() {
       if (!ok) return;
     }
 
-    // Move step immediately (no async inside setStepIndex = no flicker)
     const nextIndex = Math.min(stepIndex + 1, STEPS.length - 1);
+    const nextStepKey = STEPS[nextIndex]?.key;
+
+    // Before academic step: require academic data from academic details list
+    // We prioritize academicDetailsList.length === 0 as the blocker
+    if (nextStepKey === "academic" && academicDetailsList.length === 0) {
+      setRedirectTarget({
+        path: "/(dashboard)/student/student-profile-academic",
+        label: "Complete Academic Info",
+        description: "To ensure a smooth application process, please complete your academic information in your profile before proceeding.",
+      });
+      setShowProfileRedirectModal(true);
+      return;
+    }
+
+    // Before family step: require financial data from profile
+    if (nextStepKey === "family" && !isFinancialFromProfile) {
+      setRedirectTarget({
+        path: "/(dashboard)/student/student-profile-personal",
+        label: "Complete Financial Info",
+        description: "To ensure a smooth application process, please provide your family income details in your profile before proceeding.",
+      });
+      setShowProfileRedirectModal(true);
+      return;
+    }
+
     setStepIndex(nextIndex);
-    // Save draft in background after state update
     saveDraft(nextIndex);
-  }, [currentStepKey, stepIndex, trigger, saveDraft]);
+  }, [currentStepKey, stepIndex, trigger, saveDraft, isAcademicFromProfile, academicDetailsList.length, isFinancialFromProfile]);
 
   const back = useCallback(() => {
     setStepIndex((i) => Math.max(0, i - 1));
@@ -682,7 +715,7 @@ export default function ApplyFormScreen() {
                     <Text style={{ marginLeft: 10, fontSize: 14, color: colors.textSecondary }}>Loading your academic data...</Text>
                   </View>
                 )}
-                {!loadingAcademicDetails && academicDetailsList.length > 0 && !isAcademicFromProfile && (
+                {!loadingAcademicDetails && academicDetailsList.length > 0 && (
                   <TouchableOpacity
                     onPress={() => {
                       setAcademicModalSearch("");
@@ -1300,13 +1333,13 @@ export default function ApplyFormScreen() {
               Profile Incomplete
             </Text>
             <Text style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', lineHeight: 24, marginBottom: 32 }}>
-              To ensure a smooth application process, please complete your academic and financial information in your profile before proceeding.
+              {redirectTarget.description}
             </Text>
 
             <TouchableOpacity
               onPress={() => {
                 setShowProfileRedirectModal(false);
-                router.push("/(dashboard)/student/student-profile-personal");
+                router.push(redirectTarget.path as any);
               }}
               activeOpacity={0.8}
               style={{
@@ -1324,7 +1357,7 @@ export default function ApplyFormScreen() {
                 shadowOffset: { width: 0, height: 4 },
               }}
             >
-              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Complete Profile</Text>
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>{redirectTarget.label}</Text>
               <Ionicons name="arrow-forward" size={18} color="#fff" />
             </TouchableOpacity>
 

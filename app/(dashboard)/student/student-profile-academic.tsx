@@ -419,7 +419,7 @@ export default function StudentProfileAcademicScreen() {
 
       <AppHeader
         title="Academic Details"
-        onBack={() => router.back()}
+        onBack={() => router.navigate("/(dashboard)/student/student-profile")}
       />
 
       {loading ? (

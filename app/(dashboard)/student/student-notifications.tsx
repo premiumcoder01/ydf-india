@@ -395,7 +395,7 @@ export default function NotificationsScreen() {
           colors={isDark ? ["#121212", "#1a1a2e"] : ["#F8F9FF", "#EEF2FF"]}
           style={StyleSheet.absoluteFill}
         />
-        <AppHeader title="Notifications" onBack={() => router.back()} />
+        <AppHeader title="Notifications" onBack={() => router.navigate("/(dashboard)/student-dashboard")} />
         <View style={styles.centeredLoader}>
           <ActivityIndicator size="large" color="#6C63FF" />
           <Text style={[styles.loadingText, { color: isDark ? "#666" : "#AAA" }]}>
@@ -419,7 +419,7 @@ export default function NotificationsScreen() {
       {/* Header */}
       <AppHeader
         title="Notifications"
-        onBack={() => router.back()}
+        onBack={() => router.navigate("/(dashboard)/student-dashboard")}
         rightIcon={
           unreadCount > 0 ? (
             <TouchableOpacity onPress={handleMarkAllRead} style={styles.markAllBtn}>

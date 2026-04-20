@@ -239,7 +239,7 @@ export default function StudentSchedulerBooking() {
     if (loading) {
         return (
             <View style={[styles.container, { backgroundColor: colors.background }]}>
-                <AppHeader title={(name as string) || 'Interview'} onBack={() => router.back()} />
+                <AppHeader title={(name as string) || 'Interview'} onBack={() => router.navigate("/(dashboard)/student-dashboard")} />
                 <View style={styles.center}>
                     <ActivityIndicator size="large" color={colors.primary} />
                     <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
@@ -254,7 +254,7 @@ export default function StudentSchedulerBooking() {
     if (error) {
         return (
             <View style={[styles.container, { backgroundColor: colors.background }]}>
-                <AppHeader title={(name as string) || 'Interview'} onBack={() => router.back()} />
+                <AppHeader title={(name as string) || 'Interview'} onBack={() => router.navigate("/(dashboard)/student-dashboard")} />
                 <View style={styles.center}>
                     <View style={styles.errorIconWrap}>
                         <Ionicons name="cloud-offline-outline" size={44} color="#EF4444" />
@@ -281,7 +281,7 @@ export default function StudentSchedulerBooking() {
     /* ───────────────────────────── MAIN ────────────────────────────── */
     return (
         <View style={[styles.container, { backgroundColor: bg }]}>
-            <AppHeader title={(name as string) || 'Book Interview'} onBack={() => router.back()} />
+            <AppHeader title={(name as string) || 'Book Interview'} onBack={() => router.navigate("/(dashboard)/student-dashboard")} />
 
             <ScrollView
                 contentContainerStyle={styles.scroll}

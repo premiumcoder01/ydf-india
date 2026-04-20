@@ -16,7 +16,7 @@ export default function StudentProfileAboutScreen() {
         locations={[0, 0.3, 1]}
       />
 
-      <AppHeader title="About & Support" onBack={() => router.back()} />
+      <AppHeader title="About & Support" onBack={() => router.navigate("/(dashboard)/student/student-profile")} />
 
       <ScrollView
         style={styles.scrollView}
