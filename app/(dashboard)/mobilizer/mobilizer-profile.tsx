@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
     },
     infoText: { flex: 1 },
     infoLabel: { fontSize: 11, fontWeight: "600", marginBottom: 2, textTransform: "uppercase", letterSpacing: 0.3 },
-    infoValue: { fontSize: 15, fontWeight: "700" },
+    infoValue: { fontSize: 12, fontWeight: "700" },
 
     /* Action item */
     actionItem: { flexDirection: "row", alignItems: "center", paddingVertical: 16, paddingHorizontal: 16 },

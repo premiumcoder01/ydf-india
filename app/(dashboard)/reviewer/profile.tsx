@@ -3,8 +3,8 @@ import { getUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
-import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   Image,
@@ -174,7 +174,7 @@ export default function ReviewerProfileScreen() {
             )}
           </View>
 
-          <Text style={[styles.name, { color: '#fff', fontSize: 24, fontWeight: '800', marginBottom: 4 }]}>{reviewerData.name}</Text>
+          <Text style={[styles.name, { color: '#fff', fontSize: 18, fontWeight: '800', marginBottom: 4 }]}>{reviewerData.name}</Text>
           <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginTop: 2 }}>
             <Text style={[styles.role, { color: '#fff', fontSize: 12, fontWeight: '700', textTransform: 'uppercase' }]}>{reviewerData.role}</Text>
           </View>
@@ -194,7 +194,7 @@ export default function ReviewerProfileScreen() {
               </View>
               <View style={styles.infoContent}>
                 <Text style={[styles.infoLabel, { color: colors.textSecondary, fontSize: 11 }]}>Email</Text>
-                <Text style={[styles.infoValue, { color: colors.text, fontWeight: '700', fontSize: 14 }]}>{reviewerData.email}</Text>
+                <Text style={[styles.infoValue, { color: colors.text, fontWeight: '700', fontSize: 12 }]}>{reviewerData.email}</Text>
               </View>
             </View>
 
@@ -204,7 +204,7 @@ export default function ReviewerProfileScreen() {
               </View>
               <View style={styles.infoContent}>
                 <Text style={[styles.infoLabel, { color: colors.textSecondary, fontSize: 11 }]}>Phone</Text>
-                <Text style={[styles.infoValue, { color: colors.text, fontWeight: '700', fontSize: 14 }]}>{reviewerData.phone}</Text>
+                <Text style={[styles.infoValue, { color: colors.text, fontWeight: '700', fontSize: 12 }]}>{reviewerData.phone}</Text>
               </View>
             </View>
 
@@ -214,7 +214,7 @@ export default function ReviewerProfileScreen() {
               </View>
               <View style={styles.infoContent}>
                 <Text style={[styles.infoLabel, { color: colors.textSecondary, fontSize: 11 }]}>Gender</Text>
-                <Text style={[styles.infoValue, { color: colors.text, fontWeight: '700', fontSize: 14 }]}>{reviewerData.gender}</Text>
+                <Text style={[styles.infoValue, { color: colors.text, fontWeight: '700', fontSize: 12 }]}>{reviewerData.gender}</Text>
               </View>
             </View>
 
@@ -224,7 +224,7 @@ export default function ReviewerProfileScreen() {
               </View>
               <View style={styles.infoContent}>
                 <Text style={[styles.infoLabel, { color: colors.textSecondary, fontSize: 11 }]}>State</Text>
-                <Text style={[styles.infoValue, { color: colors.text, fontWeight: '700', fontSize: 14 }]}>{reviewerData.state}</Text>
+                <Text style={[styles.infoValue, { color: colors.text, fontWeight: '700', fontSize: 12 }]}>{reviewerData.state}</Text>
               </View>
             </View>
           </View>
@@ -239,7 +239,7 @@ export default function ReviewerProfileScreen() {
               <View style={[styles.actionIcon, { backgroundColor: '#3B82F615', width: 36, height: 36, borderRadius: 10 }]}>
                 <Ionicons name="create" size={18} color="#3B82F6" />
               </View>
-              <Text style={[styles.actionText, { color: colors.text, fontWeight: '600', fontSize: 14 }]}>Edit Profile</Text>
+              <Text style={[styles.actionText, { color: colors.text, fontWeight: '600', fontSize: 12 }]}>Edit Profile</Text>
               <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
             </TouchableOpacity>
 
@@ -249,7 +249,7 @@ export default function ReviewerProfileScreen() {
               <View style={[styles.actionIcon, { backgroundColor: '#F59E0B15', width: 36, height: 36, borderRadius: 10 }]}>
                 <Ionicons name="lock-closed" size={18} color="#F59E0B" />
               </View>
-              <Text style={[styles.actionText, { color: colors.text, fontWeight: '600', fontSize: 14 }]}>Change Password</Text>
+              <Text style={[styles.actionText, { color: colors.text, fontWeight: '600', fontSize: 12 }]}>Change Password</Text>
               <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
             </TouchableOpacity>
 
@@ -259,7 +259,7 @@ export default function ReviewerProfileScreen() {
               <View style={[styles.actionIcon, { backgroundColor: '#EF444415', width: 36, height: 36, borderRadius: 10 }]}>
                 <Ionicons name="log-out" size={18} color="#EF4444" />
               </View>
-              <Text style={[styles.actionText, { color: "#EF4444", fontWeight: '700', fontSize: 14 }]}>Logout</Text>
+              <Text style={[styles.actionText, { color: "#EF4444", fontWeight: '700', fontSize: 12 }]}>Logout</Text>
               <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   organization: {
-    fontSize: 14,
+    fontSize: 12,
     color: "#666",
     textAlign: "center",
   },
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#fff",
   },
-  
+
   /* Footer */
   footer: {
     marginTop: 15,

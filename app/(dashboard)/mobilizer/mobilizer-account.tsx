@@ -8,7 +8,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
     ActivityIndicator,
     Image,
@@ -32,71 +32,8 @@ interface ValidationErrors {
 
 
 
-interface SelectionModalProps {
-    visible: boolean;
-    onClose: () => void;
-    title: string;
-    options: string[];
-    selected: string;
-    onSelect: (val: string) => void;
-    insets: any;
-    colors: any;
-    isDark: boolean;
-}
 
-const SelectionModal = ({ visible, onClose, title, options, selected, onSelect, insets, colors, isDark }: SelectionModalProps) => (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-        <View style={styles.modalOverlay}>
-            <TouchableOpacity
-                style={styles.modalBackdrop}
-                onPress={onClose}
-                activeOpacity={1}
-            />
-            <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20, backgroundColor: colors.surface }]}>
-                <View style={styles.imageOptionsHandle}>
-                    <View style={[styles.handleBar, { backgroundColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)" }]} />
-                </View>
-                <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-                    <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
-                    <TouchableOpacity
-                        onPress={onClose}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        style={[styles.modalCloseBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)" }]}
-                    >
-                        <Ionicons name="close" size={18} color={colors.textSecondary} />
-                    </TouchableOpacity>
-                </View>
-                <ScrollView style={{ maxHeight: 350 }} showsVerticalScrollIndicator={false}>
-                    {options.map((opt: string) => (
-                        <TouchableOpacity
-                            key={opt}
-                            style={[
-                                styles.optionRow,
-                                selected === opt && { backgroundColor: isDark ? "rgba(124,58,237,0.15)" : "rgba(124,58,237,0.06)" },
-                                { borderBottomColor: colors.border },
-                            ]}
-                            onPress={() => { onSelect(opt); }}
-                            activeOpacity={0.7}
-                        >
-                            <Text style={[styles.optionText, { color: colors.text }, selected === opt && { color: "#7C3AED", fontWeight: "600" }]}>
-                                {opt}
-                            </Text>
-                            {selected === opt ? (
-                                <View style={styles.checkCircle}>
-                                    <Ionicons name="checkmark" size={14} color="#fff" />
-                                </View>
-                            ) : (
-                                <View style={[styles.emptyCircle, { borderColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)" }]} />
-                            )}
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
-            </View>
-        </View>
-    </Modal>
-);
-
-export default function MobilizerAccountScreen() {
+export default function MobilizerProfilePersonalScreen() {
     const { isDark, colors } = useTheme();
     const [dropdownData, setDropdownData] = useState<DropdownData | null>(null);
 
@@ -180,6 +117,8 @@ export default function MobilizerAccountScreen() {
         application_type: "",
         competitive_exam: "",
         competitive_exam_name: "",
+        village: "",
+        whatsapp_number: "",
     });
 
     const [isSaving, setIsSaving] = useState(false);
@@ -195,19 +134,27 @@ export default function MobilizerAccountScreen() {
     const [toastMessage, setToastMessage] = useState("");
     const [toastType, setToastType] = useState<"success" | "error" | "info">("error");
 
-    const [showDatePicker, setShowDatePicker] = useState(false);
-    const [selectionModal, setSelectionModal] = useState<{
-        visible: boolean;
-        title: string;
-        options: string[];
-        field: keyof typeof personalInfo | null;
-    }>({
-        visible: false,
-        title: "",
-        options: [],
-        field: null,
-    });
+    const [showReligionPicker, setShowReligionPicker] = useState(false);
+    const [showCastePicker, setShowCastePicker] = useState(false);
 
+    const [showGenderPicker, setShowGenderPicker] = useState(false);
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [showIncomePicker, setShowIncomePicker] = useState(false);
+    const [showSchemePicker, setShowSchemePicker] = useState(false);
+    const [showRegisteringAsPicker, setShowRegisteringAsPicker] = useState(false);
+    const [showYearOfCoursePicker, setShowYearOfCoursePicker] = useState(false);
+    const [showBoard12thPicker, setShowBoard12thPicker] = useState(false);
+    const [showStream12thPicker, setShowStream12thPicker] = useState(false);
+    const [showPassingYear12thPicker, setShowPassingYear12thPicker] = useState(false);
+    const [showApplicationYearPicker, setShowApplicationYearPicker] = useState(false);
+    const [showDomicileStatePicker, setShowDomicileStatePicker] = useState(false);
+    const [showSpecialCategoryPicker, setShowSpecialCategoryPicker] = useState(false);
+    const [showDistrictPicker, setShowDistrictPicker] = useState(false);
+    const [showSessionPicker, setShowSessionPicker] = useState(false);
+    const [showPassing10thPicker, setShowPassing10thPicker] = useState(false);
+    const [showApplicationTypePicker, setShowApplicationTypePicker] = useState(false);
+    const [showCompetitiveExamPicker, setShowCompetitiveExamPicker] = useState(false);
+    const [showCompetitiveExamNamePicker, setShowCompetitiveExamNamePicker] = useState(false);
 
 
 
@@ -222,7 +169,6 @@ export default function MobilizerAccountScreen() {
         const nameRegex = /^[A-Za-z\s.-]+$/;
         return nameRegex.test(name.trim());
     };
-
 
 
     const fetchUserProfile = useCallback(async () => {
@@ -292,6 +238,11 @@ export default function MobilizerAccountScreen() {
                             application_type: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'application_type')?.value || prev.application_type,
                             competitive_exam: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'competitive_exam')?.value || prev.competitive_exam,
                             competitive_exam_name: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'competitive_exam_name')?.value || prev.competitive_exam_name,
+                            village: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'village')?.value || prev.village,
+                            whatsapp_number: (() => {
+                                const val = user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'whatsapp_number')?.value || "";
+                                return val.replace(/<[^>]*>/g, '').trim();
+                            })() || prev.whatsapp_number,
 
                             profileImageUrl: user?.profileimageurl || "",
                         }));
@@ -602,8 +553,8 @@ export default function MobilizerAccountScreen() {
             const payload = {
                 ...rest,
                 phone: finalPhone,
+                whatsapp_number: personalInfo.whatsapp_number ? `<p>${personalInfo.whatsapp_number}</p>` : "",
             };
-            console.log(payload)
 
             const response = await updateUserProfile(authData.token, payload);
 
@@ -612,8 +563,7 @@ export default function MobilizerAccountScreen() {
                 setToastMessage("Personal information updated successfully");
                 setToastType("success");
                 setShowToast(true);
-                setTimeout(() => { router.back(); }, 1500);
-
+                router.replace("/(dashboard)/mobilizer/mobilizer-profile");
             } else {
                 setToastMessage(response.error || "Failed to update profile");
                 setToastType("error");
@@ -664,7 +614,11 @@ export default function MobilizerAccountScreen() {
                 <View style={[styles.pickerIconWrap, { backgroundColor: value ? iconColor + "22" : (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)") }]}>
                     <Ionicons name={icon} size={16} color={value ? iconColor : colors.textSecondary} />
                 </View>
-                <Text style={[styles.selectorText, { color: colors.text, flex: 1, marginLeft: 10 }, !value && styles.placeholderText]}>
+                <Text
+                    style={[styles.selectorText, { color: colors.text, flex: 1, marginLeft: 10, marginRight: 24 }, !value && styles.placeholderText]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                >
                     {value || placeholder || "Choose..."}
                 </Text>
                 <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
@@ -673,19 +627,57 @@ export default function MobilizerAccountScreen() {
         </View>
     );
 
-    const lastOpenTime = useRef(0);
-    const openSelectionModal = (title: string, options: string[], field: keyof typeof personalInfo) => {
-        const now = Date.now();
-        if (now - lastOpenTime.current < 500) return;
-        lastOpenTime.current = now;
-
-        setSelectionModal({
-            visible: true,
-            title,
-            options,
-            field,
-        });
-    };
+    const SelectionModal = ({ visible, onClose, title, options, selected, onSelect }: any) => (
+        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+            <View style={styles.modalOverlay}>
+                <TouchableOpacity
+                    style={styles.modalBackdrop}
+                    onPress={onClose}
+                    activeOpacity={1}
+                />
+                <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20, backgroundColor: colors.surface }]}>
+                    <View style={styles.imageOptionsHandle}>
+                        <View style={[styles.handleBar, { backgroundColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)" }]} />
+                    </View>
+                    <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+                        <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
+                        <TouchableOpacity
+                            onPress={onClose}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            style={[styles.modalCloseBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)" }]}
+                        >
+                            <Ionicons name="close" size={18} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                    </View>
+                    <ScrollView style={{ maxHeight: 350 }} showsVerticalScrollIndicator={false}>
+                        {options.map((opt: string) => (
+                            <TouchableOpacity
+                                key={opt}
+                                style={[
+                                    styles.optionRow,
+                                    selected === opt && { backgroundColor: isDark ? "rgba(124,58,237,0.15)" : "rgba(124,58,237,0.06)" },
+                                    { borderBottomColor: colors.border },
+                                ]}
+                                onPress={() => { onSelect(opt); }}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={[styles.optionText, { color: colors.text, flex: 1, marginRight: 12 }, selected === opt && { color: "#7C3AED", fontWeight: "600" }]}>
+                                    {opt}
+                                </Text>
+                                {selected === opt ? (
+                                    <View style={styles.checkCircle}>
+                                        <Ionicons name="checkmark" size={14} color="#fff" />
+                                    </View>
+                                ) : (
+                                    <View style={[styles.emptyCircle, { borderColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)" }]} />
+                                )}
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
+            </View>
+        </Modal>
+    );
 
 
     return (
@@ -696,7 +688,7 @@ export default function MobilizerAccountScreen() {
                 locations={[0, 0.3, 1]}
             />
 
-            <AppHeader title="Personal Information" onBack={() => router.back()} />
+            <AppHeader title="Personal Information" onBack={() => router.navigate("/(dashboard)/mobilizer/mobilizer-profile")} />
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -779,30 +771,28 @@ export default function MobilizerAccountScreen() {
                                 style={styles.input}
                                 autoCapitalize="none"
                                 icon="at-outline"
+                                iconColor="#7C3AED" mainStyle={{ marginBottom: 0 }}
                             />
 
-                            <View style={{ flexDirection: 'row', gap: 10 }}>
-                                <View style={{ flex: 1 }}>
-                                    <CustomTextInput
-                                        label="First Name"
-                                        value={personalInfo.firstName}
-                                        onChangeText={(val) => handlePersonalInfoChange("firstName", val)}
-                                        style={styles.input}
-                                        error={validationErrors.firstName}
-                                        icon="person-outline"
-                                    />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <CustomTextInput
-                                        label="Last Name"
-                                        value={personalInfo.lastName}
-                                        onChangeText={(val) => handlePersonalInfoChange("lastName", val)}
-                                        style={styles.input}
-                                        error={validationErrors.lastName}
-                                        icon="person-outline"
-                                    />
-                                </View>
-                            </View>
+
+                            <CustomTextInput
+                                label="First Name"
+                                value={personalInfo.firstName}
+                                onChangeText={(val) => handlePersonalInfoChange("firstName", val)}
+                                style={styles.input}
+                                error={validationErrors.firstName}
+                                icon="person-outline"
+                                iconColor="#7C3AED" mainStyle={{ marginBottom: 0 }}
+                            />
+                            <CustomTextInput
+                                label="Last Name"
+                                value={personalInfo.lastName}
+                                onChangeText={(val) => handlePersonalInfoChange("lastName", val)}
+                                style={styles.input}
+                                error={validationErrors.lastName}
+                                icon="person-outline"
+                                iconColor="#7C3AED" mainStyle={{ marginBottom: 0 }}
+                            />
 
                             <CustomTextInput
                                 label="Email Address *"
@@ -814,6 +804,7 @@ export default function MobilizerAccountScreen() {
                                 error={validationErrors.email}
                                 editable={false}
                                 icon="mail-outline"
+                                iconColor="#7C3AED" mainStyle={{ marginBottom: 0 }}
                             />
 
                             <View style={styles.inputGroup}>
@@ -877,92 +868,84 @@ export default function MobilizerAccountScreen() {
                             </View>
                         </View>
                         <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: "#059669", borderLeftWidth: 4 }]}>
-                            <PickerRow
-                                label="Application Type"
-                                value={personalInfo.application_type}
-                                placeholder="Select Application Type"
-                                icon="document-text-outline"
-                                iconColor="#059669"
-                                onPress={() => openSelectionModal("Select Application Type", APPLICATION_TYPE_OPTIONS, "application_type")}
-                            />
-                            <PickerRow
-                                label="Domicile State"
-                                value={personalInfo.domicileState}
-                                icon="flag-outline"
-                                iconColor="#059669"
-                                onPress={() => openSelectionModal("Select Domicile State", DOMICILE_STATE_OPTIONS, "domicileState")}
-                            />
+                            <View style={[styles.inputGroup, { marginBottom: 10 }]}>
+                                <Text style={[styles.label, { color: colors.textSecondary }]}>WhatsApp Number</Text>
+                                <View
+                                    style={[
+                                        styles.phoneContainer,
+                                        {
+                                            backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9",
+                                            borderColor: colors.border
+                                        }
+                                    ]}
+                                >
+                                    <View style={{ flexDirection: "row", alignItems: "center", height: 48 }}>
+                                        <View
+                                            style={{
+                                                flexDirection: "row",
+                                                alignItems: "center",
+                                                marginRight: 10,
+                                                paddingRight: 10,
+                                                borderRightWidth: 1,
+                                                borderRightColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(51, 51, 51, 0.1)",
+                                            }}
+                                        >
+                                            <Text style={{ fontSize: 20 }}>🇮🇳</Text>
+                                            <Text style={{ fontSize: 16, fontWeight: "600", color: colors.text, marginLeft: 8 }}>+91</Text>
+                                        </View>
+                                        <TextInput
+                                            style={[styles.phoneTextInput, { flex: 1, color: colors.text }]}
+                                            value={personalInfo.whatsapp_number}
+                                            onChangeText={(text) => {
+                                                const numeric = text.replace(/[^0-9]/g, "");
+                                                if (numeric.length <= 10) {
+                                                    handlePersonalInfoChange("whatsapp_number", numeric);
+                                                }
+                                            }}
+                                            placeholder="e.g. 9876543210"
+                                            placeholderTextColor={isDark ? "rgba(255,255,255,0.4)" : "rgba(51, 51, 51, 0.4)"}
+                                            keyboardType="number-pad"
+                                            maxLength={10}
+                                        />
+                                    </View>
+                                </View>
+                            </View>
+                            {/* <CustomTextInput
+                label="Village / City"
+                value={personalInfo.village}
+                onChangeText={(val) => handlePersonalInfoChange("village", val)}
+                style={styles.input}
+                placeholder="Enter Village Name"
+                icon="location-outline"
+                iconColor="#059669" mainStyle={{ marginBottom: 0 }}
+              /> */}
 
-                            <PickerRow
-                                label="Domicile District"
-                                value={personalInfo.domicileDistrict}
-                                icon="map-outline"
-                                iconColor="#059669"
-                                onPress={() => openSelectionModal("Select Domicile District", DISTRICT_OPTIONS, "domicileDistrict")}
-                            />
-
-                            <PickerRow
-                                label="Annual Family Income"
-                                value={personalInfo.annualIncome}
-                                placeholder="Select Income Range"
-                                icon="cash-outline"
-                                iconColor="#059669"
-                                onPress={() => openSelectionModal("Select Annual Income", ANNUAL_INCOME_OPTIONS, "annualIncome")}
-                                error={validationErrors.annualIncome}
-                            />
-
-                            <PickerRow
-                                label="Special Category"
-                                value={personalInfo.specialCategory}
-                                icon="star-outline"
-                                iconColor="#059669"
-                                onPress={() => openSelectionModal("Select Special Category", SPECIAL_CATEGORY_OPTIONS, "specialCategory")}
-                            />
-
-                            <PickerRow
-                                label="Year of Application"
-                                value={personalInfo.applicationYear}
-                                placeholder="Select Year"
-                                icon="calendar-outline"
-                                iconColor="#059669"
-                                onPress={() => openSelectionModal("Select Application Year", APPLICATION_YEAR_OPTIONS, "applicationYear")}
-                            />
 
                             {/* <PickerRow
-                                label="You are registering as"
-                                value={personalInfo.registeringAs}
-                                placeholder="Select Type"
-                                icon="id-card-outline"
-                                iconColor="#059669"
-                                onPress={() => openSelectionModal("Registering As", REGISTERING_AS_OPTIONS, "registeringAs")}
-                            /> */}
+                label="Domicile State"
+                value={personalInfo.domicileState}
+                icon="flag-outline"
+                iconColor="#059669"
+                onPress={() => setShowDomicileStatePicker(true)}
+              />
 
-                            <PickerRow
-                                label="12th Passing Year"
-                                value={personalInfo.passingYear12th}
-                                placeholder="Select Year"
-                                icon="calendar-outline"
-                                iconColor="#059669"
-                                onPress={() => openSelectionModal("Select 12th Passing Year", PASSING_YEAR_12TH_OPTIONS, "passingYear12th")}
-                            />
+              <PickerRow
+                label="Domicile District"
+                value={personalInfo.domicileDistrict}
+                icon="map-outline"
+                iconColor="#059669"
+                onPress={() => setShowDistrictPicker(true)}
+              /> */}
 
-                            <CustomTextInput
-                                label="12th Percentage"
-                                value={personalInfo.percentage12}
-                                onChangeText={(val) => handlePersonalInfoChange("percentage12", val)}
-                                style={styles.input}
-                                keyboardType="numeric"
-                                placeholder="Enter 12th Percentage"
-                                icon="ribbon-outline"
-                                error={validationErrors.percentage12}
-                            />
+
+
 
                             <PickerRow
                                 label="Gender *"
                                 value={personalInfo.gender}
                                 icon="body-outline"
                                 iconColor="#059669"
-                                onPress={() => openSelectionModal("Select Gender", GENDER_OPTIONS, "gender")}
+                                onPress={() => setShowGenderPicker(true)}
                                 error={validationErrors.gender}
                             />
 
@@ -1004,43 +987,26 @@ export default function MobilizerAccountScreen() {
                                 )
                             )}
 
-                            <PickerRow
-                                label="Religion *"
-                                value={personalInfo.religion}
-                                icon="heart-circle-outline"
-                                iconColor="#059669"
-                                onPress={() => openSelectionModal("Select Religion", RELIGION_OPTIONS, "religion")}
-                                error={validationErrors.religion}
-                            />
+                            {/* <PickerRow
+                label="Religion *"
+                value={personalInfo.religion}
+                icon="heart-circle-outline"
+                iconColor="#059669"
+                onPress={() => setShowReligionPicker(true)}
+                error={validationErrors.religion}
+              />
 
-                            <PickerRow
-                                label="Caste *"
-                                value={personalInfo.caste}
-                                icon="layers-outline"
-                                iconColor="#059669"
-                                onPress={() => openSelectionModal("Select Caste", CASTE_OPTIONS, "caste")}
-                                error={validationErrors.caste}
-                            />
+              <PickerRow
+                label="Caste *"
+                value={personalInfo.caste}
+                icon="layers-outline"
+                iconColor="#059669"
+                onPress={() => setShowCastePicker(true)}
+                error={validationErrors.caste}
+              /> */}
 
 
 
-                            <CustomTextInput
-                                label="Father's Name"
-                                value={personalInfo.fatherName}
-                                onChangeText={(val) => handlePersonalInfoChange("fatherName", val)}
-                                style={styles.input}
-                                placeholder="Enter Father's Name"
-                                icon="man-outline"
-                            />
-
-                            <CustomTextInput
-                                label="Mother's Name"
-                                value={personalInfo.motherName}
-                                onChangeText={(val) => handlePersonalInfoChange("motherName", val)}
-                                style={styles.input}
-                                placeholder="Enter Mother's Name"
-                                icon="woman-outline"
-                            />
 
                             <CustomTextInput
                                 label="Address"
@@ -1049,6 +1015,7 @@ export default function MobilizerAccountScreen() {
                                 style={styles.input}
                                 placeholder="Enter Address"
                                 icon="location-outline"
+                                iconColor="#059669" mainStyle={{ marginBottom: 0 }}
                             />
 
                             <CustomTextInput
@@ -1058,140 +1025,9 @@ export default function MobilizerAccountScreen() {
                                 style={[styles.input, { flex: 1, marginRight: 8 }]}
                                 placeholder="Enter City"
                                 icon="business-outline"
+                                iconColor="#059669" mainStyle={{ marginBottom: 0 }}
                             />
                             {/* Village removed as requested */}
-                        </View>
-                    </View>
-
-                    {/* Section: Academic Details */}
-                    <View style={styles.section}>
-                        <View style={[styles.sectionHeader, { marginBottom: 10 }]}>
-                            <View style={styles.sectionTitleRow}>
-                                <View style={[styles.sectionIconBadge, { backgroundColor: "#D97706" }]}>
-                                    <Ionicons name="school" size={15} color="#fff" />
-                                </View>
-                                <Text style={[styles.sectionTitle, { color: colors.text }]}>Academic Details</Text>
-                            </View>
-                        </View>
-                        <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: "#D97706", borderLeftWidth: 4 }]}>
-                            <CustomTextInput
-                                label="Institute Name"
-                                value={personalInfo.collegeName}
-                                onChangeText={(val) => handlePersonalInfoChange("collegeName", val)}
-                                style={styles.input}
-                                placeholder="Enter Institute Name"
-                                icon="school-outline"
-                            />
-                            <CustomTextInput
-                                label="Institute Location"
-                                value={personalInfo.collegeLocation}
-                                onChangeText={(val) => handlePersonalInfoChange("collegeLocation", val)}
-                                style={styles.input}
-                                placeholder="Enter Institute Location"
-                                icon="map-outline"
-                            />
-                            <CustomTextInput
-                                label="University"
-                                value={personalInfo.university}
-                                onChangeText={(val) => handlePersonalInfoChange("university", val)}
-                                style={styles.input}
-                                placeholder="Enter University"
-                                icon="library-outline"
-                            />
-                            <CustomTextInput
-                                label="Current Course/Class"
-                                value={personalInfo.currentCourse}
-                                onChangeText={(val) => handlePersonalInfoChange("currentCourse", val)}
-                                style={styles.input}
-                                placeholder="Enter Current Course/Class"
-                                icon="book-outline"
-                            />
-
-                            <PickerRow
-                                label="Session"
-                                value={personalInfo.session}
-                                placeholder="Select Session"
-                                icon="calendar-outline"
-                                iconColor="#D97706"
-                                onPress={() => openSelectionModal("Select Session", SESSION_OPTIONS, "session")}
-                            />
-
-                            <PickerRow
-                                label="Year of Course"
-                                value={personalInfo.yearOfCourse}
-                                placeholder="Select Year"
-                                icon="hourglass-outline"
-                                iconColor="#D97706"
-                                onPress={() => openSelectionModal("Select Year of Course", YEAR_OF_COURSE_OPTIONS, "yearOfCourse")}
-                            />
-
-                            <PickerRow
-                                label="10th Passing Year"
-                                value={personalInfo.passing10th}
-                                placeholder="Select Year"
-                                icon="calendar-outline"
-                                iconColor="#D97706"
-                                onPress={() => openSelectionModal("Select 10th Passing Year", PASSING_10TH_OPTIONS, "passing10th")}
-                            />
-
-                            <CustomTextInput
-                                label="10th Class Percentage"
-                                value={personalInfo.percentage10}
-                                onChangeText={(val) => handlePersonalInfoChange("percentage10", val)}
-                                style={styles.input}
-                                keyboardType="numeric"
-                                placeholder="Enter 10th Percentage"
-                                icon="ribbon-outline"
-                                error={validationErrors.percentage10}
-                            />
-
-                            <PickerRow
-                                label="12th Board"
-                                value={personalInfo.board12th}
-                                placeholder="Select Board"
-                                icon="school-outline"
-                                iconColor="#D97706"
-                                onPress={() => openSelectionModal("Select 12th Board", BOARD_12TH_OPTIONS, "board12th")}
-                            />
-
-                            <PickerRow
-                                label="Stream in 12th"
-                                value={personalInfo.stream12th}
-                                placeholder="Select Stream"
-                                icon="git-branch-outline"
-                                iconColor="#D97706"
-                                onPress={() => openSelectionModal("Select Stream in 12th", STREAM_12TH_OPTIONS, "stream12th")}
-                            />
-                            <CustomTextInput
-                                label="12th Marks"
-                                value={personalInfo.marks12}
-                                onChangeText={(val) => handlePersonalInfoChange("marks12", val)}
-                                style={styles.input}
-                                keyboardType="numeric"
-                                placeholder="Enter 12th Marks"
-                                icon="clipboard-outline"
-                                error={validationErrors.marks12}
-                            />
-
-                            <PickerRow
-                                label="Preparing For Competitive Exam"
-                                value={personalInfo.competitive_exam}
-                                placeholder="Select Preparing For Competitive Exam"
-                                icon="help-circle-outline"
-                                iconColor="#D97706"
-                                onPress={() => openSelectionModal("Preparing For Competitive Exam", COMPETITIVE_EXAM_OPTIONS, "competitive_exam")}
-                            />
-
-                            {personalInfo.competitive_exam === "Yes" && (
-                                <PickerRow
-                                    label="Competitive Exam Name"
-                                    value={personalInfo.competitive_exam_name}
-                                    placeholder="Select Competitive Exam"
-                                    icon="bookmark-outline"
-                                    iconColor="#D97706"
-                                    onPress={() => openSelectionModal("Select Competitive Exam Name", COMPETITIVE_EXAM_NAME_OPTIONS, "competitive_exam_name")}
-                                />
-                            )}
                         </View>
                     </View>
 
@@ -1219,20 +1055,230 @@ export default function MobilizerAccountScreen() {
             />
 
             <SelectionModal
-                visible={selectionModal.visible}
-                onClose={() => setSelectionModal(prev => ({ ...prev, visible: false }))}
-                title={selectionModal.title}
-                options={selectionModal.options}
-                selected={selectionModal.field ? personalInfo[selectionModal.field] : ""}
+                visible={showReligionPicker}
+                onClose={() => setShowReligionPicker(false)}
+                title="Select Religion"
+                options={RELIGION_OPTIONS}
+                selected={personalInfo.religion}
                 onSelect={(val: string) => {
-                    if (selectionModal.field) {
-                        handlePersonalInfoChange(selectionModal.field, val);
-                    }
-                    setSelectionModal(prev => ({ ...prev, visible: false }));
+                    handlePersonalInfoChange("religion", val);
+                    setShowReligionPicker(false);
                 }}
-                insets={insets}
-                colors={colors}
-                isDark={isDark}
+            />
+
+            <SelectionModal
+                visible={showSessionPicker}
+                onClose={() => setShowSessionPicker(false)}
+                title="Select Session"
+                options={SESSION_OPTIONS}
+                selected={personalInfo.session}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("session", val);
+                    setShowSessionPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showPassing10thPicker}
+                onClose={() => setShowPassing10thPicker(false)}
+                title="Select 10th Passing Year"
+                options={PASSING_10TH_OPTIONS}
+                selected={personalInfo.passing10th}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("passing10th", val);
+                    setShowPassing10thPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showIncomePicker}
+                onClose={() => setShowIncomePicker(false)}
+                title="Select Annual Income"
+                options={ANNUAL_INCOME_OPTIONS}
+                selected={personalInfo.annualIncome}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("annualIncome", val);
+                    setShowIncomePicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showSchemePicker}
+                onClose={() => setShowSchemePicker(false)}
+                title="Select Scheme"
+                options={SCHEME_OPTIONS}
+                selected={personalInfo.schemeName}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("schemeName", val);
+                    setShowSchemePicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showRegisteringAsPicker}
+                onClose={() => setShowRegisteringAsPicker(false)}
+                title="Registering As"
+                options={REGISTERING_AS_OPTIONS}
+                selected={personalInfo.registeringAs}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("registeringAs", val);
+                    setShowRegisteringAsPicker(false);
+                }}
+            />
+            <SelectionModal
+                visible={showCastePicker}
+                onClose={() => setShowCastePicker(false)}
+                title="Select Caste"
+                options={CASTE_OPTIONS}
+                selected={personalInfo.caste}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("caste", val);
+                    setShowCastePicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showGenderPicker}
+                onClose={() => setShowGenderPicker(false)}
+                title="Select Gender"
+                options={GENDER_OPTIONS}
+                selected={personalInfo.gender}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("gender", val);
+                    setShowGenderPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showDomicileStatePicker}
+                onClose={() => setShowDomicileStatePicker(false)}
+                title="Select Domicile State"
+                options={DOMICILE_STATE_OPTIONS}
+                selected={personalInfo.domicileState}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("domicileState", val);
+                    setShowDomicileStatePicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showSpecialCategoryPicker}
+                onClose={() => setShowSpecialCategoryPicker(false)}
+                title="Select Special Category"
+                options={SPECIAL_CATEGORY_OPTIONS}
+                selected={personalInfo.specialCategory}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("specialCategory", val);
+                    setShowSpecialCategoryPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showDistrictPicker}
+                onClose={() => setShowDistrictPicker(false)}
+                title="Select Domicile District"
+                options={DISTRICT_OPTIONS}
+                selected={personalInfo.domicileDistrict}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("domicileDistrict", val);
+                    setShowDistrictPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showYearOfCoursePicker}
+                onClose={() => setShowYearOfCoursePicker(false)}
+                title="Select Year of Course"
+                options={YEAR_OF_COURSE_OPTIONS}
+                selected={personalInfo.yearOfCourse}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("yearOfCourse", val);
+                    setShowYearOfCoursePicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showBoard12thPicker}
+                onClose={() => setShowBoard12thPicker(false)}
+                title="Select 12th Board"
+                options={BOARD_12TH_OPTIONS}
+                selected={personalInfo.board12th}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("board12th", val);
+                    setShowBoard12thPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showStream12thPicker}
+                onClose={() => setShowStream12thPicker(false)}
+                title="Select Stream in 12th"
+                options={STREAM_12TH_OPTIONS}
+                selected={personalInfo.stream12th}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("stream12th", val);
+                    setShowStream12thPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showPassingYear12thPicker}
+                onClose={() => setShowPassingYear12thPicker(false)}
+                title="Select 12th Passing Year"
+                options={PASSING_YEAR_12TH_OPTIONS}
+                selected={personalInfo.passingYear12th}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("passingYear12th", val);
+                    setShowPassingYear12thPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showApplicationYearPicker}
+                onClose={() => setShowApplicationYearPicker(false)}
+                title="Select Application Year"
+                options={APPLICATION_YEAR_OPTIONS}
+                selected={personalInfo.applicationYear}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("applicationYear", val);
+                    setShowApplicationYearPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showApplicationTypePicker}
+                onClose={() => setShowApplicationTypePicker(false)}
+                title="Select Application Type"
+                options={APPLICATION_TYPE_OPTIONS}
+                selected={personalInfo.application_type}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("application_type", val);
+                    setShowApplicationTypePicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showCompetitiveExamPicker}
+                onClose={() => setShowCompetitiveExamPicker(false)}
+                title="Preparing For Competitive Exam"
+                options={COMPETITIVE_EXAM_OPTIONS}
+                selected={personalInfo.competitive_exam}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("competitive_exam", val);
+                    setShowCompetitiveExamPicker(false);
+                }}
+            />
+
+            <SelectionModal
+                visible={showCompetitiveExamNamePicker}
+                onClose={() => setShowCompetitiveExamNamePicker(false)}
+                title="Select Competitive Exam Name"
+                options={COMPETITIVE_EXAM_NAME_OPTIONS}
+                selected={personalInfo.competitive_exam_name}
+                onSelect={(val: string) => {
+                    handlePersonalInfoChange("competitive_exam_name", val);
+                    setShowCompetitiveExamNamePicker(false);
+                }}
             />
 
             {/* Image Options Modal */}

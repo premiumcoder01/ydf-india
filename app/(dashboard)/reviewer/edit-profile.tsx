@@ -33,7 +33,7 @@ interface ValidationErrors {
 
 
 
-export default function ReviewerEditProfileScreen() {
+export default function ReviewerProfilePersonalScreen() {
   const { isDark, colors } = useTheme();
   const [dropdownData, setDropdownData] = useState<DropdownData | null>(null);
 
@@ -117,6 +117,8 @@ export default function ReviewerEditProfileScreen() {
     application_type: "",
     competitive_exam: "",
     competitive_exam_name: "",
+    village: "",
+    whatsapp_number: "",
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -167,7 +169,6 @@ export default function ReviewerEditProfileScreen() {
     const nameRegex = /^[A-Za-z\s.-]+$/;
     return nameRegex.test(name.trim());
   };
-
 
 
   const fetchUserProfile = useCallback(async () => {
@@ -237,6 +238,11 @@ export default function ReviewerEditProfileScreen() {
               application_type: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'application_type')?.value || prev.application_type,
               competitive_exam: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'competitive_exam')?.value || prev.competitive_exam,
               competitive_exam_name: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'competitive_exam_name')?.value || prev.competitive_exam_name,
+              village: user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'village')?.value || prev.village,
+              whatsapp_number: (() => {
+                const val = user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'whatsapp_number')?.value || "";
+                return val.replace(/<[^>]*>/g, '').trim();
+              })() || prev.whatsapp_number,
 
               profileImageUrl: user?.profileimageurl || "",
             }));
@@ -547,6 +553,7 @@ export default function ReviewerEditProfileScreen() {
       const payload = {
         ...rest,
         phone: finalPhone,
+        whatsapp_number: personalInfo.whatsapp_number ? `<p>${personalInfo.whatsapp_number}</p>` : "",
       };
 
       const response = await updateUserProfile(authData.token, payload);
@@ -556,8 +563,7 @@ export default function ReviewerEditProfileScreen() {
         setToastMessage("Personal information updated successfully");
         setToastType("success");
         setShowToast(true);
-        setTimeout(() => { router.back(); }, 1500);
-
+        router.replace("/(dashboard)/reviewer/profile");
       } else {
         setToastMessage(response.error || "Failed to update profile");
         setToastType("error");
@@ -608,7 +614,11 @@ export default function ReviewerEditProfileScreen() {
         <View style={[styles.pickerIconWrap, { backgroundColor: value ? iconColor + "22" : (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)") }]}>
           <Ionicons name={icon} size={16} color={value ? iconColor : colors.textSecondary} />
         </View>
-        <Text style={[styles.selectorText, { color: colors.text, flex: 1, marginLeft: 10 }, !value && styles.placeholderText]}>
+        <Text
+          style={[styles.selectorText, { color: colors.text, flex: 1, marginLeft: 10, marginRight: 24 }, !value && styles.placeholderText]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
           {value || placeholder || "Choose..."}
         </Text>
         <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
@@ -651,7 +661,7 @@ export default function ReviewerEditProfileScreen() {
                 onPress={() => { onSelect(opt); }}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.optionText, { color: colors.text }, selected === opt && { color: "#7C3AED", fontWeight: "600" }]}>
+                <Text style={[styles.optionText, { color: colors.text, flex: 1, marginRight: 12 }, selected === opt && { color: "#7C3AED", fontWeight: "600" }]}>
                   {opt}
                 </Text>
                 {selected === opt ? (
@@ -678,7 +688,7 @@ export default function ReviewerEditProfileScreen() {
         locations={[0, 0.3, 1]}
       />
 
-      <AppHeader title="Personal Information" onBack={() => router.back()} />
+      <AppHeader title="Personal Information" onBack={() => router.navigate("/(dashboard)/reviewer/profile")} />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -761,30 +771,28 @@ export default function ReviewerEditProfileScreen() {
                 style={styles.input}
                 autoCapitalize="none"
                 icon="at-outline"
+                iconColor="#7C3AED" mainStyle={{ marginBottom: 0 }}
               />
 
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={{ flex: 1 }}>
-                  <CustomTextInput
-                    label="First Name"
-                    value={personalInfo.firstName}
-                    onChangeText={(val) => handlePersonalInfoChange("firstName", val)}
-                    style={styles.input}
-                    error={validationErrors.firstName}
-                    icon="person-outline"
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <CustomTextInput
-                    label="Last Name"
-                    value={personalInfo.lastName}
-                    onChangeText={(val) => handlePersonalInfoChange("lastName", val)}
-                    style={styles.input}
-                    error={validationErrors.lastName}
-                    icon="person-outline"
-                  />
-                </View>
-              </View>
+
+              <CustomTextInput
+                label="First Name"
+                value={personalInfo.firstName}
+                onChangeText={(val) => handlePersonalInfoChange("firstName", val)}
+                style={styles.input}
+                error={validationErrors.firstName}
+                icon="person-outline"
+                iconColor="#7C3AED" mainStyle={{ marginBottom: 0 }}
+              />
+              <CustomTextInput
+                label="Last Name"
+                value={personalInfo.lastName}
+                onChangeText={(val) => handlePersonalInfoChange("lastName", val)}
+                style={styles.input}
+                error={validationErrors.lastName}
+                icon="person-outline"
+                iconColor="#7C3AED" mainStyle={{ marginBottom: 0 }}
+              />
 
               <CustomTextInput
                 label="Email Address *"
@@ -796,6 +804,7 @@ export default function ReviewerEditProfileScreen() {
                 error={validationErrors.email}
                 editable={false}
                 icon="mail-outline"
+                iconColor="#7C3AED" mainStyle={{ marginBottom: 0 }}
               />
 
               <View style={styles.inputGroup}>
@@ -859,15 +868,60 @@ export default function ReviewerEditProfileScreen() {
               </View>
             </View>
             <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: "#059669", borderLeftWidth: 4 }]}>
-              <PickerRow
-                label="Application Type"
-                value={personalInfo.application_type}
-                placeholder="Select Application Type"
-                icon="document-text-outline"
-                iconColor="#059669"
-                onPress={() => setShowApplicationTypePicker(true)}
-              />
-              <PickerRow
+              <View style={[styles.inputGroup, { marginBottom: 10 }]}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>WhatsApp Number</Text>
+                <View
+                  style={[
+                    styles.phoneContainer,
+                    {
+                      backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f9f9f9",
+                      borderColor: colors.border
+                    }
+                  ]}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", height: 48 }}>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        marginRight: 10,
+                        paddingRight: 10,
+                        borderRightWidth: 1,
+                        borderRightColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(51, 51, 51, 0.1)",
+                      }}
+                    >
+                      <Text style={{ fontSize: 20 }}>🇮🇳</Text>
+                      <Text style={{ fontSize: 16, fontWeight: "600", color: colors.text, marginLeft: 8 }}>+91</Text>
+                    </View>
+                    <TextInput
+                      style={[styles.phoneTextInput, { flex: 1, color: colors.text }]}
+                      value={personalInfo.whatsapp_number}
+                      onChangeText={(text) => {
+                        const numeric = text.replace(/[^0-9]/g, "");
+                        if (numeric.length <= 10) {
+                          handlePersonalInfoChange("whatsapp_number", numeric);
+                        }
+                      }}
+                      placeholder="e.g. 9876543210"
+                      placeholderTextColor={isDark ? "rgba(255,255,255,0.4)" : "rgba(51, 51, 51, 0.4)"}
+                      keyboardType="number-pad"
+                      maxLength={10}
+                    />
+                  </View>
+                </View>
+              </View>
+              {/* <CustomTextInput
+                label="Village / City"
+                value={personalInfo.village}
+                onChangeText={(val) => handlePersonalInfoChange("village", val)}
+                style={styles.input}
+                placeholder="Enter Village Name"
+                icon="location-outline"
+                iconColor="#059669" mainStyle={{ marginBottom: 0 }}
+              /> */}
+
+
+              {/* <PickerRow
                 label="Domicile State"
                 value={personalInfo.domicileState}
                 icon="flag-outline"
@@ -881,63 +935,10 @@ export default function ReviewerEditProfileScreen() {
                 icon="map-outline"
                 iconColor="#059669"
                 onPress={() => setShowDistrictPicker(true)}
-              />
-
-              <PickerRow
-                label="Annual Family Income"
-                value={personalInfo.annualIncome}
-                placeholder="Select Income Range"
-                icon="cash-outline"
-                iconColor="#059669"
-                onPress={() => setShowIncomePicker(true)}
-                error={validationErrors.annualIncome}
-              />
-
-              <PickerRow
-                label="Special Category"
-                value={personalInfo.specialCategory}
-                icon="star-outline"
-                iconColor="#059669"
-                onPress={() => setShowSpecialCategoryPicker(true)}
-              />
-
-              <PickerRow
-                label="Year of Application"
-                value={personalInfo.applicationYear}
-                placeholder="Select Year"
-                icon="calendar-outline"
-                iconColor="#059669"
-                onPress={() => setShowApplicationYearPicker(true)}
-              />
-
-              {/* <PickerRow
-                label="You are registering as"
-                value={personalInfo.registeringAs}
-                placeholder="Select Type"
-                icon="id-card-outline"
-                iconColor="#059669"
-                onPress={() => setShowRegisteringAsPicker(true)}
               /> */}
 
-              <PickerRow
-                label="12th Passing Year"
-                value={personalInfo.passingYear12th}
-                placeholder="Select Year"
-                icon="calendar-outline"
-                iconColor="#059669"
-                onPress={() => setShowPassingYear12thPicker(true)}
-              />
 
-              <CustomTextInput
-                label="12th Percentage"
-                value={personalInfo.percentage12}
-                onChangeText={(val) => handlePersonalInfoChange("percentage12", val)}
-                style={styles.input}
-                keyboardType="numeric"
-                placeholder="Enter 12th Percentage"
-                icon="ribbon-outline"
-                error={validationErrors.percentage12}
-              />
+
 
               <PickerRow
                 label="Gender *"
@@ -986,7 +987,7 @@ export default function ReviewerEditProfileScreen() {
                 )
               )}
 
-              <PickerRow
+              {/* <PickerRow
                 label="Religion *"
                 value={personalInfo.religion}
                 icon="heart-circle-outline"
@@ -1002,27 +1003,10 @@ export default function ReviewerEditProfileScreen() {
                 iconColor="#059669"
                 onPress={() => setShowCastePicker(true)}
                 error={validationErrors.caste}
-              />
+              /> */}
 
 
 
-              <CustomTextInput
-                label="Father's Name"
-                value={personalInfo.fatherName}
-                onChangeText={(val) => handlePersonalInfoChange("fatherName", val)}
-                style={styles.input}
-                placeholder="Enter Father's Name"
-                icon="man-outline"
-              />
-
-              <CustomTextInput
-                label="Mother's Name"
-                value={personalInfo.motherName}
-                onChangeText={(val) => handlePersonalInfoChange("motherName", val)}
-                style={styles.input}
-                placeholder="Enter Mother's Name"
-                icon="woman-outline"
-              />
 
               <CustomTextInput
                 label="Address"
@@ -1031,6 +1015,7 @@ export default function ReviewerEditProfileScreen() {
                 style={styles.input}
                 placeholder="Enter Address"
                 icon="location-outline"
+                iconColor="#059669" mainStyle={{ marginBottom: 0 }}
               />
 
               <CustomTextInput
@@ -1040,140 +1025,9 @@ export default function ReviewerEditProfileScreen() {
                 style={[styles.input, { flex: 1, marginRight: 8 }]}
                 placeholder="Enter City"
                 icon="business-outline"
+                iconColor="#059669" mainStyle={{ marginBottom: 0 }}
               />
               {/* Village removed as requested */}
-            </View>
-          </View>
-
-          {/* Section: Academic Details */}
-          <View style={styles.section}>
-            <View style={[styles.sectionHeader, { marginBottom: 10 }]}>
-              <View style={styles.sectionTitleRow}>
-                <View style={[styles.sectionIconBadge, { backgroundColor: "#D97706" }]}>
-                  <Ionicons name="school" size={15} color="#fff" />
-                </View>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Academic Details</Text>
-              </View>
-            </View>
-            <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: "#D97706", borderLeftWidth: 4 }]}>
-              <CustomTextInput
-                label="Institute Name"
-                value={personalInfo.collegeName}
-                onChangeText={(val) => handlePersonalInfoChange("collegeName", val)}
-                style={styles.input}
-                placeholder="Enter Institute Name"
-                icon="school-outline"
-              />
-              <CustomTextInput
-                label="Institute Location"
-                value={personalInfo.collegeLocation}
-                onChangeText={(val) => handlePersonalInfoChange("collegeLocation", val)}
-                style={styles.input}
-                placeholder="Enter Institute Location"
-                icon="map-outline"
-              />
-              <CustomTextInput
-                label="University"
-                value={personalInfo.university}
-                onChangeText={(val) => handlePersonalInfoChange("university", val)}
-                style={styles.input}
-                placeholder="Enter University"
-                icon="library-outline"
-              />
-              <CustomTextInput
-                label="Current Course/Class"
-                value={personalInfo.currentCourse}
-                onChangeText={(val) => handlePersonalInfoChange("currentCourse", val)}
-                style={styles.input}
-                placeholder="Enter Current Course/Class"
-                icon="book-outline"
-              />
-
-              <PickerRow
-                label="Session"
-                value={personalInfo.session}
-                placeholder="Select Session"
-                icon="calendar-outline"
-                iconColor="#D97706"
-                onPress={() => setShowSessionPicker(true)}
-              />
-
-              <PickerRow
-                label="Year of Course"
-                value={personalInfo.yearOfCourse}
-                placeholder="Select Year"
-                icon="hourglass-outline"
-                iconColor="#D97706"
-                onPress={() => setShowYearOfCoursePicker(true)}
-              />
-
-              <PickerRow
-                label="10th Passing Year"
-                value={personalInfo.passing10th}
-                placeholder="Select Year"
-                icon="calendar-outline"
-                iconColor="#D97706"
-                onPress={() => setShowPassing10thPicker(true)}
-              />
-
-              <CustomTextInput
-                label="10th Class Percentage"
-                value={personalInfo.percentage10}
-                onChangeText={(val) => handlePersonalInfoChange("percentage10", val)}
-                style={styles.input}
-                keyboardType="numeric"
-                placeholder="Enter 10th Percentage"
-                icon="ribbon-outline"
-                error={validationErrors.percentage10}
-              />
-
-              <PickerRow
-                label="12th Board"
-                value={personalInfo.board12th}
-                placeholder="Select Board"
-                icon="school-outline"
-                iconColor="#D97706"
-                onPress={() => setShowBoard12thPicker(true)}
-              />
-
-              <PickerRow
-                label="Stream in 12th"
-                value={personalInfo.stream12th}
-                placeholder="Select Stream"
-                icon="git-branch-outline"
-                iconColor="#D97706"
-                onPress={() => setShowStream12thPicker(true)}
-              />
-              <CustomTextInput
-                label="12th Marks"
-                value={personalInfo.marks12}
-                onChangeText={(val) => handlePersonalInfoChange("marks12", val)}
-                style={styles.input}
-                keyboardType="numeric"
-                placeholder="Enter 12th Marks"
-                icon="clipboard-outline"
-                error={validationErrors.marks12}
-              />
-
-              <PickerRow
-                label="Preparing For Competitive Exam"
-                value={personalInfo.competitive_exam}
-                placeholder="Select Preparing For Competitive Exam"
-                icon="help-circle-outline"
-                iconColor="#D97706"
-                onPress={() => setShowCompetitiveExamPicker(true)}
-              />
-
-              {personalInfo.competitive_exam === "Yes" && (
-                <PickerRow
-                  label="Competitive Exam Name"
-                  value={personalInfo.competitive_exam_name}
-                  placeholder="Select Competitive Exam"
-                  icon="bookmark-outline"
-                  iconColor="#D97706"
-                  onPress={() => setShowCompetitiveExamNamePicker(true)}
-                />
-              )}
             </View>
           </View>
 

@@ -46,7 +46,7 @@ export default function AppHeader({ title, onBack, rightIcon, rightElement }: Pr
       </View>
       {!rightElement && !rightIcon ? (
         <TouchableOpacity style={{ padding: 8, marginLeft: -8 }}>
-          <Ionicons name="arrow-back" size={24} color={isDark ? colors.background : "#fff"} />
+          {/* <Ionicons name="arrow-back" size={24} color={isDark ? "tranparent" : "#fff"} /> */}
         </TouchableOpacity>
       ) : (
         <View style={{ padding: 8, marginRight: -8, borderWidth: 0, borderColor: "#fff" }}>{rightElement || rightIcon}</View>
