@@ -4664,7 +4664,9 @@ export const getDonorKycStatus = async (token: string): Promise<ApiResponse> => 
           message: data.message || "Failed to get KYC status"
         };
       }
-      return { success: true, data: data, message: "KYC status retrieved successfully" };
+      // Return the data field directly if it exists, as per user's provided response format
+      const resultData = data.success && data.data ? data.data : data;
+      return { success: true, data: resultData, message: "KYC status retrieved successfully" };
     } else {
       return { success: false, error: "Failed to retrieve KYC status" };
     }

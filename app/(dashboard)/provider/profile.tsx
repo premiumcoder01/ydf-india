@@ -35,6 +35,7 @@ export default function ProviderProfileScreen() {
     roles: [] as string[],
     customFields: {} as Record<string, string>,
     annualIncome: "",
+    kycRemarks: "",
   });
 
   const [expanded, setExpanded] = useState<string | null>('contact');
@@ -99,10 +100,10 @@ export default function ProviderProfileScreen() {
           try {
             const kycResponse = await getDonorKycStatus(token);
             if (kycResponse.success && kycResponse.data) {
-              const kycData = kycResponse.data.data ?? kycResponse.data;
-              // If status is explicit, use it. Otherwise, if data.success is true, it means submitted -> "Pending"
-              let status = kycData.status || (kycData.success ? "Pending" : "New");
-              setProviderData(prev => ({ ...prev, kycStatus: status }));
+              const kycData = kycResponse.data;
+              // Use the status directly from the data, defaulting to 'new' if not present
+              let status = kycData.status || "new";
+              setProviderData(prev => ({ ...prev, kycStatus: status, kycRemarks: kycData.remarks || "" }));
             }
           } catch (_) { }
         } catch (error) {
@@ -141,6 +142,7 @@ export default function ProviderProfileScreen() {
     pending: { gradColors: ['#F59E0B', '#D97706'], icon: 'time-outline', bg: '#FEF3C7', border: '#F59E0B', label: 'Under Review' },
     "under review": { gradColors: ['#3B82F6', '#2563EB'], icon: 'time-outline', bg: '#DBEAFE', border: '#3B82F6', label: 'Under Review' },
     rejected: { gradColors: ['#EF4444', '#B91C1C'], icon: 'alert-circle', bg: '#FEE2E2', border: '#EF4444', label: 'Rejected' },
+    not_submitted: { gradColors: ['#6B7280', '#4B5563'], icon: 'ellipse-outline', bg: '#F3F4F6', border: '#9CA3AF', label: 'Not Submitted' },
     new: { gradColors: ['#6B7280', '#4B5563'], icon: 'ellipse-outline', bg: '#F3F4F6', border: '#9CA3AF', label: 'Not Submitted' },
   };
   const kyc = kycConfig[providerData.kycStatus.toLowerCase()] ?? kycConfig['new'];
@@ -306,9 +308,30 @@ export default function ProviderProfileScreen() {
 
 
             {/* KYC badge */}
-            <View style={[styles.kycBadge, { backgroundColor: kyc.bg, borderColor: kyc.border }]}>
-              <Ionicons name={kyc.icon} size={14} color={kyc.border} />
-              <Text style={[styles.kycText, { color: kyc.border }]}>KYC: {kyc.label}</Text>
+            <View style={{ alignItems: 'center' }}>
+              <View style={[styles.kycBadge, { backgroundColor: kyc.bg, borderColor: kyc.border }]}>
+                <Ionicons name={kyc.icon} size={14} color={kyc.border} />
+                <Text style={[styles.kycText, { color: kyc.border }]}>KYC: {kyc.label}</Text>
+              </View>
+              {(providerData.kycRemarks || (providerData.kycStatus.toLowerCase() === 'approved' || providerData.kycStatus.toLowerCase() === 'verified')) ? (
+                <Text style={{
+                  fontSize: 11,
+                  color: 'rgba(255,255,255,0.95)',
+                  marginTop: 8,
+                  fontWeight: '700',
+                  backgroundColor: (providerData.kycStatus.toLowerCase() === 'approved' || providerData.kycStatus.toLowerCase() === 'verified')
+                    ? 'rgba(16, 185, 129, 0.45)'
+                    : 'rgba(239, 68, 68, 0.45)',
+                  paddingHorizontal: 12,
+                  paddingVertical: 5,
+                  borderRadius: 8,
+                  overflow: 'hidden'
+                }}>
+                  {(providerData.kycStatus.toLowerCase() === 'approved' || providerData.kycStatus.toLowerCase() === 'verified')
+                    ? `${providerData.kycRemarks || "You are a donor now!"}`
+                    : `Reason: ${providerData.kycRemarks}`}
+                </Text>
+              ) : null}
             </View>
           </LinearGradient>
         </Animated.View>
@@ -377,7 +400,7 @@ export default function ProviderProfileScreen() {
             <ActionItem icon="information-circle-outline" label="About" onPress={() => router.push("/(dashboard)/provider/about")} color="#0EA5E9" />
             <ActionItem icon="log-out-outline" label="Logout" onPress={handleLogout} color="#EF4444" isLast />
           </View>
-          
+
           {/* Copyright Notice */}
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.45)" }]}>

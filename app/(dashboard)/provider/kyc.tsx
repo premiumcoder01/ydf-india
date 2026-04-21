@@ -26,11 +26,12 @@ type DocumentType = {
   size?: number;
 };
 
-type KycStatusType = "New" | "pending" | "approved" | "rejected";
+type KycStatusType = "New" | "not_submitted" | "pending" | "approved" | "rejected";
 
 export default function ProviderKycScreen() {
   const { isDark, colors } = useTheme();
   const [kycStatus, setKycStatus] = useState<KycStatusType>("New");
+  const [kycRemarks, setKycRemarks] = useState("");
 
   // Form fields
   const [pan, setPan] = useState("");
@@ -67,10 +68,9 @@ export default function ProviderKycScreen() {
 
       const response = await getDonorKycStatus(token);
       if (response.success && response.data) {
-        // Handle nested data structure: { success: true, data: { status: "...", ... } }
-        const kycData = response.data.data ? response.data.data : response.data;
+        const kycData = response.data;
 
-        const rawStatus = kycData.status || (kycData.success ? "pending" : "New");
+        const rawStatus = kycData.status || "New";
         const status = rawStatus.toLowerCase() as KycStatusType;
         setKycStatus(status);
 
@@ -78,9 +78,11 @@ export default function ProviderKycScreen() {
         if (kycData.org_email) setOrgEmail(kycData.org_email);
         if (kycData.org_phone) setOrgPhone(kycData.org_phone);
         if (kycData.pan) setPan(kycData.pan);
-        if (kycData.bank_account) setBankAccount(kycData.bank_account); // Note: might be masked if server masks it
+        if (kycData.bank_account) setBankAccount(kycData.bank_account);
+        else if (kycData.bank_account_masked) setBankAccount(kycData.bank_account_masked);
         if (kycData.ifsc) setIfsc(kycData.ifsc);
         if (kycData.signatory_name) setSignatoryName(kycData.signatory_name);
+        if (kycData.remarks) setKycRemarks(kycData.remarks);
 
         // Parse documents if available
         if (kycData.documents) {
@@ -550,13 +552,15 @@ export default function ProviderKycScreen() {
         return { color: isDark ? "#60A5FA" : "#3B82F6", bg: isDark ? "rgba(59, 130, 246, 0.15)" : "#DBEAFE", icon: "time-outline" as const };
       case "rejected":
         return { color: "#EF4444", bg: isDark ? "rgba(239, 68, 68, 0.15)" : "#FEE2E2", icon: "close-circle" as const };
+      case "not_submitted":
+        return { color: "#6B7280", bg: isDark ? "rgba(107, 114, 128, 0.15)" : "#F3F4F6", icon: "ellipse-outline" as const };
       default: // "New"
         return { color: "#F59E0B", bg: isDark ? "rgba(245, 158, 11, 0.15)" : "#FEF3C7", icon: "alert-circle" as const };
     }
   };
 
   const statusConfig = getStatusConfig(kycStatus);
-  const isEditable = kycStatus === "New" || kycStatus === "rejected"; // Only editable if new or rejected
+  const isEditable = kycStatus === "New" || kycStatus === "not_submitted" || kycStatus === "rejected"; // Only editable if new, not_submitted or rejected
 
   if (loading) {
     return (
@@ -581,15 +585,22 @@ export default function ProviderKycScreen() {
               KYC Status: {kycStatus === 'pending' ? 'Under Review' : kycStatus}
             </Text>
             <Text style={[styles.statusText, { color: statusConfig.color }]}>
-              {kycStatus === "New" && "Complete the form below to verify your account"}
-              {kycStatus === "pending" && "Your documents are being reviewed"}
-              {kycStatus === "approved" && "Your account is fully verified"}
-              {kycStatus === "rejected" && "Please resubmit with correct documents"}
+              {kycRemarks ? (
+                <Text style={{ fontWeight: '700' }}>Reason: {kycRemarks}</Text>
+              ) : (
+                <>
+                  {(kycStatus === "New" || kycStatus === "not_submitted") && "Complete the form below to verify your account"}
+                  {kycStatus === "pending" && "Your documents are being reviewed"}
+                  {kycStatus === "approved" && "Your account is fully verified"}
+                  {kycStatus === "rejected" && "Please resubmit with correct documents"}
+                </>
+              )}
             </Text>
           </View>
         </View>
 
-        {isEditable ? (
+        {/* Details Sections - Show if we have data or if it's editable */}
+        {(kycStatus !== "New" || isEditable) && (
           <>
             {/* Organization Details */}
             <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -599,6 +610,7 @@ export default function ProviderKycScreen() {
                 label="PAN Number *"
                 placeholder="ABCDE1234F"
                 value={pan}
+                editable={isEditable}
                 onChangeText={(text) => {
                   setPan(text);
                   validateField('pan', text);
@@ -613,6 +625,7 @@ export default function ProviderKycScreen() {
                 label="Organization Name *"
                 placeholder="Enter registered organization name"
                 value={orgName}
+                editable={isEditable}
                 onChangeText={(text) => {
                   setOrgName(text);
                   validateField('orgName', text);
@@ -625,6 +638,7 @@ export default function ProviderKycScreen() {
                 label="Organization Email *"
                 placeholder="email@example.com"
                 value={orgEmail}
+                editable={isEditable}
                 onChangeText={(text) => {
                   setOrgEmail(text);
                   validateField('orgEmail', text);
@@ -638,6 +652,7 @@ export default function ProviderKycScreen() {
                 label="Organization Phone *"
                 placeholder="10 digit mobile number"
                 value={orgPhone}
+                editable={isEditable}
                 onChangeText={(text) => {
                   const numeric = text.replace(/\D/g, '');
                   setOrgPhone(numeric);
@@ -657,6 +672,7 @@ export default function ProviderKycScreen() {
                 label="Signatory Name *"
                 placeholder="Authorized signatory name"
                 value={signatoryName}
+                editable={isEditable}
                 onChangeText={(text) => {
                   setSignatoryName(text);
                   validateField('signatoryName', text);
@@ -670,6 +686,7 @@ export default function ProviderKycScreen() {
                 label="Bank Account Number *"
                 placeholder="Enter account number"
                 value={bankAccount}
+                editable={isEditable}
                 onChangeText={(text) => {
                   const numeric = text.replace(/\D/g, '');
                   setBankAccount(numeric);
@@ -684,6 +701,7 @@ export default function ProviderKycScreen() {
                 label="IFSC Code *"
                 placeholder="e.g., SBIN0001234"
                 value={ifsc}
+                editable={isEditable}
                 onChangeText={(text) => {
                   setIfsc(text.toUpperCase());
                   validateField('ifsc', text);
@@ -697,8 +715,8 @@ export default function ProviderKycScreen() {
 
             {/* Documents */}
             <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Upload Documents *</Text>
-              {submitAttempted && (!docPanCard || !docBankStatement || !docRegistrationCert) && (
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Documents</Text>
+              {submitAttempted && isEditable && (!docPanCard || !docBankStatement || !docRegistrationCert) && (
                 <Text style={styles.errorText}>Please attach PAN card, bank statement, and registration certificate.</Text>
               )}
 
@@ -706,50 +724,41 @@ export default function ProviderKycScreen() {
                 "PAN Card",
                 docPanCard,
                 "PAN",
-                "Upload your organization's PAN card"
+                isEditable ? "Upload your organization's PAN card" : "Organization PAN Card"
               )}
 
               {renderDocumentCard(
                 "Bank Statement",
                 docBankStatement,
                 "BANK",
-                "Upload recent bank statement (last 3 months)"
+                isEditable ? "Upload recent bank statement (last 3 months)" : "Bank Statement"
               )}
 
               {renderDocumentCard(
                 "Registration Certificate",
                 docRegistrationCert,
                 "REG",
-                "Upload company/organization registration certificate"
+                isEditable ? "Upload company/organization registration certificate" : "Registration Certificate"
               )}
             </View>
 
-            {/* Submit Button */}
+            {/* Action Buttons */}
             <View style={styles.footer}>
-              <Button
-                title={submitting ? "Submitting..." : "Submit for Verification"}
-                onPress={handleSubmit}
-                loading={submitting}
-                disabled={submitting || !isFormValid}
-              />
+              {isEditable ? (
+                <Button
+                  title={submitting ? "Submitting..." : "Submit for Verification"}
+                  onPress={handleSubmit}
+                  loading={submitting}
+                  disabled={submitting || !isFormValid}
+                />
+              ) : (
+                <Button
+                  title="Go back to Dashboard"
+                  onPress={() => router.replace("/scholarship-provider")}
+                />
+              )}
             </View>
           </>
-        ) : (
-          <View style={[styles.section, { backgroundColor: colors.surface, marginTop: 20, alignItems: 'center', paddingVertical: 40 }]}>
-            <Ionicons name="hourglass-outline" size={64} color={statusConfig.color} style={{ marginBottom: 20 }} />
-            <Text style={[styles.statusTitle, { fontSize: 18, textAlign: 'center', color: colors.text }]}>
-              Application Submitted
-            </Text>
-            <Text style={{ textAlign: 'center', color: colors.textSecondary, marginTop: 10, maxWidth: '80%', lineHeight: 22 }}>
-              Your KYC application is currently {kycStatus === 'pending' ? 'under review' : kycStatus.toLowerCase()}. You will be able to manage your account once verification is complete.
-            </Text>
-            <TouchableOpacity
-              style={{ marginTop: 30, backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10 }}
-              onPress={() => router.replace("/scholarship-provider")}
-            >
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Go to Dashboard</Text>
-            </TouchableOpacity>
-          </View>
         )}
 
         {/* Help Text */}
