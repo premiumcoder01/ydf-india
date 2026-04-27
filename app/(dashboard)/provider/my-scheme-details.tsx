@@ -6,12 +6,15 @@ import { MotiView } from "moti";
 import React, { useMemo, useState } from "react";
 import {
     Image,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
+    useWindowDimensions,
     View,
 } from "react-native";
+import RenderHTML from 'react-native-render-html';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ReviewerHeader from "../../../components/ReviewerHeader";
 
@@ -62,6 +65,7 @@ export default function MySchemeDetailsScreen() {
     const { isDark, colors } = useTheme();
     const params = useLocalSearchParams();
     const insets = useSafeAreaInsets();
+    const { width: windowWidth } = useWindowDimensions();
     const [imgError, setImgError] = useState(false);
 
     const stripHtml = (html: string) =>
@@ -112,7 +116,8 @@ export default function MySchemeDetailsScreen() {
             statusKey,
             statusLabel: statusKey.charAt(0).toUpperCase() + statusKey.slice(1),
             cfg,
-            description: stripHtml((raw.description as string) || "No description available."),
+            description: (raw.description as string) || "No description available.",
+            strippedDescription: stripHtml((raw.description as string) || "No description available."),
             fundAmount: fundAmountRaw,
             startDate: (raw.start_date as string) || "",
             endDate: (raw.end_date as string) || "",
@@ -123,7 +128,7 @@ export default function MySchemeDetailsScreen() {
             fillPct,
             isVisible,
             createdAt: (raw.created_at as string) || "",
-            image: (raw.image as string) || "",
+            image: null, // Temporarily disabled to prevent crashes from invalid URLs (@@PLUGINFILE@@)
         };
     }, [raw]);
 
@@ -527,9 +532,55 @@ export default function MySchemeDetailsScreen() {
                             iconColor={isDark ? "#9EA5FF" : "#5A60F0"}
                             textColor={textPrimary}
                         />
-                        <Text style={[styles.descText, { color: textSecondary }]}>
-                            {s.description || "No description provided for this scheme."}
-                        </Text>
+                        <View style={{ marginTop: 10 }}>
+                            <RenderHTML
+                                contentWidth={windowWidth - 64}
+                                source={{ html: s.description }}
+                                tagsStyles={{
+                                    body: {
+                                        color: textSecondary,
+                                        fontSize: 14,
+                                        lineHeight: 24,
+                                        fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
+                                    },
+                                    img: {
+                                        display: "none"
+                                    },
+                                    p: {
+                                        color: textSecondary,
+                                        marginTop: 0,
+                                        marginBottom: 16,
+                                        lineHeight: 24,
+                                    },
+                                    strong: {
+                                        color: textPrimary,
+                                        fontWeight: '800',
+                                    },
+                                    b: {
+                                        color: textPrimary,
+                                        fontWeight: '800',
+                                    },
+                                    ul: {
+                                        marginVertical: 10,
+                                        paddingLeft: 10,
+                                    },
+                                    li: {
+                                        color: textSecondary,
+                                        marginBottom: 8,
+                                        lineHeight: 22,
+                                    },
+                                    h1: { color: textPrimary, fontSize: 22, marginBottom: 12, fontWeight: '900' },
+                                    h2: { color: textPrimary, fontSize: 20, marginBottom: 10, fontWeight: '800' },
+                                    h3: { color: textPrimary, fontSize: 18, marginBottom: 8, fontWeight: '800' },
+                                    span: {
+                                        lineHeight: 24,
+                                    }
+                                }}
+                                baseStyle={{
+                                    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
+                                }}
+                            />
+                        </View>
                     </View>
                 </MotiView>
 

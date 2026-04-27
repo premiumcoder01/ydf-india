@@ -365,6 +365,23 @@ export default function ProviderEditProfileScreen() {
                 errors.marks12 = "Marks must be between 0 and 2000";
             }
         }
+
+        // Address and City Validation
+        if (!personalInfo.address.trim()) {
+            errors.address = "Address is required";
+        } else if (personalInfo.address.trim().length < 5) {
+            errors.address = "Address must be at least 5 characters";
+        } else if (/^\d+$/.test(personalInfo.address.trim())) {
+            errors.address = "Address cannot be only numbers";
+        }
+
+        if (!personalInfo.city.trim()) {
+            errors.city = "City is required";
+        } else if (personalInfo.city.trim().length < 3) {
+            errors.city = "City name must be at least 3 characters";
+        } else if (/\d/.test(personalInfo.city)) {
+            errors.city = "City name cannot contain numbers";
+        }
         setValidationErrors(errors);
         return Object.keys(errors).length === 0;
     };
@@ -1001,6 +1018,7 @@ export default function ProviderEditProfileScreen() {
                                 onChangeText={(val) => handlePersonalInfoChange("address", val)}
                                 style={styles.input}
                                 placeholder="Enter Address"
+                                error={validationErrors.address}
                                 icon="location-outline"
                                 iconColor="#059669" mainStyle={{ marginBottom: 0 }}
                             />
@@ -1011,6 +1029,7 @@ export default function ProviderEditProfileScreen() {
                                 onChangeText={(val) => handlePersonalInfoChange("city", val)}
                                 style={[styles.input, { flex: 1, marginRight: 8 }]}
                                 placeholder="Enter City"
+                                error={validationErrors.city}
                                 icon="business-outline"
                                 iconColor="#059669" mainStyle={{ marginBottom: 0 }}
                             />

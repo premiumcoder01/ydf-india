@@ -306,7 +306,7 @@ export default function MyCreatedSchemesScreen() {
     }, [scholarships, query, activeTab]);
 
     const formatCurrency = (amount: number | null) => {
-        if (!amount) return "N/A";
+        if (!amount) return "--";
         if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(2)}Cr`;
         if (amount >= 100000) return `₹${(amount / 100000).toFixed(2)}L`;
         if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)}K`;
@@ -316,7 +316,7 @@ export default function MyCreatedSchemesScreen() {
     const formatDate = (dateString: string | null) => {
         if (!dateString) return "Ongoing";
         const d = new Date(dateString);
-        if (isNaN(d.getTime())) return "N/A";
+        if (isNaN(d.getTime())) return "--";
         return `${d.getDate()} ${d.toLocaleString("en-US", { month: "short" })} '${d.getFullYear().toString().slice(-2)}`;
     };
 

@@ -222,11 +222,28 @@ export default function ProviderApplicantDetailsScreen() {
 
         {/* ══════════ ASSESSMENT ══════════ */}
         {(app.assessment_q1 || app.assessment_q2 || app.activities || app.financial_info) ? (
-          <Card title="Assessment" icon="clipboard-outline" isDark={isDark} colors={colors}>
+          <Card title="Assessment & Background" icon="clipboard-outline" isDark={isDark} colors={colors}>
             {app.assessment_q1 ? <Block label="Question 1" value={app.assessment_q1} isDark={isDark} colors={colors} /> : null}
             {app.assessment_q2 ? <Block label="Question 2" value={app.assessment_q2} isDark={isDark} colors={colors} /> : null}
             {app.activities ? <Block label="Activities" value={app.activities} isDark={isDark} colors={colors} /> : null}
-            {app.financial_info ? <Block label="Financial Info" value={app.financial_info} isDark={isDark} colors={colors} /> : null}
+
+            {app.financial_info ? (
+              <View style={{ marginTop: 10 }}>
+                <View style={[S.divider, { backgroundColor: isDark ? "#1E293B" : "#F1F5F9", marginBottom: 12 }]} />
+                <Text style={[S.blockLabel, { color: isDark ? "#475569" : "#94A3B8", marginBottom: 8 }]}>Financial Information</Text>
+                {typeof app.financial_info === 'object' ? (
+                  <>
+                    <Row label="Account Holder" value={app.financial_info.accountholder} isDark={isDark} colors={colors} />
+                    <Row label="Bank Name" value={app.financial_info.bank_name} isDark={isDark} colors={colors} />
+                    <Row label="Account Number" value={app.financial_info.account_number} isDark={isDark} colors={colors} />
+                    <Row label="IFSC Code" value={app.financial_info.ifsc} isDark={isDark} colors={colors} />
+                    <Row label="Account Type" value={app.financial_info.account_type} isDark={isDark} colors={colors} last />
+                  </>
+                ) : (
+                  <Block label="Financial Info" value={app.financial_info} isDark={isDark} colors={colors} />
+                )}
+              </View>
+            ) : null}
           </Card>
         ) : null}
 
@@ -389,10 +406,14 @@ function Row({ label, value, isDark, colors, last, accent }: any) {
 }
 
 function Block({ label, value, isDark, colors }: any) {
+  if (!value) return null;
+  // Safety check to prevent "Objects are not valid as a React child"
+  const displayValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+
   return (
     <View style={[S.block, { backgroundColor: isDark ? "#0F172A" : "#F8FAFC", borderColor: isDark ? "#334155" : "#E2E8F0" }]}>
       <Text style={[S.blockLabel, { color: isDark ? "#475569" : "#94A3B8" }]}>{label}</Text>
-      <Text style={[S.blockValue, { color: isDark ? "#E2E8F0" : "#000" }]}>{value}</Text>
+      <Text style={[S.blockValue, { color: isDark ? "#E2E8F0" : "#000" }]}>{displayValue}</Text>
     </View>
   );
 }

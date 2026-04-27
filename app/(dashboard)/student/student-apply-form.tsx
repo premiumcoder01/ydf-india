@@ -26,6 +26,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { z } from "zod";
+import DateTimePickerModal from "react-native-modal-datetime-picker";
+
 
 
 
@@ -76,34 +78,10 @@ const FIELDS_BY_STEP: Record<string, (keyof FormValues)[]> = {
 
 export default function ApplyFormScreen() {
   const { isDark, colors } = useTheme();
-
-  const [dropdownData, setDropdownData] = useState<DropdownData | null>(null);
-
-  const getOptionsByShortname = useCallback((shortname: string) => {
-    if (!dropdownData) return [];
-    const courseField = dropdownData.course_fields?.find((f: any) => f.shortname === shortname || f.shortname.trim() === shortname.trim());
-    if (courseField) return courseField.options;
-
-    const userField = dropdownData.user_fields?.find((f: any) => f.shortname === shortname || f.shortname.trim() === shortname.trim());
-    if (userField) return userField.options;
-
-    return [];
-  }, [dropdownData]);
-
   const insets = useSafeAreaInsets();
-
-  const [stepIndex, setStepIndex] = useState(0);
+  const { scholarshipId } = useLocalSearchParams();
   const scrollRef = useRef<ScrollView | null>(null);
   const stepperScrollRef = useRef<ScrollView | null>(null);
-  const { scholarshipId } = useLocalSearchParams();
-  const [loading, setLoading] = useState(true);
-  const [scholarship, setScholarship] = useState<any>(null);
-  const [toast, setToast] = useState<{ visible: boolean; message: string; type: "success" | "error" | "info" }>({
-    visible: false,
-    message: "",
-    type: "info",
-  });
-  const [userId, setUserId] = useState<string | number | null>(null);
 
   const {
     control,
@@ -137,6 +115,17 @@ export default function ApplyFormScreen() {
     reValidateMode: "onSubmit",
   });
 
+  const [dropdownData, setDropdownData] = useState<DropdownData | null>(null);
+  const [stepIndex, setStepIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [scholarship, setScholarship] = useState<any>(null);
+  const [userId, setUserId] = useState<string | number | null>(null);
+  const [toast, setToast] = useState<{ visible: boolean; message: string; type: "success" | "error" | "info" }>({
+    visible: false,
+    message: "",
+    type: "info",
+  });
+
 
   // No picker state needed for now since verification step is removed
 
@@ -154,6 +143,17 @@ export default function ApplyFormScreen() {
   const [loadingAcademicDetails, setLoadingAcademicDetails] = useState(false);
   const [academicDataModalVisible, setAcademicDataModalVisible] = useState(false);
   const [academicModalSearch, setAcademicModalSearch] = useState("");
+
+  const [datePickerState, setDatePickerState] = useState<{
+    visible: boolean;
+    field: "gradDate" | "currentYear" | null;
+    currentDate: Date;
+  }>({
+    visible: false,
+    field: null,
+    currentDate: new Date(),
+  });
+
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isAcademicFromProfile, setIsAcademicFromProfile] = useState(false);
@@ -185,7 +185,25 @@ export default function ApplyFormScreen() {
     );
   }, [academicDetailsList, academicModalSearch]);
 
+  const getOptionsByShortname = useCallback((shortname: string) => {
+    if (!dropdownData) return [];
+    const courseField = dropdownData.course_fields?.find((f: any) => f.shortname === shortname || f.shortname.trim() === shortname.trim());
+    if (courseField) return courseField.options;
 
+    const userField = dropdownData.user_fields?.find((f: any) => f.shortname === shortname || f.shortname.trim() === shortname.trim());
+    if (userField) return userField.options;
+
+    return [];
+  }, [dropdownData]);
+
+  const fillAcademicFromItem = useCallback((item: AcademicDetailItem) => {
+    setValue("institution", item.institution || "");
+    setValue("major", item.major || "");
+    setValue("gradDate", String(item.graduation_year || ""));
+    setValue("currentYear", item.academic_year ? String(item.academic_year) : "");
+    setValue("gpa", item.percentage != null ? String(item.percentage) : (item.cgpa ? String(item.cgpa) : ""));
+    clearErrors(["institution", "major", "gradDate", "currentYear", "gpa"]);
+  }, [setValue, clearErrors]);
 
   // ─── Single unified auth effect: fetch scholarship + profile + draft ───────
   useEffect(() => {
@@ -232,7 +250,7 @@ export default function ApplyFormScreen() {
           const user = response.data.user;
           if (user) {
             const getField = (shortname: string) =>
-              user.customfields?.find((f: any) => f.shortname === shortname)?.value || "";
+              user.customfields?.find((f: any) => f.shortname.toLowerCase().trim() === shortname.toLowerCase().trim())?.value || "";
 
             const phoneValue = (() => {
               let p = user.phone1 || user.phone || getField('phone') || "";
@@ -253,7 +271,7 @@ export default function ApplyFormScreen() {
 
 
             const financialPrefill = {
-              financial: getField('Family_income') || getField('financial_info') || "",
+              financial: getField('Family_income') || user.annual_income || "",
             };
 
             const prefilledValues = {
@@ -262,7 +280,7 @@ export default function ApplyFormScreen() {
             };
 
 
-            // Lock financial field if present
+            // Detect if financial info exists in profile to allow proceeding to step 3
             const isFinancialFilled = !!prefilledValues.financial &&
               prefilledValues.financial !== "Select" &&
               prefilledValues.financial !== "0";
@@ -285,6 +303,13 @@ export default function ApplyFormScreen() {
             if (!cancelled && academicRes.success && Array.isArray(academicRes.data) && academicRes.data.length > 0) {
               setAcademicDetailsList(academicRes.data);
               academicFetchedRef.current = true;
+
+              // Auto-fill from first academic record if form is empty
+              const firstItem = academicRes.data[0];
+              const currentValues = getValues();
+              if (!currentValues.institution && !currentValues.major) {
+                fillAcademicFromItem(firstItem);
+              }
             }
           } catch (e) {
             console.error("Failed to fetch academic details in bootstrap", e);
@@ -369,6 +394,13 @@ export default function ApplyFormScreen() {
           if (res.success && Array.isArray(res.data) && res.data.length > 0) {
             setAcademicDetailsList(res.data);
             academicFetchedRef.current = true;
+
+            // Auto-fill if form is empty (e.g. returning from profile after adding first record)
+            const firstItem = res.data[0];
+            const currentValues = getValues();
+            if (!currentValues.institution && !currentValues.major) {
+              fillAcademicFromItem(firstItem);
+            }
           }
         } catch (e) {
           console.error("Academic re-fetch error", e);
@@ -773,12 +805,7 @@ export default function ApplyFormScreen() {
                         renderItem={({ item }) => (
                           <TouchableOpacity
                             onPress={() => {
-                              setValue("institution", item.institution || "");
-                              setValue("major", item.major || "");
-                              setValue("gradDate", String(item.graduation_year || ""));
-                              setValue("currentYear", item.academic_year ? String(item.academic_year) : "");
-                              setValue("gpa", item.percentage != null ? String(item.percentage) : (item.cgpa ? String(item.cgpa) : ""));
-                              clearErrors(["institution", "major", "gradDate", "currentYear", "gpa"]);
+                              fillAcademicFromItem(item);
                               setAcademicDataModalVisible(false);
                               setAcademicModalSearch("");
                               setToast({ visible: true, message: "Academic details filled from your data", type: "success" });
@@ -872,7 +899,7 @@ export default function ApplyFormScreen() {
                         label="Major / Field of Study"
                         placeholder="Select your major"
                         value={value}
-                        editable={false}
+                        // editable={false}
                         onChangeText={() => { }}
                         error={errors.major?.message}
                         required
@@ -886,19 +913,20 @@ export default function ApplyFormScreen() {
                   <TouchableOpacity
                     disabled={isAcademicFromProfile}
                     onPress={() => {
-                      const currentYear = new Date().getFullYear();
-                      const years = Array.from({ length: 10 }, (_, i) => String(currentYear + i));
-                      setOptionPickerState({
+                      let initialDate = new Date();
+                      if (value && !isNaN(new Date(value).getTime())) {
+                        initialDate = new Date(value);
+                      }
+                      setDatePickerState({
                         visible: true,
-                        title: "Select Graduation Year",
-                        options: years,
-                        onSelect: (val) => onChange(val)
+                        field: "gradDate",
+                        currentDate: initialDate,
                       });
                     }}>
                     <View pointerEvents="none">
                       <CustomTextInput
                         label="Expected Graduation Year"
-                        placeholder="Select Year"
+                        placeholder="Select Date"
                         value={value}
                         editable={false}
                         error={errors.gradDate?.message}
@@ -910,21 +938,25 @@ export default function ApplyFormScreen() {
                     </View>
                   </TouchableOpacity>
                 )} />
+
                 <Controller control={control} name="currentYear" render={({ field: { onChange, value } }) => (
                   <TouchableOpacity
                     disabled={isAcademicFromProfile}
                     onPress={() => {
-                      setOptionPickerState({
+                      let initialDate = new Date();
+                      if (value && !isNaN(new Date(value).getTime())) {
+                        initialDate = new Date(value);
+                      }
+                      setDatePickerState({
                         visible: true,
-                        title: "Current Year of Study",
-                        options: ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year", "Internship", "PhD"],
-                        onSelect: (val) => onChange(val)
+                        field: "currentYear",
+                        currentDate: initialDate,
                       });
                     }}>
                     <View pointerEvents="none">
                       <CustomTextInput
                         label="Current Year of Study"
-                        placeholder="Select Year"
+                        placeholder="Select Date"
                         value={value}
                         editable={false}
                         error={errors.currentYear?.message}
@@ -936,6 +968,7 @@ export default function ApplyFormScreen() {
                     </View>
                   </TouchableOpacity>
                 )} />
+
                 <Controller control={control} name="gpa" render={({ field: { onChange, value, onBlur } }) => (
                   <View style={{ marginBottom: 16 }}>
                     <CustomTextInput
@@ -979,8 +1012,8 @@ export default function ApplyFormScreen() {
                         editable={false}
                         onChangeText={() => { }}
                         error={errors.financial?.message}
-                        inputStyle={{ color: colors.text, opacity: isFinancialFromProfile ? 0.6 : 1 }}
-                        rightIcon={isFinancialFromProfile ? undefined : "chevron-down"}
+                        inputStyle={{ color: colors.text, opacity: 1 }}
+                        rightIcon="chevron-down"
                       />
                     </View>
                   </TouchableOpacity>
@@ -1192,7 +1225,23 @@ export default function ApplyFormScreen() {
           </View>
         </View>
       </KeyboardAvoidingView >
-      {/* DateTimePickerModal removed */}
+      <DateTimePickerModal
+        isVisible={datePickerState.visible}
+        mode="date"
+        date={datePickerState.currentDate}
+        onConfirm={(date) => {
+          const formatted = date.toISOString().split('T')[0];
+          if (datePickerState.field) {
+            setValue(datePickerState.field, formatted);
+            clearErrors(datePickerState.field);
+          }
+          setDatePickerState(prev => ({ ...prev, visible: false }));
+        }}
+        onCancel={() => {
+          setDatePickerState(prev => ({ ...prev, visible: false }));
+        }}
+        themeVariant={isDark ? "dark" : "light"}
+      />
 
       <Modal
         visible={optionPickerState.visible}
