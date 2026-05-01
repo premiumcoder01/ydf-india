@@ -5502,6 +5502,90 @@ export const addMobilizerStudent = async (
 };
 
 /**
+ * Update Mobilizer Student API call
+ * Update an existing student managed by the mobilizer.
+ */
+export const updateMobilizerStudent = async (
+  token: string,
+  studentData: any // Changed to any to accept indexed customfields format
+): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+
+    // Prepare parameters for x-www-form-urlencoded body
+    const params: string[] = [];
+    params.push(`wsfunction=local_mobileapi_mobilizer_update_student`);
+    params.push(`moodlewsrestformat=json`);
+    params.push(`wstoken=${token}`);
+
+    // Add all fields from studentData
+    Object.keys(studentData).forEach(key => {
+      const value = studentData[key];
+      if (key === 'customfields' && Array.isArray(value)) {
+        value.forEach((field: any, index: number) => {
+          params.push(`customfields[${index}][shortname]=${encodeURIComponent(field.shortname)}`);
+          params.push(`customfields[${index}][value]=${encodeURIComponent(field.value)}`);
+        });
+      } else if (value !== undefined && value !== null && value !== '') {
+        params.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
+      }
+    });
+
+    const bodyContent = params.join('&');
+
+    console.log("Update Mobilizer Student Body:", bodyContent);
+
+    const response = await fetch(baseUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: bodyContent
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
+
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      return {
+        success: false,
+        error: responseText || "Invalid response from server",
+        message: "Server returned an invalid response",
+      };
+    }
+
+    if (response.ok) {
+      if (data.exception) {
+        return {
+          success: false,
+          error: data.message || data.exception,
+          message: data.message || "Failed to update student"
+        };
+      }
+      return {
+        success: true,
+        data: data,
+        message: data.message || "Student updated successfully"
+      };
+    } else {
+      return {
+        success: false,
+        error: data.error || data.message || "Failed to update student",
+        message: data.message || "Failed to update student"
+      };
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || "Network error. Please check your connection.",
+      message: "Failed to connect to server"
+    };
+  }
+};
+
+/**
  * Get Mobilizer Scholarships API call (POST with query parameters)
  * This requires a token from AsyncStorage
  */

@@ -435,12 +435,19 @@ export default function StudentMobilizerDashboard() {
                     <View style={styles.dashboardStudentActions}>
                       <TouchableOpacity 
                         onPress={() => router.push({ pathname: "/(dashboard)/mobilizer/mobilizer-student-profile", params: { studentId: student.id } })}
-                        style={[styles.dashboardActionBtn, { backgroundColor: isDark ? "#1E293B" : "#F1F5F9" }]}
+                        style={[styles.dashboardActionBtn, { backgroundColor: isDark ? "#1E293B" : "#F1F5F9", paddingHorizontal: 10 }]}
                       >
                         <Ionicons name="person-outline" size={16} color={isDark ? "#94A3B8" : "#475569"} />
-                        <Text style={[styles.dashboardActionText, { color: isDark ? "#94A3B8" : "#475569" }]}>View Detail</Text>
+                        <Text style={[styles.dashboardActionText, { color: isDark ? "#94A3B8" : "#475569", marginLeft: 4 }]}>View</Text>
                       </TouchableOpacity>
                       
+                      <TouchableOpacity 
+                        onPress={() => router.push({ pathname: "/(dashboard)/mobilizer/mobilizer-edit-student", params: { studentId: student.id } })}
+                        style={[styles.dashboardActionBtn, { backgroundColor: isDark ? "#334155" : "#E2E8F0", paddingHorizontal: 12 }]}
+                      >
+                        <Ionicons name="pencil" size={16} color={isDark ? "#CBD5E1" : "#475569"} />
+                      </TouchableOpacity>
+
                       <TouchableOpacity 
                         onPress={() => handleRemoveStudent(student.id, displayName)}
                         style={[styles.dashboardDeleteBtn, { backgroundColor: isDark ? "#450A0A" : "#FEF2F2" }]}

@@ -407,8 +407,28 @@ export default function MobilizerStudentProfileScreen() {
         <View style={[styles.root, { backgroundColor: bg }]}>
             <StatusBar barStyle="light-content" />
 
-            {/* ── AppHeader kept as-is ── */}
-            <AppHeader title="Student Details" onBack={() => router.back()} />
+            <AppHeader
+                title="Student Details"
+                onBack={() => router.back()}
+                rightElement={
+                    <TouchableOpacity
+                        onPress={() => router.push({ pathname: "/(dashboard)/mobilizer/mobilizer-edit-student", params: { studentId } })}
+                        style={{
+                            backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "#6366F115",
+                            paddingHorizontal: 14,
+                            paddingVertical: 8,
+                            borderRadius: 12,
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 6,
+                            marginRight: -4
+                        }}
+                    >
+                        <Ionicons name="create" size={16} color={isDark ? "#fff" : "#6366F1"} />
+                        <Text style={{ color: isDark ? "#fff" : "#6366F1", fontSize: 12, fontWeight: "800", textTransform: 'uppercase', letterSpacing: 0.5 }}>Edit</Text>
+                    </TouchableOpacity>
+                }
+            />
 
             {loading ? (
                 <View style={styles.center}>
@@ -474,10 +494,9 @@ export default function MobilizerStudentProfileScreen() {
                             <Text style={styles.activeText}>Active Student</Text>
                         </View>
 
-                        {/* Quick actions - 4 Column Layout */}
+                        {/* Quick actions */}
                         <View style={styles.quickActions}>
-                            <View style={{ flexDirection: "row", gap: 10 }}>
-
+                            <View style={{ flexDirection: "row", gap: 10, width: '100%', marginBottom: 10 }}>
                                 <TouchableOpacity
                                     style={styles.qaBtn}
                                     activeOpacity={0.8}
@@ -499,11 +518,20 @@ export default function MobilizerStudentProfileScreen() {
                                     </View>
                                     <Text style={[styles.qaBtnText, { color: grad[0] }]}>Email</Text>
                                 </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.qaBtn}
+                                    activeOpacity={0.8}
+                                    onPress={() => router.push({ pathname: "/(dashboard)/mobilizer/mobilizer-edit-student", params: { studentId } })}
+                                >
+                                    <View style={[styles.qaIconPill, { backgroundColor: grad[0] + "15" }]}>
+                                        <Ionicons name="create" size={18} color={grad[0]} />
+                                    </View>
+                                    <Text style={[styles.qaBtnText, { color: grad[0] }]}>Edit</Text>
+                                </TouchableOpacity>
                             </View>
 
-                            <View style={{ flexDirection: "row", gap: 10 }}>
-
-
+                            <View style={{ flexDirection: "row", gap: 10, width: '100%' }}>
                                 <TouchableOpacity
                                     style={styles.qaBtn}
                                     activeOpacity={0.8}
@@ -592,10 +620,10 @@ const styles = StyleSheet.create({
     // Quick actions
     quickActions: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 12, width: '100%' },
     qaBtn: {
-        width: '48.5%',
-        flexDirection: "row", alignItems: "center", gap: 10,
+        flex: 1,
+        flexDirection: "row", alignItems: "center", gap: 8,
         backgroundColor: "rgba(255,255,255,0.95)",
-        paddingHorizontal: 16, paddingVertical: 14, borderRadius: 16,
+        paddingHorizontal: 12, paddingVertical: 14, borderRadius: 16,
         shadowColor: "#000", shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
     },

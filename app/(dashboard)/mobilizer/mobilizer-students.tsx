@@ -193,10 +193,19 @@ function StudentCard({ item, isDark, onDelete }: { item: any; isDark: boolean; o
                 <View style={styles.footer}>
                     <TouchableOpacity
                         onPress={() => onDelete(item.id, item.fullname || `${item.firstname} ${item.lastname}`)}
-                        style={[styles.deleteBtn, { backgroundColor: isDark ? "#450A0A" : "#FEF2F2" }]}
+                        style={[styles.iconBtn, { backgroundColor: isDark ? "rgba(239, 68, 68, 0.15)" : "#FEF2F2" }]}
                     >
-                        <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                        <Ionicons name="trash" size={18} color="#EF4444" />
                     </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={() => router.push({ pathname: "/(dashboard)/mobilizer/mobilizer-edit-student", params: { studentId: item.id } })}
+                        style={[styles.iconBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#F1F5F9" }]}
+                    >
+                        <Ionicons name="pencil" size={18} color={isDark ? "#E2E8F0" : "#475569"} />
+                    </TouchableOpacity>
+
+
+
 
                     <TouchableOpacity
                         activeOpacity={0.85}
@@ -206,12 +215,13 @@ function StudentCard({ item, isDark, onDelete }: { item: any; isDark: boolean; o
                                 params: { studentId: item.id, studentName: item.fullname || `${item.firstname} ${item.lastname}` },
                             })
                         }
-                        style={[styles.scholarshipBtn, { backgroundColor: avatarColor }]}
+                        style={[styles.scholarshipBtn, { backgroundColor: avatarColor, shadowColor: avatarColor, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 }]}
                     >
-                        <Ionicons name="school-outline" size={14} color="#fff" />
+                        <Ionicons name="school" size={16} color="#fff" />
                         <Text style={styles.scholarshipBtnText}>View Scholarships</Text>
-                        <Ionicons name="arrow-forward" size={13} color="#fff" />
+                        <Ionicons name="chevron-forward" size={14} color="#fff" />
                     </TouchableOpacity>
+
                 </View>
             </View>
         </TouchableOpacity>
@@ -562,15 +572,16 @@ const styles = StyleSheet.create({
         paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10,
     },
     actionBtnText: { fontSize: 12, fontWeight: "700" },
-    deleteBtn: {
-        width: 40, height: 40, borderRadius: 12,
+    iconBtn: {
+        width: 44, height: 44, borderRadius: 14,
         justifyContent: "center", alignItems: "center",
     },
     scholarshipBtn: {
+        height: 44,
         flexDirection: "row", alignItems: "center", gap: 6,
-        paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12,
+        paddingHorizontal: 16, borderRadius: 14,
     },
-    scholarshipBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
+    scholarshipBtnText: { color: "#fff", fontSize: 13, fontWeight: "700", letterSpacing: 0.3 },
 
     // Empty
     // Empty
