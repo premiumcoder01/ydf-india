@@ -24,9 +24,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { z } from "zod";
-import DateTimePickerModal from "react-native-modal-datetime-picker";
 
 
 
@@ -438,7 +438,7 @@ export default function ApplyFormScreen() {
     if (nextStepKey === "family" && !isFinancialFromProfile) {
       setRedirectTarget({
         path: "/(dashboard)/student/student-profile-personal",
-        label: "Complete Financial Info",
+        label: "Complete Family Income Info",
         description: "To ensure a smooth application process, please provide your family income details in your profile before proceeding.",
       });
       setShowProfileRedirectModal(true);
@@ -995,7 +995,6 @@ export default function ApplyFormScreen() {
               <Section>
                 <Controller control={control} name="financial" render={({ field: { onChange, value } }) => (
                   <TouchableOpacity
-                    disabled={isFinancialFromProfile}
                     onPress={() => {
                       setOptionPickerState({
                         visible: true,

@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
+import { openBrowserAsync, WebBrowserPresentationStyle } from "expo-web-browser";
 import { MotiView } from 'moti';
 import React, { useCallback, useState } from "react";
 import {
@@ -182,6 +183,7 @@ export default function StudentDashboardScreen() {
       has_applied: boolean;
       description: string;
       progress_percent: number;
+      external_scheme_link?: string;
     }>
   >([]);
 
@@ -325,7 +327,8 @@ export default function StudentDashboardScreen() {
             has_applied: item.has_applied || false,
             description: item.description || "",
             progress_percent: item.progress_percent || 0,
-            end_date: item.end_date || null
+            end_date: item.end_date || null,
+            external_scheme_link: item.external_scheme_link || ""
           }));
         setRecommendedScholarships(recs);
         const bMap: Record<number, boolean> = {};
@@ -831,12 +834,18 @@ export default function StudentDashboardScreen() {
                       <Text style={[styles.viewBtnText, { color: colors.text }]}>Details</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      onPress={() =>
-                        router.push({
-                          pathname: "/(dashboard)/student/student-apply-form",
-                          params: { scholarshipId: s.id }
-                        })
-                      }
+                      onPress={() => {
+                        if (s.external_scheme_link) {
+                          openBrowserAsync(s.external_scheme_link, {
+                            presentationStyle: WebBrowserPresentationStyle.AUTOMATIC,
+                          });
+                        } else {
+                          router.push({
+                            pathname: "/(dashboard)/student/student-apply-form",
+                            params: { scholarshipId: s.id }
+                          });
+                        }
+                      }}
                       disabled={isExpired || s.has_applied}
                       style={[
                         styles.applyBtn,

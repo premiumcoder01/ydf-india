@@ -44,7 +44,7 @@ const TABS: Array<{ key: "all" | ApplicantStatus; label: string; icon: string }>
   { key: "rejected", label: "Rejected", icon: "close-circle-outline" },
 ];
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 200;
 
 export default function ProviderApplicantsScreen() {
   const params = useLocalSearchParams();

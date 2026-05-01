@@ -7,6 +7,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
+import { openBrowserAsync, WebBrowserPresentationStyle } from "expo-web-browser";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
@@ -363,12 +364,18 @@ export default function BookmarkedScholarshipsScreen() {
 
             {!isExpired && !hasApplied && item.can_apply !== false ? (
               <TouchableOpacity
-                onPress={() =>
-                  router.push({
-                    pathname: "/(dashboard)/student/student-apply-form",
-                    params: { scholarshipId: item.id },
-                  })
-                }
+                onPress={() => {
+                  if (item.external_scheme_link) {
+                    openBrowserAsync(item.external_scheme_link, {
+                      presentationStyle: WebBrowserPresentationStyle.AUTOMATIC,
+                    });
+                  } else {
+                    router.push({
+                      pathname: "/(dashboard)/student/student-apply-form",
+                      params: { scholarshipId: item.id },
+                    });
+                  }
+                }}
                 style={[
                   styles.applyBtn,
                   { backgroundColor: categoryColor }

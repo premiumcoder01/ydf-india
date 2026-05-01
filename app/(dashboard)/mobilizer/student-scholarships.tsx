@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
+import { openBrowserAsync, WebBrowserPresentationStyle } from "expo-web-browser";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -416,7 +417,15 @@ function ScholarshipCard({ item, isDark, cardBg, onPress, onBookmark, studentId 
 
         {!isExpired && !hasApplied && item.can_apply !== false ? (
           <TouchableOpacity
-            onPress={() => router.push({ pathname: "/(dashboard)/mobilizer/mobilizer-apply-form", params: { scholarshipId: item.id || item.scholarship_id, studentId: studentId } })}
+            onPress={() => {
+              if (item.external_scheme_link) {
+                openBrowserAsync(item.external_scheme_link, {
+                  presentationStyle: WebBrowserPresentationStyle.AUTOMATIC,
+                });
+              } else {
+                router.push({ pathname: "/(dashboard)/mobilizer/mobilizer-apply-form", params: { scholarshipId: item.id || item.scholarship_id, studentId: studentId } });
+              }
+            }}
             style={[styles.applyBtn, { backgroundColor: categoryColor }]}
           >
             <Text style={[styles.applyBtnText, { color: "#FFF" }]}>Apply Now</Text>

@@ -8,6 +8,7 @@ import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { openBrowserAsync, WebBrowserPresentationStyle } from "expo-web-browser";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Dimensions, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import RenderHTML from "react-native-render-html";
@@ -1187,10 +1188,18 @@ export default function ScholarshipDetailsScreen() {
         <TouchableOpacity
           style={[styles.fullWidthButton, { backgroundColor: getCategoryColor(scholarship.category || "General") }, (isApplicationClosed || scholarship.has_applied) && styles.disabledBtn]}
           disabled={isApplicationClosed || scholarship.has_applied}
-          onPress={() => router.push({
-            pathname: "/(dashboard)/student/student-apply-form",
-            params: { scholarshipId: scholarship.id },
-          })}
+          onPress={() => {
+            if (scholarship.external_scheme_link) {
+              openBrowserAsync(scholarship.external_scheme_link, {
+                presentationStyle: WebBrowserPresentationStyle.AUTOMATIC,
+              });
+            } else {
+              router.push({
+                pathname: "/(dashboard)/student/student-apply-form",
+                params: { scholarshipId: scholarship.id },
+              });
+            }
+          }}
         >
           <Text style={styles.fullWidthButtonText}>
             {scholarship.has_applied ? "Application Submitted" : scholarship.expired ? "Scholarship Expired" : (scholarship.can_apply === false ? "Scholarship Closed" : "Apply Now")}
