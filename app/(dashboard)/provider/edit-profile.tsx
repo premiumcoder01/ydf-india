@@ -580,7 +580,8 @@ export default function ProviderEditProfileScreen() {
                 setToastMessage("Personal information updated successfully");
                 setToastType("success");
                 setShowToast(true);
-                router.replace("/(dashboard)/provider/profile");
+                // router.push("/(dashboard)/provider/profile");
+                router.back()
             } else {
                 setToastMessage(response.error || "Failed to update profile");
                 setToastType("error");
@@ -705,7 +706,7 @@ export default function ProviderEditProfileScreen() {
                 locations={[0, 0.3, 1]}
             />
 
-            <AppHeader title="Personal Information" onBack={() => router.navigate("/(dashboard)/provider/profile")} />
+            <AppHeader title="Personal Information" onBack={() => router.back()} />
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === "ios" ? "padding" : "height"}

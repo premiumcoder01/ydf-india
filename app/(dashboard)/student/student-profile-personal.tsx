@@ -705,7 +705,7 @@ export default function StudentProfilePersonalScreen() {
         locations={[0, 0.3, 1]}
       />
 
-      <AppHeader title="Personal Information" onBack={() => router.navigate("/(dashboard)/student/student-profile")} />
+      <AppHeader title="Personal Information" onBack={() => router.back()} />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}

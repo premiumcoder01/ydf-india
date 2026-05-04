@@ -45,7 +45,6 @@ const formSchema = z.object({
     caste: z.string().optional(),
     date_of_birth: z.string().optional(),
     academic_level: z.string().optional(),
-    stream: z.string().optional(),
     year: z.string().optional(),
     university: z.string().optional(),
     marks_10_type: z.string().optional(),
@@ -56,7 +55,6 @@ const formSchema = z.object({
     graduation_value: z.string().optional(),
     father_name: z.string().optional().refine(val => !val || /^[A-Za-z\s.-]+$/.test(val), { message: "Father's name can only contain letters" }),
     mother_name: z.string().optional().refine(val => !val || /^[A-Za-z\s.-]+$/.test(val), { message: "Mother's name can only contain letters" }),
-    domicile_state: z.string().optional(),
     family_annual_income: z.string().optional(),
 }).superRefine((data, ctx) => {
     const validCGPA = (s: string) => { const n = parseFloat(s); return !isNaN(n) && n >= 0 && n <= 10; };
@@ -112,7 +110,6 @@ export default function MobilizerEditStudentScreen() {
     const STATE_OPTIONS = getOptionsByShortname('state').map((o: any) => o.label);
     const DISTRICT_OPTIONS = getOptionsByShortname('district').map((o: any) => o.label);
     const ACADEMIC_LEVEL_OPTIONS = getOptionsByShortname('academic_qualifications').map((o: any) => o.label);
-    const STREAM_OPTIONS = getOptionsByShortname('course_category_1').map((o: any) => o.label);
     const YEAR_OPTIONS = getOptionsByShortname('year_of_course').map((o: any) => o.label);
 
     const [loading, setLoading] = useState(false);
@@ -162,7 +159,6 @@ export default function MobilizerEditStudentScreen() {
             caste: "",
             date_of_birth: "",
             academic_level: "",
-            stream: "",
             year: "",
             university: "",
             marks_10_type: "cgpa",
@@ -173,7 +169,6 @@ export default function MobilizerEditStudentScreen() {
             graduation_value: "",
             father_name: "",
             mother_name: "",
-            domicile_state: "",
             family_annual_income: "",
         },
     });
@@ -251,22 +246,20 @@ export default function MobilizerEditStudentScreen() {
                         }
                         setValue("date_of_birth", dobStr);
 
-                        setValue("academic_level", cleanVal(cf.academic_level || d.academic_level || cf.category));
-                        setValue("stream", cleanVal(cf.stream || cf.course_category_1));
-                        setValue("year", cleanVal(cf.college_current_year || cf.year_of_course));
+                        setValue("academic_level", cleanVal(cf.course || cf.academic_level || d.academic_level || cf.category));
+                        setValue("year", cleanVal(cf.year_of_course || cf.college_current_year));
                         setValue("university", cleanVal(cf.university));
 
                         setValue("marks_10_type", cleanVal(cf.marks_10_type) || "cgpa");
-                        setValue("marks_10_value", cleanVal(cf.marks_10_value || cf.percentage_10 || cf["10th"]));
+                        setValue("marks_10_value", cleanVal(cf["10th"] || cf.percentage_10th || cf.marks_10_value || cf.percentage_10));
                         setValue("marks_12_type", cleanVal(cf.marks_12_type) || "cgpa");
-                        setValue("marks_12_value", cleanVal(cf.marks_12_value || cf.percentage_12));
+                        setValue("marks_12_value", cleanVal(cf['12th_marks'] || cf.marks_12_value || cf.percentage_12));
                         setValue("graduation_type", cleanVal(cf.marks_graduation_type) || "cgpa");
-                        setValue("graduation_value", cleanVal(cf.marks_graduation_value));
+                        setValue("graduation_value", cleanVal(cf.grade_in_cgpa_1 || cf.marks_graduation_value));
 
                         setValue("father_name", cleanVal(cf.father_name || cf.father));
                         setValue("mother_name", cleanVal(cf.mother_name || cf.mother));
-                        setValue("domicile_state", cleanVal(cf.domicile_state || cf.domicile_district));
-                        setValue("family_annual_income", cleanVal(cf.family_annual_income || cf.Family_income));
+                        setValue("family_annual_income", cleanVal(cf.Family_income || cf.family_annual_income || cf.family_income));
 
                         if (d.picture && !d.picture.includes('gravatar.com')) {
                             setProfileImageUri(d.picture);
@@ -368,26 +361,24 @@ export default function MobilizerEditStudentScreen() {
             if (data.date_of_birth) customfields.push({ shortname: "date_of_birth", value: data.date_of_birth });
             if (data.address) customfields.push({ shortname: "address", value: data.address });
             if (data.state) customfields.push({ shortname: "state", value: data.state });
-            if (data.academic_level) customfields.push({ shortname: "academic_level", value: data.academic_level });
-            if (data.stream) customfields.push({ shortname: "stream", value: data.stream });
-            if (data.year) customfields.push({ shortname: "college_current_year", value: data.year });
+            if (data.academic_level) customfields.push({ shortname: "course", value: data.academic_level });
+            if (data.year) customfields.push({ shortname: "year_of_course", value: data.year });
             if (data.university) customfields.push({ shortname: "university", value: data.university });
             if (data.marks_10_type && data.marks_10_value) {
                 customfields.push({ shortname: "marks_10_type", value: data.marks_10_type });
-                customfields.push({ shortname: "marks_10_value", value: data.marks_10_value.trim() });
+                customfields.push({ shortname: "10th", value: data.marks_10_value.trim() });
             }
             if (data.marks_12_type && data.marks_12_value) {
                 customfields.push({ shortname: "marks_12_type", value: data.marks_12_type });
-                customfields.push({ shortname: "marks_12_value", value: data.marks_12_value.trim() });
+                customfields.push({ shortname: "12th_marks", value: data.marks_12_value.trim() });
             }
             if (data.graduation_type && data.graduation_value) {
                 customfields.push({ shortname: "marks_graduation_type", value: data.graduation_type });
-                customfields.push({ shortname: "marks_graduation_value", value: data.graduation_value.trim() });
+                customfields.push({ shortname: "grade_in_cgpa_1", value: data.graduation_value.trim() });
             }
             if (data.father_name) customfields.push({ shortname: "father_name", value: data.father_name.trim() });
             if (data.mother_name) customfields.push({ shortname: "mother_name", value: data.mother_name.trim() });
-            if (data.domicile_state) customfields.push({ shortname: "domicile_state", value: data.domicile_state.trim() });
-            if (data.family_annual_income) customfields.push({ shortname: "family_annual_income", value: data.family_annual_income });
+            if (data.family_annual_income) customfields.push({ shortname: "Family_income", value: data.family_annual_income });
 
             const payload: any = {
                 student_id: studentId,
@@ -568,9 +559,6 @@ export default function MobilizerEditStudentScreen() {
                                 </View>
                             </TouchableOpacity>
                         )} />
-                        <Controller control={control} name="domicile_state" render={({ field: { onChange, value, onBlur } }) => (
-                            <CustomTextInput icon="flag-outline" label="Domicile State" placeholder="e.g. Uttar Pradesh, Bihar" value={value || ""} onChangeText={onChange} onBlur={onBlur} />
-                        )} />
                     </View>
 
                     <View style={[styles.formCard, { backgroundColor: isDark ? colors.card : "rgba(255,255,255,0.9)", borderColor: colors.border }]}>
@@ -585,13 +573,6 @@ export default function MobilizerEditStudentScreen() {
                             <TouchableOpacity onPress={() => openPicker("academic_level", "Academic Level", ACADEMIC_LEVEL_OPTIONS)}>
                                 <View pointerEvents="none">
                                     <CustomTextInput icon="school-outline" label="Academic Level" placeholder="e.g. UG, PG" value={value || ""} editable={false} onChangeText={() => { }} inputStyle={{ opacity: 1 }} rightIcon="chevron-down" />
-                                </View>
-                            </TouchableOpacity>
-                        )} />
-                        <Controller control={control} name="stream" render={({ field: { value } }) => (
-                            <TouchableOpacity onPress={() => openPicker("stream", "Stream", STREAM_OPTIONS)}>
-                                <View pointerEvents="none">
-                                    <CustomTextInput icon="book-outline" label="Stream" placeholder="Select stream" value={value || ""} editable={false} onChangeText={() => { }} inputStyle={{ opacity: 1, fontWeight: "400" }} rightIcon="chevron-down" />
                                 </View>
                             </TouchableOpacity>
                         )} />

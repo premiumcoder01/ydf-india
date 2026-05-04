@@ -257,7 +257,7 @@ export default function StudentProfileFinancialScreen() {
                 style={styles.background}
             />
 
-            <AppHeader title="Financial Information" onBack={() => router.navigate("/(dashboard)/student/student-profile")} />
+            <AppHeader title="Financial Information" onBack={() => router.back()} />
 
             <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
                 {/* Check if financial info is empty */}
