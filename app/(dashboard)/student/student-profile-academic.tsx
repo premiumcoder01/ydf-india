@@ -97,6 +97,17 @@ export default function StudentProfileAcademicScreen() {
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState<"success" | "error" | "info">("error");
 
+  const isSchoolCourse = (course: string) => {
+    if (!course) return false;
+    const schoolLevels = ["10th", "11th", "12th"];
+    return schoolLevels.some(level => course.toLowerCase().includes(level.toLowerCase()));
+  };
+
+  const is10thCourse = (course: string) => {
+    if (!course) return false;
+    return course.toLowerCase().includes("10th");
+  };
+
   useEffect(() => {
     fetchAcademicDetails();
     fetchDropdowns();
@@ -226,11 +237,20 @@ export default function StudentProfileAcademicScreen() {
 
   const validateForm = (): boolean => {
     const errors: ValidationErrors = {};
+    const isSchool = isSchoolCourse(editingRecord.currentCourse);
+    const is10th = is10thCourse(editingRecord.currentCourse);
+
+    if (!editingRecord.currentCourse.trim()) {
+      errors.currentCourse = "Required";
+    }
+
     if (!editingRecord.institution.trim()) errors.institution = "Required";
     if (!editingRecord.year.trim()) errors.year = "Required";
-    if (!editingRecord.currentCourse.trim()) errors.currentCourse = "Required";
-    if (!editingRecord.currentCourseCategory.trim()) errors.currentCourseCategory = "Required";
-    if (!editingRecord.major.trim()) errors.major = "Required"; // Added major validation
+
+    if (!isSchool) {
+      if (!editingRecord.currentCourseCategory.trim()) errors.currentCourseCategory = "Required";
+      if (!editingRecord.major.trim()) errors.major = "Required";
+    }
 
     // Academic Performance Validation (Required)
     if (!editingRecord.gpa || !editingRecord.gpa.trim()) {
@@ -270,15 +290,17 @@ export default function StudentProfileAcademicScreen() {
       if (authDataStr) {
         const authData = JSON.parse(authDataStr);
         if (authData.token) {
+          const isSchool = isSchoolCourse(editingRecord.currentCourse);
+          const is10th = is10thCourse(editingRecord.currentCourse);
           const apiParams = {
             course_name: editingRecord.currentCourse,
-            category: editingRecord.currentCourseCategory,
+            category: isSchool ? "" : editingRecord.currentCourseCategory,
             institution: editingRecord.institution,
-            major: editingRecord.major,
+            major: isSchool ? "" : editingRecord.major,
             percentage: gradeType === 'percentage' ? editingRecord.gpa : "",
             cgpa: gradeType === 'cgpa' ? editingRecord.gpa : "",
             academic_year: editingRecord.year,
-            graduation_year: editingRecord.graduation,
+            graduation_year: isSchool ? "" : editingRecord.graduation,
           };
           console.log(apiParams)
 
@@ -408,6 +430,7 @@ export default function StudentProfileAcademicScreen() {
     );
   };
 
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <LinearGradient
@@ -479,7 +502,14 @@ export default function StudentProfileAcademicScreen() {
                       <Ionicons name="school" size={24} color={colors.primary} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.recordTitle, { color: colors.text }]}>{record.currentCourse}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={[styles.recordTitle, { color: colors.text }]}>{record.currentCourse}</Text>
+                        {record.currentCourseCategory && !isSchoolCourse(record.currentCourse) ? (
+                          <View style={[styles.categoryBadge, { backgroundColor: colors.primary + '10' }]}>
+                            <Text style={[styles.categoryText, { color: colors.primary }]}>{record.currentCourseCategory}</Text>
+                          </View>
+                        ) : null}
+                      </View>
                       <Text style={[styles.recordSubtitle, { color: colors.textSecondary }]}>{record.institution}</Text>
                     </View>
                     <View style={styles.actionButtons}>
@@ -500,19 +530,35 @@ export default function StudentProfileAcademicScreen() {
 
                   <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-                  <View style={styles.recordDetails}>
-                    <View style={styles.detailItem}>
-                      <Text style={styles.detailLabel}>Year</Text>
-                      <Text style={[styles.detailValue, { color: colors.text }]}>{record.year}</Text>
+                  <View style={styles.recordDetailsGrid}>
+                    <View style={styles.detailItemGrid}>
+                      <Text style={styles.detailLabel}>Grade / GPA</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Text style={[styles.detailValue, { color: colors.primary, fontWeight: '700' }]}>{record.gpa}</Text>
+                        <Text style={[styles.detailType, { color: colors.textSecondary }]}>{record.gradeType?.toUpperCase()}</Text>
+                      </View>
                     </View>
-                    <View style={styles.detailItem}>
-                      <Text style={styles.detailLabel}>Major</Text>
-                      <Text style={[styles.detailValue, { color: colors.text }]}>{record.major || "N/A"}</Text>
-                    </View>
-                    <View style={styles.detailItem}>
-                      <Text style={styles.detailLabel}>Graduation</Text>
-                      <Text style={[styles.detailValue, { color: colors.text }]}>{record.graduation || "N/A"}</Text>
-                    </View>
+
+                    {record.year ? (
+                      <View style={styles.detailItemGrid}>
+                        <Text style={styles.detailLabel}>Year</Text>
+                        <Text style={[styles.detailValue, { color: colors.text }]}>{record.year}</Text>
+                      </View>
+                    ) : null}
+
+                    {record.major && record.major !== "N/A" && !isSchoolCourse(record.currentCourse) ? (
+                      <View style={styles.detailItemGrid}>
+                        <Text style={styles.detailLabel}>Major / Stream</Text>
+                        <Text style={[styles.detailValue, { color: colors.text }]}>{record.major}</Text>
+                      </View>
+                    ) : null}
+
+                    {record.graduation && record.graduation !== "N/A" ? (
+                      <View style={styles.detailItemGrid}>
+                        <Text style={styles.detailLabel}>Graduation</Text>
+                        <Text style={[styles.detailValue, { color: colors.text }]}>{record.graduation}</Text>
+                      </View>
+                    ) : null}
                   </View>
                 </View>
               ))}
@@ -566,61 +612,100 @@ export default function StudentProfileAcademicScreen() {
                   {validationErrors.currentCourse && <Text style={styles.errorText}>{validationErrors.currentCourse}</Text>}
                 </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.label, { color: colors.textSecondary }]}>Category *</Text>
-                  <TouchableOpacity
-                    style={[styles.selector, { borderColor: validationErrors.currentCourseCategory ? '#EF4444' : colors.border, backgroundColor: isDark ? '#252525' : '#FFFFFF' }]}
-                    onPress={() => setShowCategoryPicker(true)}
-                  >
-                    <Ionicons name="grid-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
-                    <Text
-                      style={[{ flex: 1, marginRight: 8 }, { color: editingRecord.currentCourseCategory ? colors.text : colors.textSecondary }]}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
+                {!isSchoolCourse(editingRecord.currentCourse) && (
+                  <View style={styles.inputGroup}>
+                    <Text style={[styles.label, { color: colors.textSecondary }]}>Category *</Text>
+                    <TouchableOpacity
+                      style={[styles.selector, { borderColor: validationErrors.currentCourseCategory ? '#EF4444' : colors.border, backgroundColor: isDark ? '#252525' : '#FFFFFF' }]}
+                      onPress={() => setShowCategoryPicker(true)}
                     >
-                      {editingRecord.currentCourseCategory || "Select category (e.g., Engineering)"}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                  </TouchableOpacity>
-                  {validationErrors.currentCourseCategory && <Text style={styles.errorText}>{validationErrors.currentCourseCategory}</Text>}
-                </View>
+                      <Ionicons name="grid-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
+                      <Text
+                        style={[{ flex: 1, marginRight: 8 }, { color: editingRecord.currentCourseCategory ? colors.text : colors.textSecondary }]}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {editingRecord.currentCourseCategory || "Select category (e.g., Engineering)"}
+                      </Text>
+                      <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                    {validationErrors.currentCourseCategory && <Text style={styles.errorText}>{validationErrors.currentCourseCategory}</Text>}
+                  </View>
+                )}
 
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.label, { color: colors.textSecondary }]}>Major / Stream *</Text>
-                  <TouchableOpacity
-                    style={[styles.selector, { borderColor: validationErrors.major ? '#EF4444' : colors.border, backgroundColor: isDark ? '#252525' : '#FFFFFF' }]}
-                    onPress={() => setShowMajorPicker(true)}
-                  >
-                    <Ionicons name="ribbon-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
-                    <Text
-                      style={[{ flex: 1, marginRight: 8 }, { color: editingRecord.major ? colors.text : colors.textSecondary }]}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
+                {!isSchoolCourse(editingRecord.currentCourse) && (
+                  <View style={styles.inputGroup}>
+                    <Text style={[styles.label, { color: colors.textSecondary }]}>Major / Stream *</Text>
+                    <TouchableOpacity
+                      style={[styles.selector, { borderColor: validationErrors.major ? '#EF4444' : colors.border, backgroundColor: isDark ? '#252525' : '#FFFFFF' }]}
+                      onPress={() => setShowMajorPicker(true)}
                     >
-                      {editingRecord.major || "Select your specialization"}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                  </TouchableOpacity>
-                  {validationErrors.major && <Text style={styles.errorText}>{validationErrors.major}</Text>}
-                </View>
+                      <Ionicons name="ribbon-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
+                      <Text
+                        style={[{ flex: 1, marginRight: 8 }, { color: editingRecord.major ? colors.text : colors.textSecondary }]}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {editingRecord.major || "Select your specialization"}
+                      </Text>
+                      <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                    {validationErrors.major && <Text style={styles.errorText}>{validationErrors.major}</Text>}
+                  </View>
+                )}
+
+                {/* Consolidated Fields for School */}
+                {isSchoolCourse(editingRecord.currentCourse) && (
+                  <>
+                    <CustomTextInput
+                      label="School Name *"
+                      value={editingRecord.institution}
+                      onChangeText={(t) => handleFieldChange("institution", t)}
+                      placeholder="e.g., Delhi Public School"
+                      error={validationErrors.institution}
+                      icon="business-outline"
+                    />
+
+                    <View style={styles.inputGroup}>
+                      <Text style={[styles.label, { color: colors.textSecondary }]}>Passing Year *</Text>
+                      <TouchableOpacity
+                        style={[styles.selector, { borderColor: validationErrors.year ? '#EF4444' : colors.border, backgroundColor: isDark ? '#252525' : '#FFFFFF' }]}
+                        onPress={() => setShowStartDatePicker(true)}
+                      >
+                        <Ionicons name="calendar" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
+                        <Text
+                          style={[{ flex: 1, marginRight: 8 }, { color: editingRecord.year ? colors.text : colors.textSecondary }]}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {editingRecord.year || "Select passing year"}
+                        </Text>
+                        <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                      {validationErrors.year && <Text style={styles.errorText}>{validationErrors.year}</Text>}
+                    </View>
+                  </>
+                )}
               </View>
 
-              {/* Institution Section */}
-              <View style={[styles.formSection, { backgroundColor: isDark ? '#1A1A1A' : '#F8F9FA', borderColor: colors.border }]}>
-                <View style={styles.sectionHeader}>
-                  <Ionicons name="business-outline" size={20} color={colors.primary} />
-                  <Text style={[styles.sectionTitle2, { color: colors.text }]}>Institution Details</Text>
-                </View>
+              {/* Institution Section (College Only) */}
+              {!isSchoolCourse(editingRecord.currentCourse) && (
+                <View style={[styles.formSection, { backgroundColor: isDark ? '#1A1A1A' : '#F8F9FA', borderColor: colors.border }]}>
+                  <View style={styles.sectionHeader}>
+                    <Ionicons name="business-outline" size={20} color={colors.primary} />
+                    <Text style={[styles.sectionTitle2, { color: colors.text }]}>Institution Details</Text>
+                  </View>
 
-                <CustomTextInput
-                  label="College / University Name *"
-                  value={editingRecord.institution}
-                  onChangeText={(t) => handleFieldChange("institution", t)}
-                  placeholder="e.g., IIT Delhi, Delhi University"
-                  style={{ marginBottom: 0 }}
-                  error={validationErrors.institution}
-                />
-              </View>
+                  <CustomTextInput
+                    label="College / University Name *"
+                    value={editingRecord.institution}
+                    onChangeText={(t) => handleFieldChange("institution", t)}
+                    placeholder="e.g., IIT Delhi, Delhi University"
+                    style={{ marginBottom: 0 }}
+                    error={validationErrors.institution}
+                  />
+                </View>
+              )}
 
               {/* Academic Performance Section */}
               <View style={[styles.formSection, { backgroundColor: isDark ? '#1A1A1A' : '#F8F9FA', borderColor: colors.border }]}>
@@ -632,7 +717,7 @@ export default function StudentProfileAcademicScreen() {
                 {/* Grade Type Toggle */}
                 <View style={styles.inputGroup}>
                   <Text style={[styles.label, { color: colors.textSecondary }]}>Grade Type</Text>
-                    <View style={styles.toggleContainer}>
+                  <View style={styles.toggleContainer}>
                     <TouchableOpacity
                       style={[styles.toggleButton, gradeType === 'cgpa' && styles.toggleButtonActive, { borderColor: colors.border, backgroundColor: gradeType === 'cgpa' ? colors.primary : (isDark ? '#252525' : '#FFFFFF') }]}
                       onPress={() => setGradeType('cgpa')}
@@ -660,49 +745,52 @@ export default function StudentProfileAcademicScreen() {
               </View>
 
               {/* Timeline Section */}
-              <View style={[styles.formSection, { backgroundColor: isDark ? '#1A1A1A' : '#F8F9FA', borderColor: colors.border }]}>
-                <View style={styles.sectionHeader}>
-                  <Ionicons name="calendar-outline" size={20} color={colors.primary} />
-                  <Text style={[styles.sectionTitle2, { color: colors.text }]}>Timeline</Text>
-                </View>
+              {/* Timeline Section (College Only) */}
+              {!isSchoolCourse(editingRecord.currentCourse) && (
+                <View style={[styles.formSection, { backgroundColor: isDark ? '#1A1A1A' : '#F8F9FA', borderColor: colors.border }]}>
+                  <View style={styles.sectionHeader}>
+                    <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+                    <Text style={[styles.sectionTitle2, { color: colors.text }]}>Timeline</Text>
+                  </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.label, { color: colors.textSecondary }]}>Academic Year (Start Year) *</Text>
-                  <TouchableOpacity
-                    style={[styles.selector, { borderColor: validationErrors.year ? '#EF4444' : colors.border, backgroundColor: isDark ? '#252525' : '#FFFFFF' }]}
-                    onPress={() => setShowStartDatePicker(true)}
-                  >
-                    <Ionicons name="calendar" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
-                    <Text
-                      style={[{ flex: 1, marginRight: 8 }, { color: editingRecord.year ? colors.text : colors.textSecondary }]}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
+                  <View style={styles.inputGroup}>
+                    <Text style={[styles.label, { color: colors.textSecondary }]}>Academic Year (Start Year) *</Text>
+                    <TouchableOpacity
+                      style={[styles.selector, { borderColor: validationErrors.year ? '#EF4444' : colors.border, backgroundColor: isDark ? '#252525' : '#FFFFFF' }]}
+                      onPress={() => setShowStartDatePicker(true)}
                     >
-                      {editingRecord.year || "Select start date"}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                  </TouchableOpacity>
-                  {validationErrors.year && <Text style={styles.errorText}>{validationErrors.year}</Text>}
-                </View>
+                      <Ionicons name="calendar" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
+                      <Text
+                        style={[{ flex: 1, marginRight: 8 }, { color: editingRecord.year ? colors.text : colors.textSecondary }]}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {editingRecord.year || "Select start date"}
+                      </Text>
+                      <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                    {validationErrors.year && <Text style={styles.errorText}>{validationErrors.year}</Text>}
+                  </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.label, { color: colors.textSecondary }]}>Expected Academic End Date</Text>
-                  <TouchableOpacity
-                    style={[styles.selector, { borderColor: colors.border, backgroundColor: isDark ? '#252525' : '#FFFFFF' }]}
-                    onPress={() => setShowEndDatePicker(true)}
-                  >
-                    <Ionicons name="flag-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
-                    <Text
-                      style={[{ flex: 1, marginRight: 8 }, { color: editingRecord.graduation ? colors.text : colors.textSecondary }]}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
+                  <View style={styles.inputGroup}>
+                    <Text style={[styles.label, { color: colors.textSecondary }]}>Expected Academic End Date</Text>
+                    <TouchableOpacity
+                      style={[styles.selector, { borderColor: colors.border, backgroundColor: isDark ? '#252525' : '#FFFFFF' }]}
+                      onPress={() => setShowEndDatePicker(true)}
                     >
-                      {editingRecord.graduation || "Select end date"}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-                  </TouchableOpacity>
+                      <Ionicons name="flag-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
+                      <Text
+                        style={[{ flex: 1, marginRight: 8 }, { color: editingRecord.graduation ? colors.text : colors.textSecondary }]}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {editingRecord.graduation || "Select end date"}
+                      </Text>
+                      <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
+              )}
 
               <Button
                 title={saving ? "Saving..." : "Save Details"}
@@ -824,10 +912,47 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   divider: { height: 1, marginVertical: 12 },
-  recordDetails: { flexDirection: 'row', justifyContent: 'space-between' },
-  detailItem: { gap: 4 },
-  detailLabel: { fontSize: 11, color: '#999', textTransform: 'uppercase' },
-  detailValue: { fontSize: 13, fontWeight: '600' },
+  recordDetails: {
+    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between'
+  },
+  recordDetailsGrid: {
+    padding: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    rowGap: 16
+  },
+  detailItem: {
+    flex: 1
+  },
+  detailItemGrid: {
+    width: '50%',
+  },
+  detailLabel: {
+    fontSize: 12,
+    color: '#8E8E93',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: '600'
+  },
+  detailType: {
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  categoryBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  categoryText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
 
   // Modal Styles
   fullScreenModal: { flex: 1 },
