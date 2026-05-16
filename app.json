@@ -2,7 +2,7 @@
   "expo": {
     "name": "Scholar Saathi",
     "slug": "YDF",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "ydf",
@@ -39,7 +39,9 @@
     "plugins": [
       [
         "@react-native-google-signin/google-signin",
-        { "iosUrlScheme": "com.googleusercontent.apps.1001621686502-shv47u2lqnbbfigdtovjr4npf77r9ca5" }
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.1001621686502-shv47u2lqnbbfigdtovjr4npf77r9ca5"
+        }
       ],
       "expo-router",
       [
@@ -70,12 +72,10 @@
         }
       ]
     ],
-
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": false
     },
-
     "extra": {
       "router": {},
       "eas": {

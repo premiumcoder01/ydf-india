@@ -1,5 +1,6 @@
-import { DashboardHeader } from "@/components";
+import { DashboardHeader, AppUpdateModal } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
+import { useAppUpdate } from "@/utils/useAppUpdate";
 import { getNotifications, getReviewerDashboardStats, getReviewerProgress, getReviewerRecentApplications, getUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -50,6 +51,7 @@ export default function ApplicationReviewerDashboard() {
 
   const { isDark, colors } = useTheme();
   const inset = useSafeAreaInsets();
+  const appUpdate = useAppUpdate();
 
   useFocusEffect(
     useCallback(() => {
@@ -375,6 +377,14 @@ export default function ApplicationReviewerDashboard() {
         </View>
 
       </ScrollView>
+      <AppUpdateModal
+        visible={appUpdate.showModal}
+        appVersion={appUpdate.appVersion}
+        storeVersion={appUpdate.storeVersion}
+        updateType={appUpdate.updateType}
+        onUpdate={appUpdate.applyUpdate}
+        onDismiss={appUpdate.dismissUpdate}
+      />
     </View>
   );
 }

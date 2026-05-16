@@ -1,8 +1,9 @@
-import { DashboardHeader } from "@/components";
+import { AppUpdateModal, DashboardHeader } from "@/components";
 import Toast from "@/components/Toast";
 import { useTheme } from "@/context/ThemeContext";
 import { bookmarkScholarship, getApplicationProgress, getDashboardStats, getMyApplications, getNotifications, getRecommendedScholarships, getUpcomingDeadlines, getUserProfile } from "@/utils/api";
 import { getCategoryColor, getDaysRemaining } from "@/utils/dashboard-helpers";
+import { useAppUpdate } from "@/utils/useAppUpdate";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -95,6 +96,9 @@ export default function StudentDashboardScreen() {
     type: "success",
   });
   const inset = useSafeAreaInsets();
+
+  // ── App Update Hook (auto-checks on mount) ──────────────────────────────
+  const appUpdate = useAppUpdate(true);
 
   const toggleBookmark = async (id: number, currentBookmarkState: boolean) => {
     if (bookmarking[id]) return;
@@ -989,6 +993,16 @@ export default function StudentDashboardScreen() {
           </View>
         </MotiView>
       </ScrollView>
+
+      {/* App Update Modal (auto-popup) */}
+      <AppUpdateModal
+        visible={appUpdate.showModal}
+        appVersion={appUpdate.appVersion}
+        storeVersion={appUpdate.storeVersion}
+        updateType={appUpdate.updateType}
+        onUpdate={appUpdate.applyUpdate}
+        onDismiss={appUpdate.dismissUpdate}
+      />
     </View>
   );
 }

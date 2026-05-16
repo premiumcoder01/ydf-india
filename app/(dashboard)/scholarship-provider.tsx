@@ -1,5 +1,6 @@
-import { DashboardHeader } from "@/components";
+import { DashboardHeader, AppUpdateModal } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
+import { useAppUpdate } from "@/utils/useAppUpdate";
 import { getDonorDashboardStats, getDonorRecentScholarships, getDonorScholarshipProgress, getNotifications, getUserProfile } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -29,6 +30,7 @@ type ScholarshipItem = {
 export default function ScholarshipProviderDashboard() {
   const { isDark, colors } = useTheme();
   const inset = useSafeAreaInsets();
+  const appUpdate = useAppUpdate();
 
   // Provider state
   const [providerName, setProviderName] = useState("Provider");
@@ -664,6 +666,15 @@ export default function ScholarshipProviderDashboard() {
           </View>
         </MotiView>
       </ScrollView>
+
+      <AppUpdateModal
+        visible={appUpdate.showModal}
+        appVersion={appUpdate.appVersion}
+        storeVersion={appUpdate.storeVersion}
+        updateType={appUpdate.updateType}
+        onUpdate={appUpdate.applyUpdate}
+        onDismiss={appUpdate.dismissUpdate}
+      />
     </View>
   );
 }

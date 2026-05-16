@@ -1,5 +1,6 @@
-import { AppHeader } from "@/components";
+import { AppHeader, AppUpdateModal } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
+import { useAppUpdate } from "@/utils/useAppUpdate";
 import { getAboutPage } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -13,8 +14,21 @@ import RenderHtml from "react-native-render-html";
 export default function ProviderAboutScreen() {
   const { isDark, colors } = useTheme();
   const { width } = useWindowDimensions();
+  const appUpdate = useAppUpdate(false); // Manual check
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
+
+  const handleCheckForUpdate = async () => {
+    const result = await appUpdate.checkForUpdate();
+    if (result === "up-to-date") {
+      setToastMessage("Your app is already up to date.");
+      setTimeout(() => setToastMessage(null), 3000);
+    } else if (result === "error") {
+      setToastMessage(appUpdate.error || "Could not check for updates. Please try again later.");
+      setTimeout(() => setToastMessage(null), 3000);
+    }
+  };
 
   useEffect(() => {
     const fetchAbout = async () => {
@@ -114,6 +128,14 @@ export default function ProviderAboutScreen() {
 
       <AppHeader title="About Us" onBack={() => router.back()} />
 
+      {/* Simple Toast */}
+      {toastMessage && (
+        <View style={[styles.toastContainer, { backgroundColor: toastMessage.includes("error") || toastMessage.includes("Could not") ? "#ef4444" : "#10b981" }]}>
+          <Ionicons name="information-circle" size={20} color="#fff" />
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </View>
+      )}
+
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -131,6 +153,20 @@ export default function ProviderAboutScreen() {
             showsVerticalScrollIndicator={false}
           >
 
+            {/* App Info Hero Section */}
+            <View style={styles.heroSection}>
+              <View style={[styles.appIconContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(33, 150, 243, 0.1)" }]}>
+                <LinearGradient colors={["#2196F3", "#1976D2"]} style={styles.appIcon}>
+                  <Ionicons name="school" size={40} color="#fff" />
+                </LinearGradient>
+              </View>
+              <Text style={[styles.appName, { color: colors.text }]}>Scholarship Provider</Text>
+              <View style={[styles.versionBadge, { backgroundColor: isDark ? "rgba(33, 150, 243, 0.15)" : "rgba(33, 150, 243, 0.08)" }]}>
+                <Text style={[styles.versionText, { color: isDark ? "#90CAF9" : "#1976D2" }]}>
+                  v{appUpdate.appVersion}
+                </Text>
+              </View>
+            </View>
 
             {/* Main Content Card */}
             <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -148,6 +184,28 @@ export default function ProviderAboutScreen() {
             </Text>
 
             <View style={styles.linksContainer}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={handleCheckForUpdate}
+                disabled={appUpdate.isChecking}
+                style={[styles.linkRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+              >
+                <View style={styles.linkLeft}>
+                  <View style={[styles.iconWrapper, { backgroundColor: "rgba(33, 150, 243, 0.1)" }]}>
+                    <Ionicons name="cloud-download-outline" size={20} color="#2196F3" />
+                  </View>
+                  <View>
+                    <Text style={[styles.linkText, { color: colors.text }]}>Check for Updates</Text>
+                    <Text style={[styles.linkSubtext, { color: colors.textSecondary }]}>Tap to check for latest version</Text>
+                  </View>
+                </View>
+                {appUpdate.isChecking ? (
+                  <ActivityIndicator size="small" color="#2196F3" />
+                ) : (
+                  <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+                )}
+              </TouchableOpacity>
+
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => router.push("/(dashboard)/provider/terms-conditions")}
@@ -210,6 +268,14 @@ export default function ProviderAboutScreen() {
           </ScrollView>
         </MotiView>
       )}
+      <AppUpdateModal
+        visible={appUpdate.showModal}
+        appVersion={appUpdate.appVersion}
+        storeVersion={appUpdate.storeVersion}
+        updateType={appUpdate.updateType}
+        onUpdate={appUpdate.applyUpdate}
+        onDismiss={appUpdate.dismissUpdate}
+      />
     </View>
   );
 }
@@ -332,5 +398,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     textAlign: 'center',
+  },
+  toastContainer: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
+    right: 20,
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    zIndex: 100,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
   },
 });

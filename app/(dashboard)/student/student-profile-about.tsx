@@ -1,13 +1,33 @@
-import { AppHeader } from "@/components";
+import { AppHeader, AppUpdateModal, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
+import { useAppUpdate } from "@/utils/useAppUpdate";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useState } from "react";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function StudentProfileAboutScreen() {
   const { isDark, colors } = useTheme();
+  const appUpdate = useAppUpdate(false); // Don't auto-check here, only on manual trigger
+
+  // Toast state for "up to date" feedback
+  const [toast, setToast] = useState<{ visible: boolean; message: string; type: "success" | "error" | "info" }>({
+    visible: false,
+    message: "",
+    type: "success",
+  });
+
+  const handleCheckForUpdate = async () => {
+    const result = await appUpdate.checkForUpdate();
+    if (result === "up-to-date") {
+      setToast({ visible: true, message: "You're up to date! 🎉", type: "success" });
+    } else if (result === "error") {
+      setToast({ visible: true, message: appUpdate.error || "Could not check for updates", type: "error" });
+    }
+    // If "available", the modal will show automatically via the hook
+  };
+
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -17,6 +37,13 @@ export default function StudentProfileAboutScreen() {
       />
 
       <AppHeader title="About & Support" onBack={() => router.navigate("/(dashboard)/student/student-profile")} />
+
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onHide={() => setToast((prev) => ({ ...prev, visible: false }))}
+      />
 
       <ScrollView
         style={styles.scrollView}
@@ -33,6 +60,16 @@ export default function StudentProfileAboutScreen() {
               </LinearGradient>
             </View>
             <Text style={[styles.appName, { color: colors.text }]}>Student Portal</Text>
+            {/* App Version Badge */}
+            <View style={[
+              styles.versionBadge,
+              { backgroundColor: isDark ? "rgba(139,92,246,0.15)" : "rgba(99,102,241,0.08)" }
+            ]}>
+              <Ionicons name="code-slash" size={13} color="#8B5CF6" />
+              <Text style={[styles.versionBadgeText, { color: isDark ? "#C4B5FD" : "#6366F1" }]}>
+                v{appUpdate.appVersion}
+              </Text>
+            </View>
             <Text style={[styles.appDescription, { color: colors.textSecondary }]}>
               Empowering students by connecting them with donors and
               opportunities. We strive to make education accessible and
@@ -44,6 +81,37 @@ export default function StudentProfileAboutScreen() {
             Information & Support
           </Text>
           <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            {/* Check for Updates Button */}
+            <TouchableOpacity
+              style={[styles.settingItem, { borderBottomColor: colors.border }]}
+              activeOpacity={0.7}
+              onPress={handleCheckForUpdate}
+              disabled={appUpdate.isChecking}
+            >
+              <View style={styles.settingInfo}>
+                <View style={[styles.settingIconContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#f8f8f8" }]}>
+                  <Ionicons
+                    name="cloud-download-outline"
+                    size={20}
+                    color="#6366F1"
+                  />
+                </View>
+                <View style={styles.settingText}>
+                  <Text style={[styles.settingTitle, { color: colors.text }]}>Check for Updates</Text>
+                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                    {appUpdate.isChecking
+                      ? "Checking for updates..."
+                      : "Tap to check for the latest version"}
+                  </Text>
+                </View>
+              </View>
+              {appUpdate.isChecking ? (
+                <ActivityIndicator size="small" color="#6366F1" />
+              ) : (
+                <Ionicons name="chevron-forward" size={18} color={isDark ? colors.textSecondary : "#999"} />
+              )}
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.settingItem, { borderBottomColor: colors.border }]}
               activeOpacity={0.7}
@@ -149,6 +217,16 @@ export default function StudentProfileAboutScreen() {
         </View>
         <View style={{ height: 50 }} />
       </ScrollView>
+
+      {/* App Update Modal (triggered by manual check) */}
+      <AppUpdateModal
+        visible={appUpdate.showModal}
+        appVersion={appUpdate.appVersion}
+        storeVersion={appUpdate.storeVersion}
+        updateType={appUpdate.updateType}
+        onUpdate={appUpdate.applyUpdate}
+        onDismiss={appUpdate.dismissUpdate}
+      />
     </View>
   );
 }
@@ -206,6 +284,21 @@ const styles = StyleSheet.create({
   appVersion: {
     fontSize: 13,
     marginBottom: 16,
+  },
+  versionBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginBottom: 14,
+    marginTop: 4,
+  },
+  versionBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
   appDescription: {
     fontSize: 14,

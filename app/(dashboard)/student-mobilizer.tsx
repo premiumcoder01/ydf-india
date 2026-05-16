@@ -1,6 +1,7 @@
-import { DashboardHeader, Toast } from "@/components";
+import { DashboardHeader, Toast, AppUpdateModal } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
 import { getMobilizerDashboardStats, getMobilizerStudents, getMobilizerUpcomingDeadlines, getNotifications, getUserProfile, mobilizerRemoveStudent } from "@/utils/api";
+import { useAppUpdate } from "@/utils/useAppUpdate";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -52,6 +53,7 @@ const mobilizerFeatures = [
 export default function StudentMobilizerDashboard() {
   const { isDark, colors } = useTheme();
   const inset = useSafeAreaInsets();
+  const appUpdate = useAppUpdate(); // Auto-checks on mount
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -571,6 +573,14 @@ export default function StudentMobilizerDashboard() {
         message={toast.message}
         type={toast.type}
         onHide={() => setToast(prev => ({ ...prev, visible: false }))}
+      />
+      <AppUpdateModal
+        visible={appUpdate.showModal}
+        appVersion={appUpdate.appVersion}
+        storeVersion={appUpdate.storeVersion}
+        updateType={appUpdate.updateType}
+        onUpdate={appUpdate.applyUpdate}
+        onDismiss={appUpdate.dismissUpdate}
       />
     </View>
   );

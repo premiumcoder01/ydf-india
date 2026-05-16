@@ -1,19 +1,34 @@
-import { AppHeader } from "@/components";
+import { AppHeader, AppUpdateModal } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
+import { useAppUpdate } from "@/utils/useAppUpdate";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React from "react";
+import React, { useState } from "react";
 import {
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
+    ActivityIndicator
 } from "react-native";
 
 export default function MobilizerAboutScreen() {
     const { isDark, colors } = useTheme();
+    const appUpdate = useAppUpdate(false); // Manual check
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+    const handleCheckForUpdate = async () => {
+        const result = await appUpdate.checkForUpdate();
+        if (result === "up-to-date") {
+            setToastMessage("Your app is already up to date.");
+            setTimeout(() => setToastMessage(null), 3000);
+        } else if (result === "error") {
+            setToastMessage(appUpdate.error || "Could not check for updates. Please try again later.");
+            setTimeout(() => setToastMessage(null), 3000);
+        }
+    };
 
     return (
         <View style={styles.container}>
@@ -23,6 +38,14 @@ export default function MobilizerAboutScreen() {
             />
 
             <AppHeader title="About App" onBack={() => router.back()} />
+
+            {/* Simple Toast */}
+            {toastMessage && (
+                <View style={[styles.toastContainer, { backgroundColor: toastMessage.includes("error") || toastMessage.includes("Could not") ? "#ef4444" : "#10b981" }]}>
+                    <Ionicons name="information-circle" size={20} color="#fff" />
+                    <Text style={styles.toastText}>{toastMessage}</Text>
+                </View>
+            )}
 
             <ScrollView
                 showsVerticalScrollIndicator={false}
@@ -38,7 +61,14 @@ export default function MobilizerAboutScreen() {
                         </LinearGradient>
                     </View>
                     <Text style={[styles.appName, { color: colors.text }]}>Scholarship Mobilizer</Text>
-
+                    <View style={[
+                        styles.versionBadge,
+                        { backgroundColor: isDark ? "rgba(139,92,246,0.15)" : "rgba(99,102,241,0.08)", marginTop: 8 }
+                    ]}>
+                        <Text style={[styles.version, { color: isDark ? "#C4B5FD" : "#6366F1", fontWeight: '700' }]}>
+                            v{appUpdate.appVersion}
+                        </Text>
+                    </View>
                 </View>
 
                 <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -49,6 +79,34 @@ export default function MobilizerAboutScreen() {
                 </View>
 
                 <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>App Updates</Text>
+
+                    <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={handleCheckForUpdate}
+                        disabled={appUpdate.isChecking}
+                        style={[styles.linkRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    >
+                        <View style={styles.linkLeft}>
+                            <View style={[styles.iconWrapper, { backgroundColor: "rgba(99, 102, 241, 0.1)" }]}>
+                                <Ionicons name="cloud-download-outline" size={20} color="#6366F1" />
+                            </View>
+                            <View>
+                                <Text style={[styles.linkText, { color: colors.text }]}>Check for Updates</Text>
+                                <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2 }}>
+                                    Tap to check for the latest version
+                                </Text>
+                            </View>
+                        </View>
+                        {appUpdate.isChecking ? (
+                            <ActivityIndicator size="small" color="#6366F1" />
+                        ) : (
+                            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+                        )}
+                    </TouchableOpacity>
+                </View>
+
+                <View style={[styles.section, { marginTop: 24 }]}>
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Legal & Policy</Text>
 
                     <TouchableOpacity
@@ -91,6 +149,15 @@ export default function MobilizerAboutScreen() {
                     </Text>
                 </View>
             </ScrollView>
+
+            <AppUpdateModal
+                visible={appUpdate.showModal}
+                appVersion={appUpdate.appVersion}
+                storeVersion={appUpdate.storeVersion}
+                updateType={appUpdate.updateType}
+                onUpdate={appUpdate.applyUpdate}
+                onDismiss={appUpdate.dismissUpdate}
+            />
         </View>
     );
 }
@@ -214,5 +281,28 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '500',
         textAlign: 'center',
+    },
+    toastContainer: {
+        position: 'absolute',
+        top: 60,
+        left: 20,
+        right: 20,
+        padding: 16,
+        borderRadius: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        zIndex: 100,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+    toastText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
+        flex: 1,
     },
 });
