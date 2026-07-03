@@ -52,7 +52,8 @@ const formSchema = z.object({
     financial: z.string().optional().default(""),
     agreed: z.boolean().refine((v) => v, { message: "You must agree before submitting" }),
 }).superRefine((data, ctx) => {
-    const HIDDEN_FIELDS_MAJORS = ["10th Grade (Secondary)", "12th Grade (Higher Secondary)"];
+    const HIDDEN_FIELDS_MAJORS = ["10th Grade (Secondary)", "11th Grade (Higher Secondary)", "12th Grade (Higher Secondary)"];
+    const currentYearNum = new Date().getFullYear();
     if (!HIDDEN_FIELDS_MAJORS.includes(data.major)) {
         if (!data.gradDate || !/^\d{4}$/.test(data.gradDate.trim())) {
             ctx.addIssue({
@@ -60,6 +61,15 @@ const formSchema = z.object({
                 message: "Please enter a valid 4-digit graduation year",
                 path: ["gradDate"],
             });
+        } else {
+            const gradYear = parseInt(data.gradDate.trim());
+            if (gradYear < currentYearNum) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: `Graduation year cannot be earlier than ${currentYearNum}`,
+                    path: ["gradDate"],
+                });
+            }
         }
         if (!data.currentYear || !/^\d{4}$/.test(data.currentYear.trim())) {
             ctx.addIssue({
@@ -67,6 +77,23 @@ const formSchema = z.object({
                 message: "Please enter a valid 4-digit current year",
                 path: ["currentYear"],
             });
+        }
+    } else {
+        if (!data.currentYear || !/^\d{4}$/.test(data.currentYear.trim())) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Please enter a valid 4-digit passing year",
+                path: ["currentYear"],
+            });
+        } else {
+            const passingYear = parseInt(data.currentYear.trim());
+            if (passingYear < currentYearNum) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: `Passing year cannot be earlier than ${currentYearNum}`,
+                    path: ["currentYear"],
+                });
+            }
         }
     }
 });
@@ -176,7 +203,11 @@ export default function MobilizerApplyFormScreen() {
 
     const watchedMajor = watch("major");
     const isGradeStudent = useMemo(() => {
-        return ["10th Grade (Secondary)", "12th Grade (Higher Secondary)"].includes(watchedMajor);
+        return [
+            "10th Grade (Secondary)",
+            "11th Grade (Higher Secondary)",
+            "12th Grade (Higher Secondary)"
+        ].includes(watchedMajor);
     }, [watchedMajor]);
 
 
@@ -259,7 +290,18 @@ export default function MobilizerApplyFormScreen() {
                                     })(),
                                     studentId: String(studentData.id),
                                     institution: v(studentData.institution, cf.college_name, cf.institution_name, studentData.academic_details?.[0]?.institution),
-                                    major: v(studentData.major, cf.course, cf.major_field, studentData.academic_details?.[0]?.major),
+                                    major: (() => {
+                                        let m = v(studentData.major, cf.course, cf.major_field, studentData.academic_details?.[0]?.major);
+                                        const courseName = studentData.academic_details?.[0]?.course_name || "";
+                                        if (courseName.toLowerCase().includes("10th")) {
+                                            return "10th Grade (Secondary)";
+                                        } else if (courseName.toLowerCase().includes("11th")) {
+                                            return "11th Grade (Higher Secondary)";
+                                        } else if (courseName.toLowerCase().includes("12th")) {
+                                            return "12th Grade (Higher Secondary)";
+                                        }
+                                        return m;
+                                    })(),
                                     gradDate: String(v(studentData.gradDate, cf["12th_passing_year"], cf.graduation_year, studentData.academic_details?.[0]?.graduation_year)).substring(0, 4),
                                     currentYear: (() => {
                                         let val = v(studentData.currentYear, cf.year_of_course, cf.current_year, cf.session, studentData.academic_details?.[0]?.academic_year);
@@ -586,7 +628,7 @@ export default function MobilizerApplyFormScreen() {
                                     )}
                                 />
                                 <Controller control={control} name="studentId" render={({ field: { onChange, value, onBlur } }) => (
-                                    <CustomTextInput label="Student ID" placeholder="Enter student ID" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.studentId?.message} required />
+                                    <CustomTextInput label="Student ID" placeholder="Enter student ID" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.studentId?.message} editable={false} style={{ backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "#F3F4F6", opacity: 0.65 }} required />
                                 )} />
                             </Section>
                         )}
@@ -603,7 +645,7 @@ export default function MobilizerApplyFormScreen() {
                                             visible: true,
                                             title: "Select Major / Field of Study",
                                             options: [
-                                                "Computer Science", "Information Technology", "Data Science / AI", "Mechanical Engineering", "Civil Engineering", "Electrical / Electronics Engineering", "Biomedical Engineering", "Chemical Engineering", "Aerospace / Aeronautical Engineering", "Medicine (MBBS)", "Dental (BDS)", "Nursing", "Pharmacy", "Business Administration (BBA/MBA)", "Finance / Accounting", "Economics", "Marketing", "Law (LLB/LLM)", "History", "Political Science", "Psychology", "Sociology", "English / Literature", "Physics", "Chemistry", "Mathematics", "Biology / Biotechnology", "Environmental Science", "Architecture", "Design (Fashion/Graphic/Interior)", "Journalism / Mass Communication", "Agriculture / Horticulture", "Veterinary Science", "Education / Teaching", "Hotel Management / Hospitality", "Vocational Training (ITI)", "Polytechnic / Diploma", "10th Grade (Secondary)", "12th Grade (Higher Secondary)", "Other"
+                                                "Computer Science", "Information Technology", "Data Science / AI", "Mechanical Engineering", "Civil Engineering", "Electrical / Electronics Engineering", "Biomedical Engineering", "Chemical Engineering", "Aerospace / Aeronautical Engineering", "Medicine (MBBS)", "Dental (BDS)", "Nursing", "Pharmacy", "Business Administration (BBA/MBA)", "Finance / Accounting", "Economics", "Marketing", "Law (LLB/LLM)", "History", "Political Science", "Psychology", "Sociology", "English / Literature", "Physics", "Chemistry", "Mathematics", "Biology / Biotechnology", "Environmental Science", "Architecture", "Design (Fashion/Graphic/Interior)", "Journalism / Mass Communication", "Agriculture / Horticulture", "Veterinary Science", "Education / Teaching", "Hotel Management / Hospitality", "Vocational Training (ITI)", "Polytechnic / Diploma", "10th Grade (Secondary)", "11th Grade (Higher Secondary)", "12th Grade (Higher Secondary)", "Other"
                                             ],
                                             onSelect: (val) => onChange(val)
                                         });
@@ -613,7 +655,11 @@ export default function MobilizerApplyFormScreen() {
                                         </View>
                                     </TouchableOpacity>
                                 )} />
-                                {!isGradeStudent && (
+                                {isGradeStudent ? (
+                                    <Controller control={control} name="currentYear" render={({ field: { onChange, value, onBlur } }) => (
+                                        <CustomTextInput label="Passing Year" placeholder="YYYY" value={value || ""} onChangeText={onChange} onBlur={onBlur} keyboardType="numeric" maxLength={4} error={errors.currentYear?.message} required rightIcon="calendar-outline" />
+                                    )} />
+                                ) : (
                                     <>
                                         <Controller control={control} name="gradDate" render={({ field: { onChange, value, onBlur } }) => (
                                             <CustomTextInput label="Expected Graduation Year" placeholder="YYYY" value={value || ""} onChangeText={onChange} onBlur={onBlur} keyboardType="numeric" maxLength={4} error={errors.gradDate?.message} required rightIcon="calendar-outline" />

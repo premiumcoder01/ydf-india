@@ -366,15 +366,17 @@ export default function ReviewerProfilePersonalScreen() {
       }
     }
 
-    // Address and City Validation
-    if (!personalInfo.address.trim()) {
-      errors.address = "Address is required";
-    } else if (personalInfo.address.trim().length < 5) {
-      errors.address = "Address must be at least 5 characters";
-    } else if (/^\d+$/.test(personalInfo.address.trim())) {
-      errors.address = "Address cannot be only numbers";
+    // Address Validation (Optional)
+    if (personalInfo.address.trim()) {
+      if (personalInfo.address.trim().length < 5) {
+        errors.address = "Address must be at least 5 characters";
+      } else if (/^\d+$/.test(personalInfo.address.trim())) {
+        errors.address = "Address cannot be only numbers";
+      }
     }
 
+    // City validation commented out as city is commented out in UI
+    /*
     if (!personalInfo.city.trim()) {
       errors.city = "City is required";
     } else if (personalInfo.city.trim().length < 3) {
@@ -382,6 +384,7 @@ export default function ReviewerProfilePersonalScreen() {
     } else if (/\d/.test(personalInfo.city)) {
       errors.city = "City name cannot contain numbers";
     }
+    */
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -1036,7 +1039,7 @@ export default function ReviewerProfilePersonalScreen() {
                 iconColor="#059669" mainStyle={{ marginBottom: 0 }}
               />
 
-              <CustomTextInput
+              {/* <CustomTextInput
                 label="City"
                 value={personalInfo.city}
                 onChangeText={(val) => handlePersonalInfoChange("city", val)}
@@ -1045,7 +1048,7 @@ export default function ReviewerProfilePersonalScreen() {
                 error={validationErrors.city}
                 icon="business-outline"
                 iconColor="#059669" mainStyle={{ marginBottom: 0 }}
-              />
+              /> */}
               {/* Village removed as requested */}
             </View>
           </View>

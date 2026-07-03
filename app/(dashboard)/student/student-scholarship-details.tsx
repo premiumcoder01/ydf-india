@@ -65,6 +65,42 @@ const stripHtml = (html: string): string => {
     .trim();
 };
 
+const renderProfileLinkText = (text: string | null, isMobilizer: boolean, studentId?: any) => {
+  if (!text) return null;
+  const parts = text.split(/(your profile)/gi);
+  return (
+    <Text>
+      {parts.map((part, index) => {
+        if (part.toLowerCase() === "your profile") {
+          return (
+            <Text
+              key={index}
+              style={{
+                color: '#3B82F6',
+                textDecorationLine: 'underline',
+                fontWeight: '600'
+              }}
+              onPress={() => {
+                if (isMobilizer) {
+                  router.push({
+                    pathname: "/(dashboard)/mobilizer/mobilizer-edit-student",
+                    params: { studentId: studentId ? String(studentId) : "" }
+                  });
+                } else {
+                  router.push("/(dashboard)/student/student-profile-personal");
+                }
+              }}
+            >
+              {part}
+            </Text>
+          );
+        }
+        return <Text key={index}>{part}</Text>;
+      })}
+    </Text>
+  );
+};
+
 // Helper function to get category color
 const getCategoryColor = (category: string): string => {
   const colors: Record<string, string> = {
@@ -650,7 +686,7 @@ export default function ScholarshipDetailsScreen() {
 
                 return (
                   <View key={section.id} style={[
-                    styles.moduleCard, 
+                    styles.moduleCard,
                     { backgroundColor: isDark ? "#1e1e1e" : "#FFF", borderColor: isDark ? "#2a2a2a" : "#E5E7EB" },
                     sectionLocked && { opacity: 0.8 }
                   ]}>
@@ -672,13 +708,13 @@ export default function ScholarshipDetailsScreen() {
                         ) : null}
                         {sectionLocked && sectionAvailabilityMsg && (
                           <View style={[
-                            styles.availabilityBox, 
+                            styles.availabilityBox,
                             { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.12)' : '#FFFBEB', borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#FEF3C7' }
                           ]}>
                             <View style={{ flexDirection: 'row', gap: 8 }}>
                               <Ionicons name="information-circle" size={14} color={isDark ? '#FBBF24' : '#D97706'} style={{ marginTop: 2 }} />
                               <Text style={[styles.availabilityText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
-                                {sectionAvailabilityMsg}
+                                {renderProfileLinkText(sectionAvailabilityMsg, false)}
                               </Text>
                             </View>
                           </View>
@@ -809,19 +845,6 @@ export default function ScholarshipDetailsScreen() {
                                         </Text>
                                       )}
                                     </View>
-                                    {isActivityLocked && availabilityMsg && (
-                                      <View style={[
-                                        styles.availabilityBox, 
-                                        { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.12)' : '#FFFBEB', borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#FEF3C7', marginTop: 10 }
-                                      ]}>
-                                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                                          <Ionicons name="information-circle" size={14} color={isDark ? '#FBBF24' : '#D97706'} style={{ marginTop: 1 }} />
-                                          <Text style={[styles.availabilityText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
-                                            {availabilityMsg}
-                                          </Text>
-                                        </View>
-                                      </View>
-                                    )}
                                   </View>
                                   {isActivityLocked ? (
                                     <View style={[styles.quizChevronBox, { backgroundColor: '#FEF3C7' }]}>
@@ -831,6 +854,20 @@ export default function ScholarshipDetailsScreen() {
                                     <Ionicons name="checkmark-circle" size={18} color="#10B981" />
                                   )}
                                 </View>
+
+                                {isActivityLocked && availabilityMsg && (
+                                  <View style={[
+                                    styles.availabilityBox,
+                                    { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.12)' : '#FFFBEB', borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#FEF3C7', marginTop: 10 }
+                                  ]}>
+                                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                                      <Ionicons name="information-circle" size={14} color={isDark ? '#FBBF24' : '#D97706'} style={{ marginTop: 1 }} />
+                                      <Text style={[styles.availabilityText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
+                                        {renderProfileLinkText(availabilityMsg, false)}
+                                      </Text>
+                                    </View>
+                                  </View>
+                                )}
 
                                 {/* Uploaded files list */}
                                 <View style={[styles.fileListContainer, { backgroundColor: isDark ? '#161616' : '#F9FAFB', borderColor: isDark ? '#2a2a2a' : '#E5E7EB' }]}>
@@ -925,19 +962,6 @@ export default function ScholarshipDetailsScreen() {
                                         </Text>
                                       )}
                                     </View>
-                                    {isActivityLocked && availabilityMsg && (
-                                      <View style={[
-                                        styles.availabilityBox, 
-                                        { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.12)' : '#FFFBEB', borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#FEF3C7', marginTop: 10 }
-                                      ]}>
-                                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                                          <Ionicons name="information-circle" size={14} color={isDark ? '#FBBF24' : '#D97706'} style={{ marginTop: 1 }} />
-                                          <Text style={[styles.availabilityText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
-                                            {availabilityMsg}
-                                          </Text>
-                                        </View>
-                                      </View>
-                                    )}
                                   </View>
                                   {isActivityLocked ? (
                                     <View style={[styles.quizChevronBox, { backgroundColor: '#FEF3C7' }]}>
@@ -949,6 +973,20 @@ export default function ScholarshipDetailsScreen() {
                                     </View>
                                   )}
                                 </View>
+
+                                {isActivityLocked && availabilityMsg && (
+                                  <View style={[
+                                    styles.availabilityBox,
+                                    { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.12)' : '#FFFBEB', borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#FEF3C7', marginTop: 10 }
+                                  ]}>
+                                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                                      <Ionicons name="information-circle" size={14} color={isDark ? '#FBBF24' : '#D97706'} style={{ marginTop: 1 }} />
+                                      <Text style={[styles.availabilityText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
+                                        {renderProfileLinkText(availabilityMsg, false)}
+                                      </Text>
+                                    </View>
+                                  </View>
+                                )}
                               </ItemContainer>
                             );
                           }
@@ -998,19 +1036,6 @@ export default function ScholarshipDetailsScreen() {
                                         </Text>
                                       </View>
                                     </View>
-                                    {isActivityLocked && availabilityMsg && (
-                                      <View style={[
-                                        styles.availabilityBox, 
-                                        { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.12)' : '#FFFBEB', borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#FEF3C7', marginTop: 10 }
-                                      ]}>
-                                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                                          <Ionicons name="information-circle" size={14} color={isDark ? '#FBBF24' : '#D97706'} style={{ marginTop: 1 }} />
-                                          <Text style={[styles.availabilityText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
-                                            {availabilityMsg}
-                                          </Text>
-                                        </View>
-                                      </View>
-                                    )}
                                   </View>
 
                                   {/* Action indicator */}
@@ -1022,6 +1047,20 @@ export default function ScholarshipDetailsScreen() {
                                     />
                                   </View>
                                 </View>
+
+                                {isActivityLocked && availabilityMsg && (
+                                  <View style={[
+                                    styles.availabilityBox,
+                                    { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.12)' : '#FFFBEB', borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#FEF3C7', marginTop: 10 }
+                                  ]}>
+                                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                                      <Ionicons name="information-circle" size={14} color={isDark ? '#FBBF24' : '#D97706'} style={{ marginTop: 1 }} />
+                                      <Text style={[styles.availabilityText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
+                                        {renderProfileLinkText(availabilityMsg, false)}
+                                      </Text>
+                                    </View>
+                                  </View>
+                                )}
                               </ItemContainer>
                             );
                           }
@@ -1049,19 +1088,6 @@ export default function ScholarshipDetailsScreen() {
                                         <Text style={[styles.statusMiniText, { color: '#0369A1' }]}>Book Slot</Text>
                                       </View>
                                     </View>
-                                    {isActivityLocked && availabilityMsg && (
-                                      <View style={[
-                                        styles.availabilityBox, 
-                                        { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.12)' : '#FFFBEB', borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#FEF3C7', marginTop: 10 }
-                                      ]}>
-                                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                                          <Ionicons name="information-circle" size={14} color={isDark ? '#FBBF24' : '#D97706'} style={{ marginTop: 1 }} />
-                                          <Text style={[styles.availabilityText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
-                                            {availabilityMsg}
-                                          </Text>
-                                        </View>
-                                      </View>
-                                    )}
                                   </View>
                                   <View style={[styles.quizChevronBox, { backgroundColor: isActivityLocked ? '#FEF3C7' : '#0EA5E912' }]}>
                                     <Ionicons
@@ -1071,6 +1097,20 @@ export default function ScholarshipDetailsScreen() {
                                     />
                                   </View>
                                 </View>
+
+                                {isActivityLocked && availabilityMsg && (
+                                  <View style={[
+                                    styles.availabilityBox,
+                                    { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.12)' : '#FFFBEB', borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#FEF3C7', marginTop: 10 }
+                                  ]}>
+                                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                                      <Ionicons name="information-circle" size={14} color={isDark ? '#FBBF24' : '#D97706'} style={{ marginTop: 1 }} />
+                                      <Text style={[styles.availabilityText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
+                                        {renderProfileLinkText(availabilityMsg, false)}
+                                      </Text>
+                                    </View>
+                                  </View>
+                                )}
                               </ItemContainer>
                             );
                           }
@@ -1185,13 +1225,13 @@ export default function ScholarshipDetailsScreen() {
                                     </View>
                                     {isActivityLocked && availabilityMsg && (
                                       <View style={[
-                                        styles.availabilityBox, 
+                                        styles.availabilityBox,
                                         { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.12)' : '#FFFBEB', borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#FEF3C7', marginTop: 10 }
                                       ]}>
                                         <View style={{ flexDirection: 'row', gap: 8 }}>
                                           <Ionicons name="information-circle" size={14} color={isDark ? '#FBBF24' : '#D97706'} style={{ marginTop: 1 }} />
                                           <Text style={[styles.availabilityText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
-                                            {availabilityMsg}
+                                            {renderProfileLinkText(availabilityMsg, false)}
                                           </Text>
                                         </View>
                                       </View>

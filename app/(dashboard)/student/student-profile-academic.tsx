@@ -1,4 +1,4 @@
-import { AppHeader, Button, CustomTextInput, Toast } from "@/components";
+import { AppHeader, CustomTextInput, Toast } from "@/components";
 import { useTheme } from "@/context/ThemeContext";
 import { createAcademicDetail, deleteAcademicDetail, DropdownData, getAcademicDetails, getDropdownDefinitions, updateAcademicDetail } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
@@ -246,15 +246,30 @@ export default function StudentProfileAcademicScreen() {
 
     if (!editingRecord.year.trim()) errors.year = "Required";
 
+    const is11thOr12th = editingRecord.currentCourse.toLowerCase().includes("11th") || editingRecord.currentCourse.toLowerCase().includes("12th");
     if (!isSchool) {
       if (!editingRecord.institution.trim()) errors.institution = "Required";
       if (!editingRecord.currentCourseCategory.trim()) errors.currentCourseCategory = "Required";
       if (!editingRecord.major.trim()) errors.major = "Required";
+    } else if (is11thOr12th) {
+      if (!editingRecord.institution.trim()) errors.institution = "Required";
+    }
+
+    if (isSchool && editingRecord.year.trim()) {
+      let selectedYear: number | null = null;
+      if (editingRecord.year.includes("-")) {
+        selectedYear = parseInt(editingRecord.year.split("-")[0]);
+      } else {
+        selectedYear = parseInt(editingRecord.year);
+      }
+      if (selectedYear && selectedYear > currentYear + 1) {
+        errors.year = `Passing year cannot be later than ${currentYear + 1}`;
+      }
     }
 
     // Academic Performance Validation (Required)
     if (!editingRecord.gpa || !editingRecord.gpa.trim()) {
-      errors.gpa = "Academic performance is required";
+      errors.gpa = "Last year percentage/CGPA is required";
     } else {
       const gpaNum = parseFloat(editingRecord.gpa);
       if (isNaN(gpaNum)) {
@@ -291,11 +306,11 @@ export default function StudentProfileAcademicScreen() {
         const authData = JSON.parse(authDataStr);
         if (authData.token) {
           const isSchool = isSchoolCourse(editingRecord.currentCourse);
-          const is10th = is10thCourse(editingRecord.currentCourse);
+          const is11thOr12th = editingRecord.currentCourse.toLowerCase().includes("11th") || editingRecord.currentCourse.toLowerCase().includes("12th");
           const apiParams = {
             course_name: editingRecord.currentCourse,
             category: isSchool ? "" : editingRecord.currentCourseCategory,
-            institution: isSchool ? "N/A" : editingRecord.institution,
+            institution: (isSchool && !is11thOr12th) ? "N/A" : editingRecord.institution,
             major: isSchool ? "" : editingRecord.major,
             percentage: gradeType === 'percentage' ? editingRecord.gpa : "",
             cgpa: gradeType === 'cgpa' ? editingRecord.gpa : "",
@@ -539,7 +554,10 @@ export default function StudentProfileAcademicScreen() {
                           </View>
                         ) : null}
                       </View>
-                      {!isSchoolCourse(record.currentCourse) && record.institution && record.institution !== "N/A" ? (
+                      {(!isSchoolCourse(record.currentCourse) ||
+                        record.currentCourse.toLowerCase().includes("11th") ||
+                        record.currentCourse.toLowerCase().includes("12th")) &&
+                        record.institution && record.institution !== "N/A" ? (
                         <Text style={[styles.recordSubtitle, { color: colors.textSecondary }]}>{record.institution}</Text>
                       ) : null}
                     </View>
@@ -601,7 +619,7 @@ export default function StudentProfileAcademicScreen() {
                       <Ionicons name="pencil-outline" size={14} color={isDark ? '#64B5F6' : '#1976D2'} style={{ marginRight: 4 }} />
                       <Text style={[styles.premiumActionBtnText, { color: isDark ? '#64B5F6' : '#1976D2' }]}>Edit Record</Text>
                     </TouchableOpacity>
-                    
+
                     <TouchableOpacity
                       style={[styles.premiumActionBtn, { backgroundColor: isDark ? 'rgba(244, 67, 54, 0.08)' : 'rgba(244, 67, 54, 0.05)', borderColor: isDark ? 'rgba(244, 67, 54, 0.25)' : 'rgba(244, 67, 54, 0.15)' }]}
                       onPress={() => handleDelete(record.id)}
@@ -730,30 +748,32 @@ export default function StudentProfileAcademicScreen() {
                 )}
               </View>
 
-              {/* Institution Section (College Only) */}
-              {!isSchoolCourse(editingRecord.currentCourse) && (
-                <View style={[styles.formSection, { backgroundColor: isDark ? 'rgba(30, 30, 35, 0.45)' : '#F8F9FA', borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.border }]}>
-                  <View style={styles.sectionHeader}>
-                    <Ionicons name="business-outline" size={20} color={colors.primary} />
-                    <Text style={[styles.sectionTitle2, { color: colors.text }]}>Institution Details</Text>
-                  </View>
+              {/* Institution Section (College & 11th/12th) */}
+              {(!isSchoolCourse(editingRecord.currentCourse) ||
+                editingRecord.currentCourse.toLowerCase().includes("11th") ||
+                editingRecord.currentCourse.toLowerCase().includes("12th")) && (
+                  <View style={[styles.formSection, { backgroundColor: isDark ? 'rgba(30, 30, 35, 0.45)' : '#F8F9FA', borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.border }]}>
+                    <View style={styles.sectionHeader}>
+                      <Ionicons name="business-outline" size={20} color={colors.primary} />
+                      <Text style={[styles.sectionTitle2, { color: colors.text }]}>Institution Details</Text>
+                    </View>
 
-                  <CustomTextInput
-                    label="College / University Name *"
-                    value={editingRecord.institution}
-                    onChangeText={(t) => handleFieldChange("institution", t)}
-                    placeholder="e.g., IIT Delhi, Delhi University"
-                    style={{ marginBottom: 0 }}
-                    error={validationErrors.institution}
-                  />
-                </View>
-              )}
+                    <CustomTextInput
+                      label={isSchoolCourse(editingRecord.currentCourse) ? "School Name *" : "College / University Name *"}
+                      value={editingRecord.institution}
+                      onChangeText={(t) => handleFieldChange("institution", t)}
+                      placeholder={isSchoolCourse(editingRecord.currentCourse) ? "Enter school name" : "e.g., IIT Delhi, Delhi University"}
+                      style={{ marginBottom: 0 }}
+                      error={validationErrors.institution}
+                    />
+                  </View>
+                )}
 
               {/* Academic Performance Section */}
               <View style={[styles.formSection, { backgroundColor: isDark ? 'rgba(30, 30, 35, 0.45)' : '#F8F9FA', borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.border }]}>
                 <View style={styles.sectionHeader}>
                   <Ionicons name="trophy-outline" size={20} color={colors.primary} />
-                  <Text style={[styles.sectionTitle2, { color: colors.text }]}>Academic Performance</Text>
+                  <Text style={[styles.sectionTitle2, { color: colors.text }]}>Last Year Percentage</Text>
                 </View>
 
                 {/* Grade Type Toggle */}
@@ -776,7 +796,7 @@ export default function StudentProfileAcademicScreen() {
                 </View>
 
                 <CustomTextInput
-                  label="Academic Performance (CGPA / %) *"
+                  label="Last Year Percentage / CGPA *"
                   value={editingRecord.gpa}
                   onChangeText={(t) => handleFieldChange("gpa", t)}
                   keyboardType="decimal-pad"
@@ -890,7 +910,11 @@ export default function StudentProfileAcademicScreen() {
             isVisible={showStartDatePicker}
             mode="date"
             minimumDate={new Date(2000, 0, 1)}
-            maximumDate={new Date(2035, 11, 31)}
+            maximumDate={
+              isSchoolCourse(editingRecord.currentCourse)
+                ? new Date(currentYear + 1, 11, 31)
+                : new Date(2035, 11, 31)
+            }
             onConfirm={(date) => {
               handleFieldChange("year", date.toISOString().split('T')[0]);
               setShowStartDatePicker(false);
@@ -937,7 +961,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5 },
   sectionSubtitleText: { fontSize: 13, marginTop: 2, opacity: 0.8 },
-  
+
   addButtonWrapper: {
     borderRadius: 20,
     overflow: 'hidden',
@@ -1037,7 +1061,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   fsModalTitle: { fontSize: 20, fontWeight: '800', letterSpacing: -0.4 },
-  closeBtn: { 
+  closeBtn: {
     padding: 6,
     borderRadius: 12,
   },

@@ -41,8 +41,8 @@ const formSchema = z.object({
   // Academic
   institution: z.string().min(2, "Institution is required"),
   major: z.string().min(2, "Major is required"),
-  gradDate: z.string().min(4, "Graduation date is required"),
-  currentYear: z.string().min(1, "Current year is required"),
+  gradDate: z.string().optional().default(""),
+  currentYear: z.string().optional().default(""),
   gpa: z
     .string()
     .refine((v) => v === "" || (!Number.isNaN(Number(v)) && Number(v) <= 100.0 && Number(v) >= 0), {
@@ -56,6 +56,59 @@ const formSchema = z.object({
 
   // Declaration
   agreed: z.boolean().refine((v) => v, { message: "You must agree before submitting" }),
+}).superRefine((data, ctx) => {
+  const isSchool = data.major && [
+    "10th Grade (Secondary)",
+    "11th Grade (Higher Secondary)",
+    "12th Grade (Higher Secondary)"
+  ].includes(data.major);
+
+  if (!isSchool) {
+    if (!data.gradDate || data.gradDate.trim().length < 4) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Graduation date is required",
+        path: ["gradDate"],
+      });
+    } else {
+      const gradDateObj = new Date(data.gradDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (gradDateObj < today) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Graduation date cannot be in the past",
+          path: ["gradDate"],
+        });
+      }
+    }
+    if (!data.currentYear || data.currentYear.trim().length < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Current year is required",
+        path: ["currentYear"],
+      });
+    }
+  } else {
+    if (!data.currentYear || data.currentYear.trim().length < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Passing year is required",
+        path: ["currentYear"],
+      });
+    } else {
+      const passingDateObj = new Date(data.currentYear);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (passingDateObj < today) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Passing year cannot be in the past",
+          path: ["currentYear"],
+        });
+      }
+    }
+  }
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -148,6 +201,7 @@ export default function ApplyFormScreen() {
     visible: boolean;
     field: "gradDate" | "currentYear" | null;
     currentDate: Date;
+    minimumDate?: Date;
   }>({
     visible: false,
     field: null,
@@ -162,8 +216,17 @@ export default function ApplyFormScreen() {
   const [redirectTarget, setRedirectTarget] = useState<{ path: string; label: string; description: string }>({
     path: "/(dashboard)/student/student-profile-academic",
     label: "Complete Academic Info",
-    description: "Please complete your academic information in your profile."
+    description: "To ensure a smooth application process, please complete your academic profile before proceeding."
   });
+
+  const watchedMajor = watch("major");
+  const isSchoolFromForm = useMemo(() => {
+    return [
+      "10th Grade (Secondary)",
+      "11th Grade (Higher Secondary)",
+      "12th Grade (Higher Secondary)"
+    ].includes(watchedMajor);
+  }, [watchedMajor]);
 
   // Filter options based on search query
   const filteredOptions = useMemo(() => {
@@ -200,8 +263,21 @@ export default function ApplyFormScreen() {
     console.log(item)
     const rawInst = item?.institution || "";
     const cleanInst = (rawInst.toLowerCase().trim() === "n/a" || rawInst.toLowerCase().trim() === "na") ? "" : rawInst;
+    
+    // Auto-map school courses to the major options
+    let mappedMajor = item.major || "";
+    if (item.course_name) {
+      if (item.course_name.toLowerCase().includes("10th")) {
+        mappedMajor = "10th Grade (Secondary)";
+      } else if (item.course_name.toLowerCase().includes("11th")) {
+        mappedMajor = "11th Grade (Higher Secondary)";
+      } else if (item.course_name.toLowerCase().includes("12th")) {
+        mappedMajor = "12th Grade (Higher Secondary)";
+      }
+    }
+    
     setValue("institution", cleanInst);
-    setValue("major", item.major || "");
+    setValue("major", mappedMajor);
     setValue("gradDate", String(item.graduation_year || ""));
     setValue("currentYear", item.academic_year ? String(item.academic_year) : "");
     setValue("gpa", item.percentage != null ? String(item.percentage) : (item.cgpa ? String(item.cgpa) : ""));
@@ -434,7 +510,7 @@ export default function ApplyFormScreen() {
       setRedirectTarget({
         path: "/(dashboard)/student/student-profile-academic",
         label: "Complete Academic Info",
-        description: "To ensure a smooth application process, please complete your academic information in your profile before proceeding.",
+        description: "To ensure a smooth application process, please complete your academic profile before proceeding.",
       });
       setShowProfileRedirectModal(true);
       return;
@@ -493,8 +569,8 @@ export default function ApplyFormScreen() {
           student_id: values.studentId,
           institution: values.institution,
           major: values.major,
-          graduation_date: values.gradDate,
-          current_year: values.currentYear,
+          graduation_date: isSchoolFromForm ? "" : values.gradDate,
+          current_year: isSchoolFromForm ? "" : values.currentYear,
           gpa: values.gpa,
           activities: values.activities,
           financial_info: values.financial,
@@ -740,7 +816,7 @@ export default function ApplyFormScreen() {
                   )}
                 />
                 <Controller control={control} name="studentId" render={({ field: { onChange, value, onBlur } }) => (
-                  <CustomTextInput label="Student ID" placeholder="Enter your student ID" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.studentId?.message} required />
+                  <CustomTextInput label="Student ID" placeholder="Enter your student ID" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.studentId?.message} editable={false} style={{ backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "#F3F4F6", opacity: 0.65 }} required />
                 )} />
               </Section>
             )}
@@ -894,6 +970,7 @@ export default function ApplyFormScreen() {
                           "Vocational Training (ITI)",
                           "Polytechnic / Diploma",
                           "10th Grade (Secondary)",
+                          "11th Grade (Higher Secondary)",
                           "12th Grade (Higher Secondary)",
                           "Other"
                         ],
@@ -915,65 +992,115 @@ export default function ApplyFormScreen() {
                     </View>
                   </TouchableOpacity>
                 )} />
-                <Controller control={control} name="gradDate" render={({ field: { onChange, value } }) => (
-                  <TouchableOpacity
-                    disabled={isAcademicFromProfile}
-                    onPress={() => {
-                      let initialDate = new Date();
-                      if (value && !isNaN(new Date(value).getTime())) {
-                        initialDate = new Date(value);
-                      }
-                      setDatePickerState({
-                        visible: true,
-                        field: "gradDate",
-                        currentDate: initialDate,
-                      });
-                    }}>
-                    <View pointerEvents="none">
-                      <CustomTextInput
-                        label="Expected Graduation Year"
-                        placeholder="Select Date"
-                        value={value}
-                        editable={false}
-                        error={errors.gradDate?.message}
-                        onChangeText={() => { }}
-                        required
-                        inputStyle={{ color: colors.text, opacity: isAcademicFromProfile ? 0.6 : 1 }}
-                        rightIcon={isAcademicFromProfile ? undefined : "calendar-outline"}
-                      />
-                    </View>
-                  </TouchableOpacity>
-                )} />
+                {isSchoolFromForm ? (
+                  <Controller control={control} name="currentYear" render={({ field: { onChange, value } }) => (
+                    <TouchableOpacity
+                      disabled={isAcademicFromProfile}
+                      onPress={() => {
+                        let initialDate = new Date();
+                        if (value && !isNaN(new Date(value).getTime())) {
+                          const parsedDate = new Date(value);
+                          if (parsedDate.getFullYear() > 2000) {
+                            initialDate = parsedDate;
+                          }
+                        }
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        setDatePickerState({
+                          visible: true,
+                          field: "currentYear",
+                          currentDate: initialDate,
+                          minimumDate: today,
+                        });
+                      }}>
+                      <View pointerEvents="none">
+                        <CustomTextInput
+                          label="Passing Year"
+                          placeholder="Select Date"
+                          value={value}
+                          editable={false}
+                          error={errors.currentYear?.message}
+                          onChangeText={() => { }}
+                          required
+                          inputStyle={{ color: colors.text, opacity: isAcademicFromProfile ? 0.6 : 1 }}
+                          rightIcon={isAcademicFromProfile ? undefined : "calendar-outline"}
+                        />
+                      </View>
+                    </TouchableOpacity>
+                  )} />
+                ) : (
+                  <>
+                    <Controller control={control} name="gradDate" render={({ field: { onChange, value } }) => (
+                      <TouchableOpacity
+                        disabled={isAcademicFromProfile}
+                        onPress={() => {
+                          let initialDate = new Date();
+                          if (value && !isNaN(new Date(value).getTime())) {
+                            const parsedDate = new Date(value);
+                            if (parsedDate.getFullYear() > 2000) {
+                              initialDate = parsedDate;
+                            }
+                          }
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          setDatePickerState({
+                            visible: true,
+                            field: "gradDate",
+                            currentDate: initialDate,
+                            minimumDate: today,
+                          });
+                        }}>
+                        <View pointerEvents="none">
+                          <CustomTextInput
+                            label="Expected Graduation Year"
+                            placeholder="Select Date"
+                            value={value}
+                            editable={false}
+                            error={errors.gradDate?.message}
+                            onChangeText={() => { }}
+                            required
+                            inputStyle={{ color: colors.text, opacity: isAcademicFromProfile ? 0.6 : 1 }}
+                            rightIcon={isAcademicFromProfile ? undefined : "calendar-outline"}
+                          />
+                        </View>
+                      </TouchableOpacity>
+                    )} />
 
-                <Controller control={control} name="currentYear" render={({ field: { onChange, value } }) => (
-                  <TouchableOpacity
-                    disabled={isAcademicFromProfile}
-                    onPress={() => {
-                      let initialDate = new Date();
-                      if (value && !isNaN(new Date(value).getTime())) {
-                        initialDate = new Date(value);
-                      }
-                      setDatePickerState({
-                        visible: true,
-                        field: "currentYear",
-                        currentDate: initialDate,
-                      });
-                    }}>
-                    <View pointerEvents="none">
-                      <CustomTextInput
-                        label="Current Year of Study"
-                        placeholder="Select Date"
-                        value={value}
-                        editable={false}
-                        error={errors.currentYear?.message}
-                        onChangeText={() => { }}
-                        required
-                        inputStyle={{ color: colors.text, opacity: isAcademicFromProfile ? 0.6 : 1 }}
-                        rightIcon={isAcademicFromProfile ? undefined : "school-outline"}
-                      />
-                    </View>
-                  </TouchableOpacity>
-                )} />
+                    <Controller control={control} name="currentYear" render={({ field: { onChange, value } }) => (
+                      <TouchableOpacity
+                        disabled={isAcademicFromProfile}
+                        onPress={() => {
+                          let initialDate = new Date();
+                          if (value && !isNaN(new Date(value).getTime())) {
+                            const parsedDate = new Date(value);
+                            if (parsedDate.getFullYear() > 2000) {
+                              initialDate = parsedDate;
+                            }
+                          }
+                          setDatePickerState({
+                            visible: true,
+                            field: "currentYear",
+                            currentDate: initialDate,
+                            minimumDate: new Date(2000, 0, 1),
+                          });
+                        }}>
+                        <View pointerEvents="none">
+                          <CustomTextInput
+                            label="Current Year of Study"
+                            placeholder="Select Date"
+                            value={value}
+                            editable={false}
+                            error={errors.currentYear?.message}
+                            onChangeText={() => { }}
+                            required
+                            inputStyle={{ color: colors.text, opacity: isAcademicFromProfile ? 0.6 : 1 }}
+                            rightIcon={isAcademicFromProfile ? undefined : "school-outline"}
+                          />
+                        </View>
+                      </TouchableOpacity>
+                    )} />
+                  </>
+                )}
 
                 <Controller control={control} name="gpa" render={({ field: { onChange, value, onBlur } }) => (
                   <View style={{ marginBottom: 16 }}>
@@ -1234,6 +1361,8 @@ export default function ApplyFormScreen() {
         isVisible={datePickerState.visible}
         mode="date"
         date={datePickerState.currentDate}
+        minimumDate={datePickerState.minimumDate || new Date(2000, 0, 1)}
+        maximumDate={new Date(2040, 11, 31)}
         onConfirm={(date) => {
           const formatted = date.toISOString().split('T')[0];
           if (datePickerState.field) {

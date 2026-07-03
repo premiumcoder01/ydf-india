@@ -1958,7 +1958,7 @@ export const updateUserProfile = async (
     if (profileData.email !== undefined && profileData.email !== null) payload.email = profileData.email;
     if (profileData.phone !== undefined && profileData.phone !== null) payload.phone1 = profileData.phone;
     if (profileData.address !== undefined && profileData.address !== null) payload.address = profileData.address;
-    if (profileData.city !== undefined && profileData.city !== null) payload.city = profileData.city;
+    // if (profileData.city !== undefined && profileData.city !== null) payload.city = profileData.city;
     payload.country = "IN";
 
     // Profile image file ID (new parameter for image upload)
@@ -2004,12 +2004,12 @@ export const updateUserProfile = async (
     addCustomField('domicile_district', profileData.domicileDistrict);
     addCustomField('category', profileData.specialCategory);
     addCustomField('percentage_12', profileData.percentage12);
-    addCustomField('college_name', profileData.collegeName);
-    addCustomField('College_District', profileData.collegeLocation);
-    addCustomField('university', profileData.university);
-    addCustomField('course', profileData.currentCourse);
-    addCustomField('10th', profileData.percentage10);
-    addCustomField('12th_marks', `<p dir="ltr" style="text-align:left;">${profileData.marks12}</p>`);
+    // addCustomField('college_name', profileData.collegeName);
+    // addCustomField('College_District', profileData.collegeLocation);
+    // addCustomField('university', profileData.university);
+    // addCustomField('course', profileData.currentCourse);
+    // addCustomField('10th', profileData.percentage10);
+    // addCustomField('12th_marks', `<p dir="ltr" style="text-align:left;">${profileData.marks12}</p>`);
 
     if (profileData.village !== undefined) {
       addCustomField('village', profileData.village);
@@ -2022,18 +2022,18 @@ export const updateUserProfile = async (
     addCustomField('Family_income', profileData.annualIncome); // Note: API uses Family_income or annualincome, user req to match response which showed Family_income
 
     // New fields from API response
-    addCustomField('session', profileData.session);
-    addCustomField('year_of_course', profileData.yearOfCourse);
-    addCustomField('passing_10th', profileData.passing10th);
-    addCustomField('12th_board', profileData.board12th);
-    addCustomField('stream_in_12th', profileData.stream12th);
+    // addCustomField('session', profileData.session);
+    // addCustomField('year_of_course', profileData.yearOfCourse);
+    // addCustomField('passing_10th', profileData.passing10th);
+    // addCustomField('12th_board', profileData.board12th);
+    // addCustomField('stream_in_12th', profileData.stream12th);
     addCustomField('applicationyear', profileData.applicationYear);
     addCustomField('Registering_as', profileData.registeringAs);
     addCustomField('schemename', profileData.schemeName);
     addCustomField('12th_passing_year', profileData.passingYear12th);
     addCustomField('application_type', profileData.application_type);
-    addCustomField('competitive_exam', profileData.competitive_exam);
-    addCustomField('competitive_exam_name', profileData.competitive_exam_name);
+    // addCustomField('competitive_exam', profileData.competitive_exam);
+    // addCustomField('competitive_exam_name', profileData.competitive_exam_name);
 
     // Add phone as custom field as well based on example
     addCustomField('phone_number', profileData.phone); // API response showed phone_number as well

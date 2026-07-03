@@ -65,6 +65,42 @@ const stripHtml = (html: string): string => {
         .trim();
 };
 
+const renderProfileLinkText = (text: string | null, isMobilizer: boolean, studentId?: any) => {
+  if (!text) return null;
+  const parts = text.split(/(your profile)/gi);
+  return (
+    <Text>
+      {parts.map((part, index) => {
+        if (part.toLowerCase() === "your profile") {
+          return (
+            <Text
+              key={index}
+              style={{
+                color: '#3B82F6',
+                textDecorationLine: 'underline',
+                fontWeight: '600'
+              }}
+              onPress={() => {
+                if (isMobilizer) {
+                  router.push({
+                    pathname: "/(dashboard)/mobilizer/mobilizer-edit-student",
+                    params: { studentId: studentId ? String(studentId) : "" }
+                  });
+                } else {
+                  router.push("/(dashboard)/student/student-profile-personal");
+                }
+              }}
+            >
+              {part}
+            </Text>
+          );
+        }
+        return <Text key={index}>{part}</Text>;
+      })}
+    </Text>
+  );
+};
+
 // Helper function to get category color
 const getCategoryColor = (category: string): string => {
     const colors: Record<string, string> = {
@@ -703,7 +739,7 @@ export default function MobilizerScholarshipDetailsScreen() {
                                                         <View style={{ flexDirection: 'row', gap: 8 }}>
                                                             <Ionicons name="information-circle" size={14} color={isDark ? '#FBBF24' : '#D97706'} style={{ marginTop: 2 }} />
                                                             <Text style={[styles.availabilityText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
-                                                                {sectionAvailabilityMsg}
+                                                                {renderProfileLinkText(sectionAvailabilityMsg, true, studentId)}
                                                             </Text>
                                                         </View>
                                                     </View>
@@ -842,7 +878,7 @@ export default function MobilizerScholarshipDetailsScreen() {
                                                                                 <View style={{ flexDirection: 'row', gap: 8 }}>
                                                                                     <Ionicons name="information-circle" size={14} color={isDark ? '#FBBF24' : '#D97706'} style={{ marginTop: 1 }} />
                                                                                     <Text style={[styles.availabilityText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
-                                                                                        {availabilityMsg}
+                                                                                        {renderProfileLinkText(availabilityMsg, true, studentId)}
                                                                                     </Text>
                                                                                 </View>
                                                                             </View>
@@ -958,7 +994,7 @@ export default function MobilizerScholarshipDetailsScreen() {
                                                                                 <View style={{ flexDirection: 'row', gap: 8 }}>
                                                                                     <Ionicons name="information-circle" size={14} color={isDark ? '#FBBF24' : '#D97706'} style={{ marginTop: 1 }} />
                                                                                     <Text style={[styles.availabilityText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
-                                                                                        {availabilityMsg}
+                                                                                        {renderProfileLinkText(availabilityMsg, true, studentId)}
                                                                                     </Text>
                                                                                 </View>
                                                                             </View>
@@ -1031,7 +1067,7 @@ export default function MobilizerScholarshipDetailsScreen() {
                                                                                 <View style={{ flexDirection: 'row', gap: 8 }}>
                                                                                     <Ionicons name="information-circle" size={14} color={isDark ? '#FBBF24' : '#D97706'} style={{ marginTop: 1 }} />
                                                                                     <Text style={[styles.availabilityText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
-                                                                                        {availabilityMsg}
+                                                                                        {renderProfileLinkText(availabilityMsg, true, studentId)}
                                                                                     </Text>
                                                                                 </View>
                                                                             </View>
@@ -1082,7 +1118,7 @@ export default function MobilizerScholarshipDetailsScreen() {
                                                                                 <View style={{ flexDirection: 'row', gap: 8 }}>
                                                                                     <Ionicons name="information-circle" size={14} color={isDark ? '#FBBF24' : '#D97706'} style={{ marginTop: 1 }} />
                                                                                     <Text style={[styles.availabilityText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
-                                                                                        {availabilityMsg}
+                                                                                        {renderProfileLinkText(availabilityMsg, true, studentId)}
                                                                                     </Text>
                                                                                 </View>
                                                                             </View>
@@ -1216,7 +1252,7 @@ export default function MobilizerScholarshipDetailsScreen() {
                                                                                 <View style={{ flexDirection: 'row', gap: 8 }}>
                                                                                     <Ionicons name="information-circle" size={14} color={isDark ? '#FBBF24' : '#D97706'} style={{ marginTop: 1 }} />
                                                                                     <Text style={[styles.availabilityText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
-                                                                                        {availabilityMsg}
+                                                                                        {renderProfileLinkText(availabilityMsg, true, studentId)}
                                                                                     </Text>
                                                                                 </View>
                                                                             </View>

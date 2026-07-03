@@ -30,9 +30,6 @@ interface ValidationErrors {
 }
 
 
-
-
-
 export default function StudentProfilePersonalScreen() {
   const { isDark, colors } = useTheme();
   const [dropdownData, setDropdownData] = useState<DropdownData | null>(null);
@@ -345,12 +342,14 @@ export default function StudentProfilePersonalScreen() {
       errors.caste = "Caste is required";
     }
 
+    /*
     if (personalInfo.percentage10) {
       const num = parseFloat(personalInfo.percentage10);
       if (isNaN(num) || num < 10 || num > 100) {
         errors.percentage10 = "Percentage must be between 10 and 100";
       }
     }
+    */
 
     if (personalInfo.percentage12) {
       const num = parseFloat(personalInfo.percentage12);
@@ -359,22 +358,26 @@ export default function StudentProfilePersonalScreen() {
       }
     }
 
+    /*
     if (personalInfo.marks12) {
       const num = parseFloat(personalInfo.marks12);
       if (isNaN(num) || num < 0 || num > 2000) {
         errors.marks12 = "Marks must be between 0 and 2000";
       }
     }
+    */
 
-    // Address and City Validation
-    if (!personalInfo.address.trim()) {
-      errors.address = "Address is required";
-    } else if (personalInfo.address.trim().length < 5) {
-      errors.address = "Address must be at least 5 characters";
-    } else if (/^\d+$/.test(personalInfo.address.trim())) {
-      errors.address = "Address cannot be only numbers";
+    // Address Validation (Optional)
+    if (personalInfo.address.trim()) {
+      if (personalInfo.address.trim().length < 5) {
+        errors.address = "Address must be at least 5 characters";
+      } else if (/^\d+$/.test(personalInfo.address.trim())) {
+        errors.address = "Address cannot be only numbers";
+      }
     }
 
+    // City validation commented out as city is commented out in UI
+    /*
     if (!personalInfo.city.trim()) {
       errors.city = "City is required";
     } else if (personalInfo.city.trim().length < 3) {
@@ -382,6 +385,7 @@ export default function StudentProfilePersonalScreen() {
     } else if (/\d/.test(personalInfo.city)) {
       errors.city = "City name cannot contain numbers";
     }
+    */
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -1127,7 +1131,7 @@ export default function StudentProfilePersonalScreen() {
                 iconColor="#059669" mainStyle={{ marginBottom: 0 }}
               />
 
-              <CustomTextInput
+              {/* <CustomTextInput
                 label="City"
                 value={personalInfo.city}
                 onChangeText={(val) => handlePersonalInfoChange("city", val)}
@@ -1136,13 +1140,13 @@ export default function StudentProfilePersonalScreen() {
                 error={validationErrors.city}
                 icon="business-outline"
                 iconColor="#059669" mainStyle={{ marginBottom: 0 }}
-              />
+              /> */}
               {/* Village removed as requested */}
             </View>
           </View>
 
-          {/* Section: Academic Details */}
-          <View style={styles.section}>
+          {/* Section: Academic Details - Commented out completely */}
+          {/* <View style={styles.section}>
             <View style={[styles.sectionHeader, { marginBottom: 10 }]}>
               <View style={styles.sectionTitleRow}>
                 <View style={[styles.sectionIconBadge, { backgroundColor: "#D97706" }]}>
@@ -1285,7 +1289,7 @@ export default function StudentProfilePersonalScreen() {
                 />
               )}
             </View>
-          </View>
+          </View> */}
 
           {/* Save Button */}
           <View style={[styles.section, { marginTop: 0 }]}>
