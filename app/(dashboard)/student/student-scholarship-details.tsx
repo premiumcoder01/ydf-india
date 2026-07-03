@@ -707,7 +707,7 @@ export default function ScholarshipDetailsScreen() {
                           const isForum = activity.modname === 'forum';
                           const isQbank = activity.modname === 'qbank';
                           const isCustomCert = activity.modname === 'customcert';
-                          const isGenericActivity = isPage || isForum || isQbank || isCustomCert;
+                          const isGenericActivity = isPage || isForum || isQbank || isCustomCert || activity.modname === 'feedback' || activity.modname === 'questionnaire' || activity.modname === 'data';
                           const uploadedFiles: any[] = activity.document?.files || [];
                           const hasUploadedFiles = uploadedFiles.length > 0;
 
@@ -1075,8 +1075,93 @@ export default function ScholarshipDetailsScreen() {
                             );
                           }
 
-                          // ── PAGE → tappable card, renders HTML natively ───────
-                          if (isPage) {
+                          if (isGenericActivity) {
+                            const activityConfigs: Record<string, {
+                              icon: any;
+                              iconColor: string;
+                              iconBg: string;
+                              badgeText: string;
+                              badgeBg: string;
+                              badgeColor: string;
+                              badgeIcon?: any;
+                              chevronBg: string;
+                            }> = {
+                              page: {
+                                icon: "book-outline",
+                                iconColor: "#8B5CF6",
+                                iconBg: "#8B5CF615",
+                                badgeText: "Read",
+                                badgeBg: "#EDE9FE",
+                                badgeColor: "#7C3AED",
+                                badgeIcon: "book-outline",
+                                chevronBg: "#8B5CF612",
+                              },
+                              forum: {
+                                icon: "chatbubbles-outline",
+                                iconColor: "#14B8A6",
+                                iconBg: "#14B8A615",
+                                badgeText: "Forum",
+                                badgeBg: "#CCFBF1",
+                                badgeColor: "#0F766E",
+                                chevronBg: "#14B8A612",
+                              },
+                              qbank: {
+                                icon: "help-circle-outline",
+                                iconColor: "#F97316",
+                                iconBg: "#F9731615",
+                                badgeText: "Question Bank",
+                                badgeBg: "#FFEDD5",
+                                badgeColor: "#C2410C",
+                                chevronBg: "#F9731612",
+                              },
+                              customcert: {
+                                icon: "ribbon-outline",
+                                iconColor: "#D97706",
+                                iconBg: "#EAB30815",
+                                badgeText: "Certificate",
+                                badgeBg: "#FEF3C7",
+                                badgeColor: "#92400E",
+                                chevronBg: "#EAB30812",
+                              },
+                              feedback: {
+                                icon: "chatbubble-ellipses-outline",
+                                iconColor: "#10B981",
+                                iconBg: "#10B98115",
+                                badgeText: "Feedback",
+                                badgeBg: "#D1FAE5",
+                                badgeColor: "#065F46",
+                                chevronBg: "#10B98112",
+                              },
+                              questionnaire: {
+                                icon: "document-text-outline",
+                                iconColor: "#6366F1",
+                                iconBg: "#6366F115",
+                                badgeText: "Questionnaire",
+                                badgeBg: "#E0E7FF",
+                                badgeColor: "#3730A3",
+                                chevronBg: "#6366F112",
+                              },
+                              data: {
+                                icon: "server-outline",
+                                iconColor: "#3B82F6",
+                                iconBg: "#3B82F615",
+                                badgeText: "Database",
+                                badgeBg: "#DBEAFE",
+                                badgeColor: "#1E40AF",
+                                chevronBg: "#3B82F612",
+                              },
+                            };
+
+                            const config = activityConfigs[activity.modname] || {
+                              icon: "ellipsis-horizontal-outline",
+                              iconColor: colors.primary,
+                              iconBg: colors.primary + "15",
+                              badgeText: "Activity",
+                              badgeBg: colors.primary + "15",
+                              badgeColor: colors.primary,
+                              chevronBg: colors.primary + "12",
+                            };
+
                             const ItemContainer = isActivityLocked ? View : TouchableOpacity;
                             return (
                               <ItemContainer
@@ -1085,17 +1170,17 @@ export default function ScholarshipDetailsScreen() {
                                 {...(!isActivityLocked ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
                               >
                                 <View style={styles.activityInner}>
-                                  <View style={[styles.quizIconBox, { backgroundColor: '#8B5CF615' }]}>
-                                    <Ionicons name="book-outline" size={15} color="#8B5CF6" />
+                                  <View style={[styles.quizIconBox, { backgroundColor: config.iconBg }]}>
+                                    <Ionicons name={config.icon} size={15} color={config.iconColor} />
                                   </View>
                                   <View style={{ flex: 1, marginRight: 10 }}>
                                     <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
                                       {activity.name}
                                     </Text>
                                     <View style={styles.docStatusRow}>
-                                      <View style={[styles.statusMiniBadge, { backgroundColor: '#EDE9FE' }]}>
-                                        <Ionicons name="book-outline" size={11} color="#7C3AED" />
-                                        <Text style={[styles.statusMiniText, { color: '#7C3AED' }]}>Read</Text>
+                                      <View style={[styles.statusMiniBadge, { backgroundColor: config.badgeBg }]}>
+                                        <Ionicons name={config.badgeIcon || config.icon} size={11} color={config.badgeColor} />
+                                        <Text style={[styles.statusMiniText, { color: config.badgeColor }]}>{config.badgeText}</Text>
                                       </View>
                                     </View>
                                     {isActivityLocked && availabilityMsg && (
@@ -1112,160 +1197,11 @@ export default function ScholarshipDetailsScreen() {
                                       </View>
                                     )}
                                   </View>
-                                  <View style={[styles.quizChevronBox, { backgroundColor: isActivityLocked ? '#FEF3C7' : '#8B5CF612' }]}>
+                                  <View style={[styles.quizChevronBox, { backgroundColor: isActivityLocked ? '#FEF3C7' : config.chevronBg }]}>
                                     <Ionicons
                                       name={isActivityLocked ? "lock-closed" : (isCompleted ? 'checkmark-circle' : 'chevron-forward')}
                                       size={14}
-                                      color={isActivityLocked ? "#92400E" : "#8B5CF6"}
-                                    />
-                                  </View>
-                                </View>
-                              </ItemContainer>
-                            );
-                          }
-
-                          // ── FORUM → tappable card, opens webview ─────────────
-                          if (isForum) {
-                            const ItemContainer = isActivityLocked ? View : TouchableOpacity;
-                            return (
-                              <ItemContainer
-                                key={activity.id}
-                                style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isActivityLocked && styles.lockedActivityItem]}
-                                {...(!isActivityLocked ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
-                              >
-                                <View style={styles.activityInner}>
-                                  <View style={[styles.quizIconBox, { backgroundColor: '#14B8A615' }]}>
-                                    <Ionicons name="chatbubbles-outline" size={15} color="#14B8A6" />
-                                  </View>
-                                  <View style={{ flex: 1, marginRight: 10 }}>
-                                    <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
-                                      {activity.name}
-                                    </Text>
-                                    <View style={styles.docStatusRow}>
-                                      <View style={[styles.statusMiniBadge, { backgroundColor: '#CCFBF1' }]}>
-                                        <Ionicons name="chatbubbles-outline" size={11} color="#0F766E" />
-                                        <Text style={[styles.statusMiniText, { color: '#0F766E' }]}>Forum</Text>
-                                      </View>
-                                    </View>
-                                    {isActivityLocked && availabilityMsg && (
-                                      <View style={[
-                                        styles.availabilityBox, 
-                                        { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.12)' : '#FFFBEB', borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#FEF3C7', marginTop: 10 }
-                                      ]}>
-                                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                                          <Ionicons name="information-circle" size={14} color={isDark ? '#FBBF24' : '#D97706'} style={{ marginTop: 1 }} />
-                                          <Text style={[styles.availabilityText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
-                                            {availabilityMsg}
-                                          </Text>
-                                        </View>
-                                      </View>
-                                    )}
-                                  </View>
-                                  <View style={[styles.quizChevronBox, { backgroundColor: isActivityLocked ? '#FEF3C7' : '#14B8A612' }]}>
-                                    <Ionicons
-                                      name={isActivityLocked ? "lock-closed" : "chevron-forward"}
-                                      size={14}
-                                      color={isActivityLocked ? "#92400E" : "#14B8A6"}
-                                    />
-                                  </View>
-                                </View>
-                              </ItemContainer>
-                            );
-                          }
-
-                          // ── QBANK → tappable card, opens webview ─────────────
-                          if (isQbank) {
-                            const ItemContainer = isActivityLocked ? View : TouchableOpacity;
-                            return (
-                              <ItemContainer
-                                key={activity.id}
-                                style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isActivityLocked && styles.lockedActivityItem]}
-                                {...(!isActivityLocked ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
-                              >
-                                <View style={styles.activityInner}>
-                                  <View style={[styles.quizIconBox, { backgroundColor: '#F9731615' }]}>
-                                    <Ionicons name="help-circle-outline" size={15} color="#F97316" />
-                                  </View>
-                                  <View style={{ flex: 1, marginRight: 10 }}>
-                                    <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
-                                      {activity.name}
-                                    </Text>
-                                    <View style={styles.docStatusRow}>
-                                      <View style={[styles.statusMiniBadge, { backgroundColor: '#FFEDD5' }]}>
-                                        <Ionicons name="library-outline" size={11} color="#C2410C" />
-                                        <Text style={[styles.statusMiniText, { color: '#C2410C' }]}>Question Bank</Text>
-                                      </View>
-                                    </View>
-                                    {isActivityLocked && availabilityMsg && (
-                                      <View style={[
-                                        styles.availabilityBox, 
-                                        { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.12)' : '#FFFBEB', borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#FEF3C7', marginTop: 10 }
-                                      ]}>
-                                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                                          <Ionicons name="information-circle" size={14} color={isDark ? '#FBBF24' : '#D97706'} style={{ marginTop: 1 }} />
-                                          <Text style={[styles.availabilityText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
-                                            {availabilityMsg}
-                                          </Text>
-                                        </View>
-                                      </View>
-                                    )}
-                                  </View>
-                                  <View style={[styles.quizChevronBox, { backgroundColor: isActivityLocked ? '#FEF3C7' : '#F9731612' }]}>
-                                    <Ionicons
-                                      name={isActivityLocked ? "lock-closed" : "chevron-forward"}
-                                      size={14}
-                                      color={isActivityLocked ? "#92400E" : "#F97316"}
-                                    />
-                                  </View>
-                                </View>
-                              </ItemContainer>
-                            );
-                          }
-
-                          // ── CUSTOMCERT → tappable card, certificate download ──
-                          if (isCustomCert) {
-                            const ItemContainer = isActivityLocked ? View : TouchableOpacity;
-                            return (
-                              <ItemContainer
-                                key={activity.id}
-                                style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }, isActivityLocked && styles.lockedActivityItem]}
-                                {...(!isActivityLocked ? { onPress: handleActivityPress, activeOpacity: 0.75 } : {})}
-                              >
-                                <View style={styles.activityInner}>
-                                  <View style={[styles.quizIconBox, { backgroundColor: '#EAB30815' }]}>
-                                    <Ionicons name="ribbon-outline" size={15} color="#D97706" />
-                                  </View>
-                                  <View style={{ flex: 1, marginRight: 10 }}>
-                                    <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={2}>
-                                      {activity.name}
-                                    </Text>
-                                    <View style={styles.docStatusRow}>
-                                      <View style={[styles.statusMiniBadge, { backgroundColor: '#FEF3C7' }]}>
-                                        <Ionicons name="ribbon-outline" size={11} color="#92400E" />
-                                        <Text style={[styles.statusMiniText, { color: '#92400E' }]}>
-                                          {isCompleted ? 'Download Certificate' : 'Certificate'}
-                                        </Text>
-                                      </View>
-                                    </View>
-                                    {isActivityLocked && availabilityMsg && (
-                                      <View style={[
-                                        styles.availabilityBox, 
-                                        { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.12)' : '#FFFBEB', borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#FEF3C7', marginTop: 10 }
-                                      ]}>
-                                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                                          <Ionicons name="information-circle" size={14} color={isDark ? '#FBBF24' : '#D97706'} style={{ marginTop: 1 }} />
-                                          <Text style={[styles.availabilityText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
-                                            {availabilityMsg}
-                                          </Text>
-                                        </View>
-                                      </View>
-                                    )}
-                                  </View>
-                                  <View style={[styles.quizChevronBox, { backgroundColor: isActivityLocked ? '#FEF3C7' : '#EAB30812' }]}>
-                                    <Ionicons
-                                      name={isActivityLocked ? "lock-closed" : (isCompleted ? 'download-outline' : 'chevron-forward')}
-                                      size={14}
-                                      color={isActivityLocked ? "#92400E" : "#D97706"}
+                                      color={isActivityLocked ? "#92400E" : config.iconColor}
                                     />
                                   </View>
                                 </View>
@@ -1274,26 +1210,53 @@ export default function ScholarshipDetailsScreen() {
                           }
 
                           // ── FALLBACK → any other unrecognised modtype ─────────
+                          const ItemContainer = activity.url ? TouchableOpacity : View;
+                          const handleFallbackPress = () => {
+                            if (activity.url) {
+                              openBrowserAsync(activity.url, {
+                                presentationStyle: WebBrowserPresentationStyle.AUTOMATIC,
+                              });
+                            }
+                          };
+
                           return (
-                            <View
+                            <ItemContainer
                               key={activity.id}
                               style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }]}
+                              {...(activity.url ? { onPress: handleFallbackPress, activeOpacity: 0.75 } : {})}
                             >
                               <View style={styles.activityInner}>
                                 {activity.modicon ? (
                                   <Image source={{ uri: activity.modicon }} style={styles.activityIcon} tintColor={colors.text} />
                                 ) : (
                                   <View style={[styles.activityIcon, { backgroundColor: colors.primary + '10', borderRadius: 6, justifyContent: 'center', alignItems: 'center' }]}>
-                                    <Ionicons name="ellipsis-horizontal" size={14} color={colors.primary} />
+                                    <Ionicons name="link-outline" size={14} color={colors.primary} />
                                   </View>
                                 )}
-                                <View style={{ flex: 1 }}>
+                                <View style={{ flex: 1, marginRight: 10 }}>
                                   <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={1}>
                                     {activity.name}
                                   </Text>
+                                  {activity.url && (
+                                    <View style={styles.docStatusRow}>
+                                      <View style={[styles.statusMiniBadge, { backgroundColor: colors.primary + '10' }]}>
+                                        <Ionicons name="open-outline" size={11} color={colors.primary} />
+                                        <Text style={[styles.statusMiniText, { color: colors.primary }]}>Open Link</Text>
+                                      </View>
+                                    </View>
+                                  )}
                                 </View>
+                                {activity.url && (
+                                  <View style={[styles.quizChevronBox, { backgroundColor: colors.primary + '12' }]}>
+                                    <Ionicons
+                                      name="chevron-forward"
+                                      size={14}
+                                      color={colors.primary}
+                                    />
+                                  </View>
+                                )}
                               </View>
-                            </View>
+                            </ItemContainer>
                           );
                         })}
                       </View>

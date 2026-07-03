@@ -8,6 +8,7 @@ import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { openBrowserAsync, WebBrowserPresentationStyle } from "expo-web-browser";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Dimensions, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import RenderHTML from "react-native-render-html";
@@ -673,7 +674,7 @@ export default function ReviewerScholarshipDetailsScreen() {
                           const isForum = activity.modname === 'forum';
                           const isQbank = activity.modname === 'qbank';
                           const isCustomCert = activity.modname === 'customcert';
-                          const isGenericActivity = isPage || isForum || isQbank || isCustomCert || isAssign;
+                          const isGenericActivity = isPage || isForum || isQbank || isCustomCert || isAssign || activity.modname === 'feedback' || activity.modname === 'questionnaire' || activity.modname === 'data';
 
                           const handleActivityPress = () => {
 
@@ -800,6 +801,9 @@ export default function ReviewerScholarshipDetailsScreen() {
                               qbank: { icon: 'help-circle-outline', color: '#F97316', label: 'Question Bank' },
                               customcert: { icon: 'ribbon-outline', color: '#D97706', label: isCompleted ? 'Download' : 'Certificate' },
                               assign: { icon: 'document-text-outline', color: '#10B981', label: 'Assignment' },
+                              feedback: { icon: 'chatbubble-ellipses-outline', color: '#10B981', label: 'Feedback' },
+                              questionnaire: { icon: 'document-text-outline', color: '#6366F1', label: 'Questionnaire' },
+                              data: { icon: 'server-outline', color: '#3B82F6', label: 'Database' },
                             };
 
                             const config = configMap[activity.modname] || { icon: 'document-outline', color: colors.primary, label: 'Activity' };
@@ -841,26 +845,53 @@ export default function ReviewerScholarshipDetailsScreen() {
                           }
 
                           // ── FALLBACK → any other unrecognised modtype ─────────
+                          const ItemContainer = activity.url ? TouchableOpacity : View;
+                          const handleFallbackPress = () => {
+                            if (activity.url) {
+                              openBrowserAsync(activity.url, {
+                                presentationStyle: WebBrowserPresentationStyle.AUTOMATIC,
+                              });
+                            }
+                          };
+
                           return (
-                            <View
+                            <ItemContainer
                               key={activity.id}
                               style={[styles.activityItem, { borderBottomColor: isDark ? '#333' : '#F3F4F6' }]}
+                              {...(activity.url ? { onPress: handleFallbackPress, activeOpacity: 0.75 } : {})}
                             >
                               <View style={styles.activityInner}>
                                 {activity.modicon ? (
                                   <Image source={{ uri: activity.modicon }} style={styles.activityIcon} tintColor={colors.text} />
                                 ) : (
                                   <View style={[styles.activityIcon, { backgroundColor: colors.primary + '10', borderRadius: 6, justifyContent: 'center', alignItems: 'center' }]}>
-                                    <Ionicons name="ellipsis-horizontal" size={14} color={colors.primary} />
+                                    <Ionicons name="link-outline" size={14} color={colors.primary} />
                                   </View>
                                 )}
-                                <View style={{ flex: 1 }}>
+                                <View style={{ flex: 1, marginRight: 10 }}>
                                   <Text style={[styles.activityName, { color: colors.text }]} numberOfLines={1}>
                                     {activity.name}
                                   </Text>
+                                  {activity.url && (
+                                    <View style={styles.docStatusRow}>
+                                      <View style={[styles.statusMiniBadge, { backgroundColor: colors.primary + '10' }]}>
+                                        <Ionicons name="open-outline" size={11} color={colors.primary} />
+                                        <Text style={[styles.statusMiniText, { color: colors.primary }]}>Open Link</Text>
+                                      </View>
+                                    </View>
+                                  )}
                                 </View>
+                                {activity.url && (
+                                  <View style={[styles.quizChevronBox, { backgroundColor: colors.primary + '12' }]}>
+                                    <Ionicons
+                                      name="chevron-forward"
+                                      size={14}
+                                      color={colors.primary}
+                                    />
+                                  </View>
+                                )}
                               </View>
-                            </View>
+                            </ItemContainer>
                           );
                         })}
                       </View>

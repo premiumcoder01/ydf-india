@@ -197,7 +197,10 @@ export default function ApplyFormScreen() {
   }, [dropdownData]);
 
   const fillAcademicFromItem = useCallback((item: AcademicDetailItem) => {
-    setValue("institution", item.institution || "");
+    console.log(item)
+    const rawInst = item?.institution || "";
+    const cleanInst = (rawInst.toLowerCase().trim() === "n/a" || rawInst.toLowerCase().trim() === "na") ? "" : rawInst;
+    setValue("institution", cleanInst);
     setValue("major", item.major || "");
     setValue("gradDate", String(item.graduation_year || ""));
     setValue("currentYear", item.academic_year ? String(item.academic_year) : "");
@@ -306,6 +309,9 @@ export default function ApplyFormScreen() {
 
               // Auto-fill from first academic record if form is empty
               const firstItem = academicRes.data[0];
+
+              console.log(firstItem, "vishal")
+
               const currentValues = getValues();
               if (!currentValues.institution && !currentValues.major) {
                 fillAcademicFromItem(firstItem);

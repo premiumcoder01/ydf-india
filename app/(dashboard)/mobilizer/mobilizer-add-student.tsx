@@ -73,10 +73,12 @@ const formSchema = z.object({
         if (data.marks_12_type === "cgpa" && !validCGPA(data.marks_12_value!)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "CGPA must be between 0 and 10", path: ["marks_12_value"] });
         else if (data.marks_12_type === "percentage" && !validPct(data.marks_12_value!)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Percentage must be between 0 and 100", path: ["marks_12_value"] });
     }
-    const vGrad = (data.graduation_value || "").trim();
-    if (vGrad) {
-        if (data.graduation_type === "cgpa" && !validCGPA(data.graduation_value!)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "CGPA must be between 0 and 10", path: ["graduation_value"] });
-        else if (data.graduation_type === "percentage" && !validPct(data.graduation_value!)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Percentage must be between 0 and 100", path: ["graduation_value"] });
+    if (data.academic_level !== "School (Class 1-12)") {
+        const vGrad = (data.graduation_value || "").trim();
+        if (vGrad) {
+            if (data.graduation_type === "cgpa" && !validCGPA(data.graduation_value!)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "CGPA must be between 0 and 10", path: ["graduation_value"] });
+            else if (data.graduation_type === "percentage" && !validPct(data.graduation_value!)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Percentage must be between 0 and 100", path: ["graduation_value"] });
+        }
     }
 });
 
@@ -281,9 +283,11 @@ export default function MobilizerAddStudentScreen() {
             if (data.address) customfields.push({ shortname: "address", value: data.address });
             if (data.state) customfields.push({ shortname: "state", value: data.state });
             if (data.academic_level) customfields.push({ shortname: "academic_level", value: data.academic_level });
-            if (data.stream) customfields.push({ shortname: "stream", value: data.stream });
-            if (data.year) customfields.push({ shortname: "college_current_year", value: data.year });
-            if (data.university) customfields.push({ shortname: "university", value: data.university });
+            if (data.academic_level !== "School (Class 1-12)") {
+                if (data.stream) customfields.push({ shortname: "stream", value: data.stream });
+                if (data.year) customfields.push({ shortname: "college_current_year", value: data.year });
+                if (data.university) customfields.push({ shortname: "university", value: data.university });
+            }
             if (data.marks_10_type && data.marks_10_value) {
                 customfields.push({ shortname: "marks_10_type", value: data.marks_10_type });
                 customfields.push({ shortname: "marks_10_value", value: data.marks_10_value.trim() });
@@ -292,7 +296,7 @@ export default function MobilizerAddStudentScreen() {
                 customfields.push({ shortname: "marks_12_type", value: data.marks_12_type });
                 customfields.push({ shortname: "marks_12_value", value: data.marks_12_value.trim() });
             }
-            if (data.graduation_type && data.graduation_value) {
+            if (data.academic_level !== "School (Class 1-12)" && data.graduation_type && data.graduation_value) {
                 customfields.push({ shortname: "marks_graduation_type", value: data.graduation_type });
                 customfields.push({ shortname: "marks_graduation_value", value: data.graduation_value.trim() });
             }
@@ -490,12 +494,6 @@ export default function MobilizerAddStudentScreen() {
 
                     <View style={[styles.formCard, { backgroundColor: isDark ? colors.card : "rgba(255,255,255,0.9)", borderColor: colors.border }]}>
                         <Text style={[styles.sectionTitle, { color: colors.text }]}>Institution</Text>
-                        <Controller control={control} name="institution" render={({ field: { onChange, value, onBlur } }) => (
-                            <CustomTextInput icon="school-outline" label="College Name" placeholder="College name" value={value || ""} onChangeText={onChange} onBlur={onBlur} />
-                        )} />
-                        <Controller control={control} name="university" render={({ field: { onChange, value, onBlur } }) => (
-                            <CustomTextInput icon="business-outline" label="University Name" placeholder="University name" value={value || ""} onChangeText={onChange} onBlur={onBlur} />
-                        )} />
                         <Controller control={control} name="academic_level" render={({ field: { value } }) => (
                             <TouchableOpacity onPress={() => openPicker("academic_level", "Academic Level", ACADEMIC_LEVEL_OPTIONS)}>
                                 <View pointerEvents="none">
@@ -503,20 +501,37 @@ export default function MobilizerAddStudentScreen() {
                                 </View>
                             </TouchableOpacity>
                         )} />
-                        <Controller control={control} name="stream" render={({ field: { value } }) => (
-                            <TouchableOpacity onPress={() => openPicker("stream", "Stream", STREAM_OPTIONS)}>
-                                <View pointerEvents="none">
-                                    <CustomTextInput icon="book-outline" label="Stream" placeholder="Select stream" value={value || ""} editable={false} onChangeText={() => { }} inputStyle={{ opacity: 1, fontWeight: "400" }} rightIcon="chevron-down" />
-                                </View>
-                            </TouchableOpacity>
+                        <Controller control={control} name="institution" render={({ field: { onChange, value, onBlur } }) => (
+                            <CustomTextInput 
+                                icon="school-outline" 
+                                label={watch("academic_level") === "School (Class 1-12)" ? "School Name" : "College Name"} 
+                                placeholder={watch("academic_level") === "School (Class 1-12)" ? "School name" : "College name"} 
+                                value={value || ""} 
+                                onChangeText={onChange} 
+                                onBlur={onBlur} 
+                            />
                         )} />
-                        <Controller control={control} name="year" render={({ field: { value } }) => (
-                            <TouchableOpacity onPress={() => openPicker("year", "Current Year", YEAR_OPTIONS)}>
-                                <View pointerEvents="none">
-                                    <CustomTextInput icon="time-outline" label="Current Year" placeholder="e.g. 2nd Year" value={value || ""} editable={false} onChangeText={() => { }} inputStyle={{ opacity: 1, fontWeight: "400" }} rightIcon="chevron-down" />
-                                </View>
-                            </TouchableOpacity>
-                        )} />
+                        {watch("academic_level") !== "School (Class 1-12)" && (
+                            <>
+                                <Controller control={control} name="university" render={({ field: { onChange, value, onBlur } }) => (
+                                    <CustomTextInput icon="business-outline" label="University Name" placeholder="University name" value={value || ""} onChangeText={onChange} onBlur={onBlur} />
+                                )} />
+                                <Controller control={control} name="stream" render={({ field: { value } }) => (
+                                    <TouchableOpacity onPress={() => openPicker("stream", "Stream", STREAM_OPTIONS)}>
+                                        <View pointerEvents="none">
+                                            <CustomTextInput icon="book-outline" label="Stream" placeholder="Select stream" value={value || ""} editable={false} onChangeText={() => { }} inputStyle={{ opacity: 1, fontWeight: "400" }} rightIcon="chevron-down" />
+                                        </View>
+                                    </TouchableOpacity>
+                                )} />
+                                <Controller control={control} name="year" render={({ field: { value } }) => (
+                                    <TouchableOpacity onPress={() => openPicker("year", "Current Year", YEAR_OPTIONS)}>
+                                        <View pointerEvents="none">
+                                            <CustomTextInput icon="time-outline" label="Current Year" placeholder="e.g. 2nd Year" value={value || ""} editable={false} onChangeText={() => { }} inputStyle={{ opacity: 1, fontWeight: "400" }} rightIcon="chevron-down" />
+                                        </View>
+                                    </TouchableOpacity>
+                                )} />
+                            </>
+                        )}
                     </View>
 
                     <View style={[styles.formCard, { backgroundColor: isDark ? colors.card : "rgba(255,255,255,0.9)", borderColor: colors.border }]}>
@@ -577,31 +592,33 @@ export default function MobilizerAddStudentScreen() {
                         </View>
 
                         {/* Graduation: Current Year CGPA or Percentage */}
-                        <View style={styles.marksRow}>
-                            <Text style={[styles.marksLabel, { color: colors.textSecondary }]}>Current Year (College)</Text>
-                            <View style={styles.marksTypeRow}>
-                                {MARKS_TYPE_OPTIONS.map((opt) => (
-                                    <Controller key={`grad-${opt.value}`} control={control} name="graduation_type" render={({ field: { value, onChange } }) => (
-                                        <TouchableOpacity
-                                            onPress={() => { onChange(opt.value); setValue("graduation_value", ""); }}
-                                            style={[styles.marksChip, { borderColor: colors.border, backgroundColor: value === opt.value ? (colors.primary + "20") : (isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5") }]}
-                                        >
-                                            <Text style={[styles.marksChipText, { color: value === opt.value ? colors.primary : colors.text }]}>{opt.label}</Text>
-                                        </TouchableOpacity>
-                                    )} />
-                                ))}
+                        {watch("academic_level") !== "School (Class 1-12)" && (
+                            <View style={styles.marksRow}>
+                                <Text style={[styles.marksLabel, { color: colors.textSecondary }]}>Current Year (College)</Text>
+                                <View style={styles.marksTypeRow}>
+                                    {MARKS_TYPE_OPTIONS.map((opt) => (
+                                        <Controller key={`grad-${opt.value}`} control={control} name="graduation_type" render={({ field: { value, onChange } }) => (
+                                            <TouchableOpacity
+                                                onPress={() => { onChange(opt.value); setValue("graduation_value", ""); }}
+                                                style={[styles.marksChip, { borderColor: colors.border, backgroundColor: value === opt.value ? (colors.primary + "20") : (isDark ? "rgba(255,255,255,0.05)" : "#f5f5f5") }]}
+                                            >
+                                                <Text style={[styles.marksChipText, { color: value === opt.value ? colors.primary : colors.text }]}>{opt.label}</Text>
+                                            </TouchableOpacity>
+                                        )} />
+                                    ))}
+                                </View>
+                                <Controller control={control} name="graduation_value" render={({ field: { onChange, value } }) => (
+                                    <CustomTextInput
+                                        label=""
+                                        placeholder={watch("graduation_type") === "cgpa" ? "e.g. 8.5 (0–10)" : watch("graduation_type") === "percentage" ? "e.g. 82 (0–100)" : "Select type first"}
+                                        value={value || ""}
+                                        onChangeText={onChange}
+                                        keyboardType="decimal-pad"
+                                        error={errors.graduation_value?.message}
+                                    />
+                                )} />
                             </View>
-                            <Controller control={control} name="graduation_value" render={({ field: { onChange, value } }) => (
-                                <CustomTextInput
-                                    label=""
-                                    placeholder={watch("graduation_type") === "cgpa" ? "e.g. 8.5 (0–10)" : watch("graduation_type") === "percentage" ? "e.g. 82 (0–100)" : "Select type first"}
-                                    value={value || ""}
-                                    onChangeText={onChange}
-                                    keyboardType="decimal-pad"
-                                    error={errors.graduation_value?.message}
-                                />
-                            )} />
-                        </View>
+                        )}
                     </View>
 
                     <View style={[styles.formCard, { backgroundColor: isDark ? colors.card : "rgba(255,255,255,0.9)", borderColor: colors.border }]}>

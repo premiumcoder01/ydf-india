@@ -5704,19 +5704,19 @@ export const getMobilizerScholarships = async (
 // ==========================================
 
 export interface Option {
-    value: string;
-    label: string;
+  value: string;
+  label: string;
 }
 
 export interface DropdownField {
-    shortname: string;
-    name: string;
-    options: Option[];
+  shortname: string;
+  name: string;
+  options: Option[];
 }
 
 export interface DropdownData {
-    course_fields: DropdownField[];
-    user_fields: DropdownField[];
+  course_fields: DropdownField[];
+  user_fields: DropdownField[];
 }
 
 export const getDropdownDefinitions = async (token: string): Promise<ApiResponse<DropdownData>> => {
@@ -5753,34 +5753,34 @@ export const getDropdownDefinitions = async (token: string): Promise<ApiResponse
  * Link an existing student via email to the mobilizer's managed list.
  */
 export const mobilizerLinkExistingStudent = async (token: string, email: string): Promise<ApiResponse> => {
+  try {
+    const baseUrl = getApiUrl("webservice/rest/server.php");
+    const urlObj = new URL(baseUrl);
+    urlObj.searchParams.append("wstoken", token);
+    urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_link_existing_student");
+    urlObj.searchParams.append("moodlewsrestformat", "json");
+    urlObj.searchParams.append("email", email);
+
+    console.log("🔗 Link Student URL:", urlObj.toString());
+
+    const response = await fetch(urlObj.toString(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const responseText = await response.text();
+    let data: any = {};
     try {
-        const baseUrl = getApiUrl("webservice/rest/server.php");
-        const urlObj = new URL(baseUrl);
-        urlObj.searchParams.append("wstoken", token);
-        urlObj.searchParams.append("wsfunction", "local_mobileapi_mobilizer_link_existing_student");
-        urlObj.searchParams.append("moodlewsrestformat", "json");
-        urlObj.searchParams.append("email", email);
-
-        console.log("🔗 Link Student URL:", urlObj.toString());
-
-        const response = await fetch(urlObj.toString(), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-        });
-
-        const responseText = await response.text();
-        let data: any = {};
-        try {
-            data = responseText ? JSON.parse(responseText) : {};
-        } catch {
-            return { success: false, error: responseText || "Invalid response", message: "Invalid response from server" };
-        }
-
-        if (data.status === 'success' || data.success || !data.exception) {
-            return { success: true, data: data, message: data.message || "Student linked successfully" };
-        }
-        return { success: false, error: data.message || "Failed to link student", message: data.message || "Failed to link existing student" };
-    } catch (error: any) {
-        return { success: false, error: error.message || "Network error", message: "Failed to connect to server" };
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      return { success: false, error: responseText || "Invalid response", message: "Invalid response from server" };
     }
+
+    if (data.status === 'success' || data.success || !data.exception) {
+      return { success: true, data: data, message: data.message || "Student linked successfully" };
+    }
+    return { success: false, error: data.message || "Failed to link student", message: data.message || "Failed to link existing student" };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Network error", message: "Failed to connect to server" };
+  }
 };
