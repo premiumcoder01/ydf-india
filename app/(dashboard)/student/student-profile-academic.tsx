@@ -69,6 +69,9 @@ export default function StudentProfileAcademicScreen() {
   const insets = useSafeAreaInsets();
   const [dropdowns, setDropdowns] = useState<DropdownData | null>(null);
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
 
   // State for list of records
   const [records, setRecords] = useState<AcademicRecord[]>([]);
@@ -909,7 +912,11 @@ export default function StudentProfileAcademicScreen() {
           <DateTimePickerModal
             isVisible={showStartDatePicker}
             mode="date"
-            minimumDate={new Date(2000, 0, 1)}
+            minimumDate={
+              isSchoolCourse(editingRecord.currentCourse)
+                ? today
+                : new Date(2000, 0, 1)
+            }
             maximumDate={
               isSchoolCourse(editingRecord.currentCourse)
                 ? new Date(currentYear + 1, 11, 31)
@@ -929,7 +936,7 @@ export default function StudentProfileAcademicScreen() {
           <DateTimePickerModal
             isVisible={showEndDatePicker}
             mode="date"
-            minimumDate={new Date(2000, 0, 1)}
+            minimumDate={today}
             maximumDate={new Date(2040, 11, 31)}
             onConfirm={(date) => {
               handleFieldChange("graduation", date.toISOString().split('T')[0]);

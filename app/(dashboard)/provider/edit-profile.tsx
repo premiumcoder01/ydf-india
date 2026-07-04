@@ -793,6 +793,7 @@ export default function ProviderEditProfileScreen() {
                                 autoCapitalize="none"
                                 icon="at-outline"
                                 iconColor="#7C3AED" mainStyle={{ marginBottom: 0 }}
+                                editable={false}
                             />
 
 
