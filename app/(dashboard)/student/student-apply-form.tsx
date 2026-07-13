@@ -344,7 +344,7 @@ export default function ApplyFormScreen() {
               fullName: user.fullname || `${user.firstname} ${user.lastname}` || "",
               email: user.email || "",
               phone: phoneValue,
-              studentId: user.username || getField('student_id') || "",
+              studentId: user.portalid ? String(user.portalid) : (user.portalId ? String(user.portalId) : (user.username || getField('student_id') || "")),
             };
 
 
