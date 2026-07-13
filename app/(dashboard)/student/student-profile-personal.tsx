@@ -75,6 +75,7 @@ export default function StudentProfilePersonalScreen() {
 
   const [personalInfo, setPersonalInfo] = useState({
     // General / Personal
+    portalId: "",
     username: "",
     firstName: "",
     lastName: "",
@@ -116,6 +117,7 @@ export default function StudentProfilePersonalScreen() {
     competitive_exam_name: "",
     village: "",
     whatsapp_number: "",
+    block: "",
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -180,6 +182,7 @@ export default function StudentProfilePersonalScreen() {
             const user = response.data.user;
             setPersonalInfo((prev) => ({
               ...prev,
+              portalId: user.portalid ? String(user.portalid) : (user.portalId ? String(user.portalId) : prev.portalId),
               username: user.username || prev.username,
               firstName: user.firstname || prev.firstName,
               lastName: user.lastname || prev.lastName,
@@ -240,6 +243,7 @@ export default function StudentProfilePersonalScreen() {
                 const val = user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'whatsapp_number')?.value || "";
                 return val.replace(/<[^>]*>/g, '').trim();
               })() || prev.whatsapp_number,
+              block: user.block !== undefined && user.block !== null ? user.block : (user.customfields?.find((f: any) => f.shortname.toLowerCase() === 'block')?.value || prev.block),
 
               profileImageUrl: user?.profileimageurl || "",
             }));
@@ -786,6 +790,17 @@ export default function StudentProfilePersonalScreen() {
             </View>
             <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: "#7C3AED", borderLeftWidth: 4 }]}>
               <CustomTextInput
+                label="Student ID"
+                value={personalInfo.portalId}
+                onChangeText={() => {}}
+                style={styles.input}
+                autoCapitalize="none"
+                icon="card-outline"
+                iconColor="#7C3AED" mainStyle={{ marginBottom: 0 }}
+                editable={false}
+              />
+
+              <CustomTextInput
                 label="Username"
                 value={personalInfo.username}
                 onChangeText={(val) => handlePersonalInfoChange("username", val)}
@@ -939,6 +954,15 @@ export default function StudentProfilePersonalScreen() {
                 style={styles.input}
                 placeholder="Enter Village Name"
                 icon="location-outline"
+                iconColor="#059669" mainStyle={{ marginBottom: 0 }}
+              />
+              <CustomTextInput
+                label="Block"
+                value={personalInfo.block}
+                onChangeText={(val) => handlePersonalInfoChange("block", val)}
+                style={styles.input}
+                placeholder="Enter Block Name"
+                icon="business-outline"
                 iconColor="#059669" mainStyle={{ marginBottom: 0 }}
               />
               <PickerRow

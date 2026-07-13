@@ -2,7 +2,7 @@
   "expo": {
     "name": "Scholar Saathi",
     "slug": "YDF",
-    "version": "1.0.1",
+    "version": "1.0.8",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "ydf",
@@ -30,6 +30,7 @@
         "android.permission.WRITE_CALENDAR"
       ],
       "package": "com.YDF",
+      "versionCode": 81,
       "googleServicesFile": "./google-services.json"
     },
     "web": {

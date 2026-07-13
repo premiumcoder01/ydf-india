@@ -1958,6 +1958,7 @@ export const updateUserProfile = async (
     if (profileData.email !== undefined && profileData.email !== null) payload.email = profileData.email;
     if (profileData.phone !== undefined && profileData.phone !== null) payload.phone1 = profileData.phone;
     if (profileData.address !== undefined && profileData.address !== null) payload.address = profileData.address;
+    if (profileData.block !== undefined && profileData.block !== null) payload.block = profileData.block;
     // if (profileData.city !== undefined && profileData.city !== null) payload.city = profileData.city;
     payload.country = "IN";
 
@@ -2013,6 +2014,9 @@ export const updateUserProfile = async (
 
     if (profileData.village !== undefined) {
       addCustomField('village', profileData.village);
+    }
+    if (profileData.block !== undefined) {
+      addCustomField('block', profileData.block);
     }
     if (profileData.whatsapp_number !== undefined) {
       addCustomField('whatsapp_number', profileData.whatsapp_number);
