@@ -4,7 +4,7 @@ import { getActivityDetails } from '@/utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Dimensions,
@@ -17,6 +17,81 @@ import {
 import RenderHTML from 'react-native-render-html';
 import { WebView } from 'react-native-webview';
 
+// ─── JS injected into Moodle to detect questionnaire submission ───────────────
+const QUESTIONNAIRE_OBSERVER_JS = `
+(function() {
+    var _lastUrl = location.href;
+    
+    function notify(type, data) {
+        try {
+            window.ReactNativeWebView.postMessage(JSON.stringify(Object.assign({ type: type }, data || {})));
+        } catch(e) {}
+    }
+
+    function checkState() {
+        try {
+            var url = location.href.toLowerCase();
+            if (url.includes('mod/questionnaire')) {
+                var bodyText = (document.body ? document.body.innerText : '').toLowerCase();
+                
+                // Completed/saved state text indicators
+                var hasCompletedMessage = 
+                    bodyText.includes('your progress has been saved') ||
+                    bodyText.includes('thank you for completing') ||
+                    bodyText.includes('already completed this questionnaire') ||
+                    bodyText.includes('already filled');
+
+                // Check for question input fields
+                var hasQuestionInputs = document.querySelector('.qn-question, .questionnaire_question, input[type="radio"], input[type="checkbox"], textarea.form-control, select.form-control');
+                var hasSubmitBtn = document.querySelector('input[type="submit"][name="submit"], input[type="submit"][value*="Submit"], button[type="submit"][name="submit"]');
+
+                // If on complete.php and (has completion text OR no questions left and has back/resume buttons)
+                if (url.includes('complete.php')) {
+                    if (hasCompletedMessage || (!hasQuestionInputs && !hasSubmitBtn && (bodyText.includes('back to') || bodyText.includes('resume')))) {
+                        notify('questionnaire_completed', { url: location.href });
+                    }
+                }
+            }
+        } catch(e) {}
+    }
+
+    // Interval to detect URL and DOM changes
+    setInterval(function() {
+        if (location.href !== _lastUrl) {
+            _lastUrl = location.href;
+            notify('navigation', { url: location.href });
+        }
+        checkState();
+    }, 400);
+
+    // Track clicks on Submit, Back to course, or Finish buttons
+    document.addEventListener('click', function(e) {
+        var target = e.target;
+        while (target && target !== document) {
+            var text = (target.innerText || target.value || target.title || '').toLowerCase();
+            var href = (target.href || '').toLowerCase();
+
+            if (location.href.includes('mod/questionnaire')) {
+                // If user clicks "Submit questionnaire" / "Submit survey"
+                if (text.includes('submit questionnaire') || text.includes('submit survey')) {
+                    notify('questionnaire_submit_clicked', { url: location.href });
+                }
+                // If user clicks "Back to [Course]" link
+                if (text.includes('back to') || href.includes('course/view.php')) {
+                    notify('questionnaire_completed', { url: location.href, action: 'back_clicked' });
+                }
+            }
+            target = target.parentNode;
+        }
+    }, true);
+
+    // Initial notification and check
+    notify('navigation', { url: location.href });
+    checkState();
+})();
+true;
+`;
+
 export default function StudentActivityDetail() {
     const { cmid, name, studentId } = useLocalSearchParams<{ cmid: string; name: string; studentId?: string }>();
     const { colors, isDark } = useTheme();
@@ -28,6 +103,71 @@ export default function StudentActivityDetail() {
     const [htmlContent, setHtmlContent] = useState<string | null>(null);
     const [webviewUrl, setWebviewUrl] = useState<string | null>(null);
     const [webviewLoading, setWebviewLoading] = useState(false);
+    const [activityModName, setActivityModName] = useState<string | null>(null);
+    const [isFinished, setIsFinished] = useState(false);
+
+    const hasAttemptedRef = useRef(false);
+    const hasSubmittedRef = useRef(false);
+    const autoCloseTimeoutRef = useRef<any>(null);
+
+    const triggerAutoClose = useCallback((delay = 1500) => {
+        setIsFinished(true);
+        if (!autoCloseTimeoutRef.current) {
+            autoCloseTimeoutRef.current = setTimeout(() => {
+                router.back();
+            }, delay);
+        }
+    }, []);
+
+    const checkUrlStatus = useCallback((currentUrl: string) => {
+        if (!currentUrl) return;
+        const u = currentUrl.toLowerCase();
+
+        const isQuestionnaire = activityModName === 'questionnaire' || u.includes('mod/questionnaire');
+
+        if (isQuestionnaire) {
+            // Track when user is on complete.php
+            if (u.includes('complete.php')) {
+                hasAttemptedRef.current = true;
+            }
+
+            // If returned to course view after questionnaire submission/attempt
+            if (u.includes('course/view.php') && (hasAttemptedRef.current || hasSubmittedRef.current)) {
+                triggerAutoClose(600);
+            }
+        }
+    }, [activityModName, triggerAutoClose]);
+
+    const handleMessage = (event: any) => {
+        try {
+            const msg = JSON.parse(event.nativeEvent.data);
+            if (msg.type === "navigation" && msg.url) {
+                checkUrlStatus(msg.url);
+            }
+            if (msg.type === "questionnaire_submit_clicked") {
+                hasSubmittedRef.current = true;
+            }
+            if (msg.type === "questionnaire_completed") {
+                triggerAutoClose(1500);
+            }
+        } catch (_) { }
+    };
+
+    const handleBack = () => {
+        if (autoCloseTimeoutRef.current) {
+            clearTimeout(autoCloseTimeoutRef.current);
+            autoCloseTimeoutRef.current = null;
+        }
+        router.back();
+    };
+
+    useEffect(() => {
+        return () => {
+            if (autoCloseTimeoutRef.current) {
+                clearTimeout(autoCloseTimeoutRef.current);
+            }
+        };
+    }, []);
 
     useEffect(() => {
         fetchActivityDetails();
@@ -59,6 +199,9 @@ export default function StudentActivityDetail() {
             const payload = res.data;                          // { success, data, message }
             const payloadSuccess: boolean = payload?.success !== false; // treat missing as true
             const payloadData = payload?.data ?? payload;     // nested content object
+            if (payloadData?.modname) {
+                setActivityModName(payloadData.modname);
+            }
             const payloadMessage: string = payload?.message ?? '';
 
             if (!payloadSuccess) {
@@ -174,13 +317,57 @@ export default function StudentActivityDetail() {
     if (webviewUrl) {
         return (
             <View style={[styles.container, { backgroundColor: isDark ? '#0F0F0F' : '#F8F9FA' }]}>
-                <AppHeader title={name || 'Activity'} onBack={() => router.back()} />
+                <AppHeader title={name || 'Activity'} onBack={handleBack} />
+
+                {/* ── Completion Top Banner Overlay ─────────────────────────────── */}
+                {isFinished && (
+                    <View style={{
+                        position: 'absolute',
+                        top: 75,
+                        left: 16,
+                        right: 16,
+                        zIndex: 999,
+                        backgroundColor: '#10B981',
+                        borderRadius: 14,
+                        paddingVertical: 12,
+                        paddingHorizontal: 16,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.2,
+                        shadowRadius: 8,
+                        elevation: 6
+                    }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                            <Ionicons name="checkmark-circle" size={22} color="#fff" style={{ marginRight: 10 }} />
+                            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>
+                                Questionnaire Completed! Returning to app…
+                            </Text>
+                        </View>
+                        <TouchableOpacity
+                            onPress={handleBack}
+                            style={{ backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12 }}
+                        >
+                            <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>Done</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
                 <View style={styles.webviewWrapper}>
                     <WebView
                         source={{ uri: webviewUrl }}
                         style={styles.webview}
                         onLoadStart={() => setWebviewLoading(true)}
                         onLoadEnd={() => setWebviewLoading(false)}
+                        onNavigationStateChange={(navState) => {
+                            if (navState.url) {
+                                checkUrlStatus(navState.url);
+                            }
+                        }}
+                        onMessage={handleMessage}
+                        injectedJavaScript={QUESTIONNAIRE_OBSERVER_JS}
                         javaScriptEnabled
                         domStorageEnabled
                         startInLoadingState={false}
