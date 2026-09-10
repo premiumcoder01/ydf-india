@@ -132,6 +132,40 @@ export default function ProviderApplicantDetailsScreen() {
     finally { setSubmitting(false); }
   };
 
+  const handleRevert = () => {
+    Alert.alert(
+      "Revert Decision",
+      `Reset decision and revert ${fullName}'s application back to New?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Revert to New",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setSubmitting(true);
+              const raw = await AsyncStorage.getItem("authData");
+              if (!raw) return;
+              const { token } = JSON.parse(raw);
+              const res = await donorReviewApplication(token, Number(apiData?.id), "revert");
+              if (res.success) {
+                Alert.alert("✓ Reverted", "Application reverted to New successfully.", [
+                  { text: "Done", onPress: () => router.back() },
+                ]);
+              } else {
+                Alert.alert("Error", res.error || "Failed to revert");
+              }
+            } catch (e: any) {
+              Alert.alert("Error", e.message);
+            } finally {
+              setSubmitting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (!apiData) {
     return (
       <View style={[S.container, { backgroundColor: colors.background }]}>
@@ -315,12 +349,30 @@ export default function ProviderApplicantDetailsScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          <View style={[S.reviewedBanner, { backgroundColor: statusCfg.color + "18", borderColor: statusCfg.color + "40" }]}>
+          <View style={[S.reviewedBanner, { backgroundColor: statusCfg.color + "18", borderColor: statusCfg.color + "40", alignItems: "center" }]}>
             <Ionicons name={statusCfg.icon} size={22} color={statusCfg.color} />
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={[S.reviewedTitle, { color: statusCfg.color }]}>Application {statusCfg.label}</Text>
-              <Text style={[S.reviewedSub, { color: isDark ? "#64748B" : "#94A3B8" }]}>No further action required.</Text>
+              <Text style={[S.reviewedSub, { color: isDark ? "#64748B" : "#94A3B8" }]}>Decision recorded.</Text>
             </View>
+            <TouchableOpacity
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 8,
+                backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+                borderWidth: 1,
+                borderColor: statusCfg.color + "60",
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 6,
+              }}
+              onPress={handleRevert}
+              disabled={submitting}
+            >
+              <Ionicons name="arrow-undo-outline" size={14} color={colors.text} />
+              <Text style={{ fontSize: 12, fontWeight: "700", color: colors.text }}>Revert</Text>
+            </TouchableOpacity>
           </View>
         )}
 

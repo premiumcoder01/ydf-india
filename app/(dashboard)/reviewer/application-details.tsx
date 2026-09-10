@@ -300,7 +300,7 @@ export default function ReviewerApplicationDetailsScreen() {
     }
   };
 
-  const submitReview = async (action: "approve" | "reject", notes?: string) => {
+  const submitReview = async (action: "approve" | "reject" | "revert", notes?: string) => {
     if (!application?.id) return;
     try {
       setSubmitting(true);
@@ -309,7 +309,7 @@ export default function ReviewerApplicationDetailsScreen() {
       if (!token) { Alert.alert("Error", "Session expired. Please login."); return; }
       const response = await donorReviewApplication(token, application.id, action, notes);
       if (response.success) {
-        const label = action === "approve" ? "approved" : "rejected";
+        const label = action === "approve" ? "approved" : action === "reject" ? "rejected" : "reverted to New";
         Alert.alert("Success", `Application ${label} successfully`, [{ text: "OK", onPress: fetchDetails }]);
         setRejectionReason("");
       } else {
@@ -326,6 +326,12 @@ export default function ReviewerApplicationDetailsScreen() {
     Alert.alert("Approve Application", "Are you sure you want to approve this application?", [
       { text: "Cancel", style: "cancel" },
       { text: "Approve", onPress: () => submitReview("approve") },
+    ]);
+
+  const handleRevert = () =>
+    Alert.alert("Revert Decision", "Are you sure you want to reset this decision and revert the application back to New?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Revert to New", style: "destructive", onPress: () => submitReview("revert") },
     ]);
 
   const submitReject = () => {
@@ -399,7 +405,7 @@ export default function ReviewerApplicationDetailsScreen() {
       />
 
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + (canReview ? 120 : 40) }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 120 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* ── Status Header ── */}
@@ -815,45 +821,55 @@ export default function ReviewerApplicationDetailsScreen() {
       </ScrollView>
 
       {/* ── Sticky Action Footer ── */}
-      {canReview && (
-        <BlurView
-          intensity={isDark ? 80 : 100}
-          tint={isDark ? "dark" : "light"}
-          style={[styles.footer, {
-            borderTopColor: border,
-            paddingBottom: insets.bottom + 16,
-          }]}
-        >
-          {submitting ? (
-            <View style={styles.submittingRow}>
-              <ActivityIndicator size="small" color="#6366F1" />
-              <Text style={[styles.submittingText, { color: subText }]}>Finalizing review…</Text>
-            </View>
-          ) : (
-            <View style={styles.actionRow}>
-              <TouchableOpacity style={styles.rejectBtn} onPress={() => setShowRejectModal(true)} activeOpacity={0.84}>
-                <LinearGradient
-                  colors={["#EF4444", "#DC2626"]}
-                  style={styles.actionGradient}
-                >
-                  <Ionicons name="close" size={20} color="#fff" />
-                  <Text style={styles.actionBtnText}>Reject</Text>
-                </LinearGradient>
-              </TouchableOpacity>
+      <BlurView
+        intensity={isDark ? 80 : 100}
+        tint={isDark ? "dark" : "light"}
+        style={[styles.footer, {
+          borderTopColor: border,
+          paddingBottom: insets.bottom + 16,
+        }]}
+      >
+        {submitting ? (
+          <View style={styles.submittingRow}>
+            <ActivityIndicator size="small" color="#6366F1" />
+            <Text style={[styles.submittingText, { color: subText }]}>Processing decision…</Text>
+          </View>
+        ) : canReview ? (
+          <View style={styles.actionRow}>
+            <TouchableOpacity style={styles.rejectBtn} onPress={() => setShowRejectModal(true)} activeOpacity={0.84}>
+              <LinearGradient
+                colors={["#EF4444", "#DC2626"]}
+                style={styles.actionGradient}
+              >
+                <Ionicons name="close" size={20} color="#fff" />
+                <Text style={styles.actionBtnText}>Reject</Text>
+              </LinearGradient>
+            </TouchableOpacity>
 
-              <TouchableOpacity style={styles.approveBtn} onPress={handleApprove} activeOpacity={0.84}>
-                <LinearGradient
-                  colors={["#10B981", "#059669"]}
-                  style={styles.actionGradient}
-                >
-                  <Ionicons name="checkmark-sharp" size={20} color="#fff" />
-                  <Text style={styles.actionBtnText}>Approve</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          )}
-        </BlurView>
-      )}
+            <TouchableOpacity style={styles.approveBtn} onPress={handleApprove} activeOpacity={0.84}>
+              <LinearGradient
+                colors={["#10B981", "#059669"]}
+                style={styles.actionGradient}
+              >
+                <Ionicons name="checkmark-sharp" size={20} color="#fff" />
+                <Text style={styles.actionBtnText}>Approve</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.actionRow}>
+            <TouchableOpacity style={[styles.approveBtn, { flex: 1 }]} onPress={handleRevert} activeOpacity={0.84}>
+              <LinearGradient
+                colors={["#4F46E5", "#4338CA"]}
+                style={styles.actionGradient}
+              >
+                <Ionicons name="arrow-undo-outline" size={20} color="#fff" />
+                <Text style={styles.actionBtnText}>Revert Decision to New</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        )}
+      </BlurView>
 
       {/* ── Reject Modal ── */}
       <Modal visible={showRejectModal} transparent animationType="slide" onRequestClose={() => setShowRejectModal(false)}>

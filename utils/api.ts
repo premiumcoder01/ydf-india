@@ -3366,7 +3366,7 @@ export const verifyDocument = async (
 export const reviewApplication = async (
   token: string,
   applicationId: number,
-  action: "approve" | "reject",
+  action: "approve" | "reject" | "revert" | "reset" | "new",
   notes?: string
 ): Promise<ApiResponse> => {
   try {
@@ -3460,7 +3460,7 @@ export const reviewApplication = async (
 export const donorReviewApplication = async (
   token: string,
   applicationId: number,
-  action: "approve" | "reject" | "waitlist",
+  action: "approve" | "reject" | "waitlist" | "revert" | "reset" | "new",
   notes?: string
 ): Promise<ApiResponse> => {
   try {

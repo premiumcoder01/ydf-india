@@ -73,12 +73,11 @@ type ParsedApplicationData = {
     financial_info?: string;
 };
 
-const STATUS_TABS: Array<"All" | "new" | "approved" | "rejected" | "applied"> = [
+const STATUS_TABS: Array<"All" | "new" | "approved" | "rejected"> = [
     "All",
     "new",
     "approved",
     "rejected",
-    "applied",
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -117,17 +116,17 @@ function getStatusConfig(status: AppItem["status"]) {
                 color: "#6366F1",
                 bg: "rgba(99,102,241,0.1)",
                 bg2: "#EEF2FF",
-                label: "Applied",
-                icon: "time-outline" as const,
-                gradient: ["#6366F1", "#4F46E5"]
+                label: "New",
+                icon: "sparkles" as const,
+                gradient: ["#818CF8", "#6366F1"]
             };
         default:
             return {
                 color: "#6366F1",
                 bg: "rgba(148,163,184,0.1)",
                 bg2: "#F1F5F9",
-                label: "Applied",
-                icon: "document-outline" as const,
+                label: "New",
+                icon: "sparkles" as const,
                 gradient: ["#94A3B8", "#475569"]
             };
     }
@@ -405,8 +404,15 @@ export default function SchemeApplicationsScreen() {
                 let fetchedApps = response.data.applications || [];
                 let pgData = response.data.pagination || null;
 
-                // Map local status if needed (the API parameter is already updated)
-                setApplications(fetchedApps);
+                const seen = new Set<number>();
+                const uniqueApps = fetchedApps.filter((app: AppItem) => {
+                    const uid = app.user?.id || app.id;
+                    if (seen.has(uid)) return false;
+                    seen.add(uid);
+                    return true;
+                });
+
+                setApplications(uniqueApps);
                 setPagination(pgData);
             } else {
                 throw new Error(response.error || "Failed to fetch applications");
@@ -537,7 +543,7 @@ export default function SchemeApplicationsScreen() {
                                 <View style={[styles.activeFilterPill, { backgroundColor: isDark ? "rgba(99,102,241,0.15)" : "#EEF2FF" }]}>
                                     <Ionicons name="funnel" size={12} color="#6366F1" />
                                     <Text style={styles.activeFilterText}>
-                                        {activeTab === "applied" ? "Applied" : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+                                        {activeTab === "applied" || activeTab === "new" ? "New" : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
                                     </Text>
                                     <TouchableOpacity onPress={() => handleTabChange("All")}>
                                         <Ionicons name="close-circle" size={14} color="#6366F1" />
@@ -601,8 +607,7 @@ export default function SchemeApplicationsScreen() {
                                                     </View>
                                                     <Text style={[styles.filterOptionText, { color: isActive ? "#6366F1" : colors.text }]}>
                                                         {tab === "All" ? "All Applications" :
-                                                            tab === "applied" ? "Applied" :
-                                                                tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                                            tab.charAt(0).toUpperCase() + tab.slice(1)}
                                                     </Text>
                                                     {isActive && (
                                                         <Ionicons name="checkmark-circle" size={20} color="#6366F1" />
