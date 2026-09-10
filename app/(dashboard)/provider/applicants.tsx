@@ -52,6 +52,7 @@ export default function ProviderApplicantsScreen() {
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]["key"]>("all");
   const [page, setPage] = useState(1);
+  const [serverPage, setServerPage] = useState(1);
 
   React.useEffect(() => {
     if (params.status) {
@@ -75,8 +76,12 @@ export default function ProviderApplicantsScreen() {
     if (!scholarshipId) return;
 
     try {
-      if (reset) setLoading(true);
-      else setLoadingMore(true);
+      if (reset) {
+        setLoading(true);
+        setPage(1);
+      } else {
+        setLoadingMore(true);
+      }
 
       const authDataString = await AsyncStorage.getItem("authData");
       if (!authDataString) return;
@@ -84,14 +89,15 @@ export default function ProviderApplicantsScreen() {
       const token = authData?.token;
       if (!token) return;
 
+      const targetPage = reset ? 1 : serverPage + 1;
+
       const response = await getScholarshipApplicants(token, Number(scholarshipId), {
-        page: reset ? 1 : page,
+        page: targetPage,
         per_page: PAGE_SIZE,
         status: activeTab !== "all" ? activeTab : undefined
       });
 
       console.log("=== [Review Applicants Screen] Applicants Count ===", response.data?.applicants?.length);
-      console.log("=== [Review Applicants Screen] Applicants Data ===", JSON.stringify(response.data, null, 2));
 
       if (response.success && response.data?.applicants) {
         const newApplicants = response.data.applicants.map((app: any) => {
@@ -131,9 +137,15 @@ export default function ProviderApplicantsScreen() {
         });
 
         if (reset) {
+          setServerPage(1);
           setAllApplicants(newApplicants);
         } else {
-          setAllApplicants(prev => [...prev, ...newApplicants]);
+          setServerPage(targetPage);
+          setAllApplicants(prev => {
+            const existingIds = new Set(prev.map(a => a.id));
+            const unique = newApplicants.filter((a: any) => !existingIds.has(a.id));
+            return [...prev, ...unique];
+          });
         }
         if (response.data.pagination) {
           const { page: currentPage, total_pages } = response.data.pagination;
@@ -416,7 +428,70 @@ export default function ProviderApplicantsScreen() {
         </View>
       </View>
 
-
+      {/* Tabs */}
+      <View style={styles.tabsContainer}>
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabsList}
+          data={TABS}
+          keyExtractor={(item) => item.key}
+          renderItem={({ item }) => {
+            const isActive = activeTab === item.key;
+            const count = tabCounts[item.key as keyof typeof tabCounts] ?? 0;
+            return (
+              <TouchableOpacity
+                onPress={() => {
+                  setActiveTab(item.key);
+                  setPage(1);
+                }}
+                style={[
+                  styles.tabChip,
+                  {
+                    backgroundColor: isActive ? colors.primary : (isDark ? colors.card : "#f3f4f6"),
+                    borderColor: isActive ? colors.primary : colors.border,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={item.icon as any}
+                  size={16}
+                  color={isActive ? "#fff" : colors.textSecondary}
+                />
+                <Text
+                  style={[
+                    styles.tabText,
+                    { color: isActive ? "#fff" : colors.text },
+                  ]}
+                >
+                  {item.label}
+                </Text>
+                <View
+                  style={[
+                    styles.countBadge,
+                    {
+                      backgroundColor: isActive
+                        ? "rgba(255,255,255,0.25)"
+                        : isDark
+                        ? "rgba(255,255,255,0.08)"
+                        : "#e5e7eb",
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.countText,
+                      { color: isActive ? "#fff" : colors.textSecondary },
+                    ]}
+                  >
+                    {count}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          }}
+        />
+      </View>
 
       {/* List */}
       <FlatList
@@ -427,8 +502,11 @@ export default function ProviderApplicantsScreen() {
         showsVerticalScrollIndicator={false}
         onEndReachedThreshold={0.5}
         onEndReached={() => {
-          if (paginated.length < filtered.length) setPage((p) => p + 1);
-          else if (hasMore && !loadingMore) fetchApplicants(false);
+          if (paginated.length < filtered.length) {
+            setPage((p) => p + 1);
+          } else if (hasMore && !loadingMore && !loading) {
+            fetchApplicants(false);
+          }
         }}
         ListFooterComponent={
           (loading || loadingMore) ? (
