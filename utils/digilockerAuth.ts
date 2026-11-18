@@ -48,6 +48,13 @@ const DIGILOCKER_SCOPE = "";
 const DIGILOCKER_REDIRECT_URI =
   process.env.EXPO_PUBLIC_DIGILOCKER_REDIRECT_URI || "https://www.ydfindia.com/digilocker-callback.html";
 
+// Required in DigiLocker / MeriPehchaan API v2.4 for Get Authorization Code
+const DIGILOCKER_PURPOSE =
+  process.env.EXPO_PUBLIC_DIGILOCKER_PURPOSE || "educational";
+
+const DIGILOCKER_SERVICE_NAME =
+  process.env.EXPO_PUBLIC_DIGILOCKER_SERVICE_NAME || "Scholar Saathi";
+
 
 export interface DigiLockerAuthResult {
   authorizationCode: string;
@@ -290,12 +297,16 @@ export async function loginWithDigiLocker(
         state,
         code_challenge: codeChallenge,
         code_challenge_method: "S256", // SHA256
+        purpose: DIGILOCKER_PURPOSE,
+        service_name: DIGILOCKER_SERVICE_NAME,
       }).toString();
 
     console.log("🔐 DigiLocker Auth URL:", authUrl);
     console.log("🔗 Redirect URI (must match API Setu dashboard):", redirectUri);
     console.log("📱 Opening WebView for DigiLocker authentication...");
     console.log("🔏 DigiLocker Scope:", DIGILOCKER_SCOPE);
+    console.log("🎯 DigiLocker Purpose:", DIGILOCKER_PURPOSE);
+    console.log("🏷️ DigiLocker Service Name:", DIGILOCKER_SERVICE_NAME);
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log("🌐 Initial URL:");
     console.log("📋 Current URL (copy this):", authUrl);
